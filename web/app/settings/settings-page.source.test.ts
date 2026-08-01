@@ -7,11 +7,7 @@ const settingsStateSource = readFileSync(
   resolve(__dirname, 'use-settings-page-state.ts'),
   'utf8'
 )
-
-const settingsGroupSource = settingsPageSource.slice(
-  settingsPageSource.indexOf('export const SETTINGS_SECTIONS'),
-  settingsPageSource.indexOf('const SETTINGS_SECTION_BY_ID')
-)
+const settingsGroupSource = readFileSync(resolve(__dirname, 'settings-sections.ts'), 'utf8')
 
 describe('设置页信息架构', () => {
   it('只保留五个一级任务分组', () => {
