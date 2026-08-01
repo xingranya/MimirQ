@@ -5,12 +5,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
 import { AppFrame } from '@/components/app-frame'
 import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChunkStrategyPreference } from '@/contexts/chunk-strategy-context'
 import { useParserBackendPreference } from '@/contexts/parser-backend-context'
 import { FeatureFlagsSection } from './_sections/feature-flags-section'
@@ -43,6 +54,8 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
+import { useRouter } from '@/i18n/navigation'
 import { tenantAccessIsAdmin } from '@/lib/navigation-visibility'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 
@@ -110,16 +123,14 @@ type SettingsContentProps = {
 
 function SettingsSaveFeedback({
   message,
-  updatedKeys,
 }: Readonly<{
   message: { type: 'success' | 'error'; text: string; detail?: string }
-  updatedKeys: string[]
 }>) {
   if (message.type === 'error') {
     return (
       <Alert
         variant="destructive"
-        className="rounded-xl border-destructive/25 bg-destructive/10 shadow-none"
+        className="rounded-lg border-destructive/25 bg-destructive/10 shadow-none"
       >
         <XCircle className="size-4" />
         <div>
@@ -132,54 +143,82 @@ function SettingsSaveFeedback({
     )
   }
 
-  const visibleKeys = updatedKeys.slice(0, 4)
-  const extraCount = Math.max(0, updatedKeys.length - visibleKeys.length)
-
   return (
-    <div className="rounded-[16px] border border-success/25 bg-[linear-gradient(135deg,hsl(var(--success)/0.12),hsl(var(--card)/0.90))] px-3.5 py-3 shadow-[0_10px_30px_hsl(var(--success)/0.06)]">
+    <div className="rounded-lg border border-success/25 bg-success/10 px-4 py-3">
       <div className="flex items-start gap-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-[11px] border border-success/25 bg-success/15 text-success">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-success/15 text-success">
           <CheckCircle2 className="size-4" />
         </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[13px] font-semibold leading-none text-foreground">
-              已保存
-            </p>
-            {message.detail ? (
-              <span className="rounded-full border border-success/25 bg-card/85 px-2 py-0.5 text-[10px] font-medium text-success">
-                少量配置需重启服务
-              </span>
-            ) : null}
-          </div>
-          <p className="text-[12px] leading-5 text-muted-foreground">{message.text}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground">已保存</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{message.text}</p>
           {message.detail ? (
-            <p className="text-[11.5px] font-medium leading-[18px] text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {message.detail}
             </p>
           ) : null}
-          {updatedKeys.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold text-muted-foreground">
-                本次更新
-              </span>
-              {visibleKeys.map((key) => (
-                <span
-                  key={key}
-                  className="rounded-full border border-border/60 bg-card/85 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
-                >
-                  {key}
-                </span>
-              ))}
-              {extraCount > 0 ? (
-                <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  +{extraCount} 项
-                </span>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
+    </div>
+  )
+}
+
+function UnsavedSettingsDialog({
+  open,
+  onOpenChange,
+  onDiscard,
+}: Readonly<{
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDiscard: () => void
+}>) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>放弃未保存的修改？</AlertDialogTitle>
+          <AlertDialogDescription>
+            当前设置尚未保存。继续后，这些修改将丢失。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>继续编辑</AlertDialogCancel>
+          <AlertDialogAction onClick={onDiscard}>放弃修改</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function SettingsSaveBar({ state }: Readonly<{ state: SettingsPageState }>) {
+  return (
+    <div
+      data-testid="settings-save-bar"
+      className="sticky bottom-0 z-10 mt-6 flex min-h-14 flex-col gap-3 border-t border-border bg-background px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div aria-live="polite">
+        <p className="text-sm font-medium text-foreground">
+          {state.hasChanges
+            ? `${state.dirtySectionCount} 组设置未保存`
+            : '所有设置已保存'}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {state.hasChanges ? '保存后对后续请求生效' : '当前配置与系统一致'}
+        </p>
+      </div>
+      <Button
+        onClick={state.saveSettings}
+        disabled={!state.hasChanges || state.saving}
+        className={cn(SETTINGS_PRIMARY_BUTTON, 'w-full sm:w-auto')}
+      >
+        <Save
+          className={cn(
+            'size-4',
+            state.saving && 'animate-pulse motion-reduce:animate-none'
+          )}
+        />
+        {state.saving ? '保存中...' : '保存配置'}
+      </Button>
     </div>
   )
 }
@@ -435,10 +474,24 @@ export default function SettingsPage() {
 
 function SettingsPageContent() {
   const state = useSettingsPageState()
+  const router = useRouter()
+  const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
   const access = useTenantAccess()
   const isAdmin = tenantAccessIsAdmin(access.data)
   const { parserBackend, setParserBackend } = useParserBackendPreference()
   const { chunkStrategy, setChunkStrategy } = useChunkStrategyPreference()
+  const navigate = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: state.hasChanges,
+    onNavigate: navigate,
+  })
+  const refreshSettings = useCallback(() => {
+    if (state.hasChanges) {
+      setRefreshConfirmOpen(true)
+      return
+    }
+    state.refreshAll()
+  }, [state])
 
   return (
     <AppFrame>
@@ -456,7 +509,7 @@ function SettingsPageContent() {
             {state.loadError ? (
               <Alert
                 variant="destructive"
-                className="rounded-xl border-destructive/25 bg-destructive/10 shadow-none"
+                className="rounded-lg border-destructive/25 bg-destructive/10 shadow-none"
               >
                 <XCircle className="size-4" />
                 <div>
@@ -468,43 +521,33 @@ function SettingsPageContent() {
               </Alert>
             ) : null}
             {state.saveMessage ? (
-              <SettingsSaveFeedback
-                message={state.saveMessage}
-                updatedKeys={state.lastUpdatedKeys}
-              />
+              <SettingsSaveFeedback message={state.saveMessage} />
             ) : null}
           </div>
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={state.refreshAll}
-              disabled={state.loading}
-              className={SETTINGS_OUTLINE_BUTTON}
-              aria-label="刷新设置"
-              title="刷新设置"
-            >
-              <RefreshCw
-                className={cn(
-                  'size-4',
-                  state.loading && 'animate-spin motion-reduce:animate-none'
-                )}
-              />
-            </Button>
-            <Button
-              onClick={state.saveSettings}
-              disabled={!state.hasChanges || state.saving}
-              className={SETTINGS_PRIMARY_BUTTON}
-            >
-              <Save
-                className={cn(
-                  'size-4',
-                  state.saving && 'animate-pulse motion-reduce:animate-none'
-                )}
-              />
-              {state.saving ? '保存中...' : '保存配置'}
-            </Button>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={refreshSettings}
+                    disabled={state.loading}
+                    className={SETTINGS_OUTLINE_BUTTON}
+                    aria-label="刷新设置"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'size-4',
+                        state.loading && 'animate-spin motion-reduce:animate-none'
+                      )}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>刷新设置</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </>
         }
       >
@@ -513,14 +556,17 @@ function SettingsPageContent() {
             <RefreshCw className="size-8 animate-spin text-muted-foreground motion-reduce:animate-none" />
           </div>
         ) : (
-          <SettingsContent
-            state={state}
-            isAdmin={isAdmin}
-            parserBackend={parserBackend}
-            setParserBackend={setParserBackend}
-            chunkStrategy={chunkStrategy}
-            setChunkStrategy={setChunkStrategy}
-          />
+          <>
+            <SettingsContent
+              state={state}
+              isAdmin={isAdmin}
+              parserBackend={parserBackend}
+              setParserBackend={setParserBackend}
+              chunkStrategy={chunkStrategy}
+              setChunkStrategy={setChunkStrategy}
+            />
+            <SettingsSaveBar state={state} />
+          </>
         )}
       </PageScaffold>
 
@@ -529,6 +575,21 @@ function SettingsPageContent() {
         open={state.dialogOpen}
         onClose={() => state.setDialogOpen(false)}
         onSave={state.handleSaveConfig}
+      />
+      <UnsavedSettingsDialog
+        open={navigationGuard.navigationPending}
+        onOpenChange={(open) => {
+          if (!open) navigationGuard.cancelNavigation()
+        }}
+        onDiscard={navigationGuard.confirmNavigation}
+      />
+      <UnsavedSettingsDialog
+        open={refreshConfirmOpen}
+        onOpenChange={setRefreshConfirmOpen}
+        onDiscard={() => {
+          setRefreshConfirmOpen(false)
+          state.refreshAll()
+        }}
       />
     </AppFrame>
   )

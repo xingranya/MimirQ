@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { usePipelineCapabilities } from '@/contexts/pipeline-capabilities-context'
 import { formatApiError } from '@/lib/api-errors'
@@ -42,7 +42,7 @@ type SaveMessage = {
 }
 
 const SETTINGS_SAVE_SUCCESS_DETAIL =
-  '大多数修改会影响后续请求；少量启动期能力才需要重启后端容器部署时通常只需重启后端服务，不需要重建镜像'
+  '大多数修改会影响后续请求。少量启动期能力需要重启后端服务；容器部署通常无需重新构建镜像。'
 
 function createSettingsSaveSuccessMessage(): SaveMessage {
   return {
@@ -408,6 +408,7 @@ export function useSettingsPageState() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null)
+  const saveMessageTimeoutRef = useRef<number | null>(null)
   const [lastUpdatedKeys, setLastUpdatedKeys] = useState<string[]>([])
   const [editedSettings, setEditedSettings] = useState<Partial<SystemSettings>>({})
 
@@ -536,6 +537,12 @@ export function useSettingsPageState() {
   useEffect(() => {
     void loadSettings()
     void loadLtrModels()
+
+    return () => {
+      if (saveMessageTimeoutRef.current !== null) {
+        globalThis.window.clearTimeout(saveMessageTimeoutRef.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -599,17 +606,24 @@ export function useSettingsPageState() {
     setSaving(true)
     setSaveMessage(null)
     setLastUpdatedKeys([])
+    if (saveMessageTimeoutRef.current !== null) {
+      globalThis.window.clearTimeout(saveMessageTimeoutRef.current)
+      saveMessageTimeoutRef.current = null
+    }
     try {
       const result = await settingsApi.update(editedSettings)
       setSaveMessage(createSettingsSaveSuccessMessage())
       setLastUpdatedKeys(result.updated_keys || [])
       await loadSettings()
       refreshCapabilities().catch(() => null)
+      saveMessageTimeoutRef.current = globalThis.window.setTimeout(() => {
+        setSaveMessage(null)
+        saveMessageTimeoutRef.current = null
+      }, 5000)
     } catch (error) {
       setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
     } finally {
       setSaving(false)
-      setTimeout(() => setSaveMessage(null), 5000)
     }
   }
 
@@ -796,18 +810,8 @@ export function useSettingsPageState() {
     }))
   }
 
-  const hasChanges = Object.keys(editedSettings).length > 0
-
-  useEffect(() => {
-    if (!hasChanges) return
-
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-    }
-
-    globalThis.window.addEventListener('beforeunload', handler)
-    return () => globalThis.window.removeEventListener('beforeunload', handler)
-  }, [hasChanges])
+  const dirtySectionCount = Object.keys(editedSettings).length
+  const hasChanges = dirtySectionCount > 0
 
   const handleConfigure = (provider: ModelProvider) => {
     setSelectedProvider(provider)
@@ -882,6 +886,7 @@ export function useSettingsPageState() {
     chatMerged,
     dialogOpen,
     difyExternalKnowledgeMerged,
+    dirtySectionCount,
     editedFeatureFlags: editedSettings.feature_flags,
     etl4llmMerged,
     formatBytes,

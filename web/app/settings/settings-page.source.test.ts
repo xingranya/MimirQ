@@ -3,6 +3,10 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const settingsPageSource = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8')
+const settingsStateSource = readFileSync(
+  resolve(__dirname, 'use-settings-page-state.ts'),
+  'utf8'
+)
 
 const settingsGroupSource = settingsPageSource.slice(
   settingsPageSource.indexOf('export const SETTINGS_SECTIONS'),
@@ -54,5 +58,27 @@ describe('设置页信息架构', () => {
   it('低频能力使用高级配置折叠容器', () => {
     expect(settingsPageSource).toContain('data-testid="settings-advanced-section"')
     expect(settingsPageSource.match(/<SettingsSubsection[^>]+advanced>/g)?.length).toBeGreaterThanOrEqual(6)
+  })
+
+  it('使用固定保存栏展示未保存数量和保存状态', () => {
+    expect(settingsPageSource).toContain('data-testid="settings-save-bar"')
+    expect(settingsPageSource).toContain('state.dirtySectionCount')
+    expect(settingsPageSource).toContain('所有设置已保存')
+    expect(settingsPageSource).toContain('放弃未保存的修改？')
+  })
+
+  it('保存失败保持可见并允许再次保存', () => {
+    const saveSettingsSource = settingsStateSource.slice(
+      settingsStateSource.indexOf('const saveSettings = async'),
+      settingsStateSource.indexOf('const toggleFeature')
+    )
+    const failureBranchSource = saveSettingsSource.slice(
+      saveSettingsSource.indexOf('catch (error)'),
+      saveSettingsSource.indexOf('finally')
+    )
+
+    expect(failureBranchSource).toContain("type: 'error'")
+    expect(failureBranchSource).not.toContain('setTimeout')
+    expect(saveSettingsSource).toContain('setSaving(false)')
   })
 })
