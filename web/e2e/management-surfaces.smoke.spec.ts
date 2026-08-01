@@ -4,6 +4,14 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 import { installCommonApiMocks, installDeterministicRandom, type EnterpriseTelemetryMockState } from './enterprise-quality-telemetry.helpers'
 
+const TARGET_VIEWPORTS = [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+  { width: 1024, height: 768 },
+  { width: 768, height: 1024 },
+  { width: 390, height: 844 },
+] as const
+
 async function fulfillJson(route: Route, payload: unknown) {
   await route.fulfill({
     status: 200,
@@ -17,6 +25,77 @@ async function documentHorizontalOverflow(page: Page) {
     const root = document.documentElement
     const body = document.body
     return Math.max(root.scrollWidth, body.scrollWidth) - window.innerWidth
+  })
+}
+
+async function visibleInteractiveLayoutIssues(page: Page) {
+  return page.evaluate(() => {
+    const selector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[role="button"]:not([aria-disabled="true"])',
+      '[role="link"]',
+      '[role="tab"]',
+      '[role="menuitem"]',
+      '[role="combobox"]',
+    ].join(',')
+    const elements = Array.from(new Set(document.querySelectorAll<HTMLElement>(selector)))
+      .filter((element) => {
+        const style = window.getComputedStyle(element)
+        const rect = element.getBoundingClientRect()
+        const centerX = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2))
+        const centerY = Math.min(window.innerHeight - 1, Math.max(0, rect.top + rect.height / 2))
+        const hitTarget = document.elementFromPoint(centerX, centerY)
+        return (
+          rect.width >= 8 &&
+          rect.height >= 8 &&
+          rect.right > 0 &&
+          rect.bottom > 0 &&
+          rect.left < window.innerWidth &&
+          rect.top < window.innerHeight &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden' &&
+          Number.parseFloat(style.opacity || '1') > 0.01 &&
+          Boolean(hitTarget && (hitTarget === element || element.contains(hitTarget)))
+        )
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+        const label =
+          element.getAttribute('aria-label') ||
+          element.getAttribute('title') ||
+          element.textContent?.replaceAll(/\s+/g, ' ').trim().slice(0, 48) ||
+          element.tagName.toLowerCase()
+        return { element, label, rect }
+      })
+
+    const issues: string[] = []
+    for (const item of elements) {
+      if (item.rect.left < -1 || item.rect.right > window.innerWidth + 1) {
+        issues.push(`横向裁切: ${item.label}`)
+      }
+    }
+
+    for (let leftIndex = 0; leftIndex < elements.length; leftIndex += 1) {
+      const left = elements[leftIndex]
+      for (let rightIndex = leftIndex + 1; rightIndex < elements.length; rightIndex += 1) {
+        const right = elements[rightIndex]
+        if (left.element.contains(right.element) || right.element.contains(left.element)) continue
+
+        const overlapWidth =
+          Math.min(left.rect.right, right.rect.right) - Math.max(left.rect.left, right.rect.left)
+        const overlapHeight =
+          Math.min(left.rect.bottom, right.rect.bottom) - Math.max(left.rect.top, right.rect.top)
+        if (overlapWidth > 2 && overlapHeight > 2) {
+          issues.push(`控件重叠: ${left.label} / ${right.label}`)
+        }
+      }
+    }
+
+    return issues
   })
 }
 
@@ -568,6 +647,132 @@ test.describe('management surfaces smoke', () => {
     }))
     expect(evaluationGeometry.height).toBeLessThanOrEqual(100)
     expect(evaluationGeometry.pageOverflow).toBeLessThanOrEqual(1)
+  })
+
+  test('keeps core workflows usable across all target viewports', async ({ page }) => {
+    test.setTimeout(600_000)
+
+    for (const viewport of TARGET_VIEWPORTS) {
+      await test.step(`${viewport.width}x${viewport.height}`, async () => {
+        await page.setViewportSize(viewport)
+
+        for (const surface of [
+          { route: '/', heading: null },
+          { route: '/knowledge', heading: '知识库管理' },
+          { route: '/settings', heading: '设置' },
+        ] as const) {
+          await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
+          await expect(page.locator('#main-content')).toBeVisible({ timeout: 60_000 })
+          if (surface.heading) {
+            await expect(page.getByRole('heading', { name: surface.heading }).first()).toBeVisible({
+              timeout: 60_000,
+            })
+          }
+          await page.evaluate(async () => document.fonts.ready)
+
+          expect(
+            await documentHorizontalOverflow(page),
+            `${surface.route} overflows at ${viewport.width}x${viewport.height}`
+          ).toBeLessThanOrEqual(1)
+          expect(
+            await visibleInteractiveLayoutIssues(page),
+            `${surface.route} interactive layout issues at ${viewport.width}x${viewport.height}`
+          ).toEqual([])
+
+          if (surface.route === '/') {
+            const mobileAppBar = page.locator('[data-mobile-app-bar="true"]')
+            if (viewport.width < 768) await expect(mobileAppBar).toBeVisible()
+            else await expect(mobileAppBar).toBeHidden()
+          }
+
+          if (surface.route === '/settings') {
+            const mobileGroupSelect = page.getByTestId('settings-mobile-group-select')
+            if (viewport.width < 1024) await expect(mobileGroupSelect).toBeVisible()
+            else await expect(mobileGroupSelect).toBeHidden()
+
+            const saveBar = page.getByTestId('settings-save-bar')
+            await expect(saveBar).toBeVisible()
+            const saveBarBox = await saveBar.boundingBox()
+            expect(saveBarBox?.x ?? -1).toBeGreaterThanOrEqual(0)
+            expect((saveBarBox?.x ?? 0) + (saveBarBox?.width ?? 0)).toBeLessThanOrEqual(
+              viewport.width
+            )
+          }
+        }
+      })
+    }
+  })
+
+  test('preserves sidebar scroll without document navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page.evaluate(() => {
+      window.localStorage.setItem('mimirq_app_sidebar_open_v1', 'true')
+      window.localStorage.setItem(
+        'mimirq_navbar_open_sections_v3',
+        JSON.stringify({ conversation: true, knowledge: true, analysis: true, system: true })
+      )
+    })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    const sidebar = page.locator('#mimirq-sidebar')
+    const sidebarScroll = page.locator('[data-sidebar-scroll-container="true"]')
+    await expect(sidebar).toBeVisible({ timeout: 60_000 })
+    const scrollBefore = await sidebarScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+      element.dispatchEvent(new Event('scroll'))
+      return {
+        scrollTop: element.scrollTop,
+        maxScrollTop: element.scrollHeight - element.clientHeight,
+      }
+    })
+    expect(scrollBefore.scrollTop).toBeGreaterThan(0)
+
+    const navigationEntriesBefore = await page.evaluate(
+      () => performance.getEntriesByType('navigation').length
+    )
+
+    await page.getByRole('link', { name: '数据集', exact: true }).click()
+    await expect(page).toHaveURL(/\/datasets$/)
+    await expect(page.getByRole('heading', { name: '数据集' }).first()).toBeVisible({
+      timeout: 60_000,
+    })
+
+    expect(await page.evaluate(() => performance.getEntriesByType('navigation').length)).toBe(
+      navigationEntriesBefore
+    )
+    const scrollAfter = await sidebarScroll.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      maxScrollTop: element.scrollHeight - element.clientHeight,
+    }))
+    const expectedScrollTop = Math.min(scrollBefore.scrollTop, scrollAfter.maxScrollTop)
+    expect(scrollAfter.scrollTop).toBeGreaterThan(0)
+    expect(Math.abs(scrollAfter.scrollTop - expectedScrollTop)).toBeLessThanOrEqual(24)
+  })
+
+  test('keeps mobile sidebar focus inside the overlay and restores it on close', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+    const trigger = page.getByRole('button', { name: '展开侧边栏' }).first()
+    const sidebar = page.locator('#mimirq-sidebar')
+    const appContent = page.locator('[data-app-content="true"]')
+    await expect(trigger).toBeVisible({ timeout: 60_000 })
+
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(sidebar).toBeVisible()
+    await expect(appContent).toHaveAttribute('aria-hidden', 'true')
+    await expect.poll(() => page.evaluate(() => {
+      const nav = document.querySelector('#mimirq-sidebar')
+      return Boolean(nav?.contains(document.activeElement))
+    })).toBe(true)
+
+    await page.keyboard.press('Escape')
+    await expect(sidebar).toHaveAttribute('inert', '')
+    await expect(sidebar).toHaveClass(/-translate-x-full/)
+    await expect(appContent).not.toHaveAttribute('aria-hidden', 'true')
+    await expect.poll(() => trigger.evaluate((element) => element === document.activeElement)).toBe(true)
   })
 
   test('uses semantic surfaces after switching to dark mode', async ({ page }) => {

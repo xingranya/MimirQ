@@ -38,6 +38,7 @@ export function AppFrame({
   const [hasHydratedSidebar, setHasHydratedSidebar] = React.useState(false)
   const skipLinkRef = React.useRef<HTMLAnchorElement | null>(null)
   const appContentRef = React.useRef<HTMLDivElement | null>(null)
+  const mobileSidebarTriggerRef = React.useRef<HTMLButtonElement | null>(null)
   const { isOpen: isDocPanelOpen } = useDocumentView()
   const docPanelPadding =
     withDocumentViewerPadding && isDocPanelOpen
@@ -106,8 +107,18 @@ export function AppFrame({
       </a>
       {showBackground && <AppBackground />}
       <div className="relative z-10 flex h-full overflow-hidden">
-        {showNavbar && <Navbar isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} />}
-        <div ref={appContentRef} className="flex-1 min-h-0 relative flex overflow-hidden">
+        {showNavbar && (
+          <Navbar
+            isSidebarOpen={isSidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            mobileTriggerRef={mobileSidebarTriggerRef}
+          />
+        )}
+        <div
+          ref={appContentRef}
+          data-app-content="true"
+          className="flex-1 min-h-0 relative flex overflow-hidden"
+        >
           <main
             id="main-content"
             tabIndex={-1}
@@ -124,6 +135,7 @@ export function AppFrame({
                 className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:hidden"
               >
                 <Button
+                  ref={mobileSidebarTriggerRef}
                   type="button"
                   variant="ghost"
                   size="icon"

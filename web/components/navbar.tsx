@@ -3,7 +3,15 @@
  */
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+  type UIEvent,
+} from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import {
@@ -200,9 +208,11 @@ function loadOpenSections(): Record<SectionId, boolean> {
 export function Navbar({
   isSidebarOpen: externalIsOpen,
   setSidebarOpen: externalSetOpen,
+  mobileTriggerRef,
 }: Readonly<{
   isSidebarOpen?: boolean
   setSidebarOpen?: (isOpen: boolean) => void
+  mobileTriggerRef?: RefObject<HTMLButtonElement | null>
 }> = {}) {
   const navRef = useRef<HTMLElement | null>(null)
   const navScrollRef = useRef<HTMLDivElement | null>(null)
@@ -338,7 +348,9 @@ export function Navbar({
     const active = document.activeElement
     if (isSidebarOpen) {
       // 仅在用户通过键盘触发展开时把焦点移入侧栏。
-      if (active && toggleButtonRef.current && active !== toggleButtonRef.current) return
+      const openedFromKnownTrigger =
+        active === toggleButtonRef.current || active === mobileTriggerRef?.current
+      if (active && active !== document.body && !openedFromKnownTrigger) return
       requestAnimationFrame(() => {
         firstActionRef.current?.focus()
       })
@@ -353,9 +365,11 @@ export function Navbar({
     if (!shouldRestore || !shouldRestoreToggleFocus) return
 
     requestAnimationFrame(() => {
-      toggleButtonRef.current?.focus()
+      const isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches
+      const target = isMobile ? mobileTriggerRef?.current : toggleButtonRef.current
+      target?.focus()
     })
-  }, [isSidebarOpen])
+  }, [isSidebarOpen, mobileTriggerRef])
 
   useEffect(() => {
     setOpenSections(loadOpenSections())
@@ -384,13 +398,17 @@ export function Navbar({
   }, [hasHydratedOpenSections, openSections])
 
   useEffect(() => {
+    if (!hasHydratedOpenSections) return
     const scrollContainer = navScrollRef.current
     if (!scrollContainer) return
     const storedScrollTop = Number(readClientStorage(NAV_SCROLL_STORAGE_KEY))
-    if (Number.isFinite(storedScrollTop) && storedScrollTop > 0) {
+    if (!Number.isFinite(storedScrollTop) || storedScrollTop <= 0) return
+
+    const frame = globalThis.requestAnimationFrame(() => {
       scrollContainer.scrollTop = storedScrollTop
-    }
-  }, [])
+    })
+    return () => globalThis.cancelAnimationFrame(frame)
+  }, [hasHydratedOpenSections])
 
   const handleNavScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(event.currentTarget.scrollTop))

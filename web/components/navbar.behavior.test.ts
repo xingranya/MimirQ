@@ -217,6 +217,11 @@ describe('Navbar behavior', () => {
         removeListener: vi.fn(),
       })),
     })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0)
+      return 1
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
