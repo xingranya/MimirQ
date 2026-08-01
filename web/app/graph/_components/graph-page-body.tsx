@@ -99,8 +99,8 @@ export function GraphPageBody({
       />
 
       {showPendingDocs ? (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
-          <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 shadow-sm animate-pulse motion-reduce:animate-none">
+        <div className="absolute bottom-20 left-1/2 z-20 -translate-x-1/2">
+          <div aria-live="polite" className="flex items-center gap-2 rounded-md border border-primary/20 bg-background px-3 py-1.5">
             <span className="text-[11px] font-medium text-primary">KG 构建中</span>
             <span className="text-[11px] text-muted-foreground">待处理文档</span>
             <span className="text-[11px] font-mono text-foreground">{pendingDocCount}</span>

@@ -56,17 +56,23 @@ export function KnowledgeOpsHero({
           <PageTitleIcon name={iconImage} className="size-9" />
         </div>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="size-3" />
-              {eyebrow}
-            </span>
-            <span className="inline-flex items-center rounded-md border border-success/30 bg-success/10 px-2 py-1 text-xs font-medium text-success">
-              <ShieldCheck className="mr-1.5 size-3" />
-              {badge}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {eyebrow || badge ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {eyebrow ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                  <Sparkles className="size-3" />
+                  {eyebrow}
+                </span>
+              ) : null}
+              {badge ? (
+                <span className="inline-flex items-center rounded-md border border-success/30 bg-success/10 px-2 py-1 text-xs font-medium text-success">
+                  <ShieldCheck className="mr-1.5 size-3" />
+                  {badge}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1', (eyebrow || badge) && 'mt-2')}>
             <h1
               className={cn(
                 'text-xl font-semibold text-foreground',

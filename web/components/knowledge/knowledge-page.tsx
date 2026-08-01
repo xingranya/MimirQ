@@ -9,7 +9,6 @@ import { useSearchParams } from 'next/navigation'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Activity,
-  ArrowRight,
   CheckCircle,
   Database,
   Eye,
@@ -26,8 +25,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Sparkles,
   X,
 } from 'lucide-react'
 import {
@@ -59,11 +56,10 @@ import { KnowledgeWorkbenchActions } from '@/components/knowledge/knowledge-work
 import { RetrievePreviewPanel } from '@/components/rag/retrieve-preview-panel'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
-import { PageTitleIcon } from '@/components/ui/page-title-icon'
 import {
   KNOWLEDGE_OPS_BACKGROUND_CLASS,
-  KNOWLEDGE_OPS_HERO_PANEL_CLASS,
   KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
+  KnowledgeOpsHero,
 } from '@/components/ui/knowledge-ops-hero'
 import { WorkbenchPanelDialog, WorkbenchScaffold } from '@/components/workbench'
 
@@ -81,23 +77,10 @@ const DATASET_ALL = '__all__'
 const KNOWLEDGE_BACKGROUND_CLASS = KNOWLEDGE_OPS_BACKGROUND_CLASS
 const KNOWLEDGE_GRID_OVERLAY_CLASS =
   'hidden'
-const KNOWLEDGE_GLASS_CARD_CLASS =
-  'border-border/45 bg-background shadow-none backdrop-blur-none dark:border-border/50 dark:bg-background'
 const KNOWLEDGE_WORKBENCH_SURFACE_CLASS =
-  'border-border/45 bg-background shadow-none backdrop-blur-none dark:border-border/50 dark:bg-background'
-const KNOWLEDGE_HERO_PANEL_CLASS = KNOWLEDGE_OPS_HERO_PANEL_CLASS
+  'border-border bg-background shadow-none'
 const DOCUMENTS_PAGE_SIZE = 20
 type TabKey = 'documents' | 'retrieval' | 'settings'
-
-/*
- * Source markers retained for legacy source tests while the documents tab is
- * flattened into an IDE-style surface.
- * hsl(var(--primary)/0.10)
- * bg-card/80
- * bg-background/35
- * shadow-[0_8px_22px_hsl(var(--primary)/0.06)]
- * 'min-h-[56px] px-3 py-2'
- */
 
 export default function KnowledgePage() {
   const t = useTranslations('KnowledgePage')
@@ -449,27 +432,27 @@ export default function KnowledgePage() {
 
   const documentScopeSummary = useMemo(
     () => (
-      <div className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-info/18 bg-[linear-gradient(90deg,hsl(var(--background)/0.94),hsl(var(--info)/0.08))] px-3.5 py-2 text-[12px] shadow-md shadow-[0_14px_28px_-22px_hsl(var(--info)/0.35)] backdrop-blur-sm dark:border-info/16 dark:bg-[linear-gradient(90deg,hsl(var(--background)/0.42),hsl(var(--info)/0.14))]">
-        <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+      <div className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
+        <span className="inline-flex items-center gap-2 font-medium text-foreground">
           <Database className="size-4 text-info" />
           数据范围
-          <span className="max-w-[14rem] truncate text-[12px] font-black text-foreground">
+          <span className="max-w-[14rem] truncate font-semibold text-foreground">
             {selectedDatasetLabel || scopeT('dataset.all')}
           </span>
         </span>
-        <span className="h-4 w-px bg-info/15" />
-        <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+        <span className="h-4 w-px bg-border" />
+        <span className="inline-flex items-center gap-2 font-medium text-foreground">
           <Eye className="size-4 text-info" />
           可见
-          <span className="font-mono font-black tabular-nums text-info">
+          <span className="font-semibold tabular-nums text-info">
             {filteredDocuments.length}
           </span>
         </span>
-        <span className="h-4 w-px bg-info/15" />
-        <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+        <span className="h-4 w-px bg-border" />
+        <span className="inline-flex items-center gap-2 font-medium text-foreground">
           <Activity className="size-4 text-success" />
           生命周期
-          <span className="text-[12px] font-black text-success">
+          <span className="font-semibold text-success">
             {lifecycleFilter}
           </span>
         </span>
@@ -485,30 +468,28 @@ export default function KnowledgePage() {
         label: '文档总数',
         value: totalDocs,
         caption: `${datasets.length} 库`,
-        iconShell: 'border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info dark:text-info',
+        iconShell: 'bg-info/10 text-info',
       },
       {
         icon: CheckCircle,
         label: '已完成',
         value: completedDocsValue,
         caption: `可用 ${readyRate}%`,
-        iconShell:
-          'border-success/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--success)/0.14))] text-success dark:text-success',
+        iconShell: 'bg-success/10 text-success',
       },
       {
         icon: Layers,
         label: '处理中',
         value: processingDocsValue + quarantinedDocsValue + failedDocsValue,
         caption: `${quarantinedDocsValue} 隔离 · ${failedDocsValue} 失败`,
-        iconShell:
-          'border-warning/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--warning)/0.16))] text-warning dark:text-warning',
+        iconShell: 'bg-warning/10 text-warning',
       },
       {
         icon: HardDrive,
         label: '总体体量',
         value: totalSizeValue,
         caption: `${totalChunksValue} 分块`,
-        iconShell: 'border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info dark:text-info',
+        iconShell: 'bg-info/10 text-info',
       },
     ],
     [
@@ -531,30 +512,28 @@ export default function KnowledgePage() {
         label: '文档总数',
         value: totalDocs,
         caption: `${completedDocsValue} 已就绪`,
-        iconShell: 'border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info dark:text-info',
+        iconShell: 'bg-info/10 text-info',
       },
       {
         icon: CheckCircle,
         label: '已就绪数',
         value: completedDocsValue,
         caption: `健康 ${readyRate}%`,
-        iconShell:
-          'border-success/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--success)/0.14))] text-success dark:text-success',
+        iconShell: 'bg-success/10 text-success',
       },
       {
         icon: Database,
         label: '知识分类',
         value: datasets.length,
         caption: '数据集范围',
-        iconShell: 'border-primary/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--primary)/0.14))] text-primary dark:text-primary',
+        iconShell: 'bg-primary/10 text-primary',
       },
       {
         icon: HardDrive,
         label: '存储占用',
         value: totalSizeValue,
         caption: `${totalChunksValue} 分块`,
-        iconShell:
-          'border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info dark:text-info',
+        iconShell: 'bg-info/10 text-info',
       },
     ],
     [
@@ -717,82 +696,32 @@ export default function KnowledgePage() {
         className="relative z-10 bg-transparent"
         title={t('header.title')}
         header={
-          <div className={cn('flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between', KNOWLEDGE_HERO_PANEL_CLASS)}>
-            <div className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/10 blur-3xl dark:bg-info/[0.08]" aria-hidden="true" />
-            <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.28),transparent)]" aria-hidden="true" />
-            <div className="relative flex min-w-0 items-center gap-4">
-              <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info shadow-lg shadow-[0_18px_32px_-24px_hsl(var(--info)/0.55)]">
-                <span
-                  className="absolute inset-x-2 top-1.5 h-px bg-card/80"
-                  aria-hidden="true"
-                />
-                <PageTitleIcon name="knowledge-management" className="size-10" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-info/20 bg-[linear-gradient(90deg,hsl(var(--background)/0.92),hsl(var(--info)/0.14))] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-info shadow-sm dark:border-info/16 dark:bg-info/12 dark:text-info">
-                    <Sparkles className="size-3.5" />
-                    Knowledge Ops
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-success/20 bg-[linear-gradient(90deg,hsl(var(--background)/0.92),hsl(var(--success)/0.14))] px-3 py-1.5 text-[10px] font-bold text-success shadow-sm dark:border-success/16 dark:bg-success/12 dark:text-success">
-                    <ShieldCheck className="mr-1.5 size-3.5" />
-                    文档资产治理中枢
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <h1 className="text-[26px] font-black tracking-[-0.025em] text-foreground">
-                    <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                      {t('header.title')}
-                    </span>
-                  </h1>
-                  <p className="text-[13px] font-semibold leading-5 text-info/90">
-                    {t('header.description')}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="relative grid min-w-0 gap-3 sm:grid-cols-2 lg:min-w-[500px]">
-              <div className={cn(KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS, 'px-4 py-3 text-[12px]')}>
-                <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
-                  <span
-                    className="size-1.5 rounded-full bg-info shadow-sm shadow-info/20"
-                    aria-hidden
-                  />
-                  范围
-                </span>
-                <span className="min-w-0 truncate font-black text-foreground">
+          <KnowledgeOpsHero
+            iconImage="knowledge-management"
+            title={t('header.title')}
+            description={t('header.description')}
+            eyebrow={null}
+            badge={null}
+            summary={
+              <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
+                <span className="font-medium text-foreground">当前范围</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">
                   {selectedDatasetLabel || scopeT('dataset.all')}
                 </span>
-                <span className="h-4 w-px bg-info/15" />
-                <span className="font-bold text-muted-foreground">任务</span>
-                <span className="font-mono font-black tabular-nums text-info">
+                <span className="h-4 w-px bg-border" />
+                <span>进行中任务</span>
+                <span className="font-semibold tabular-nums text-primary">
                   {activeTasksCount}
                 </span>
               </div>
-              <div className={cn(KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS, 'px-4 py-3 text-[12px]')}>
-                <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
-                  <Database className="size-4 text-info" />
-                  采集
-                </span>
-                <ArrowRight className="size-4 shrink-0 text-info" />
-                <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
-                  <FileStack className="size-4 text-info" />
-                  资产
-                </span>
-                <ArrowRight className="size-4 shrink-0 text-info" />
-                <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
-                  <Search className="size-4 text-info" />
-                  验证
-                </span>
-              </div>
-            </div>
-          </div>
+            }
+          />
         }
         top={
           activeTab === 'documents' ||
           activeTab === 'settings' ||
           activeTab === 'retrieval' ? (
-            <div className="grid border-y border-border/60 bg-[linear-gradient(90deg,hsl(var(--card)/0.98),hsl(var(--info)/0.025),hsl(var(--primary)/0.02))] md:grid-cols-2 xl:grid-cols-4 dark:border-border/70 dark:bg-[linear-gradient(90deg,hsl(var(--card)/0.96),hsl(var(--info)/0.04),hsl(var(--primary)/0.03))]">
+            <div className="grid border-y border-border bg-background md:grid-cols-2 xl:grid-cols-4">
               {(activeTab === 'settings'
                 ? settingsSummaryCards
                 : summaryCards
@@ -800,36 +729,28 @@ export default function KnowledgePage() {
                 <div
                   key={card.label}
                   className={cn(
-                    'group relative overflow-hidden border-0 border-r border-border/60 last:border-r-0 transition-all duration-200 hover:bg-[linear-gradient(135deg,hsl(var(--info)/0.05),hsl(var(--primary)/0.04))] dark:hover:bg-muted/10',
-                    'min-h-[68px] rounded-none px-5 py-3.5'
+                    'border-0 border-r border-border last:border-r-0 hover:bg-muted/40',
+                    'min-h-16 rounded-none px-4 py-3'
                   )}
                 >
-                  <span
-                    className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.24),transparent)]"
-                    aria-hidden="true"
-                  />
-                  <span
-                    className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-info/10 blur-2xl transition-opacity duration-200 group-hover:opacity-100 dark:bg-info/[0.07]"
-                    aria-hidden="true"
-                  />
-                  <div className="relative flex h-full items-center gap-3">
+                  <div className="flex h-full items-center gap-3">
                     <div
                       className={cn(
-                        'flex size-10 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 group-hover:scale-110',
+                        'flex size-8 shrink-0 items-center justify-center rounded-md',
                         card.iconShell
                       )}
                     >
-                      <card.icon className="size-5" />
+                      <card.icon className="size-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                      <div className="truncate text-xs text-muted-foreground">
                         {card.label}
                       </div>
-                      <div className="mt-1.5 flex min-w-0 items-baseline gap-2">
-                        <span className="truncate text-[18px] font-black leading-none tabular-nums text-foreground">
+                      <div className="mt-1 flex min-w-0 items-baseline gap-2">
+                        <span className="truncate text-base font-semibold leading-none tabular-nums text-foreground">
                           {card.value}
                         </span>
-                        <span className="min-w-0 truncate text-[11px] font-semibold text-info">
+                        <span className="min-w-0 truncate text-xs text-muted-foreground">
                           {card.caption}
                         </span>
                       </div>
@@ -844,16 +765,12 @@ export default function KnowledgePage() {
         toolbar={
           <div
             className={cn(
-              'relative flex flex-col overflow-hidden rounded-none border-y border-x-0 bg-background backdrop-blur-sm xl:flex-row xl:items-center xl:justify-between dark:bg-background',
+              'flex flex-col overflow-hidden rounded-none border-y border-x-0 bg-background xl:flex-row xl:items-center xl:justify-between',
               activeTab === 'settings' ? 'gap-2 px-2 py-3' : 'gap-3 px-2 py-3'
             )}
           >
-            <span
-              className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.38),transparent)]"
-              aria-hidden="true"
-            />
             <div className="flex flex-wrap items-center gap-2.5">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-info/18 bg-[linear-gradient(90deg,hsl(var(--background)/0.94),hsl(var(--info)/0.08))] p-1 shadow-sm">
+              <div className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 p-1">
                 {tabs.map((tab) => (
                   <motion.button
                     key={tab.key}
@@ -862,20 +779,17 @@ export default function KnowledgePage() {
                       setActiveTab(tab.key)
                       setPeekingDocId(null)
                     }}
-                    whileHover={reduceMotion ? undefined : { y: -1 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.985 }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 24 }}
                     className={cn(
-                      'relative flex h-10 min-w-[100px] items-center justify-center gap-2.5 rounded-xl border-0 px-4 text-[13px] font-bold transition-all duration-200 focus-ring',
+                      'relative flex h-9 min-w-[92px] items-center justify-center gap-2 rounded-md border-0 px-3 text-[13px] font-medium transition-colors focus-ring',
                       activeTab === tab.key
-                        ? 'bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] text-primary-foreground shadow-lg shadow-[0_16px_28px_-20px_hsl(var(--info)/0.55)]'
-                        : 'bg-transparent text-muted-foreground hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] hover:text-info'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-transparent text-muted-foreground hover:bg-background hover:text-foreground'
                     )}
                   >
                     <tab.icon
                       className={cn(
-                        'relative z-10 size-4 transition-transform duration-200',
-                        activeTab === tab.key && 'scale-110'
+                        'relative z-10 size-4'
                       )}
                     />
                     <span className="relative z-10">{tab.label}</span>
@@ -892,7 +806,7 @@ export default function KnowledgePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-10 rounded-xl border-info/18 bg-background px-4 text-[13px] font-bold shadow-sm hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] hover:shadow-md lg:hidden"
+                    className="h-9 rounded-md border-border bg-background px-3 text-[13px] font-medium hover:bg-muted lg:hidden"
                   >
                     <Filter className="mr-2 size-4" />
                     筛选
@@ -935,7 +849,7 @@ export default function KnowledgePage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                    className="h-10 rounded-xl border-info/18 bg-background px-4 text-[13px] font-bold shadow-sm hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] hover:shadow-md xl:hidden"
+                    className="h-9 rounded-md border-border bg-background px-3 text-[13px] font-medium hover:bg-muted xl:hidden"
                     >
                       <History className="mr-2 size-4" />
                       任务
@@ -967,7 +881,7 @@ export default function KnowledgePage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 rounded-xl border-border/60 bg-card px-3 text-[12px] xl:hidden"
+                      className="h-9 rounded-md border-border bg-background px-3 text-xs xl:hidden"
                     >
                       <Eye className="mr-2 size-3.5" />
                       审查
@@ -987,7 +901,7 @@ export default function KnowledgePage() {
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               {activeTab === 'documents' ? (
-                <div className="hidden items-center rounded-full border border-border/60 bg-card px-3 py-1 text-[11px] text-muted-foreground/80 transition-colors hover:border-border xl:inline-flex">
+                <div className="hidden items-center rounded-md border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground xl:inline-flex">
                   <span>列表</span>
                   <span className="ml-2 font-mono tabular-nums text-foreground">
                     {filteredDocuments.length}
@@ -1000,7 +914,7 @@ export default function KnowledgePage() {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'hidden h-10 rounded-xl border px-3.5 text-[13px] font-medium lg:inline-flex',
+                  'hidden h-9 rounded-md border px-3 text-[13px] font-medium lg:inline-flex',
                   desktopScopeCollapsed
                     ? 'border-border/60 bg-card text-muted-foreground'
                     : 'border-border/60 bg-card text-foreground'
@@ -1025,7 +939,7 @@ export default function KnowledgePage() {
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      'hidden h-10 rounded-xl border px-3.5 text-[13px] font-medium xl:inline-flex',
+                      'hidden h-9 rounded-md border px-3 text-[13px] font-medium xl:inline-flex',
                       showConnectorRunsPanel || activeTasksCount > 0
                         ? 'border-primary/30 bg-primary/[0.06] text-primary '
                         : 'border-success/20 bg-success/[0.08] text-success dark:text-success'
@@ -1054,7 +968,7 @@ export default function KnowledgePage() {
                   </Button>
 
                   <KnowledgeWorkbenchActions
-                    className="h-8 rounded-xl border border-info/20 bg-info/[0.08] px-4 text-[10px] font-medium text-info dark:text-info shadow-soft"
+                    className="h-9 rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                     datasets={datasets}
                     datasetsLoading={datasetsLoading}
                     selectedDatasetId={selectedDatasetId}
@@ -1066,18 +980,18 @@ export default function KnowledgePage() {
                     onConnectorRunCreated={(run) => { setShowTaskCenter(true); setPeekingDocId(null); setActiveTab('documents'); }}
                   />
 
-                  <div className="inline-flex h-10 items-center gap-1 rounded-xl border border-border/60 bg-card p-1">
+                  <div className="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-muted/40 p-1">
                     {/* layoutId="knowledge-view-mode-active-pill" */}
                     <button
                       type="button"
                       onClick={() => setViewMode('grid')}
                       className={cn(
-                        'relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors',
+                        'relative flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors',
                         viewMode === 'grid' && 'text-foreground'
                       )}
                     >
                       {viewMode === 'grid' ? (
-                        <span className="absolute inset-0 rounded-lg border border-border/60 bg-background shadow-subtle" />
+                        <span className="absolute inset-0 rounded-md bg-background" />
                       ) : null}
                       <LayoutGrid
                         className={cn(
@@ -1090,12 +1004,12 @@ export default function KnowledgePage() {
                       type="button"
                       onClick={() => setViewMode('list')}
                       className={cn(
-                        'relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors',
+                        'relative flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors',
                         viewMode === 'list' && 'text-foreground'
                       )}
                     >
                       {viewMode === 'list' ? (
-                        <span className="absolute inset-0 rounded-lg border border-border/60 bg-background shadow-subtle" />
+                        <span className="absolute inset-0 rounded-md bg-background" />
                       ) : null}
                       <ListIcon
                         className={cn(
@@ -1115,7 +1029,7 @@ export default function KnowledgePage() {
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      'h-9 rounded-xl border px-3 text-[12px] font-medium',
+                      'h-9 rounded-md border px-3 text-xs font-medium',
                       showConnectorRunsPanel
                         ? 'border-primary/30 bg-primary/[0.06] text-primary '
                         : 'border-success/20 bg-success/[0.08] text-success dark:text-success'
@@ -1132,7 +1046,7 @@ export default function KnowledgePage() {
                   <Button
                     type="button"
                     size="sm"
-                    className="h-9 rounded-xl border border-primary/20 bg-primary px-3.5 text-[12px] font-medium text-primary-foreground shadow-soft"
+                    className="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                     onClick={() => setActiveTab('documents')}
                   >
                     <Plus className="mr-2 size-3.5" />
@@ -1141,23 +1055,22 @@ export default function KnowledgePage() {
                 </>
               ) : null}
 
-              <Button
-                type="button"
+              <IconButton
+                label="刷新文档"
                 variant="outline"
-                size="sm"
-                className="h-10 w-10 rounded-xl border-border/60 bg-card p-0 hover:shadow-soft"
+                className="size-9 rounded-md border-border bg-background"
                 onClick={() => detachPromise(loadDocuments())}
                 disabled={isLoading}
               >
                 <RefreshCw
                   className={cn('size-3.5', isLoading && 'animate-spin')}
                 />
-              </Button>
+              </IconButton>
             </div>
           </div>
         }
         bodyClassName={cn(
-          'bg-background/35 pt-3 dark:bg-background/20',
+          'bg-background pt-3',
           documentsEmptySurface ? 'min-h-0 flex-1 overflow-hidden pb-3' : undefined
         )}
         mainPaneClassName={cn(
@@ -1224,8 +1137,8 @@ export default function KnowledgePage() {
                 <div className="flex h-full flex-col">
                   <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                     <div className="min-w-0">
-                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground/68">
-                        Chunk Inspector
+                      <div className="text-xs font-medium text-muted-foreground">
+                        分块审查
                       </div>
                       <div className="mt-1 truncate text-[13px] font-medium text-foreground">
                         {peekingDoc.filename}
@@ -1234,7 +1147,7 @@ export default function KnowledgePage() {
                     <IconButton
                       label="关闭"
                       variant="ghost"
-                      className="h-8 w-8 rounded-full"
+                      className="size-8 rounded-md"
                       onClick={() => setPeekingDocId(null)}
                     >
                       <X className="size-4" />
@@ -1251,7 +1164,7 @@ export default function KnowledgePage() {
                       asChild
                       variant="outline"
                       size="sm"
-                      className="h-9 w-full rounded-xl"
+                      className="h-9 w-full rounded-md"
                     >
                       <Link
                         href={buildChunkPreviewDocumentHref(peekingDoc.id)}
@@ -1401,7 +1314,7 @@ export default function KnowledgePage() {
             initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
-              'flex min-h-0 flex-1 flex-col rounded-2xl border',
+              'flex min-h-0 flex-1 flex-col',
               KNOWLEDGE_WORKBENCH_SURFACE_CLASS
             )}
           >

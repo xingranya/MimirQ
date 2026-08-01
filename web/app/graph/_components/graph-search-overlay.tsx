@@ -31,7 +31,7 @@ export function GraphSearchOverlay({
           onValueChange={onSearchTermChange}
           placeholder="搜索实体节点、关系、路径..."
           aria-label="搜索实体节点、关系、路径"
-          inputClassName="h-10 rounded-full bg-muted/60 shadow-sm pr-16"
+          inputClassName="h-10 rounded-md border-border bg-background pr-16 shadow-none"
         />
         <div className="pointer-events-none absolute right-11 top-1/2 flex -translate-y-1/2 items-center gap-2 text-xs text-muted-foreground">
           {searchTerm ? <span>{highlightedMatchCount} 匹配</span> : null}
