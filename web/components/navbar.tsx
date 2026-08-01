@@ -548,12 +548,12 @@ export function Navbar({
             <div className="flex h-8 w-[112px] shrink-0 items-center overflow-hidden rounded-md bg-card">
               <Image
                 src={BRAND_CONFIG.shortWordmarkSrc}
-                alt={BRAND_CONFIG.name}
-                width={170}
-                height={80}
+                alt={BRAND_CONFIG.shortName}
+                width={186}
+                height={46}
                 priority
                 unoptimized
-                className="h-8 w-[112px] object-contain"
+                className="h-7 w-auto object-contain"
               />
             </div>
             <div className="flex flex-col">

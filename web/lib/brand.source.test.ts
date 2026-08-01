@@ -21,6 +21,14 @@ const USER_VISIBLE_SOURCES = [
   'i18n/messages/zh-CN/knowledge.ts',
 ] as const
 
+function readPngDimensions(assetPath: string) {
+  const png = readFileSync(assetPath)
+  return {
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20),
+  }
+}
+
 describe('用户可见品牌', () => {
   it('统一使用见外传媒知识库品牌层级', () => {
     expect(BRAND_CONFIG).toMatchObject({
@@ -37,6 +45,23 @@ describe('用户可见品牌', () => {
       expect(existsSync(assetPath), src).toBe(true)
       expect(statSync(assetPath).size, src).toBeGreaterThan(0)
     }
+  })
+
+  it('品牌图片尺寸匹配使用场景且纯英文标志保留右侧留白', () => {
+    const brandDirectory = resolve(process.cwd(), 'public', 'brand')
+
+    expect(readPngDimensions(resolve(brandDirectory, 'seewayk-logo.png'))).toEqual({
+      width: 300,
+      height: 300,
+    })
+    expect(readPngDimensions(resolve(brandDirectory, 'seewayk-logo-wide.png'))).toEqual({
+      width: 300,
+      height: 80,
+    })
+    expect(readPngDimensions(resolve(brandDirectory, 'seeway-logo-only.png'))).toEqual({
+      width: 186,
+      height: 46,
+    })
   })
 
   it('主要用户界面不残留旧品牌名', () => {

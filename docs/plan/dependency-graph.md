@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TD
   A[流式诊断] --> B[增量渲染]
-  C[品牌清单] --> D[SeeWayK 文案与资源]
+  C[品牌清单] --> D[见外传媒知识库文案与资源]
   E[设计 token] --> F[AppShell]
   F --> G[侧栏 IA]
   E --> H[首页对话]

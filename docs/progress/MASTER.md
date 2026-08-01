@@ -1,4 +1,4 @@
-# SeeWayK 知识库前端重构进度
+# 见外传媒知识库前端重构进度
 
 **Mode:** GITHUB_STANDARD  
 **Branch:** `codex/seewayk-ui-redesign`  
@@ -9,7 +9,7 @@
 - [x] 只读分析、实机查看和 Spec 确认
 - [x] 产品上下文与设计方向记录
 - [ ] 流式诊断与修复
-- [ ] 品牌资源与文案
+- [x] 品牌资源与文案
 - [ ] 扁平 token 与 AppShell
 - [ ] 侧栏和首页对话
 - [ ] 设置页 IA 与保存交互
