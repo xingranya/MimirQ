@@ -17,6 +17,7 @@ import { WebVitalsReporter } from "@/components/providers/web-vitals-reporter"
 import { RouteScrollReset } from "@/components/route-scroll-reset"
 import { AuthGuard } from "@/components/auth-guard"
 import { resolveRequestDocumentSettings } from '@/lib/document-language'
+import { BRAND_CONFIG } from '@/lib/brand'
 import {
   getThemeColorTokens,
   normalizeSurfaceTheme,
@@ -26,15 +27,15 @@ import {
 } from '@/lib/theme-surface'
 
 export const metadata: Metadata = {
-  title: "MimirQ - AI 知识库助手",
-  description: "基于 RAG 的智能知识库问答系统",
+  title: `${BRAND_CONFIG.name} - 企业知识库助手`,
+  description: BRAND_CONFIG.description,
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
-      { url: "/brand/mimirq-mark-badge.png", sizes: "512x512", type: "image/png", media: "(prefers-color-scheme: light)" },
-      { url: "/brand/mimirq-mark-badge.png", sizes: "512x512", type: "image/png", media: "(prefers-color-scheme: dark)" },
+      { url: BRAND_CONFIG.markSrc, sizes: "300x300", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: BRAND_CONFIG.markSrc, sizes: "300x300", type: "image/png", media: "(prefers-color-scheme: dark)" },
     ],
-    apple: [{ url: "/brand/mimirq-mark-badge.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: BRAND_CONFIG.markSrc, sizes: "300x300", type: "image/png" }],
   },
 }
 

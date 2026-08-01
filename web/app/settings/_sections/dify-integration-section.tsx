@@ -183,7 +183,7 @@ export function DifyIntegrationSection({
                   Dify 外部知识库
                 </h3>
                 <p className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                  MimirQ 负责真实召回，Dify 只传 knowledge_id；这里把 knowledge_id 自动绑定到一个或多个数据集
+                  见外传媒知识库负责真实召回，Dify 只传 knowledge_id；这里把 knowledge_id 自动绑定到一个或多个数据集
                 </p>
               </div>
             </div>

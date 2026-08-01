@@ -1471,7 +1471,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
       zip.file(
         'README.txt',
         [
-          'MimirQ Incident Bundle (PII-safe)',
+          '见外传媒知识库 Incident Bundle (PII-safe)',
           `exported_at: ${new Date().toISOString()}`,
           `request_id: ${rid}`,
           '',

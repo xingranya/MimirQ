@@ -50,6 +50,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { reportClientError } from '@/lib/client-logging'
 import { useDocumentView } from '@/store/document-view'
 import { ThemeCustomizer } from '@/components/theme-customizer'
+import { BRAND_CONFIG } from '@/lib/brand'
 
 const SELECT_DEFAULT_VALUE = '__mimirq_default__'
 const DEFAULT_VISIBLE_MESSAGES = 80
@@ -1438,13 +1439,13 @@ function WelcomeScreen() {
       <div className="flex flex-col items-center text-center space-y-4 animate-fade-in-up">
         <div className="flex w-full justify-center">
           <Image
-            src="/brand/mimirq-wordmark.png"
-            alt="MimirQ"
-            width={543}
-            height={181}
+            src={BRAND_CONFIG.wordmarkSrc}
+            alt={BRAND_CONFIG.name}
+            width={300}
+            height={80}
             priority
             unoptimized
-            className="h-auto w-[min(76vw,560px)] select-none object-contain dark:invert dark:hue-rotate-180"
+            className="h-auto w-[min(76vw,520px)] select-none object-contain"
           />
         </div>
       </div>

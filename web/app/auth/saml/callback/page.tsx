@@ -57,7 +57,7 @@ export default function SamlCallbackPage() {
               <Loader2 className="mt-0.5 h-5 w-5 animate-spin motion-reduce:animate-none text-muted-foreground" aria-hidden="true"/>
               <div className="min-w-0 flex-1">
                 <h1 className="text-base font-semibold text-foreground">Completing SAML sign-in</h1>
-                <p className="mt-2 text-sm text-muted-foreground">Establishing your MimirQ session...</p>
+                <p className="mt-2 text-sm text-muted-foreground">正在建立见外传媒知识库会话...</p>
               </div>
             </div>);
     }

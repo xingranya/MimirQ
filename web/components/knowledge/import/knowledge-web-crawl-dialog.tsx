@@ -436,7 +436,7 @@ export function KnowledgeWebCrawlDialog({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="text-sm font-medium text-foreground/80">User-Agent (optional)</div>
-              <Input value={userAgent} onChange={(e) => setUserAgent(e.target.value)} placeholder="MimirQ/1.0 (+web-crawl)" />
+              <Input value={userAgent} onChange={(e) => setUserAgent(e.target.value)} placeholder="SEEWAY/1.0 (+web-crawl)" />
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-foreground/80">Auth</div>

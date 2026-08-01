@@ -1534,7 +1534,7 @@ function EvaluationsPageContent() {
           : '评测失败，暂无分数',
         description:
           (isMissingEvidenceFailure
-            ? '这条会话没有可评估的 citations / retrieved contexts。请用 MimirQ 对话或 Dify HTTP 回写证据链后再评测。'
+            ? '这条会话没有可评估的 citations / retrieved contexts。请用见外传媒知识库对话或 Dify HTTP 回写证据链后再评测。'
             : runErrorMessage) ||
           '该运行失败，后端未生成 summary 分数；请检查会话是否带有 citations / retrieved contexts。',
       }

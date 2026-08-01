@@ -42,6 +42,7 @@ import { Link, usePathname, useRouter } from '@/i18n/navigation'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
 import { SURFACE_THEMES } from '@/lib/theme-surface'
 import { cn } from '@/lib/utils'
+import { BRAND_CONFIG } from '@/lib/brand'
 import { ModeToggle } from '@/components/mode-toggle'
 import { ThemeCustomizer } from '@/components/theme-customizer'
 import { useAuth } from '@/hooks/use-auth'
@@ -521,29 +522,28 @@ export function Navbar({
         aria-label={t('toolbar.navLabel')}
         aria-hidden={!isSidebarOpen}
         className={cn(
-          'peer flex-shrink-0 border-r border-sidebar-border/80 bg-sidebar/85 text-sidebar-foreground backdrop-blur-xl supports-[backdrop-filter]:bg-sidebar/72 flex flex-col transition-transform duration-200 ease-out z-50',
+          'peer flex-shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col transition-[width,transform] duration-200 ease-out z-50',
           'fixed inset-y-0 left-0 md:relative', // Mobile: fixed, Desktop: relative
           isSidebarOpen ? 'w-[264px] translate-x-0' : 'w-[264px] -translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden'
         )}
       >
         {/* Logo 区域 */}
-        <div className="h-14 px-5 border-b border-info/12 bg-[linear-gradient(90deg,hsl(var(--background)/0.98),hsl(var(--info)/0.06),hsl(var(--primary)/0.05))] flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 group rounded-xl focus-ring">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.12))] shadow-lg shadow-[0_16px_28px_-22px_hsl(var(--info)/0.35)] ring-1 ring-info/18 transition-all duration-200 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[0_18px_32px_-22px_hsl(var(--info)/0.45)] motion-reduce:transition-none">
+        <div className="h-14 px-4 border-b border-sidebar-border bg-sidebar flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 group rounded-md focus-ring">
+            <div className="flex h-8 w-[112px] shrink-0 items-center overflow-hidden rounded-md bg-card">
               <Image
-                src="/brand/mimirq-mark-transparent-candidate.png"
-                alt=""
-                aria-hidden="true"
-                width={40}
-                height={40}
+                src={BRAND_CONFIG.shortWordmarkSrc}
+                alt={BRAND_CONFIG.name}
+                width={170}
+                height={80}
                 priority
                 unoptimized
-                className="size-[34px] rounded-lg object-contain dark:invert dark:hue-rotate-180"
+                className="h-8 w-[112px] object-contain"
               />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-sidebar-foreground leading-none">MimirQ</span>
-              <span className="text-micro text-info/80 font-semibold mt-1">{t('brand.tagline')}</span>
+              <span className="font-semibold text-sidebar-foreground leading-none">见外</span>
+              <span className="text-micro text-info/80 font-semibold mt-1">知识库</span>
             </div>
           </Link>
           <Button
@@ -564,10 +564,9 @@ export function Navbar({
             ref={firstActionRef}
             variant="ghost"
             className={cn(
-              "w-full justify-start gap-2.5 h-11 rounded-2xl border border-info/22 font-bold transition-all duration-200 shadow-sm",
-              "bg-[linear-gradient(90deg,hsl(var(--info)/0.18),hsl(var(--primary)/0.12))] text-sidebar-foreground",
-              "hover:border-info/32 hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.26),hsl(var(--primary)/0.18))] hover:shadow-md hover:shadow-[0_16px_30px_-24px_hsl(var(--info)/0.32)]",
-              "active:scale-[0.98]"
+              "w-full justify-start gap-2 h-10 rounded-md border border-primary/30 bg-primary/10 font-semibold text-sidebar-foreground transition-colors",
+              "hover:border-primary/50 hover:bg-primary/15",
+              "active:bg-primary/20"
             )}
             onClick={() => {
               router.push('/')
@@ -582,7 +581,7 @@ export function Navbar({
         <div className="px-4 pb-2">
           <button
             type="button"
-            className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-info/16 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--info)/0.08))] px-3 py-3 text-left shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-info/26 hover:bg-[linear-gradient(90deg,hsl(var(--card)),hsl(var(--info)/0.12))] hover:shadow-md focus-ring"
+            className="group flex w-full items-center justify-between gap-3 rounded-md border border-sidebar-border bg-sidebar px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent focus-ring"
             onClick={() => {
               setCommandMenuOpen(true)
               closeSidebarOnMobile()
@@ -594,7 +593,7 @@ export function Navbar({
             title={t('command.triggerLabel')}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-xl border border-info/12 bg-info/10 text-info transition-all duration-200 group-hover:scale-110 group-hover:bg-info/15 group-hover:text-info">
+              <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
                 <Search className="size-4" />
               </div>
               <div className="min-w-0">
@@ -705,17 +704,8 @@ export function Navbar({
             >
               <div className="relative w-10 h-10 flex-shrink-0">
                 <div className="absolute inset-0 rounded-xl border border-info/18 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.10))] shadow-md group-hover:border-info/28 group-hover:bg-[linear-gradient(135deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] group-hover:shadow-lg transition-all duration-200" />
-                <div className="absolute inset-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none">
-                  <Image
-                    src="/brand/mimirq-mark-transparent-candidate.png"
-                    alt=""
-                    aria-hidden="true"
-                    width={40}
-                    height={40}
-                    loading="eager"
-                    unoptimized
-                    className="size-[38px] rounded-[10px] object-contain dark:invert dark:hue-rotate-180"
-                  />
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-primary transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none" aria-hidden="true">
+                  S
                 </div>
                 {isAuthenticated && (
                   <div className="absolute -right-0.5 -bottom-0.5 size-3 bg-[linear-gradient(135deg,hsl(var(--success)),hsl(var(--info)))] border-2 border-background rounded-full shadow-sm" />

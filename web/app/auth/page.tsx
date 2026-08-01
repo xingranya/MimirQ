@@ -14,6 +14,7 @@ import { getOidcPublicProvidersFromEnv } from '@/lib/oidc-providers'
 import { formatRequestId, toApiErrorInfo, type ApiErrorInfo } from '@/lib/api-errors'
 import { FullScreenFrame } from '@/components/full-screen-frame'
 import { cn, detachPromise } from '@/lib/utils'
+import { BRAND_CONFIG } from '@/lib/brand'
 
 type Mode = 'login' | 'register'
 
@@ -200,18 +201,18 @@ export default function AuthPage() {
                 <div className="flex flex-col items-center mb-8 space-y-4">
                     <div className="flex size-20 items-center justify-center rounded-2xl border border-[#CAF0F8]/70 bg-card/85 shadow-[0_18px_48px_rgba(8,47,73,0.10)] backdrop-blur">
                       <Image
-                        src="/brand/mimirq-mark-badge.png"
-                        alt="MimirQ"
-                        width={64}
+                        src={BRAND_CONFIG.wordmarkSrc}
+                        alt={BRAND_CONFIG.name}
+                        width={240}
                         height={64}
                         priority
                         unoptimized
-                        className="size-14 select-none object-contain"
+                        className="h-16 w-60 select-none object-contain"
                       />
                     </div>
                     <div className="text-center">
                         <h1 className="text-balance text-3xl font-semibold text-foreground">
-                            MimirQ
+                            {BRAND_CONFIG.name}
                         </h1>
                         <p className="mt-2 text-pretty text-sm text-muted-foreground font-medium">
                             下一代智能知识库平台

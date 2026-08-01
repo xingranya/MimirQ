@@ -196,7 +196,7 @@ KnowledgeDocumentsPanel: {
       },
       blank: {
         title: '知识库空空如也',
-        description: '上传您的第一份文档，MimirQ 将自动解析并构建专属知识索引。',
+        description: '上传您的第一份文档，见外传媒知识库将自动解析并构建专属知识索引。',
         formats: '支持 PDF, TXT, Markdown, Excel, Word 等常见格式。',
       },
     },

@@ -1,23 +1,24 @@
 import type { MetadataRoute } from 'next'
+import { BRAND_CONFIG } from '@/lib/brand'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'MimirQ',
-    short_name: 'MimirQ',
-    description: 'AI RAG knowledge base assistant',
+    name: BRAND_CONFIG.name,
+    short_name: BRAND_CONFIG.shortName,
+    description: BRAND_CONFIG.description,
     start_url: '/',
     display: 'standalone',
-    background_color: '#0b1020',
-    theme_color: '#0f172a',
+    background_color: '#f8fafc',
+    theme_color: '#2563eb',
     icons: [
       {
-        src: '/brand/mimirq-mark-badge.png',
-        sizes: '512x512',
+        src: BRAND_CONFIG.markSrc,
+        sizes: '300x300',
         type: 'image/png',
       },
       {
-        src: '/brand/mimirq-mark.png',
-        sizes: '512x512',
+        src: BRAND_CONFIG.markSrc,
+        sizes: '300x300',
         type: 'image/png',
       },
     ],
