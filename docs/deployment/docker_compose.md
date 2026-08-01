@@ -27,6 +27,10 @@ NO_PROXY=localhost,127.0.0.1,192.168.0.0/16
 
 然后重新执行 `docker compose ... build`。不要把真实代理地址、账号或密码提交到仓库。
 
+API 默认映射到宿主机 `8000` 端口。如果该端口已被其他进程占用，在 `.env` 中设置
+`BACKEND_PORT` 为未占用端口（例如 `18000`），容器内端口仍保持 `8000`；前端 Docker
+栈通过内部服务名访问 API，不需要同步修改 `API_INTERNAL_URL_DOCKER`。
+
 另外，前端服务 `web` 放在 `docker/docker-compose.web.yml`，默认不启动；需要时用 `-f` 叠加即可（或直接 `make up-web`，它会启动后端、Worker、基础设施和前端整套 Docker Web 栈，而不是只启动前端）。
 
 ---
