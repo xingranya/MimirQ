@@ -10,6 +10,7 @@ import { AppFrame } from '@/components/app-frame'
 import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useChunkStrategyPreference } from '@/contexts/chunk-strategy-context'
 import { useParserBackendPreference } from '@/contexts/parser-backend-context'
 import { FeatureFlagsSection } from './_sections/feature-flags-section'
@@ -31,14 +32,11 @@ import { useSettingsPageState } from './use-settings-page-state'
 import { SettingsSwitchIndicator } from '@/components/settings/settings-switch'
 import {
   CheckCircle2,
-  Clock,
-  LayoutGrid,
-  Layers,
+  ChevronDown,
   Network,
   RefreshCw,
   Save,
   Search,
-  ShieldCheck,
   XCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -48,138 +46,66 @@ import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { tenantAccessIsAdmin } from '@/lib/navigation-visibility'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 
-type SettingsSectionDefinition = {
+export type SettingsSectionDefinition = {
   id: string
   label: string
   hint: string
-  adminOnly?: boolean
+  keywords: readonly string[]
 }
 
-const SETTINGS_SECTIONS: readonly SettingsSectionDefinition[] = [
-  { id: 'sec-status', label: '系统状态', hint: '后端连通性与运行状态' },
-  { id: 'sec-models', label: '模型接入', hint: 'LLM / Embedding / Rerank 服务商' },
-  { id: 'sec-flags', label: '功能开关', hint: 'RAG/KG 能力开关与依赖提示' },
-  { id: 'sec-frontend', label: '前端偏好', hint: '本地浏览器偏好，不直接写后端' },
-  { id: 'sec-navigation', label: '导航权限', hint: '普通用户入口可见性控制', adminOnly: true },
-  { id: 'sec-parsers', label: '高级解析', hint: '高级解析器地址、超时与解析参数' },
-  { id: 'sec-storage', label: '对象存储', hint: 'MinIO / S3 兼容对象存储', adminOnly: true },
-  { id: 'sec-rag', label: 'RAG 配置', hint: '检索、召回与生成参数' },
-  { id: 'sec-ltr', label: 'LTR 模型', hint: '排序模型注册、回滚和启用' },
-  { id: 'sec-dify', label: 'Dify 接入', hint: '外部知识库访问、API Key 与数据集绑定', adminOnly: true },
-  { id: 'sec-url', label: 'URL 采集', hint: '网页采集与清洗策略', adminOnly: true },
-  { id: 'sec-governance', label: '数据治理', hint: 'PII、密钥、隔离与清洗策略' },
-  { id: 'sec-industry-rules', label: '行业规则', hint: '行业规则包与解析模板' },
-  { id: 'sec-observability', label: '可观测性', hint: '监控、审计和诊断开关', adminOnly: true },
-  { id: 'sec-runtime', label: '运行控制', hint: '聊天、缓存、安全和流程编排' },
+export const SETTINGS_SECTIONS: readonly SettingsSectionDefinition[] = [
+  {
+    id: 'settings-runtime',
+    label: '运行状态',
+    hint: '服务状态与运行控制',
+    keywords: ['系统状态', '后端', '运行控制', '聊天', '缓存', '安全', '流程编排'],
+  },
+  {
+    id: 'settings-models',
+    label: '模型与服务',
+    hint: '模型供应商与外部服务',
+    keywords: ['模型', 'LLM', 'Embedding', 'Rerank', '对象存储', 'MinIO', 'S3', 'Dify'],
+  },
+  {
+    id: 'settings-knowledge',
+    label: '知识处理',
+    hint: '解析、采集、治理与行业规则',
+    keywords: ['解析器', 'MinerU', 'Marker', 'URL', '网页采集', '数据治理', 'PII', '行业规则'],
+  },
+  {
+    id: 'settings-retrieval',
+    label: '检索与生成',
+    hint: '检索、排序与生成策略',
+    keywords: ['RAG', '检索', '召回', '生成', '功能开关', '知识图谱', 'LTR', '排序模型'],
+  },
+  {
+    id: 'settings-platform',
+    label: '平台、权限与可观测性',
+    hint: '界面、权限、监控与审计',
+    keywords: ['前端偏好', '导航权限', '用户入口', '可观测性', '监控', '审计', '诊断'],
+  },
 ] as const
 
 const SETTINGS_SECTION_BY_ID = Object.fromEntries(
   SETTINGS_SECTIONS.map((section) => [section.id, section])
 ) as Record<string, SettingsSectionDefinition>
 const SETTINGS_CARD_CLASS =
-  'rounded-[16px] border border-border/60 bg-card/82 shadow-sm'
+  'rounded-lg border border-border bg-background'
 const SETTINGS_OUTLINE_BUTTON =
-  'h-8 rounded-[12px] border-border/60 bg-card/82 px-3 text-[12px] font-medium text-foreground shadow-sm hover:bg-muted/45'
+  'size-8 rounded-md border-border bg-background p-0 text-foreground hover:bg-muted'
 const SETTINGS_PRIMARY_BUTTON =
-  'h-8 rounded-[12px] bg-primary px-3 text-[12px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:bg-primary/55 disabled:opacity-80 disabled:text-primary-foreground'
+  'h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
 
 type SettingsPageState = ReturnType<typeof useSettingsPageState>
 type ParserBackendPreference = ReturnType<typeof useParserBackendPreference>
 type ChunkStrategyPreference = ReturnType<typeof useChunkStrategyPreference>
 type SettingsContentProps = {
   state: SettingsPageState
-  visibleSections: SettingsSectionDefinition[]
-  visibleSectionIndex: Record<string, number>
   isAdmin: boolean
   parserBackend: ParserBackendPreference['parserBackend']
   setParserBackend: ParserBackendPreference['setParserBackend']
   chunkStrategy: ChunkStrategyPreference['chunkStrategy']
   setChunkStrategy: ChunkStrategyPreference['setChunkStrategy']
-}
-
-type SettingsMetricTone = 'blue' | 'green' | 'indigo' | 'slate'
-
-type SettingsMetricItem = {
-  label: string
-  value: string | number
-  icon: LucideIcon
-  tone: SettingsMetricTone
-  valueClassName?: string
-}
-
-const SETTINGS_METRIC_TONE_CLASS: Record<SettingsMetricTone, string> = {
-  blue: 'bg-primary/10 text-primary',
-  green: 'bg-success/10 text-success',
-  indigo: 'bg-accent/10 text-accent',
-  slate: 'bg-muted text-muted-foreground',
-}
-
-function getSaveStatusLabel(
-  saving: boolean,
-  saveMessageType?: string
-): string {
-  if (saving) return '保存中'
-  if (saveMessageType === 'success') return '最近成功'
-  if (saveMessageType === 'error') return '最近失败'
-  return '空闲'
-}
-
-function getSaveStatusTone(saveMessageType?: string): SettingsMetricTone {
-  if (saveMessageType === 'success') return 'green'
-  return 'indigo'
-}
-
-function getSaveStatusValueClassName(
-  saving: boolean,
-  saveMessageType?: string
-): string {
-  if (saveMessageType === 'error') return 'text-destructive'
-  if (saving) return 'text-warning'
-  if (saveMessageType === 'success') return 'text-success'
-  return 'text-foreground'
-}
-
-function SettingsMetricStrip({
-  items,
-}: Readonly<{ items: readonly SettingsMetricItem[] }>) {
-  return (
-    <div
-      data-testid="settings-metric-strip"
-      className="flex flex-wrap items-center gap-1.5 rounded-[16px] border border-border/60 bg-card/82 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.03)]"
-    >
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <div
-            key={item.label}
-            className="flex min-h-9 flex-1 basis-[150px] items-center gap-2 rounded-[12px] border border-border/50 bg-muted/28 px-2.5 py-1.5"
-          >
-            <div
-              className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-[9px]',
-                SETTINGS_METRIC_TONE_CLASS[item.tone]
-              )}
-            >
-              <Icon className="size-3.5" />
-            </div>
-            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
-              <p className="truncate text-[11px] font-semibold text-muted-foreground">
-                {item.label}
-              </p>
-              <p
-                className={cn(
-                  'shrink-0 text-[13px] font-semibold leading-none text-foreground',
-                  item.valueClassName
-                )}
-              >
-                {item.value}
-              </p>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
 function SettingsSaveFeedback({
@@ -380,11 +306,16 @@ function RetrievalEnhancementSection({ state }: Readonly<{ state: SettingsPageSt
 }
 
 function useSettingsScrollSpy(sectionIds: readonly string[]) {
-  const [activeId, setActiveId] = useState(sectionIds[0])
+  const [activeId, setActiveId] = useState(sectionIds[0] || '')
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {
     observerRef.current?.disconnect()
+    if (sectionIds.length === 0) {
+      setActiveId('')
+      return
+    }
+    setActiveId((current) => (sectionIds.includes(current) ? current : sectionIds[0]))
 
     const visibleMap = new Map<string, number>()
     observerRef.current = new IntersectionObserver(
@@ -422,12 +353,10 @@ function useSettingsScrollSpy(sectionIds: readonly string[]) {
 
 function SettingsSectionFrame({
   section,
-  index,
   children,
   className,
 }: Readonly<{
   section: SettingsSectionDefinition
-  index: number
   children: ReactNode
   className?: string
 }>) {
@@ -436,30 +365,59 @@ function SettingsSectionFrame({
       id={section.id}
       aria-labelledby={`${section.id}-title`}
       className={cn(
-        'relative scroll-mt-24 overflow-visible rounded-[20px] border border-border/60 bg-card/82 shadow-[0_14px_34px_hsl(var(--foreground)/0.035)]',
-        'before:absolute before:-left-3 before:top-4 before:bottom-4 before:w-px before:rounded-full before:bg-primary/25',
+        'scroll-mt-24 border-b border-border pb-8',
         className
       )}
     >
-      <div className="rounded-t-[20px] border-b border-border/50 bg-[linear-gradient(90deg,hsl(var(--muted)/0.38),hsl(var(--card)/0.88),hsl(var(--primary)/0.06))] px-4 py-3 ring-1 ring-inset ring-border/40">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-7 w-9 shrink-0 items-center justify-center rounded-[12px] border border-primary/20 bg-primary/10 text-[11px] font-black text-primary">
-            {String(index + 1).padStart(2, '0')}
-          </span>
-          <div className="min-w-0">
-            <h2
-              id={`${section.id}-title`}
-              className={cn(settingsTextTokens.sectionTitle, 'leading-tight')}
-            >
-              {section.label}
-            </h2>
-            <p className="mt-0.5 text-[11.5px] font-medium leading-[18px] text-muted-foreground">
-              {section.hint}
-            </p>
-          </div>
+      <div className="border-b border-border px-1 pb-3">
+        <div className="min-w-0">
+          <h2
+            id={`${section.id}-title`}
+            className={cn(settingsTextTokens.sectionTitle, 'leading-tight')}
+          >
+            {section.label}
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {section.hint}
+          </p>
         </div>
       </div>
-      <div className="space-y-3 border-t border-border/35 p-3.5">{children}</div>
+      <div className="space-y-6 pt-5">{children}</div>
+    </section>
+  )
+}
+
+function SettingsSubsection({
+  title,
+  children,
+  advanced = false,
+}: Readonly<{
+  title: string
+  children: ReactNode
+  advanced?: boolean
+}>) {
+  if (advanced) {
+    return (
+      <details
+        data-testid="settings-advanced-section"
+        className="group border-t border-border pt-3"
+      >
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 py-1 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <span>{title}</span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-normal text-muted-foreground">
+            高级配置
+            <ChevronDown className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+          </span>
+        </summary>
+        <div className="pt-4">{children}</div>
+      </details>
+    )
+  }
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-medium text-foreground">{title}</h3>
+      {children}
     </section>
   )
 }
@@ -479,69 +437,22 @@ function SettingsPageContent() {
   const state = useSettingsPageState()
   const access = useTenantAccess()
   const isAdmin = tenantAccessIsAdmin(access.data)
-  const visibleSections = useMemo(
-    () => SETTINGS_SECTIONS.filter((section) => !section.adminOnly || isAdmin),
-    [isAdmin]
-  )
-  const visibleSectionIndex = useMemo(
-    () =>
-      Object.fromEntries(
-        visibleSections.map((section, index) => [section.id, index])
-      ) as Record<string, number>,
-    [visibleSections]
-  )
   const { parserBackend, setParserBackend } = useParserBackendPreference()
   const { chunkStrategy, setChunkStrategy } = useChunkStrategyPreference()
-  const statusMetricItems: SettingsMetricItem[] = [
-    {
-      label: '配置分区',
-      value: visibleSections.length,
-      icon: LayoutGrid,
-      tone: 'blue',
-    },
-    {
-      label: '环境变量',
-      value: state.hasChanges ? '待保存' : '已同步',
-      icon: Layers,
-      tone: 'green',
-      valueClassName: state.hasChanges ? 'text-warning' : 'text-success',
-    },
-    {
-      label: '保存状态',
-      value: getSaveStatusLabel(state.saving, state.saveMessage?.type),
-      icon: ShieldCheck,
-      tone: getSaveStatusTone(state.saveMessage?.type),
-      valueClassName: getSaveStatusValueClassName(
-        state.saving,
-        state.saveMessage?.type
-      ),
-    },
-    {
-      label: '最近更新',
-      value: state.lastUpdatedKeys.length
-        ? `${state.lastUpdatedKeys.length} 项`
-        : '0 秒前',
-      icon: Clock,
-      tone: 'blue',
-    },
-  ]
 
   return (
     <AppFrame>
       <PageScaffold
-        title="设置与配置"
-        badge="系统配置"
+        title="设置"
         iconImage="settings"
-        description="统一管理功能开关、模型接入、检索增强生成参数（RAG）与运行控制"
+        description="见外传媒知识库"
         size="full"
         compact
         density="system-dense"
-        headerClassName="[&_[class*='rounded-full']]:border-primary/20 [&_[class*='rounded-full']]:bg-primary/10 [&_[class*='rounded-full']]:font-medium [&_[class*='rounded-full']]:normal-case [&_[class*='rounded-full']]:text-primary"
         topClassName="pb-2.5"
         bodyClassName="pt-0.5"
         top={
           <div className="space-y-2">
-            <SettingsMetricStrip items={statusMetricItems} />
             {state.loadError ? (
               <Alert
                 variant="destructive"
@@ -571,6 +482,8 @@ function SettingsPageContent() {
               onClick={state.refreshAll}
               disabled={state.loading}
               className={SETTINGS_OUTLINE_BUTTON}
+              aria-label="刷新设置"
+              title="刷新设置"
             >
               <RefreshCw
                 className={cn(
@@ -578,7 +491,6 @@ function SettingsPageContent() {
                   state.loading && 'animate-spin motion-reduce:animate-none'
                 )}
               />
-              刷新
             </Button>
             <Button
               onClick={state.saveSettings}
@@ -603,8 +515,6 @@ function SettingsPageContent() {
         ) : (
           <SettingsContent
             state={state}
-            visibleSections={visibleSections}
-            visibleSectionIndex={visibleSectionIndex}
             isAdmin={isAdmin}
             parserBackend={parserBackend}
             setParserBackend={setParserBackend}
@@ -626,16 +536,35 @@ function SettingsPageContent() {
 
 function SettingsContent({
   state,
-  visibleSections,
-  visibleSectionIndex,
   isAdmin,
   parserBackend,
   setParserBackend,
   chunkStrategy,
   setChunkStrategy,
 }: Readonly<SettingsContentProps>) {
-  const sectionIds = visibleSections.map((s) => s.id)
-  const activeId = useSettingsScrollSpy(sectionIds)
+  const [searchQuery, setSearchQuery] = useState('')
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase('zh-CN')
+  const visibleSections = useMemo(
+    () =>
+      normalizedSearchQuery
+        ? SETTINGS_SECTIONS.filter((section) =>
+            [section.label, section.hint, ...section.keywords]
+              .join(' ')
+              .toLocaleLowerCase('zh-CN')
+              .includes(normalizedSearchQuery)
+          )
+        : SETTINGS_SECTIONS,
+    [normalizedSearchQuery]
+  )
+  const visibleSectionIds = useMemo(
+    () => visibleSections.map((section) => section.id),
+    [visibleSections]
+  )
+  const visibleSectionIdSet = useMemo(
+    () => new Set(visibleSectionIds),
+    [visibleSectionIds]
+  )
+  const activeId = useSettingsScrollSpy(visibleSectionIds)
 
   const scrollTo = useCallback((id: string) => {
     const el = document.getElementById(id)
@@ -647,9 +576,7 @@ function SettingsContent({
       return
     }
 
-    // Keep the app shell fixed; only the page body should scroll when using
-    // the settings side index. scrollIntoView can also move overflow-hidden
-    // ancestors, which visually cuts off the right pane bottom.
+    // 设置索引只滚动页面正文，避免 scrollIntoView 连带移动应用壳层。
     main?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     const containerRect = scrollContainer.getBoundingClientRect()
     const targetRect = el.getBoundingClientRect()
@@ -658,231 +585,242 @@ function SettingsContent({
   }, [])
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[176px_minmax(0,1fr)]">
-      <nav
-        className={cn(
-          SETTINGS_CARD_CLASS,
-          'sticky top-4 hidden shrink-0 self-start p-1.5 lg:block'
-        )}
-      >
-        <ul className="space-y-0.5">
-          {visibleSections.map((sec) => (
-            <li key={sec.id}>
-              <button
-                type="button"
-                onClick={() => scrollTo(sec.id)}
-                className={cn(
-                  'relative w-full rounded-[12px] px-3 py-2 text-left transition-colors',
-                  'text-[12px] font-semibold leading-[18px]',
-                  activeId === sec.id
-                    ? 'bg-primary/10 text-primary before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-primary'
-                    : 'text-foreground/78 hover:bg-muted/45 hover:text-foreground'
-                )}
-              >
-                {sec.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="min-w-0 space-y-6">
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-status']}
-          index={visibleSectionIndex['sec-status']}
-        >
-          {state.status ? (
-            <SystemStatusSection
-              status={state.status}
-              backendMeta={state.backendMeta}
-            />
-          ) : null}
-        </SettingsSectionFrame>
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-models']}
-          index={visibleSectionIndex['sec-models']}
-        >
-          <ModelProvidersSection
-            groupedProviders={state.groupedProviders}
-            onConfigure={state.handleConfigure}
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">搜索设置</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            data-testid="settings-search"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="搜索设置"
+            className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-        </SettingsSectionFrame>
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-flags']}
-          index={visibleSectionIndex['sec-flags']}
-          className="[&>div:last-child]:space-y-3"
-        >
-          <RetrievalEnhancementSection state={state} />
-          <FeatureFlagsSection
-            editedFeatureFlags={state.editedFeatureFlags}
-            getFeatureValue={state.getFeatureValue}
-            toggleFeature={state.toggleFeature}
-          />
-        </SettingsSectionFrame>
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-frontend']}
-          index={visibleSectionIndex['sec-frontend']}
-        >
-          <FrontendPreferencesSection
-            parserBackend={parserBackend}
-            setParserBackend={setParserBackend}
-            chunkStrategy={chunkStrategy}
-            setChunkStrategy={setChunkStrategy}
-          />
-        </SettingsSectionFrame>
-
-        {isAdmin ? (
-          <SettingsSectionFrame
-            section={SETTINGS_SECTION_BY_ID['sec-navigation']}
-            index={visibleSectionIndex['sec-navigation']}
-          >
-            <NavigationVisibilitySection
-              navigation={state.navigationMerged}
-              updateNavigation={state.updateNavigation}
-            />
-          </SettingsSectionFrame>
+        </label>
+        {visibleSections.length > 0 ? (
+          <Select value={activeId || undefined} onValueChange={scrollTo}>
+            <SelectTrigger
+              data-testid="settings-mobile-group-select"
+              className="w-full sm:w-64 lg:hidden"
+              aria-label="选择设置分组"
+            >
+              <SelectValue placeholder="选择设置分组" />
+            </SelectTrigger>
+            <SelectContent>
+              {visibleSections.map((section) => (
+                <SelectItem key={section.id} value={section.id}>
+                  {section.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : null}
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-parsers']}
-          index={visibleSectionIndex['sec-parsers']}
-          className="[&>div:last-child]:space-y-4"
-        >
-          <ParserServicesSection
-            mineru={state.mineruMerged}
-            etl4llm={state.etl4llmMerged}
-            marker={state.markerMerged}
-            paddleVl={state.paddleVlMerged}
-            textIn={state.textInMerged}
-            magicPdf={state.magicPdfMerged}
-            updateMinerU={state.updateMinerU}
-            updateEtl4Llm={state.updateEtl4Llm}
-            updateMarker={state.updateMarker}
-            updatePaddleVL={state.updatePaddleVL}
-            updateTextIn={state.updateTextIn}
-            updateMagicPDF={state.updateMagicPDF}
-          />
-        </SettingsSectionFrame>
-
-        {isAdmin ? (
-          <SettingsSectionFrame
-            section={SETTINGS_SECTION_BY_ID['sec-storage']}
-            index={visibleSectionIndex['sec-storage']}
-          >
-            <ObjectStorageSection
-              minio={state.minioMerged}
-              updateMinIO={state.updateMinIO}
-            />
-          </SettingsSectionFrame>
-        ) : null}
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-rag']}
-          index={visibleSectionIndex['sec-rag']}
-        >
-          <RagSection rag={state.ragMerged} updateRag={state.updateRag} />
-        </SettingsSectionFrame>
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-ltr']}
-          index={visibleSectionIndex['sec-ltr']}
-        >
-          <LtrModelRegistrySection
-            ltrError={state.ltrError}
-            ltrMessage={state.ltrMessage}
-            ltrUploading={state.ltrUploading}
-            ltrUploadReady={state.ltrUploadReady}
-            ltrUploadResetKey={state.ltrUploadResetKey}
-            ltrLoading={state.ltrLoading}
-            ltrBusyModelId={state.ltrBusyModelId}
-            ltrModels={state.ltrModels}
-            onRegister={state.registerLtrModel}
-            onRefreshList={state.refreshLtrModels}
-            onRollback={state.rollbackLtrModel}
-            onActivate={state.activateLtrModel}
-            onModelFileChange={state.setLtrUploadModelFile}
-            onManifestFileChange={state.setLtrUploadManifestFile}
-            formatBytes={state.formatBytes}
-            formatTime={state.formatTime}
-            shortId={state.shortId}
-          />
-        </SettingsSectionFrame>
-
-        {isAdmin ? (
-          <SettingsSectionFrame
-            section={SETTINGS_SECTION_BY_ID['sec-dify']}
-            index={visibleSectionIndex['sec-dify']}
-          >
-            <DifyIntegrationSection
-              difyExternalKnowledge={state.difyExternalKnowledgeMerged}
-              updateDifyExternalKnowledge={state.updateDifyExternalKnowledge}
-            />
-          </SettingsSectionFrame>
-        ) : null}
-
-        {isAdmin ? (
-          <SettingsSectionFrame
-            section={SETTINGS_SECTION_BY_ID['sec-url']}
-            index={visibleSectionIndex['sec-url']}
-          >
-            <UrlIngestSection
-              urlIngest={state.urlIngestMerged}
-              updateUrlIngest={state.updateUrlIngest}
-            />
-          </SettingsSectionFrame>
-        ) : null}
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-governance']}
-          index={visibleSectionIndex['sec-governance']}
-        >
-          <GovernanceSection
-            isGovernanceEnabled={state.isGovernanceEnabled}
-            isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
-            isSecretsRedactEnabled={state.isSecretsRedactEnabled}
-            isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
-            updateGovernance={state.updateGovernance}
-          />
-        </SettingsSectionFrame>
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-industry-rules']}
-          index={visibleSectionIndex['sec-industry-rules']}
-        >
-          <IndustryRulesSection />
-        </SettingsSectionFrame>
-
-        {isAdmin ? (
-          <SettingsSectionFrame
-            section={SETTINGS_SECTION_BY_ID['sec-observability']}
-            index={visibleSectionIndex['sec-observability']}
-          >
-            <ObservabilitySection
-              observability={state.observabilityMerged}
-              updateObservability={state.updateObservability}
-            />
-          </SettingsSectionFrame>
-        ) : null}
-
-        <SettingsSectionFrame
-          section={SETTINGS_SECTION_BY_ID['sec-runtime']}
-          index={visibleSectionIndex['sec-runtime']}
-        >
-          <RuntimeControlsSection
-            chat={state.chatMerged}
-            updateChat={state.updateChat}
-            cache={state.cacheMerged}
-            updateCache={state.updateCache}
-            safety={state.safetyMerged}
-            updateSafety={state.updateSafety}
-            langgraph={state.langGraphMerged}
-            updateLangGraph={state.updateLangGraph}
-          />
-        </SettingsSectionFrame>
       </div>
+
+      {visibleSections.length === 0 ? (
+        <div
+          data-testid="settings-search-empty"
+          className="flex min-h-48 items-center justify-center border-y border-border px-6 text-center"
+        >
+          <div>
+            <p className="text-sm font-medium text-foreground">没有匹配的设置</p>
+            <p className="mt-1 text-xs text-muted-foreground">请尝试搜索功能名称或服务名称</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[208px_minmax(0,1fr)]">
+          <nav
+            aria-label="设置分组"
+            className={cn(
+              SETTINGS_CARD_CLASS,
+              'sticky top-4 hidden shrink-0 self-start p-1.5 lg:block'
+            )}
+          >
+            <ul className="space-y-0.5">
+              {visibleSections.map((section) => (
+                <li key={section.id}>
+                  <button
+                    type="button"
+                    onClick={() => scrollTo(section.id)}
+                    aria-current={activeId === section.id ? 'location' : undefined}
+                    className={cn(
+                      'relative w-full rounded-md px-3 py-2 text-left text-xs font-medium leading-5 transition-colors',
+                      activeId === section.id
+                        ? 'bg-primary/10 text-primary before:absolute before:bottom-2 before:left-0 before:top-2 before:w-px before:bg-primary'
+                        : 'text-foreground/78 hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    {section.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="min-w-0 space-y-8">
+            {visibleSectionIdSet.has('settings-runtime') ? (
+              <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-runtime']}>
+                <SettingsSubsection title="系统状态">
+                  {state.status ? (
+                    <SystemStatusSection
+                      status={state.status}
+                      backendMeta={state.backendMeta}
+                    />
+                  ) : null}
+                </SettingsSubsection>
+                <SettingsSubsection title="运行控制" advanced>
+                  <RuntimeControlsSection
+                    chat={state.chatMerged}
+                    updateChat={state.updateChat}
+                    cache={state.cacheMerged}
+                    updateCache={state.updateCache}
+                    safety={state.safetyMerged}
+                    updateSafety={state.updateSafety}
+                    langgraph={state.langGraphMerged}
+                    updateLangGraph={state.updateLangGraph}
+                  />
+                </SettingsSubsection>
+              </SettingsSectionFrame>
+            ) : null}
+
+            {visibleSectionIdSet.has('settings-models') ? (
+              <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-models']}>
+                <SettingsSubsection title="模型接入">
+                  <ModelProvidersSection
+                    groupedProviders={state.groupedProviders}
+                    onConfigure={state.handleConfigure}
+                  />
+                </SettingsSubsection>
+                {isAdmin ? (
+                  <SettingsSubsection title="对象存储" advanced>
+                    <ObjectStorageSection
+                      minio={state.minioMerged}
+                      updateMinIO={state.updateMinIO}
+                    />
+                  </SettingsSubsection>
+                ) : null}
+                {isAdmin ? (
+                  <SettingsSubsection title="Dify 接入" advanced>
+                    <DifyIntegrationSection
+                      difyExternalKnowledge={state.difyExternalKnowledgeMerged}
+                      updateDifyExternalKnowledge={state.updateDifyExternalKnowledge}
+                    />
+                  </SettingsSubsection>
+                ) : null}
+              </SettingsSectionFrame>
+            ) : null}
+
+            {visibleSectionIdSet.has('settings-knowledge') ? (
+              <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-knowledge']}>
+                <SettingsSubsection title="高级解析">
+                  <ParserServicesSection
+                    mineru={state.mineruMerged}
+                    etl4llm={state.etl4llmMerged}
+                    marker={state.markerMerged}
+                    paddleVl={state.paddleVlMerged}
+                    textIn={state.textInMerged}
+                    magicPdf={state.magicPdfMerged}
+                    updateMinerU={state.updateMinerU}
+                    updateEtl4Llm={state.updateEtl4Llm}
+                    updateMarker={state.updateMarker}
+                    updatePaddleVL={state.updatePaddleVL}
+                    updateTextIn={state.updateTextIn}
+                    updateMagicPDF={state.updateMagicPDF}
+                  />
+                </SettingsSubsection>
+                <SettingsSubsection title="数据治理">
+                  <GovernanceSection
+                    isGovernanceEnabled={state.isGovernanceEnabled}
+                    isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
+                    isSecretsRedactEnabled={state.isSecretsRedactEnabled}
+                    isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
+                    updateGovernance={state.updateGovernance}
+                  />
+                </SettingsSubsection>
+                {isAdmin ? (
+                  <SettingsSubsection title="URL 采集" advanced>
+                    <UrlIngestSection
+                      urlIngest={state.urlIngestMerged}
+                      updateUrlIngest={state.updateUrlIngest}
+                    />
+                  </SettingsSubsection>
+                ) : null}
+                <SettingsSubsection title="行业规则" advanced>
+                  <IndustryRulesSection />
+                </SettingsSubsection>
+              </SettingsSectionFrame>
+            ) : null}
+
+            {visibleSectionIdSet.has('settings-retrieval') ? (
+              <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-retrieval']}>
+                <SettingsSubsection title="RAG 配置">
+                  <RagSection rag={state.ragMerged} updateRag={state.updateRag} />
+                </SettingsSubsection>
+                <SettingsSubsection title="检索增强" advanced>
+                  <RetrievalEnhancementSection state={state} />
+                  <FeatureFlagsSection
+                    editedFeatureFlags={state.editedFeatureFlags}
+                    getFeatureValue={state.getFeatureValue}
+                    toggleFeature={state.toggleFeature}
+                  />
+                </SettingsSubsection>
+                <SettingsSubsection title="LTR 模型" advanced>
+                  <LtrModelRegistrySection
+                    ltrError={state.ltrError}
+                    ltrMessage={state.ltrMessage}
+                    ltrUploading={state.ltrUploading}
+                    ltrUploadReady={state.ltrUploadReady}
+                    ltrUploadResetKey={state.ltrUploadResetKey}
+                    ltrLoading={state.ltrLoading}
+                    ltrBusyModelId={state.ltrBusyModelId}
+                    ltrModels={state.ltrModels}
+                    onRegister={state.registerLtrModel}
+                    onRefreshList={state.refreshLtrModels}
+                    onRollback={state.rollbackLtrModel}
+                    onActivate={state.activateLtrModel}
+                    onModelFileChange={state.setLtrUploadModelFile}
+                    onManifestFileChange={state.setLtrUploadManifestFile}
+                    formatBytes={state.formatBytes}
+                    formatTime={state.formatTime}
+                    shortId={state.shortId}
+                  />
+                </SettingsSubsection>
+              </SettingsSectionFrame>
+            ) : null}
+
+            {visibleSectionIdSet.has('settings-platform') ? (
+              <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-platform']}>
+                <SettingsSubsection title="前端偏好">
+                  <FrontendPreferencesSection
+                    parserBackend={parserBackend}
+                    setParserBackend={setParserBackend}
+                    chunkStrategy={chunkStrategy}
+                    setChunkStrategy={setChunkStrategy}
+                  />
+                </SettingsSubsection>
+                {isAdmin ? (
+                  <SettingsSubsection title="导航权限" advanced>
+                    <NavigationVisibilitySection
+                      navigation={state.navigationMerged}
+                      updateNavigation={state.updateNavigation}
+                    />
+                  </SettingsSubsection>
+                ) : null}
+                {isAdmin ? (
+                  <SettingsSubsection title="可观测性" advanced>
+                    <ObservabilitySection
+                      observability={state.observabilityMerged}
+                      updateObservability={state.updateObservability}
+                    />
+                  </SettingsSubsection>
+                ) : null}
+              </SettingsSectionFrame>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -571,7 +571,7 @@ test.describe('management surfaces smoke', () => {
       { route: '/audit', heading: '审计日志' },
       { route: '/settings/rbac', heading: '成员权限' },
       { route: '/settings/groups', heading: '组管理' },
-      { route: '/settings', heading: '设置与配置' },
+      { route: '/settings', heading: '设置' },
     ]) {
       await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
       const heading = page.getByRole('heading', { name: surface.heading }).last()
