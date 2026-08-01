@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { chatApi } from './api/chat'
+import { createStreamDiagnostics, type StreamDiagnosticEntry } from './stream-diagnostics'
 
 const originalFetch = globalThis.fetch
 
@@ -32,11 +33,15 @@ describe('chatApi.streamChat', () => {
 
     const onOpen = vi.fn()
     const events: string[] = []
+    const diagnosticsEntries: StreamDiagnosticEntry[] = []
 
     const result = await chatApi.streamChat(
       { message: 'hello', stream: true } as any,
       (json) => events.push(json),
-      { onOpen }
+      {
+        onOpen,
+        diagnostics: createStreamDiagnostics('pending', (entry) => diagnosticsEntries.push(entry)),
+      }
     )
 
     expect(onOpen).toHaveBeenCalledWith({
@@ -48,5 +53,12 @@ describe('chatApi.streamChat', () => {
       requestId: 'req-stream-1',
       conversationId: 'conv-stream-1',
     })
+    expect(diagnosticsEntries.map((entry) => entry.eventType)).toEqual([
+      'request_start',
+      'headers',
+      'network_chunk',
+      'done',
+    ])
+    expect(diagnosticsEntries.at(-1)?.requestId).toBe('req-stream-1')
   })
 })

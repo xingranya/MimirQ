@@ -3,7 +3,8 @@ import { createSseDataParser } from '@/lib/sse'
 export async function readSseDataStrings(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   onData: (data: string) => void,
-  onError?: (error: unknown) => void
+  onError?: (error: unknown) => void,
+  onChunk?: (chunk: Readonly<{ byteLength: number }>) => void
 ): Promise<void> {
   const decoder = new TextDecoder()
   const sse = createSseDataParser()
@@ -12,6 +13,7 @@ export async function readSseDataStrings(
     const { done, value } = await reader.read()
     if (done) break
 
+    onChunk?.({ byteLength: value.byteLength })
     const chunkText = decoder.decode(value, { stream: true })
     for (const data of sse.feed(chunkText)) {
       try {

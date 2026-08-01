@@ -20,6 +20,7 @@ import { withPreferredLanguageHeader } from '@/lib/preferred-language'
 import { generateRequestId } from '@/lib/request-id'
 import { readSseDataStrings } from '@/lib/sse-reader'
 import { apiClient, openapiRequest } from '@/lib/api/core'
+import { createStreamDiagnostics, type StreamDiagnostics } from '@/lib/stream-diagnostics'
 
 type ChatRequestBody = OpenApiRequestBody<'/api/v1/chat', 'post'>
 type ChatResponseBody = OpenApiOkResponse<'/api/v1/chat', 'post'>
@@ -103,9 +104,13 @@ export const chatApi = {
       signal?: AbortSignal
       onError?: (error: unknown) => void
       onOpen?: (meta: { requestId: string; conversationId?: string }) => void
+      diagnostics?: StreamDiagnostics
     } = {}
   ): Promise<{ requestId: string; conversationId?: string }> {
     const requestId = generateRequestId()
+    const diagnostics = options.diagnostics ?? createStreamDiagnostics(requestId)
+    diagnostics.setRequestId(requestId)
+    diagnostics.record('request_start')
 
     const response = await authenticatedFetch(`${API_V1_BASE_URL}/chat/stream`, {
       method: 'POST',
@@ -120,18 +125,39 @@ export const chatApi = {
     })
 
     if (!response.ok) {
+      diagnostics.record('error')
       throw await buildFetchError(response, 'Chat stream failed')
     }
 
     const reader = response.body?.getReader()
     if (!reader) {
+      diagnostics.record('error')
       throw new Error('No response body')
     }
 
     const backendRequestId = response.headers.get('X-Request-ID') || requestId
     const conversationId = response.headers.get('X-Conversation-ID') || undefined
+    diagnostics.setRequestId(backendRequestId)
+    diagnostics.record('headers')
     options.onOpen?.({ requestId: backendRequestId, conversationId })
-    await readSseDataStrings(reader, onJson, options.onError)
+    await readSseDataStrings(
+      reader,
+      (json) => {
+        let eventType: 'event' | 'citations' | 'token' | 'done' | 'error' = 'event'
+        try {
+          const parsed = JSON.parse(json) as { type?: unknown }
+          if (parsed.type === 'citations' || parsed.type === 'token' || parsed.type === 'done' || parsed.type === 'error') {
+            eventType = parsed.type
+          }
+        } catch {
+          eventType = 'event'
+        }
+        diagnostics.record(eventType)
+        onJson(json)
+      },
+      options.onError,
+      ({ byteLength }) => diagnostics.record('network_chunk', byteLength)
+    )
     return { requestId: backendRequestId, conversationId }
   },
 

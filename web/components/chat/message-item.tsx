@@ -24,7 +24,6 @@ import { resolveSafeCitationImageUrl } from '@/lib/citation-images'
 import { EvidenceViewerDialog } from '@/components/evidence/evidence-viewer-dialog'
 
 import { BRAND_CONFIG } from '@/lib/brand'
-import { CinematicTypewriter } from '@/components/ui/cinematic-typewriter'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { documentApi, feedbackApi } from '@/lib/api'
@@ -571,7 +570,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   if (isUser) {
      renderedContent = <div className="whitespace-pre-wrap font-normal text-primary-foreground [&>*]:text-inherit">{message.content}</div>
   } else if (isStreaming) {
-    renderedContent = <CinematicTypewriter content={message.content} isStreaming={true} />
+    renderedContent = <div className="whitespace-pre-wrap">{message.content}</div>
   } else {
     renderedContent = (
       <InlineCitationHandlersContext.Provider value={inlineCitationHandlers}>

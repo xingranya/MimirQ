@@ -298,4 +298,56 @@ describe('useChatStream accepted-stream recovery', () => {
     expect(onError).not.toHaveBeenCalled()
     hook.unmount()
   })
+
+  it('在 done 前至少呈现两次可见增量', async () => {
+    let emitEvent: ((json: string) => void) | undefined
+    let finishStream: (() => void) | undefined
+
+    chatApiMock.streamChat.mockImplementation(async (_request: unknown, onJson: (json: string) => void, options?: { onOpen?: (meta: { requestId: string; conversationId?: string }) => void }) => {
+      options?.onOpen?.({ requestId: 'req-incremental', conversationId: 'conv-incremental' })
+      emitEvent = onJson
+      await new Promise<void>((resolve) => {
+        finishStream = resolve
+      })
+      return { requestId: 'req-incremental', conversationId: 'conv-incremental' }
+    })
+
+    const hook = renderChatStreamHook()
+    act(() => {
+      void hook.result.current.sendMessage('hello')
+    })
+
+    await waitForAssertion(() => expect(emitEvent).toBeTypeOf('function'))
+
+    act(() => {
+      emitEvent?.(JSON.stringify({ type: 'token', data: { content: '第一段' } }))
+    })
+    await waitForAssertion(() => expect(hook.result.current.currentResponse).toBe('第一段'))
+
+    act(() => {
+      emitEvent?.(JSON.stringify({ type: 'token', data: { content: '，第二段' } }))
+    })
+    await waitForAssertion(() => expect(hook.result.current.currentResponse).toBe('第一段，第二段'))
+    expect(hook.result.current.messages.filter((message) => message.role === 'assistant')).toHaveLength(0)
+
+    act(() => {
+      emitEvent?.(JSON.stringify({
+        type: 'done',
+        data: {
+          assistant_message_id: 'assistant-incremental',
+          conversation_id: 'conv-incremental',
+        },
+      }))
+      finishStream?.()
+    })
+
+    await waitForAssertion(() => {
+      expect(hook.result.current.messages.at(-1)).toMatchObject({
+        id: 'assistant-incremental',
+        content: '第一段，第二段',
+      })
+      expect(hook.result.current.isLoading).toBe(false)
+    })
+    hook.unmount()
+  })
 })

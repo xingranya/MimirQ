@@ -7,6 +7,7 @@ import { API_LONG_TIMEOUT_MS, API_TIMEOUT_MS } from '@/lib/env'
 import { chatApi } from '@/lib/api'
 import { reportClientError, reportClientWarning } from '@/lib/client-logging'
 import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
+import { createStreamDiagnostics, utf8ByteLength, type StreamDiagnostics } from '@/lib/stream-diagnostics'
 
 import {
   buildChatRequest,
@@ -86,6 +87,8 @@ export function useChatStream({
   const rafIdRef = useRef<number | null>(null)
   const streamRequestIdRef = useRef<string | null>(null)
   const stopActiveRequestRef = useRef<(() => void) | null>(null)
+  const streamDiagnosticsRef = useRef<StreamDiagnostics | null>(null)
+  const renderedResponseLengthRef = useRef(0)
 
   const clearRaf = useCallback(() => {
     if (rafIdRef.current != null) {
@@ -108,6 +111,18 @@ export function useChatStream({
   useEffect(() => {
     activeConversationIdRef.current = conversationId
   }, [conversationId])
+
+  useEffect(() => {
+    if (!currentResponse) {
+      renderedResponseLengthRef.current = 0
+      return
+    }
+
+    const previousLength = renderedResponseLengthRef.current
+    const addedContent = currentResponse.slice(previousLength)
+    renderedResponseLengthRef.current = currentResponse.length
+    streamDiagnosticsRef.current?.record('ui_render', utf8ByteLength(addedContent))
+  }, [currentResponse])
 
   useEffect(() => {
     return () => {
@@ -209,6 +224,8 @@ export function useChatStream({
         let sawDone = false
         let streamAccepted = false
         let streamError: Error | null = null
+        const streamDiagnostics = createStreamDiagnostics()
+        streamDiagnosticsRef.current = streamDiagnostics
 
         try {
           await chatApi.streamChat(
@@ -279,6 +296,7 @@ export function useChatStream({
                   updateConversation(openedConversationId)
                 }
               },
+              diagnostics: streamDiagnostics,
             }
           )
 
