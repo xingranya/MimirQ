@@ -1,6 +1,7 @@
 const commonMessages = {
 Layout: {
     skipToMainContent: '跳到主要内容',
+    openSidebar: '展开侧边栏',
   },
 Common: {
     loading: '加载中...',

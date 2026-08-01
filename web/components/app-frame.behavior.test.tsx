@@ -71,6 +71,25 @@ describe('AppFrame responsive sidebar', () => {
     view.unmount()
   })
 
+  it('移动端侧栏收起后仍可从应用顶栏重新打开', () => {
+    const view = renderFrame(true)
+    const openButton = view.container.querySelector<HTMLButtonElement>(
+      '[data-mobile-app-bar="true"] button[aria-controls="mimirq-sidebar"]'
+    )
+
+    expect(openButton).not.toBeNull()
+    expect(openButton?.getAttribute('aria-expanded')).toBe('false')
+
+    act(() => {
+      openButton?.click()
+    })
+
+    expect(view.container.querySelector('[data-testid="navbar"]')?.getAttribute('data-open')).toBe('true')
+    expect(openButton?.getAttribute('aria-expanded')).toBe('true')
+
+    view.unmount()
+  })
+
   it('preserves the desktop-open default', () => {
     const view = renderFrame(false)
 

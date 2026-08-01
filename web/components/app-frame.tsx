@@ -2,9 +2,12 @@
 
 import * as React from "react"
 import { useTranslations } from 'next-intl'
+import { PanelLeftOpen } from 'lucide-react'
 
 import { Navbar } from "@/components/navbar"
 import { AppBackground } from "@/components/ui/app-background"
+import { Button } from '@/components/ui/button'
+import { BRAND_CONFIG } from '@/lib/brand'
 import { cn } from "@/lib/utils"
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
 import { useDocumentView } from "@/store/document-view"
@@ -115,6 +118,29 @@ export function AppFrame({
               mainClassName
             )}
           >
+            {showNavbar ? (
+              <header
+                data-mobile-app-bar="true"
+                className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:hidden"
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-9"
+                  aria-controls="mimirq-sidebar"
+                  aria-expanded={isSidebarOpen}
+                  aria-label={t('openSidebar')}
+                  title={t('openSidebar')}
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <PanelLeftOpen className="size-4" />
+                </Button>
+                <span className="text-sm font-semibold text-foreground">
+                  {BRAND_CONFIG.shortName}
+                </span>
+              </header>
+            ) : null}
             {children}
           </main>
           {rightPanel}
