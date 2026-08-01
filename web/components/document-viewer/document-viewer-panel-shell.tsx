@@ -291,22 +291,22 @@ export function DocumentViewerPanelShell({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex min-h-0 flex-1 flex-col">
             <div className="border-b border-sidebar-border bg-background px-4">
-              <TabsList className="h-10 w-full justify-start gap-6 bg-transparent p-0">
+              <TabsList className="h-10 w-full justify-start gap-1 bg-transparent p-1">
                 <TabsTrigger
                   value="preview"
-                  className="h-10 rounded-none border-b-2 border-transparent px-2 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+                  className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground"
                 >
                   原文
                 </TabsTrigger>
                 <TabsTrigger
                   value="text"
-                  className="h-10 rounded-none border-b-2 border-transparent px-2 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+                  className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground"
                 >
                   文本定位
                 </TabsTrigger>
                 <TabsTrigger
                   value="chunks"
-                  className="h-10 rounded-none border-b-2 border-transparent px-2 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground"
+                  className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground"
                 >
                   智能切片
                 </TabsTrigger>

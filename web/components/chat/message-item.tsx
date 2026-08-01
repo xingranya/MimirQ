@@ -47,7 +47,6 @@ type ConfidenceMeta = Readonly<{
   label: string
   summary: string
   badgeClass: string
-  lineClass: string
 }>
 type ClaimEvidenceReference = Record<string, unknown> & {
   document_id?: string
@@ -144,7 +143,6 @@ function getConfidenceMeta(confidenceScore: number | null): ConfidenceMeta | nul
       label: '✓ 高置信度',
       summary: '证据与回答整体一致',
       badgeClass: 'border-success/20 bg-success/10 text-success',
-      lineClass: 'border-l-emerald-500/80',
     }
   }
   if (confidenceScore >= 0.5) {
@@ -152,14 +150,12 @@ function getConfidenceMeta(confidenceScore: number | null): ConfidenceMeta | nul
       label: '⚠ 部分支撑',
       summary: '存在有效证据，但仍建议交叉确认',
       badgeClass: 'border-warning/20 bg-warning/10 text-warning',
-      lineClass: 'border-l-amber-500/80',
     }
   }
   return {
     label: '✗ 证据不足',
     summary: '当前回答缺少足够支撑，建议继续追问',
     badgeClass: 'border-destructive/20 bg-destructive/10 text-destructive',
-    lineClass: 'border-l-rose-500/80',
   }
 }
 
@@ -304,7 +300,7 @@ function MessageMarkdownImage({ src, alt }: MessageMarkdownImageProps) {
 
 function MessageMarkdownBlockquote({ children }: MessageMarkdownChildrenProps) {
   return (
-    <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted-foreground my-3 bg-secondary/30 py-2 pr-2 rounded-r-lg">
+    <blockquote className="my-3 border-l border-border bg-muted/40 py-2 pl-3 pr-2 italic text-muted-foreground">
       {children}
     </blockquote>
   )
@@ -709,12 +705,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 )
               : (isUser 
                   ? 'max-w-3xl rounded-lg bg-primary px-5 py-4 text-primary-foreground'
-                  : cn(
-                      'max-w-3xl rounded-lg border border-border border-l-4 bg-background px-5 py-4 text-foreground',
-                      confidenceMeta?.lineClass || 'border-l-primary/30'
-                    )
-                ),
-            !isUser && variant === 'minimal' ? '' : (confidenceMeta?.lineClass || 'border-l-primary/30').replace('border-l-', 'border-l-')
+                  : 'max-w-3xl rounded-lg border border-border bg-background px-5 py-4 text-foreground'
+                )
 	        )}
           style={undefined}
 	      >
