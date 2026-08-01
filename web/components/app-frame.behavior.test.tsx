@@ -9,8 +9,12 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@/components/navbar', () => ({
-  Navbar: ({ isSidebarOpen }: { isSidebarOpen: boolean }) => (
-    <div data-testid="navbar" data-open={String(isSidebarOpen)} />
+  Navbar: ({ isSidebarOpen, setSidebarOpen }: { isSidebarOpen: boolean; setSidebarOpen: (open: boolean) => void }) => (
+    <div data-testid="navbar" data-open={String(isSidebarOpen)}>
+      <button type="button" data-testid="close-sidebar" onClick={() => setSidebarOpen(false)}>
+        close
+      </button>
+    </div>
   ),
 }))
 
@@ -54,6 +58,7 @@ function renderFrame(isMobile: boolean) {
 describe('AppFrame responsive sidebar', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    window.localStorage.clear()
     document.body.replaceChildren()
   })
 
@@ -72,5 +77,18 @@ describe('AppFrame responsive sidebar', () => {
     expect(view.container.querySelector('[data-testid="navbar"]')?.getAttribute('data-open')).toBe('true')
 
     view.unmount()
+  })
+
+  it('跨 AppFrame 重新挂载保持侧栏开合状态', () => {
+    const firstView = renderFrame(false)
+    act(() => {
+      firstView.container.querySelector<HTMLButtonElement>('[data-testid="close-sidebar"]')?.click()
+    })
+    expect(firstView.container.querySelector('[data-testid="navbar"]')?.getAttribute('data-open')).toBe('false')
+    firstView.unmount()
+
+    const secondView = renderFrame(false)
+    expect(secondView.container.querySelector('[data-testid="navbar"]')?.getAttribute('data-open')).toBe('false')
+    secondView.unmount()
   })
 })

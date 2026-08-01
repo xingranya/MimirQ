@@ -253,6 +253,26 @@ describe('Navbar behavior', () => {
     view.unmount()
   })
 
+  it('跨路由重新挂载保持侧栏滚动位置', () => {
+    window.localStorage.setItem('mimirq_navbar_scroll_top_v1', '128')
+    const firstView = renderComponent(React.createElement(Navbar))
+    const firstScrollArea = firstView.container.querySelector<HTMLElement>('[data-sidebar-scroll-container="true"]')
+    expect(firstScrollArea?.scrollTop).toBe(128)
+
+    act(() => {
+      if (!firstScrollArea) return
+      firstScrollArea.scrollTop = 240
+      firstScrollArea.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+    expect(window.localStorage.getItem('mimirq_navbar_scroll_top_v1')).toBe('240')
+    firstView.unmount()
+
+    const secondView = renderComponent(React.createElement(Navbar))
+    const secondScrollArea = secondView.container.querySelector<HTMLElement>('[data-sidebar-scroll-container="true"]')
+    expect(secondScrollArea?.scrollTop).toBe(240)
+    secondView.unmount()
+  })
+
   it('preserves manually collapsed sections across remounts while opening the active section', () => {
     routerMocks.pathname = '/'
 

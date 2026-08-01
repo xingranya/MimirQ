@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Navbar } from "@/components/navbar"
 import { AppBackground } from "@/components/ui/app-background"
 import { cn } from "@/lib/utils"
+import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
 import { useDocumentView } from "@/store/document-view"
 
 type AppFrameProps = {
@@ -18,6 +19,8 @@ type AppFrameProps = {
   withDocumentViewerPadding?: boolean
 }
 
+const SIDEBAR_OPEN_STORAGE_KEY = 'mimirq_app_sidebar_open_v1'
+
 export function AppFrame({
   children,
   className,
@@ -29,6 +32,7 @@ export function AppFrame({
 }: Readonly<AppFrameProps>) {
   const t = useTranslations('Layout')
   const [isSidebarOpen, setSidebarOpen] = React.useState(true)
+  const [hasHydratedSidebar, setHasHydratedSidebar] = React.useState(false)
   const skipLinkRef = React.useRef<HTMLAnchorElement | null>(null)
   const appContentRef = React.useRef<HTMLDivElement | null>(null)
   const { isOpen: isDocPanelOpen } = useDocumentView()
@@ -39,10 +43,16 @@ export function AppFrame({
 
   React.useEffect(() => {
     if (!showNavbar || globalThis.window === undefined) return
-    if (globalThis.window.matchMedia("(max-width: 768px)").matches) {
-      setSidebarOpen(false)
-    }
+    const stored = readClientStorage(SIDEBAR_OPEN_STORAGE_KEY)
+    const isMobile = globalThis.window.matchMedia("(max-width: 768px)").matches
+    setSidebarOpen(isMobile ? false : stored === null ? true : stored === 'true')
+    setHasHydratedSidebar(true)
   }, [showNavbar])
+
+  React.useEffect(() => {
+    if (!showNavbar || !hasHydratedSidebar) return
+    writeClientStorage(SIDEBAR_OPEN_STORAGE_KEY, String(isSidebarOpen))
+  }, [hasHydratedSidebar, isSidebarOpen, showNavbar])
 
   // Accessibility: when the sidebar acts like a modal overlay (mobile),
   // prevent focus/interaction with the rest of the app.

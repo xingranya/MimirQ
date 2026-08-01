@@ -3,7 +3,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import {
@@ -126,6 +126,7 @@ const menuSections: MenuSection[] = [
 
 const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['core', 'knowledge', 'ingestion', 'analysis'])
 const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v2'
+const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',
 }
@@ -221,6 +222,7 @@ export function Navbar({
   setSidebarOpen?: (isOpen: boolean) => void
 }> = {}) {
   const navRef = useRef<HTMLElement | null>(null)
+  const navScrollRef = useRef<HTMLDivElement | null>(null)
   const toggleButtonRef = useRef<HTMLButtonElement | null>(null)
   const firstActionRef = useRef<HTMLButtonElement | null>(null)
   const prevIsSidebarOpenRef = useRef<boolean | null>(null)
@@ -408,6 +410,19 @@ export function Navbar({
     if (globalThis.window === undefined) return
     writeClientStorage(OPEN_SECTIONS_STORAGE_KEY, JSON.stringify(openSections))
   }, [hasHydratedOpenSections, openSections])
+
+  useEffect(() => {
+    const scrollContainer = navScrollRef.current
+    if (!scrollContainer) return
+    const storedScrollTop = Number(readClientStorage(NAV_SCROLL_STORAGE_KEY))
+    if (Number.isFinite(storedScrollTop) && storedScrollTop > 0) {
+      scrollContainer.scrollTop = storedScrollTop
+    }
+  }, [])
+
+  const handleNavScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(event.currentTarget.scrollTop))
+  }, [])
 
   // Dev UX: warm up route chunks in the background so first-click navigation feels snappier.
   useEffect(() => {
@@ -607,7 +622,12 @@ export function Navbar({
 
         {/* 导航菜单 */}
         {/* Allow internal scroll so items are never clipped on short viewports. */}
-        <div className="flex-1 min-h-0 px-3 py-2 overflow-y-auto overscroll-contain no-scrollbar">
+        <div
+          ref={navScrollRef}
+          data-sidebar-scroll-container="true"
+          className="flex-1 min-h-0 px-3 py-2 overflow-y-auto overscroll-contain no-scrollbar"
+          onScroll={handleNavScroll}
+        >
           <div className="space-y-3">
             {visibleMenuSections.map((section, index) => {
               const isOpen = openSections[section.id] ?? false
