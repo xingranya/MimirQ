@@ -1,5 +1,5 @@
 /**
- * Shared chat message item (ChatArea + History).
+ * 对话区与历史页共用的消息组件。
  */
 'use client'
 
@@ -363,7 +363,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const [ratingSending, setRatingSending] = useState(false)
   const [feedbackRecord, setFeedbackRecord] = useState<MessageFeedback | null>(null)
   const [expertAction, setExpertAction] = useState<'evidence' | 'regression' | null>(null)
-  const [stepsOpen, setStepsOpen] = useState(() => isStreaming)
+  const [stepsOpen, setStepsOpen] = useState(false)
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const copyTimerRef = useRef<number | null>(null)
   const prefetchedCitationTargetsRef = useRef<Set<string>>(new Set())
   const { openDocument } = useDocumentView()
@@ -375,8 +376,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const stepsPanelId = `chat-steps-${message.id}`
 
   useEffect(() => {
-    setStepsOpen(isStreaming)
-  }, [isStreaming, message.id])
+    setStepsOpen(false)
+    setSourcesOpen(false)
+  }, [message.id])
 
   useEffect(() => {
     return () => {
@@ -414,7 +416,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     try {
       await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
     } catch {
-      // ignore
+      // 诊断复制失败不影响消息阅读。
     }
   }, [message.citations, message.id, message.message_metadata])
 
@@ -584,7 +586,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   const canRate = (() => {
     if (isUser) return false
     if (isStreaming) return false
-    // Feedback API requires persisted assistant message UUID.
+    // 反馈接口只接受已经持久化的助手消息 UUID。
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(message.id)
   })()
 
@@ -686,12 +688,12 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 	    >
       {!isUser && (
         <div className={cn(
-          "flex-shrink-0 flex items-center justify-center shadow-sm mt-0.5 transition-all duration-300",
+          "mt-0.5 flex shrink-0 items-center justify-center border transition-colors duration-200",
           variant === 'minimal' 
-            ? "size-8 rounded-full bg-background/90 border border-border/50 group-hover:border-primary/25 group-hover:shadow-md" 
-            : "w-8 h-8 rounded-xl bg-accent/15 border border-accent/30"
+            ? "size-8 rounded-md border-border bg-background group-hover:border-primary/40"
+            : "size-8 rounded-md border-border bg-muted"
         )}>
-          <Bot className={cn("size-4", variant === 'minimal' ? "text-primary/60 group-hover:text-primary" : "text-accent")} />
+          <Bot className={cn("size-4", variant === 'minimal' ? "text-primary/70 group-hover:text-primary" : "text-primary")} />
         </div>
       )}
 
@@ -699,16 +701,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           layout={!reduceMotion && isStreaming}
           transition={streamingLayoutTransition}
 	        className={cn(
-          'relative text-[15px] transition-all duration-300 motion-reduce:transition-none',
+          'text-[15px] transition-colors duration-200 motion-reduce:transition-none',
             variant === 'minimal' 
               ? (isUser 
-                  ? 'max-w-[78%] px-4 py-3 rounded-2xl rounded-br-md border border-[#BDE0FE] bg-[#A2D2FF] text-black shadow-sm backdrop-blur-sm'
-                  : 'max-w-[88%] px-4 py-3 flex-1 rounded-2xl rounded-bl-md border border-border/60 bg-background/92 text-foreground shadow-sm backdrop-blur-sm'
+                  ? 'max-w-[78%] rounded-lg bg-primary px-4 py-3 text-primary-foreground'
+                  : 'max-w-[88%] flex-1 rounded-lg border border-border bg-background px-4 py-3 text-foreground'
                 )
               : (isUser 
-                  ? 'max-w-3xl px-6 py-4 rounded-2xl rounded-tr-sm border border-[#8FC8E8] bg-[#AAD9F2] text-[#17384D] shadow-sm backdrop-blur-sm'
+                  ? 'max-w-3xl rounded-lg bg-primary px-5 py-4 text-primary-foreground'
                   : cn(
-                      'max-w-3xl px-6 py-4 glass-card text-foreground rounded-2xl rounded-tl-sm border border-border/60 border-l-4 hover:shadow-lg hover:shadow-primary/10',
+                      'max-w-3xl rounded-lg border border-border border-l-4 bg-background px-5 py-4 text-foreground',
                       confidenceMeta?.lineClass || 'border-l-primary/30'
                     )
                 ),
@@ -716,7 +718,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 	        )}
           style={undefined}
 	      >
-          {/* AI 消息 Header (Minimal 模式独有) */}
+          {/* 精简模式下的助手消息头部。 */}
           {!isUser && variant === 'minimal' && (
             <div className="flex items-center gap-2 mb-2.5">
               <span className="text-[11px] font-semibold text-foreground/80">{BRAND_CONFIG.name}</span>
@@ -734,7 +736,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-              className="mb-4 overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.035] motion-safe:animate-fade-in"
+              className="mb-4 overflow-hidden rounded-md border border-border bg-muted/30 motion-safe:animate-fade-in"
             >
               <button
                 type="button"
@@ -751,8 +753,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase text-primary/75">思考路径</span>
-                    <span className="rounded-full border border-primary/15 bg-background/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-foreground">思考路径</span>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {message.steps.length} 步
                     </span>
                   </div>
@@ -806,24 +808,19 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <button
               type="button"
               onClick={() => setDiagOpen(true)}
-              aria-label="Diagnostics"
+              aria-label="查看检索诊断"
               title="检索诊断"
-              className={cn(
-                'absolute bottom-2 right-11 z-10 rounded-md p-1 transition-colors duration-200 motion-reduce:transition-none',
-                'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-opacity transition-transform',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
-                'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              )}
+              className="float-right mb-3 ml-1 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
               <BarChart3 className="size-3.5" />
             </button>
 
 	            <Dialog open={diagOpen} onOpenChange={setDiagOpen}>
-	              <DialogContent className="max-w-4xl border border-border bg-popover text-popover-foreground p-0 overflow-hidden shadow-strong sm:rounded-2xl">
+	              <DialogContent className="max-w-4xl overflow-hidden border border-border bg-popover p-0 text-popover-foreground shadow-lg sm:rounded-lg">
                   <DialogHeader className="px-6 py-5 border-b border-border bg-card">
                     <div className="flex items-start justify-between gap-4">
                       <DialogTitle className="flex items-center gap-3">
-                        <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+                        <div className="flex size-10 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
                           <BarChart3 className="size-5" aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
@@ -1036,15 +1033,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         <button
           type="button"
           onClick={handleCopy}
-          aria-label={copied ? 'Copied' : 'Copy message'}
-          title={copied ? 'Copied' : 'Copy'}
-	          className={cn(
-	            'absolute z-10 rounded-md p-1 transition-colors duration-200 motion-reduce:transition-none',
-              isUser ? 'bottom-0 right-0 translate-x-1/4 translate-y-1/4 border border-border/60 bg-background/95 shadow-sm' : 'bottom-2 right-2',
-	            'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-opacity transition-transform',
-	            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
-	            'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-	          )}
+          aria-label={copied ? '已复制消息' : '复制消息'}
+          title={copied ? '已复制' : '复制'}
+	        className={cn(
+            'float-right mb-3 ml-1 inline-flex size-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+            isUser
+              ? 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )}
 	        >
           {copied ? (
             <Check className="size-3.5" />
@@ -1052,14 +1048,15 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <Copy className="size-3.5" />
           )}
         </button>
+        <div className="h-0 clear-both" aria-hidden="true" />
 
         {!isUser && (confidenceMeta || citationPreviewRows.length > 0) && (
-          <div className="mb-4 space-y-3 pr-16">
+          <div className="mb-4 space-y-3">
             {confidenceMeta && confidenceScore != null ? (
               <div className="flex flex-wrap items-center gap-2">
                 <div
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold tabular-nums',
+                    'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold tabular-nums',
                     confidenceMeta.badgeClass
                   )}
                 >
@@ -1073,7 +1070,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
             {citationPreviewRows.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+                <div className="text-xs font-medium text-muted-foreground">
                   来源速览
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -1084,9 +1081,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                         key={citationKey}
                         type="button"
                         onClick={() => handleOpenCitation(citation)}
-                        className="flex shrink-0 items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/25 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                       >
-                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/10 px-1.5 text-[11px] font-semibold text-primary">
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-primary/10 px-1.5 text-[11px] font-semibold text-primary">
                           {idx + 1}
                         </span>
                         <span className="max-w-[180px] truncate font-medium">{citation.document_name}</span>
@@ -1097,9 +1094,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                     )
                   })}
                   {citationRows.length > citationPreviewRows.length ? (
-                    <div className="flex shrink-0 items-center rounded-full border border-dashed border-border/70 px-3 py-1.5 text-xs text-muted-foreground">
-                      +{citationRows.length - citationPreviewRows.length} 条来源
-                    </div>
+                    <button
+                      type="button"
+                      className="flex shrink-0 items-center rounded-md border border-dashed border-border px-3 py-1.5 text-xs text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      onClick={() => setSourcesOpen(true)}
+                    >
+                      查看全部 {citationRows.length} 条
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -1140,15 +1141,19 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         )}
 
         {!isUser && (citationRows.length > 0 || claimEvidenceCount > 0) && (
-          <details className="mt-5 overflow-hidden rounded-2xl border border-border/60 bg-background/35 open:bg-background/45">
+          <details
+            open={sourcesOpen}
+            onToggle={(event) => setSourcesOpen(event.currentTarget.open)}
+            className="mt-5 overflow-hidden rounded-lg border border-border bg-background"
+          >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+                <div className="text-xs font-medium text-foreground">
                   来源与证据
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {citationRows.length ? `${citationRows.length} 条来源` : '暂无引用来源'}
-                  {claimEvidenceCount > 0 ? ` · ${claimEvidenceCount} 条 claim evidence` : ''}
+                  {claimEvidenceCount > 0 ? ` · ${claimEvidenceCount} 条证据关系` : ''}
                 </div>
               </div>
               <span className="text-[11px] text-muted-foreground">展开详情</span>
@@ -1156,7 +1161,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             <div className="space-y-4 border-t border-border/50 px-4 py-4">
               {citationRows.length > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                     <Database className="size-3" />
                     参考来源
                   </div>
@@ -1172,8 +1177,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {claimEvidenceCount > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
-                      Claim Evidence
+                    <div className="text-xs font-medium text-muted-foreground">
+                      证据关系
                     </div>
                     <div className="text-[11px] text-muted-foreground">{claimEvidenceCount} 条</div>
                   </div>
@@ -1184,7 +1189,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                       return (
                         <div
                           key={claim || evidence.map(claimEvidenceReferenceKey).join(':') || `claim-${idx}`}
-                          className="rounded-xl border border-border/60 bg-card/70 p-3"
+                          className="rounded-md border border-border bg-card p-3"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 text-sm font-medium leading-6 text-foreground/90">
@@ -1212,7 +1217,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                                     disabled={disabled}
                                     onClick={() => handleOpenEvidence(ev)}
                                     className={cn(
-                                      'w-full rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-left transition-colors',
+                                      'w-full rounded-md border border-border bg-background px-3 py-2 text-left transition-colors',
                                       disabled
                                         ? 'cursor-not-allowed opacity-60'
                                         : 'hover:border-primary/25 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60'
@@ -1262,10 +1267,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         )}
 
          {!isUser && canRate && (
-           <details className="mt-4 overflow-hidden rounded-2xl border border-border/60 bg-background/35 open:bg-background/45">
+           <details className="mt-4 overflow-hidden rounded-lg border border-border bg-background">
              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
                <div>
-                 <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80">
+                 <div className="text-xs font-medium text-foreground">
                   反馈评分
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -1378,7 +1383,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
        </motion.div>
 
       {isUser && (
-        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary text-xs font-bold shadow-sm">
+        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-bold text-primary">
           <User className="size-4" />
         </div>
       )}
