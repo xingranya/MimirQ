@@ -1086,9 +1086,9 @@ test.describe('management surfaces smoke', () => {
 
     for (const route of routes) {
       await test.step(route, async () => {
-        const response = await page.request.get(route, { failOnStatusCode: false })
+        const response = await page.goto(route, { waitUntil: 'domcontentloaded' })
+        if (!response) throw new Error(`${route} did not return a document response`)
         expect(response.status()).toBeLessThan(400)
-        await page.goto(route, { waitUntil: 'domcontentloaded' })
         await expect(page, `${route} redirected to authentication`).not.toHaveURL(/\/auth(?:\?|$)/)
       })
     }
