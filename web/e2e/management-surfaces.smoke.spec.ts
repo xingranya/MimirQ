@@ -532,7 +532,7 @@ test.describe('management surfaces smoke', () => {
 
   test('loads evaluations page with conversation and run data', async ({ page }) => {
     await page.goto('/evaluations')
-    await expect(page.getByText('评测中心')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByRole('heading', { name: '实时会话评分' })).toBeVisible({ timeout: 60_000 })
     await expect(page.getByRole('combobox').first()).toContainText('Smoke Conversation')
   })
 
