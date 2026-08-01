@@ -73,6 +73,18 @@ describe('useDocumentViewerPanelState document switching', () => {
     return <div data-document-id={state.doc?.id || ''} />
   }
 
+  function LayoutProbe() {
+    const state = useDocumentViewerPanelState()
+    return (
+      <button
+        type="button"
+        data-expanded={String(state.isExpanded)}
+        data-text-mode={state.textMode}
+        onClick={() => state.setIsExpanded(!state.isExpanded)}
+      />
+    )
+  }
+
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
@@ -80,6 +92,7 @@ describe('useDocumentViewerPanelState document switching', () => {
     mocks.getDocument.mockReset()
     mocks.view.getDocumentLayout.mockReset()
     mocks.view.getDocumentLayout.mockReturnValue(null)
+    mocks.view.setDocumentLayout.mockReset()
     mocks.view.documentId = 'doc-a'
     mocks.view.documentLayouts = {}
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -122,5 +135,22 @@ describe('useDocumentViewerPanelState document switching', () => {
 
     expect(mocks.getDocument).toHaveBeenCalledTimes(1)
     expect(container.firstElementChild?.getAttribute('data-document-id')).toBe('doc-a')
+  })
+
+  it('restores an expanded layout without overwriting it during initialization', async () => {
+    mocks.getDocument.mockResolvedValue({ id: 'doc-a' } as never)
+    mocks.view.getDocumentLayout.mockReturnValue({ isExpanded: true, textMode: 'original' } as never)
+
+    await act(async () => root.render(<LayoutProbe />))
+
+    expect(container.firstElementChild?.getAttribute('data-expanded')).toBe('true')
+    expect(container.firstElementChild?.getAttribute('data-text-mode')).toBe('original')
+    expect(mocks.view.setDocumentLayout).not.toHaveBeenCalled()
+
+    await act(async () => {
+      ;(container.firstElementChild as HTMLButtonElement).click()
+    })
+
+    expect(mocks.view.setDocumentLayout).toHaveBeenCalledWith('doc-a', { isExpanded: false })
   })
 })

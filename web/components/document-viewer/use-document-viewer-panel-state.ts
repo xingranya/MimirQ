@@ -463,10 +463,21 @@ export function useDocumentViewerPanelState() {
     [highlightChunk, highlightRange, previewAnchor]
   )
 
-  React.useEffect(() => {
-    if (!documentId) return
-    persistDocumentLayout({ isExpanded }, true)
-  }, [documentId, isExpanded, persistDocumentLayout])
+  const handleExpandedChange = React.useCallback(
+    (nextExpanded: boolean) => {
+      setIsExpanded(nextExpanded)
+      persistDocumentLayout({ isExpanded: nextExpanded }, true)
+    },
+    [persistDocumentLayout]
+  )
+
+  const handleTextModeChange = React.useCallback(
+    (nextTextMode: "cleaned" | "original") => {
+      setTextMode(nextTextMode)
+      persistDocumentLayout({ textMode: nextTextMode }, true)
+    },
+    [persistDocumentLayout]
+  )
 
   const setPanelWidthPx = React.useCallback(
     (nextWidthPx: number) => {
@@ -477,11 +488,6 @@ export function useDocumentViewerPanelState() {
     },
     [persistDocumentLayout]
   )
-
-  React.useEffect(() => {
-    if (!documentId) return
-    persistDocumentLayout({ textMode }, true)
-  }, [documentId, textMode, persistDocumentLayout])
 
   React.useEffect(() => {
     if (!documentId) return
@@ -1166,7 +1172,7 @@ export function useDocumentViewerPanelState() {
     setChunkEditorStartChar,
     setChunkQuery,
     setHighlightChunk,
-    setIsExpanded,
+    setIsExpanded: handleExpandedChange,
     setPanelWidthPx,
     setLoadAllChunks,
     setQaMaxSourceChars,
@@ -1176,7 +1182,7 @@ export function useDocumentViewerPanelState() {
     setRetrieveCitations,
     setRetrieveError,
     setRetrieveQuery,
-    setTextMode,
+    setTextMode: handleTextModeChange,
     submitChunkEditor,
     textActiveChunkIndex,
     textChunkItems,
