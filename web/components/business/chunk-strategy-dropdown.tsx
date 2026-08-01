@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 import {
   buildChunkStrategyCatalog,
   getChunkStrategyOption,
@@ -191,7 +192,10 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
     menu = createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[1000] overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+          className={cn(
+            'fixed overflow-hidden rounded-lg border border-border bg-card shadow-lg',
+            UI_LAYER_CLASS.contextual
+          )}
           style={{
             left: menuRect.left,
             width: menuRect.width,

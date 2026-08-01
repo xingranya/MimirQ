@@ -11,6 +11,7 @@ import { PreviewTabPanel } from "@/components/document-viewer/preview-tab-panel"
 import { QAGenerationDialog } from "@/components/document-viewer/qa-generation-dialog"
 import { TextTabPanel } from "@/components/document-viewer/text-tab-panel"
 import { cn, detachPromise } from "@/lib/utils"
+import { UI_LAYER_CLASS } from "@/lib/ui-layers"
 
 import type { DocumentViewerPanelState } from "./use-document-viewer-panel-state"
 
@@ -236,7 +237,8 @@ export function DocumentViewerPanelShell({
         ref={panelRef}
         style={panelStyle}
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex flex-col border-l border-sidebar-border/70 bg-sidebar/90 backdrop-blur-xl shadow-strong",
+          "fixed inset-y-0 right-0 flex flex-col border-l border-sidebar-border bg-background shadow-lg",
+          UI_LAYER_CLASS.documentPanel,
           isResizing ? "select-none" : "transition-[width] duration-150 ease-out motion-reduce:transition-none",
           isExpanded
             ? "w-full md:w-[80vw]"
@@ -288,7 +290,7 @@ export function DocumentViewerPanelShell({
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex min-h-0 flex-1 flex-col">
-            <div className="border-b border-sidebar-border/70 bg-sidebar/75 px-4 backdrop-blur-xl">
+            <div className="border-b border-sidebar-border bg-background px-4">
               <TabsList className="h-10 w-full justify-start gap-6 bg-transparent p-0">
                 <TabsTrigger
                   value="preview"

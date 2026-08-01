@@ -10,7 +10,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SonnerToaster } from "@/components/sonner-toaster"
 import { CommandMenu } from "@/components/command-menu"
 import { FluidCursor } from "@/components/ui/fluid-cursor"
-import { TaskCenter } from "@/components/task-center"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { ServiceWorkerRegistrar } from "@/components/providers/service-worker-registrar"
 import { WebVitalsReporter } from "@/components/providers/web-vitals-reporter"
@@ -93,7 +92,6 @@ export default async function RootLayout({
               <CommandMenu />
               <RouteScrollReset />
               {enableFluidCursor ? <FluidCursor /> : null}
-              <TaskCenter />
               <AuthGuard>{children}</AuthGuard>
             </QueryProvider>
           </ThemeProvider>

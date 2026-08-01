@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { X, Mic, MicOff } from "lucide-react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import { UI_LAYER_CLASS } from "@/lib/ui-layers"
+import { cn } from "@/lib/utils"
 
 interface VoiceModeOverlayProps {
     isOpen: boolean
@@ -207,7 +209,10 @@ export function VoiceModeOverlay({ isOpen, onClose, onSend }: Readonly<VoiceMode
 	                initial={reduceMotion ? false : { opacity: 0 }}
 	                animate={{ opacity: 1 }}
 	                exit={reduceMotion ? undefined : { opacity: 0 }}
-	                className="fixed inset-0 z-100 bg-background text-foreground flex flex-col items-center justify-center"
+	                className={cn(
+	                    "fixed inset-0 flex flex-col items-center justify-center bg-background text-foreground",
+	                    UI_LAYER_CLASS.immersive
+	                )}
 	            >
 		                <div className="absolute inset-0" aria-hidden="true">
 		                    <canvas ref={canvasRef} className="absolute inset-0" />

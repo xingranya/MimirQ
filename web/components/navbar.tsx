@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 import { BRAND_CONFIG } from '@/lib/brand'
 import { ModeToggle } from '@/components/mode-toggle'
 import { ThemeCustomizer } from '@/components/theme-customizer'
+import { TaskCenter } from '@/components/task-center'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuth } from '@/hooks/use-auth'
 import { useBackendMetaDetails } from '@/hooks/use-backend-meta'
@@ -44,6 +45,7 @@ import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { useCommandMenuState } from '@/store/command-menu'
 import { TENANT_PERMISSIONS, tenantAccessAllows, type TenantPermission } from '@/lib/tenant-permissions'
 import { canShowAdminControlledNavigationModule, type AdminControlledNavigationModule } from '@/lib/navigation-visibility'
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 
 type SectionId = 'conversation' | 'knowledge' | 'analysis' | 'system'
 
@@ -493,7 +495,10 @@ export function Navbar({
         <button
           type="button"
           aria-label={t('toolbar.sidebarClose')}
-          className="fixed inset-0 z-40 bg-black/50 transition-opacity md:hidden border-0 p-0 focus:outline-none"
+          className={cn(
+            'fixed inset-0 border-0 bg-black/35 p-0 transition-opacity focus:outline-none md:hidden',
+            UI_LAYER_CLASS.navigationOverlay
+          )}
           onClick={() => {
             restoreToggleFocusOnCloseRef.current = false
             setSidebarOpen(false)
@@ -506,7 +511,8 @@ export function Navbar({
         ref={navRef}
         aria-label={t('toolbar.navLabel')}
         className={cn(
-          'peer flex-shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col transition-[width,transform] duration-200 ease-out z-50',
+          'peer flex-shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col transition-[width,transform] duration-200 ease-out',
+          UI_LAYER_CLASS.navigation,
           'fixed inset-y-0 left-0 md:relative', // 移动端固定覆盖，桌面端参与布局。
           isSidebarOpen ? 'w-56 translate-x-0' : 'w-56 -translate-x-full md:w-14 md:translate-x-0 md:overflow-hidden'
         )}
@@ -567,6 +573,8 @@ export function Navbar({
                   )
                 })}
               </div>
+
+              <TaskCenter compact side="right" align="end" />
 
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -809,6 +817,7 @@ export function Navbar({
                 </Button>
               }
             />
+            {isSidebarOpen ? <TaskCenter compact side="right" align="end" /> : null}
             <Popover>
               <PopoverTrigger asChild>
                 <button

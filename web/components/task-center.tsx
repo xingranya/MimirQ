@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { documentApi } from '@/lib/api'
-import { Loader2, AlertCircle, X, Ban, RotateCcw, ArrowUpRight, Settings2 } from 'lucide-react'
+import { Loader2, AlertCircle, X, Ban, RotateCcw, ArrowUpRight, ListTodo } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
 import { Button } from './ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { ScrollArea } from './ui/scroll-area'
 import { toast } from 'sonner'
 import { usePathname, useRouter } from '@/i18n/navigation'
@@ -26,7 +27,17 @@ const TASK_CENTER_ACTIVE_ROUTE_PREFIXES = [
 const ACTIVE_TASK_POLL_MS = 5000
 const IDLE_TASK_DISCOVERY_POLL_MS = 60000
 
-export function TaskCenter() {
+type TaskCenterProps = {
+  align?: 'start' | 'center' | 'end'
+  compact?: boolean
+  side?: 'top' | 'right' | 'bottom' | 'left'
+}
+
+export function TaskCenter({
+  align = 'end',
+  compact = false,
+  side = 'right',
+}: Readonly<TaskCenterProps> = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const [acting, setActing] = useState<{ id: string; action: 'cancel' | 'retry' } | null>(null)
   const router = useRouter()
@@ -131,20 +142,26 @@ export function TaskCenter() {
   }
 
   return (
-	      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end supports-[padding:env(safe-area-inset-bottom)]:bottom-[calc(env(safe-area-inset-bottom)+1rem)] supports-[padding:env(safe-area-inset-right)]:right-[calc(env(safe-area-inset-right)+1rem)]">
-	        {isOpen && (
-	            <div className="mb-2 w-[26rem] bg-popover/90 text-popover-foreground backdrop-blur-md border border-border/60 rounded-2xl shadow-strong ring-1 ring-border/40 overflow-hidden animate-in slide-in-from-bottom-5 fade-in motion-reduce:animate-none motion-reduce:transition-none">
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        {isOpen ? (
+            <PopoverContent
+              side={side}
+              align={align}
+              sideOffset={8}
+              collisionPadding={12}
+              className="w-[min(26rem,calc(100vw-1.5rem))] overflow-hidden p-0"
+            >
                 <div className="px-4 py-3 border-b border-border/60 bg-muted/35 flex justify-between items-center">
                     <div className="min-w-0">
                       <h4 className="text-sm font-semibold leading-none text-balance">{t('title')}</h4>
                       <div className="mt-2 flex items-center gap-2">
                         {totalActive > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium ring-1 ring-primary/20">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                             {t('activeBadge')} <span className="tabular-nums">{totalActive}</span>
                           </span>
                         )}
                         {totalFailed > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs font-medium ring-1 ring-destructive/20">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
                             {t('failedBadge')} <span className="tabular-nums">{totalFailed}</span>
                           </span>
                         )}
@@ -180,7 +197,7 @@ export function TaskCenter() {
                         {totalActive > 0 && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between px-1">
-                              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t('sectionActive')}</span>
+                              <span className="text-xs font-medium text-muted-foreground">{t('sectionActive')}</span>
                               <span className="text-xs tabular-nums text-muted-foreground">{totalActive}</span>
                             </div>
                             <div className="space-y-2">
@@ -190,7 +207,7 @@ export function TaskCenter() {
                                 return (
                                   <div
                                     key={doc.id}
-                                    className="group flex items-start gap-3 p-3 rounded-xl border border-border/50 bg-background/50 hover:bg-muted/20 transition-colors"
+                                    className="group flex items-start gap-3 rounded-md border border-border/60 bg-background p-3 transition-colors hover:bg-muted/30"
                                   >
 	                                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
 	                                      <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
@@ -235,17 +252,17 @@ export function TaskCenter() {
                         {totalFailed > 0 && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between px-1">
-                              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t('sectionFailed')}</span>
+                              <span className="text-xs font-medium text-muted-foreground">{t('sectionFailed')}</span>
                               <span className="text-xs tabular-nums text-muted-foreground">{totalFailed}</span>
                             </div>
                             <div className="space-y-2">
                               {failedTasks.map((doc) => {
                                 const isQuarantine = doc.status === 'quarantined'
                                 const containerClass = cn(
-                                  "group flex items-start gap-3 p-3 rounded-xl transition-colors",
+                                  "group flex items-start gap-3 rounded-md border p-3 transition-colors",
                                   isQuarantine
-                                    ? "border border-warning/20 bg-warning/5 hover:bg-warning/10"
-                                    : "border border-destructive/20 bg-destructive/5 hover:bg-destructive/10"
+                                    ? "border-warning/20 bg-warning/5 hover:bg-warning/10"
+                                    : "border-destructive/20 bg-destructive/5 hover:bg-destructive/10"
                                 )
                                 const iconClass = cn(
                                   "mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg",
@@ -298,38 +315,36 @@ export function TaskCenter() {
                         )}
                     </div>
                 </ScrollArea>
-            </div>
-        )}
+            </PopoverContent>
+        ) : null}
 
-        <Button
-          variant="outline"
-          size="icon"
-          className={cn(
-            "group relative rounded-full size-12 shadow-strong bg-background/90 border-primary/20 hover:border-primary transition-colors transition-shadow duration-200 motion-reduce:transition-none",
-            isOpen && "bg-primary/10"
-          )}
-          onClick={() => setIsOpen(v => !v)}
-          aria-label={t('title')}
-          title={t('title')}
-        >
-          <Settings2 className="h-6 w-6 text-primary transition-transform duration-200 motion-reduce:transition-none group-hover:rotate-90" />
-          <span
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size={compact ? 'icon' : 'sm'}
             className={cn(
-              "absolute -top-2 -right-2 inline-flex min-w-5 h-5 items-center justify-center rounded-full text-[11px] px-1 tabular-nums",
-              totalFailed > 0 && totalActive === 0
-                ? "bg-destructive text-destructive-foreground"
-                : "bg-primary text-primary-foreground"
+              'relative shrink-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+              compact ? 'size-9' : 'h-8 gap-2 px-2 text-xs font-medium',
+              isOpen && 'bg-primary/10 text-primary'
             )}
+            aria-label={t('title')}
+            title={t('title')}
           >
-            {totalCount}
-          </span>
-          {totalActive > 0 && (
-            <span className="absolute -top-1 -left-1 flex h-2 w-2">
-              <span className="animate-ping motion-reduce:animate-none absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            <ListTodo className="size-4" aria-hidden="true" />
+            {compact ? null : <span>{t('title')}</span>}
+            <span
+              className={cn(
+                'inline-flex min-w-4 items-center justify-center rounded-md px-1 text-[10px] tabular-nums',
+                compact ? 'absolute -right-1 -top-1 h-4' : 'h-4',
+                totalFailed > 0 && totalActive === 0
+                  ? 'bg-destructive text-destructive-foreground'
+                  : 'bg-primary text-primary-foreground'
+              )}
+            >
+              {totalCount}
             </span>
-          )}
-        </Button>
-    </div>
+          </Button>
+        </PopoverTrigger>
+      </Popover>
   )
 }

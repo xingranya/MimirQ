@@ -280,6 +280,30 @@ describe('TaskCenter auth and polling gates', () => {
     act(() => root.unmount())
   })
 
+  it('uses an in-navigation trigger instead of a fixed viewport button', async () => {
+    documentApiMock.list.mockResolvedValue({
+      items: [
+        {
+          id: 'doc-inline-trigger',
+          filename: 'processing.pdf',
+          status: 'processing',
+        },
+      ],
+    })
+
+    const { container, root } = renderTaskCenter()
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(container.querySelector('[aria-label="title"]')).not.toBeNull()
+      })
+    })
+
+    expect(container.querySelector('.fixed')).toBeNull()
+    expect(container.innerHTML).not.toContain('bottom-4')
+    expect(container.innerHTML).not.toContain('right-4')
+    act(() => root.unmount())
+  })
+
   it('uses the fast poll cadence on task routes for authenticated users', async () => {
     vi.useFakeTimers()
     documentApiMock.list.mockResolvedValue({

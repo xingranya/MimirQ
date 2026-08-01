@@ -19,6 +19,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { datasetApi, documentApi } from '@/lib/api'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
+import { cn } from '@/lib/utils'
 import type { Dataset } from '@/types'
 
 export type DropZoneHandle = {
@@ -172,10 +174,13 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
       />
 
       {overlayVisible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className={cn('fixed inset-0 flex items-center justify-center bg-black/30', UI_LAYER_CLASS.modalOverlay)}>
           <div
             aria-live="polite"
-            className="rounded-3xl border border-dashed border-border/50 bg-background/95 px-10 py-12 text-center shadow-strong"
+            className={cn(
+              'rounded-lg border border-dashed border-border bg-background px-10 py-12 text-center shadow-lg',
+              UI_LAYER_CLASS.modal
+            )}
           >
             <UploadCloud className="mx-auto h-10 w-10 text-info" />
             <p className="mt-4 text-base font-semibold text-foreground">

@@ -109,6 +109,9 @@ vi.mock('@/hooks/use-auth', () => ({
 }))
 
 vi.mock('@/hooks/use-backend-meta', () => ({
+  useBackendMeta: () => ({
+    data: { features: { auth_mode: 'jwt' } },
+  }),
   useBackendMetaDetails: () => ({
     data: null,
   }),
@@ -141,6 +144,10 @@ vi.mock('@/components/mode-toggle', () => ({
 vi.mock('@/components/theme-customizer', () => ({
   ThemeCustomizer: ({ trigger }: { trigger?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'appearance-customizer' }, trigger),
+}))
+
+vi.mock('@/components/task-center', () => ({
+  TaskCenter: () => React.createElement('div', { 'data-testid': 'task-center' }),
 }))
 
 vi.mock('@/components/ui/status-badge', () => ({

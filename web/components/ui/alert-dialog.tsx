@@ -1,9 +1,5 @@
 /**
- * AlertDialog (destructive confirmation) - built on Radix UI.
- *
- * Baseline UI notes:
- * - Used for destructive/irreversible actions (delete, purge, etc.)
- * - Avoid heavy blur backdrops; keep this surface token-driven and fast.
+ * 基于 Radix UI 的危险操作确认框，用于删除、清空等不可逆操作。
  */
 "use client"
 
@@ -13,6 +9,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import type { RadixRef } from "@/lib/radix-utils"
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 
 const AlertDialog = AlertDialogPrimitive.Root
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
@@ -25,7 +22,8 @@ const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200 motion-reduce:animate-none motion-reduce:transition-none",
+      "fixed inset-0 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200 motion-reduce:animate-none motion-reduce:transition-none",
+      UI_LAYER_CLASS.modalOverlay,
       className
     )}
     {...props}
@@ -42,7 +40,8 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-popover text-popover-foreground p-6 shadow-strong will-change-[opacity,transform] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] duration-220 ease-spring motion-reduce:animate-none motion-reduce:transition-none sm:rounded-lg",
+        "fixed left-[50%] top-[50%] grid w-[calc(100%-1.5rem)] max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-popover p-6 text-popover-foreground shadow-lg will-change-[opacity,transform] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] duration-220 ease-spring motion-reduce:animate-none motion-reduce:transition-none sm:rounded-lg",
+        UI_LAYER_CLASS.modal,
         className
       )}
       {...props}

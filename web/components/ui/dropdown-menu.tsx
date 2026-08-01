@@ -6,6 +6,7 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { RadixRef } from "@/lib/radix-utils"
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -48,7 +49,8 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-strong origin-[var(--radix-dropdown-menu-content-transform-origin)] transform-gpu will-change-[opacity,transform] data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out data-[side=bottom]:[--popover-enter-y:-6px] data-[side=top]:[--popover-enter-y:6px] data-[side=left]:[--popover-enter-y:0px] data-[side=right]:[--popover-enter-y:0px] motion-reduce:animate-none motion-reduce:transition-none",
+      "min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg origin-[var(--radix-dropdown-menu-content-transform-origin)] transform-gpu will-change-[opacity,transform] data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out data-[side=bottom]:[--popover-enter-y:-6px] data-[side=top]:[--popover-enter-y:6px] data-[side=left]:[--popover-enter-y:0px] data-[side=right]:[--popover-enter-y:0px] motion-reduce:animate-none motion-reduce:transition-none",
+      UI_LAYER_CLASS.contextual,
       className
     )}
     {...props}
@@ -66,7 +68,8 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-strong origin-[var(--radix-dropdown-menu-content-transform-origin)] transform-gpu will-change-[opacity,transform] data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out data-[side=bottom]:[--popover-enter-y:-6px] data-[side=top]:[--popover-enter-y:6px] data-[side=left]:[--popover-enter-y:0px] data-[side=right]:[--popover-enter-y:0px] motion-reduce:animate-none motion-reduce:transition-none",
+        "min-w-[8rem] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg origin-[var(--radix-dropdown-menu-content-transform-origin)] transform-gpu will-change-[opacity,transform] data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out data-[side=bottom]:[--popover-enter-y:-6px] data-[side=top]:[--popover-enter-y:6px] data-[side=left]:[--popover-enter-y:0px] data-[side=right]:[--popover-enter-y:0px] motion-reduce:animate-none motion-reduce:transition-none",
+        UI_LAYER_CLASS.contextual,
         className
       )}
       {...props}

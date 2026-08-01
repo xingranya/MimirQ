@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "@/i18n/navigation"
 import { globalEventBus } from "@/lib/event-bus"
 import { useDocumentView } from "@/store/document-view"
+import { UI_LAYER_CLASS } from "@/lib/ui-layers"
+import { cn } from "@/lib/utils"
 
 export function FloatingMenu() {
   const router = useRouter()
@@ -117,7 +119,10 @@ export function FloatingMenu() {
   return (
     <div
         ref={menuRef}
-        className="fixed z-60 flex gap-1 p-1 bg-popover text-popover-foreground rounded-lg shadow-strong border border-border/40 animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none"
+        className={cn(
+          "fixed flex gap-1 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none",
+          UI_LAYER_CLASS.contextual
+        )}
         style={{
           top: `max(${position.top}px, calc(env(safe-area-inset-top) + 8px))`,
           left: position.left,
