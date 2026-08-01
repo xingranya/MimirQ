@@ -16,8 +16,8 @@ interface PageHeaderProps {
 }
 
 function getPageHeaderPadding(compact: boolean): string {
-  if (compact) return "px-4 py-3"
-  return "px-5 py-5 md:px-6"
+  if (compact) return "px-0 py-2"
+  return "px-0 py-4"
 }
 
 function getPageHeaderGap(compact: boolean): string {
@@ -26,13 +26,13 @@ function getPageHeaderGap(compact: boolean): string {
 }
 
 function getPageHeaderIconShellClass(compact: boolean): string {
-  if (compact) return "size-14 rounded-2xl"
-  return "size-14 rounded-[22px]"
+  if (compact) return "size-10 rounded-md"
+  return "size-11 rounded-md"
 }
 
 function getPageHeaderTitleClass(compact: boolean): string {
-  if (compact) return "text-[26px] leading-tight tracking-[-0.025em]"
-  return "text-4xl md:text-5xl leading-[1.02] tracking-[-0.03em]"
+  if (compact) return "text-xl leading-7"
+  return "text-2xl leading-8"
 }
 
 function getPageHeaderDescriptionClass(compact: boolean): string {
@@ -97,23 +97,15 @@ export function PageHeader({
         data-testid="page-title-shell"
         className={cn(
           MANAGEMENT_HERO_PANEL_CLASS,
-          compact && "min-h-[95px]",
+          compact && "min-h-[72px]",
           "flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between",
           getPageHeaderPadding(compact)
         )}
       >
-        <div
-          className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.28),transparent)]"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/10 blur-3xl dark:bg-info/[0.08]"
-          aria-hidden="true"
-        />
         <div className={cn("relative flex min-w-0 items-center", children && "@3xl:flex-1", getPageHeaderGap(compact))}>
           {headerIcon ? (
             <div className={cn(
-              "shrink-0 flex items-center justify-center border border-info/18 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.10))] shadow-[inset_0_1px_0_hsl(var(--background)),0_14px_30px_-24px_hsl(var(--info)/0.75)]",
+              "shrink-0 flex items-center justify-center border border-border bg-muted text-primary",
               getPageHeaderIconShellClass(compact)
             )}>
               {headerIcon}
@@ -125,18 +117,16 @@ export function PageHeader({
               {typeof title === 'string' ? (
                 <h1 className={cn(
                   "text-balance text-foreground",
-                  compact ? "font-black" : "font-semibold",
+                  "font-semibold",
                   getPageHeaderTitleClass(compact)
                 )}>
-                  <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                    {title}
-                  </span>
+                  <span>{title}</span>
                 </h1>
               ) : (
                 <div className="w-full">{title}</div>
               )}
               {badge ? (
-                <span className="inline-flex items-center rounded-full border border-info/18 bg-info/[0.08] px-2.5 py-1 text-[11px] font-mono uppercase tracking-[0.14em] text-info tabular-nums backdrop-blur-xl">
+                <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground tabular-nums">
                   {badge}
                 </span>
               ) : null}
