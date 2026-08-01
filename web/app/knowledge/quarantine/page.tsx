@@ -20,7 +20,6 @@ import {
   Settings2,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -787,37 +786,20 @@ export default function QuarantineQueuePage() {
           top={
           <div className="space-y-2.5">
             <div
+              data-management-header="true"
               className={cn(
-                'flex min-h-[95px] min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between',
+                'flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between',
                 KNOWLEDGE_OPS_HERO_PANEL_CLASS
               )}
             >
-              <div className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/10 blur-3xl dark:bg-info/[0.08]" aria-hidden="true" />
-              <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.28),transparent)]" aria-hidden="true" />
               <div className="relative flex min-w-0 items-center gap-3">
-                <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.12))] text-info shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_36px_-24px_hsl(var(--info)/0.9)]">
-                  <span
-                    className="absolute inset-x-2 top-1 h-px bg-card/70"
-                    aria-hidden="true"
-                  />
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted text-primary">
                   <PageTitleIcon name="quarantine-queue" className="size-9" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-info">
-                      <Sparkles className="size-3" />
-                      Quarantine Ops
-                    </span>
-                    <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/5 px-2.5 py-1 text-[10px] font-medium text-warning">
-                      <ShieldCheck className="mr-1.5 size-3" />
-                      样本复核与规则回放
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h1 className="text-[26px] font-black tracking-[-0.025em] text-foreground">
-                      <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                        隔离审核中心
-                      </span>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h1 className="text-xl font-semibold leading-7 text-foreground">
+                      <span>隔离审核中心</span>
                     </h1>
                     <p className="text-[13px] leading-5 text-muted-foreground/85">
                       集中复核隔离样本，支持原文预览、规则调参与回放。
@@ -866,7 +848,7 @@ export default function QuarantineQueuePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 gap-2 rounded-xl border-primary/35 bg-background px-4 text-[12px] font-medium text-primary shadow-[0_16px_30px_-26px_hsl(var(--primary)/0.55)] hover:bg-primary/10"
+                      className="h-8 gap-2 px-3 text-xs"
                       onClick={handleExitDemoMode}
                     >
                       <Play className="size-4 fill-current" />
@@ -876,7 +858,7 @@ export default function QuarantineQueuePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-2 rounded-xl border-info/25 bg-info/[0.06] px-3.5 text-[12px] font-medium text-info shadow-[0_12px_24px_-22px_hsl(var(--info)/0.5)] hover:border-info/40 hover:bg-info/[0.12] hover:text-info"
+                    className="h-8 gap-2 px-3 text-xs"
                     onClick={() => {
                       if (demoMode) {
                         toast.success('Demo 数据已刷新')
@@ -896,7 +878,7 @@ export default function QuarantineQueuePage() {
                     同步数据
                   </Button>
 
-                  <div className="flex h-8 items-center gap-2 rounded-xl border border-transparent bg-background/70 px-2.5">
+                  <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2.5">
                     <span className="text-[11px] font-medium text-muted-foreground">
                       自动刷新
                     </span>

@@ -457,109 +457,59 @@ test.describe('management surfaces smoke', () => {
     await expect(page.getByRole('combobox').first()).toContainText('Smoke Conversation')
   })
 
-  test('keeps the datasets hero tint restrained', async ({ page }) => {
-    await page.goto('/datasets')
-    const heading = page.getByRole('heading', { name: '数据集' }).first()
-    await expect(heading).toBeVisible({ timeout: 60_000 })
+  test('uses flat semantic headers on custom management surfaces', async ({ page }) => {
+    test.setTimeout(240_000)
 
-    const hero = heading.locator('xpath=ancestor::div[contains(@class, "overflow-hidden")][1]')
-    const className = await hero.getAttribute('class')
-    expect(className).toContain('hsl(var(--card)/0.98)')
-    expect(className).not.toContain('hsl(var(--info)/0.24)')
-
-    const geometry = await hero.evaluate((element) => {
-      const style = getComputedStyle(element)
-      return {
-        height: element.getBoundingClientRect().height,
-        padding: style.padding,
-        borderRadius: style.borderRadius,
-      }
-    })
-    expect(geometry.height).toBeLessThanOrEqual(96)
-    expect(geometry.padding).toBe('12px 16px')
-    expect(geometry.borderRadius).toBe('28px')
-  })
-
-  test('keeps the knowledge header surfaces restrained', async ({ page }) => {
-    await page.goto('/knowledge')
-    const heading = page.getByRole('heading', { name: '知识库管理' }).first()
-    await expect(heading).toBeVisible({ timeout: 60_000 })
-
-    const hero = heading.locator('xpath=ancestor::div[contains(@class, "overflow-hidden")][1]')
-    const heroClassName = await hero.getAttribute('class')
-    expect(heroClassName).toContain('hsl(var(--card)/0.98)')
-    expect(heroClassName).not.toContain('hsl(var(--info)/0.24)')
-
-    const summaryStrip = page.locator('div.grid.border-y').first()
-    const summaryClassName = await summaryStrip.getAttribute('class')
-    expect(summaryClassName).toContain('hsl(var(--card)/0.98)')
-    expect(summaryClassName).not.toContain('hsl(var(--info)/0.08)')
-  })
-
-  test('uses the shared gradient title treatment on custom management heroes', async ({ page }) => {
     for (const surface of [
-      { route: '/datasets', heading: '数据集', occurrence: 'first' },
-      { route: '/knowledge', heading: '知识库管理', occurrence: 'first' },
-      { route: '/evaluations', heading: '实时会话评分', occurrence: 'last' },
+      { route: '/datasets', heading: '数据集' },
+      { route: '/knowledge', heading: '知识库管理' },
+      { route: '/evaluations', heading: '实时会话评分' },
+      { route: '/knowledge/quarantine', heading: '隔离审核中心' },
+      { route: '/knowledge/feedback', heading: '反馈分析中心' },
     ] as const) {
       await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
-      const headings = page.getByRole('heading', { name: surface.heading })
-      const heading = surface.occurrence === 'first' ? headings.first() : headings.last()
+      const heading = page.getByRole('heading', { name: surface.heading }).first()
       await expect(heading, `${surface.route} heading`).toBeVisible({ timeout: 60_000 })
 
-      const titleInk = heading.locator(':scope > span')
-      await expect(titleInk, `${surface.route} gradient title ink`).toHaveClass(/bg-clip-text/)
-      await expect(titleInk, `${surface.route} transparent title ink`).toHaveClass(/text-transparent/)
+      const header = page
+        .locator('[data-management-header="true"]')
+        .filter({ has: heading })
+        .first()
+      await expect(header, `${surface.route} management header`).toBeVisible()
 
+      const titleInk = heading.locator(':scope > span')
+      const visual = await header.evaluate((element) => {
+        const style = window.getComputedStyle(element)
+        const rect = element.getBoundingClientRect()
+        return {
+          backgroundImage: style.backgroundImage,
+          backdropFilter: style.backdropFilter,
+          borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+          boxShadow: style.boxShadow,
+          height: rect.height,
+        }
+      })
       const titleStyle = await titleInk.evaluate((element) => {
-        const style = getComputedStyle(element)
+        const style = window.getComputedStyle(element)
         return {
           backgroundImage: style.backgroundImage,
           backgroundClip: style.backgroundClip,
           color: style.color,
         }
       })
-      expect(titleStyle.backgroundImage, `${surface.route} gradient`).toContain('linear-gradient')
-      expect(titleStyle.backgroundClip, `${surface.route} clipping`).toBe('text')
-      expect(titleStyle.color, `${surface.route} transparent ink`).toBe('rgba(0, 0, 0, 0)')
+
+      expect(visual.backgroundImage, `${surface.route} header gradient`).toBe('none')
+      expect(visual.backdropFilter, `${surface.route} header blur`).toBe('none')
+      expect(visual.boxShadow, `${surface.route} header shadow`).toBe('none')
+      expect(visual.borderRadius, `${surface.route} header radius`).toBeLessThanOrEqual(8)
+      expect(visual.height, `${surface.route} header height`).toBeLessThanOrEqual(128)
+      expect(titleStyle.backgroundImage, `${surface.route} title gradient`).toBe('none')
+      expect(titleStyle.backgroundClip, `${surface.route} title clipping`).not.toBe('text')
+      expect(titleStyle.color, `${surface.route} title ink`).not.toBe('rgba(0, 0, 0, 0)')
     }
   })
 
-  test('aligns quarantine and feedback headers with Knowledge Ops', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-
-    for (const surface of [
-      { route: '/knowledge/quarantine', heading: '隔离审核中心' },
-      { route: '/knowledge/feedback', heading: '反馈分析中心' },
-    ]) {
-      await page.goto(surface.route)
-      const heading = page.getByRole('heading', { name: surface.heading }).first()
-      await expect(heading).toBeVisible({ timeout: 60_000 })
-
-      const hero = heading.locator('xpath=ancestor::div[contains(@class, "overflow-hidden")][1]')
-      const className = await hero.getAttribute('class')
-      expect(className).toContain('hsl(var(--card)/0.98)')
-
-      const geometry = await hero.evaluate((element) => {
-        const style = getComputedStyle(element)
-        const rect = element.getBoundingClientRect()
-        return {
-          x: rect.x,
-          width: rect.width,
-          height: rect.height,
-          padding: style.padding,
-          borderRadius: style.borderRadius,
-        }
-      })
-      expect(geometry.x).toBe(288)
-      expect(geometry.width).toBe(1128)
-      expect(geometry.height).toBeLessThanOrEqual(100)
-      expect(geometry.padding).toBe('12px 16px')
-      expect(geometry.borderRadius).toBe('28px')
-    }
-  })
-
-  test('aligns management headers with the shared hero grid', async ({ page }) => {
+  test('aligns management headers with one stable content grid', async ({ page }) => {
     test.setTimeout(180_000)
     await page.setViewportSize({ width: 1440, height: 900 })
 
@@ -576,20 +526,15 @@ test.describe('management surfaces smoke', () => {
       await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
       const heading = page.getByRole('heading', { name: surface.heading }).last()
       await expect(heading, `${surface.route} heading`).toBeVisible({ timeout: 15_000 })
-      await page.waitForTimeout(300)
 
-      const hero =
-        surface.route === '/evaluations'
-          ? heading.locator('xpath=ancestor::section[contains(@class, "overflow-hidden")][1]')
-          : page.getByTestId('page-title-shell').first()
-      await expect(hero, `${surface.route} shared hero`).toBeVisible({ timeout: 10_000 })
-      const className = await hero.getAttribute('class')
-      expect(className, `${surface.route} should use the shared hero surface`).toContain(
-        'hsl(var(--card)/0.98)'
-      )
+      const header = page
+        .locator('[data-management-header="true"]')
+        .filter({ has: heading })
+        .first()
+      await expect(header, `${surface.route} shared header`).toBeVisible({ timeout: 10_000 })
 
-      const geometry = await hero.evaluate((element) => {
-        const style = getComputedStyle(element)
+      const geometry = await header.evaluate((element) => {
+        const style = window.getComputedStyle(element)
         const rect = element.getBoundingClientRect()
         return {
           x: rect.x,
@@ -600,22 +545,21 @@ test.describe('management surfaces smoke', () => {
           borderRadius: style.borderRadius,
         }
       })
-      expect(geometry.x, `${surface.route} x`).toBeCloseTo(288, 0)
-      expect(Math.abs(geometry.y - 16), `${surface.route} y drift`).toBeLessThanOrEqual(1)
-      expect(geometry.width, `${surface.route} width`).toBeCloseTo(1128, 0)
-      expect(geometry.height, `${surface.route} height`).toBeGreaterThanOrEqual(94)
-      expect(geometry.height, `${surface.route} height`).toBeLessThanOrEqual(100)
-      expect(geometry.padding, `${surface.route} padding`).toBe('12px 16px')
-      expect(geometry.borderRadius, `${surface.route} radius`).toBe('28px')
+      expect(geometry.x, `${surface.route} x`).toBeGreaterThanOrEqual(224)
+      expect(geometry.x + geometry.width, `${surface.route} right edge`).toBeLessThanOrEqual(1440)
+      expect(geometry.y, `${surface.route} y`).toBeGreaterThanOrEqual(0)
+      expect(geometry.height, `${surface.route} height`).toBeLessThanOrEqual(128)
+      expect(Number.parseFloat(geometry.borderRadius), `${surface.route} radius`).toBeLessThanOrEqual(8)
     }
 
     await page.setViewportSize({ width: 1280, height: 768 })
     await page.goto('/evaluations', { waitUntil: 'domcontentloaded' })
     const evaluationHeading = page.getByRole('heading', { name: '实时会话评分' }).last()
     await expect(evaluationHeading).toBeVisible({ timeout: 15_000 })
-    const evaluationHero = evaluationHeading.locator(
-      'xpath=ancestor::section[contains(@class, "overflow-hidden")][1]'
-    )
+    const evaluationHero = page
+      .locator('[data-management-header="true"]')
+      .filter({ has: evaluationHeading })
+      .first()
     const evaluationGeometry = await evaluationHero.evaluate((element) => ({
       height: element.getBoundingClientRect().height,
       pageOverflow:

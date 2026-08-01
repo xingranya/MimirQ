@@ -1287,7 +1287,7 @@ export default function FeedbackTriagePage() {
         iconColor="text-indigo dark:text-indigo"
         size="full"
         showHeader={false}
-        topClassName="w-full max-w-none px-4 pt-4 pb-2.5 md:px-5 lg:px-6 bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.04),transparent_34rem)]"
+        topClassName="w-full max-w-none px-4 pt-4 pb-2.5 md:px-5 lg:px-6"
         description={
           <div className="flex flex-wrap items-center gap-2 text-[12px] leading-5 text-muted-foreground">
             <span>汇总点赞、点踩与低分原因，快速定位需要回归验证的反馈。</span>
@@ -1304,31 +1304,16 @@ export default function FeedbackTriagePage() {
         }
         top={
           <div className="space-y-3">
-            <div className={cn(KNOWLEDGE_OPS_HERO_PANEL_CLASS, 'min-h-[95px]')}>
-              <div className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/10 blur-3xl dark:bg-info/[0.08]" aria-hidden="true" />
-              <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.28),transparent)]" aria-hidden="true" />
+            <div data-management-header="true" className={KNOWLEDGE_OPS_HERO_PANEL_CLASS}>
               <div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.12))] text-info shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_36px_-24px_hsl(var(--info)/0.9)]">
-                    <span className="absolute inset-x-2 top-1 h-px bg-card/70" aria-hidden="true" />
+                  <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted text-primary">
                     <PageTitleIcon name="feedback-quality" className="size-9" />
                   </div>
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-info">
-                        <MessageSquare className="size-3" />
-                        Feedback Ops
-                      </span>
-                      <span className="inline-flex items-center rounded-full border border-indigo/20 bg-indigo/[0.08] px-2.5 py-1 text-[10px] font-medium text-indigo dark:text-indigo">
-                        <TestTube2 className="mr-1.5 size-3" />
-                        回归线索与质量闭环
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h1 className="text-[26px] font-black tracking-[-0.025em] text-foreground">
-                        <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                          反馈分析中心
-                        </span>
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h1 className="text-xl font-semibold leading-7 text-foreground">
+                        <span>反馈分析中心</span>
                       </h1>
                       <p className="text-[13px] leading-5 text-muted-foreground/85">
                         汇总反馈与低分原因，定位待回归问题。
@@ -1358,7 +1343,7 @@ export default function FeedbackTriagePage() {
                     {demoMode ? (
                       <Button
                         variant="outline"
-                        className="h-9 gap-2 rounded-xl bg-card/64 text-muted-foreground shadow-sm transition-colors duration-200 hover:border-border/60 hover:bg-card hover:text-foreground motion-reduce:transition-none dark:bg-background/28"
+                        className="h-9 gap-2 px-3 text-sm"
                         onClick={handleExitDemoMode}
                       >
                         退出 Demo
@@ -1366,7 +1351,7 @@ export default function FeedbackTriagePage() {
                     ) : null}
                     <Button
                       variant="outline"
-                      className="h-9 gap-2 rounded-xl border-info/25 bg-card/64 text-info shadow-[0_12px_24px_-22px_hsl(var(--info)/0.5)] transition-colors duration-200 hover:border-info/40 hover:bg-info/[0.10] hover:text-info motion-reduce:transition-none dark:bg-background/28"
+                      className="h-9 gap-2 px-3 text-sm"
                       onClick={() => {
                         if (demoMode) {
                           toast.success('Demo 数据已刷新')

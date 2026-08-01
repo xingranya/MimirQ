@@ -95,6 +95,7 @@ export function PageHeader({
     <header className={cn("@container flex-shrink-0 relative z-10", className)}>
       <div
         data-testid="page-title-shell"
+        data-management-header="true"
         className={cn(
           MANAGEMENT_HERO_PANEL_CLASS,
           compact && "min-h-[72px]",

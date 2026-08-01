@@ -13,8 +13,10 @@ import {
 import { AppFrame } from '@/components/app-frame'
 import { useRouter } from '@/i18n/navigation'
 import { PageScaffold } from '@/components/ui/page-scaffold'
-import { PageTitleIcon } from '@/components/ui/page-title-icon'
-import { KNOWLEDGE_OPS_HERO_PANEL_CLASS } from '@/components/ui/knowledge-ops-hero'
+import {
+  KnowledgeOpsHero,
+  KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
+} from '@/components/ui/knowledge-ops-hero'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -623,64 +625,38 @@ export default function DatasetsPage() {
         showHeader={false}
         bodyClassName="pt-2 pb-4"
         description={<span>管理知识库集合与访问权限</span>}
-        topClassName="px-4 md:px-5 lg:px-6 pt-4 pb-2.5 bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.04),transparent_34rem)]"
+        topClassName="px-4 pt-4 pb-2.5 md:px-5 lg:px-6"
         top={
-          <div className={KNOWLEDGE_OPS_HERO_PANEL_CLASS}>
-            <div className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/10 blur-3xl dark:bg-info/[0.08]" aria-hidden="true" />
-            <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.28),transparent)]" aria-hidden="true" />
-            <div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.14))] text-info shadow-lg shadow-[0_18px_32px_-24px_hsl(var(--info)/0.55)]">
-                  <span className="absolute inset-x-2 top-1.5 h-px bg-card/80" aria-hidden="true" />
-                  <PageTitleIcon name="dataset" className="size-9" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-info/20 bg-[linear-gradient(90deg,hsl(var(--background)/0.92),hsl(var(--info)/0.14))] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-info shadow-sm dark:border-info/16 dark:bg-info/12 dark:text-info">
-                      <Database className="size-3.5" />
-                      Dataset Ops
-                    </span>
-                    <span className="inline-flex items-center rounded-full border border-success/20 bg-[linear-gradient(90deg,hsl(var(--background)/0.92),hsl(var(--success)/0.14))] px-3 py-1.5 text-[10px] font-bold text-success shadow-sm dark:border-success/16 dark:bg-success/12 dark:text-success">
-                      <ShieldCheck className="mr-1.5 size-3.5" />
-                      权限与资产编排
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <h1 className="text-[26px] font-black tracking-[-0.025em] text-foreground">
-                      <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                        数据集
-                      </span>
-                    </h1>
-                    <p className="text-[13px] font-semibold leading-5 text-info/90">
-                      <span>管理知识库集合与访问权限</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[560px]">
-                <div className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-info/18 bg-[linear-gradient(135deg,hsl(var(--background)/0.9),hsl(var(--info)/0.07))] px-4 py-3 text-[12px] shadow-md shadow-[0_14px_28px_-22px_hsl(var(--info)/0.35)] backdrop-blur-sm dark:border-info/16 dark:bg-[linear-gradient(135deg,hsl(var(--background)/0.42),hsl(var(--info)/0.12))]">
-                  <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+          <KnowledgeOpsHero
+            iconImage="dataset"
+            title="数据集"
+            description="管理知识库集合与访问权限"
+            eyebrow={null}
+            badge={null}
+            summary={
+              <div className={cn(KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS, 'justify-between')}>
+                  <span className="inline-flex items-center gap-2 font-medium text-foreground">
                     <Layers className="size-4 text-info" />
                     集合
                   </span>
-                  <ChevronRight className="size-4 shrink-0 text-info" />
-                  <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="inline-flex items-center gap-2 font-medium text-foreground">
                     <ShieldCheck className="size-4 text-info" />
                     权限
                   </span>
-                  <ChevronRight className="size-4 shrink-0 text-info" />
-                  <span className="inline-flex items-center gap-2 font-bold text-foreground/85">
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="inline-flex items-center gap-2 font-medium text-foreground">
                     <FileSearch className="size-4 text-info" />
                     检索验证
                   </span>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <div className="flex items-center gap-2 rounded-2xl border border-info/18 bg-[linear-gradient(135deg,hsl(var(--background)/0.9),hsl(var(--info)/0.07))] px-3 py-2 shadow-md shadow-[0_14px_28px_-22px_hsl(var(--info)/0.35)] backdrop-blur-sm dark:border-info/16 dark:bg-[linear-gradient(135deg,hsl(var(--background)/0.42),hsl(var(--info)/0.12))]">
+              </div>
+            }
+            actions={
+              <>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-10 rounded-xl border-info/18 bg-background/90 px-4 text-[13px] font-bold text-info shadow-sm hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] hover:shadow-md dark:bg-background/55"
+                      className="h-9 px-3 text-sm"
                       onClick={() => { detachPromise(refreshDatasets()) }}
                       disabled={isRefreshing}
                     >
@@ -690,8 +666,8 @@ export default function DatasetsPage() {
                     <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (open) resetForm() }}>
                       <DialogTrigger asChild>
                         <CreateDatasetButton
-                          variant="outline"
-                          className="h-10 border-info/18 bg-background/90 text-[13px] font-bold text-info shadow-sm hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] hover:text-info hover:shadow-md dark:bg-background/55"
+                          variant="default"
+                          className="h-9 px-3 text-sm"
                         />
                       </DialogTrigger>
                       <DialogContent className="max-w-xl p-0 sm:rounded-2xl">
@@ -710,11 +686,9 @@ export default function DatasetsPage() {
                         </div>
                       </DialogContent>
                     </Dialog>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         }
       >
         <div className="flex min-h-[calc(100vh-11.5rem)] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/90 shadow-soft xl:h-[calc(100vh-9.25rem)] xl:min-h-0">

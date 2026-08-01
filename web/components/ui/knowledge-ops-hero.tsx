@@ -45,6 +45,7 @@ export function KnowledgeOpsHero({
 }: Readonly<KnowledgeOpsHeroProps>) {
   return (
     <div
+      data-management-header="true"
       className={cn(
         'flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between',
         KNOWLEDGE_OPS_HERO_PANEL_CLASS,
