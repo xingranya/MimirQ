@@ -8,6 +8,11 @@ x-backend-build: &backend_build
     # Optional build metadata (exposed via /api/v1/meta)
     MIMIRQ_BUILD_SHA: ${MIMIRQ_BUILD_SHA:-}
     MIMIRQ_BUILD_TIME: ${MIMIRQ_BUILD_TIME:-}
+    # 可选：把宿主机代理传给 Dockerfile 的依赖和模型下载步骤。
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    ALL_PROXY: ${ALL_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
 
 x-backend-env: &backend_env
   ENV: ${ENV:-development}
@@ -147,6 +152,9 @@ services:
     environment:
       ETCD_ENDPOINTS: mimirq-etcd:2379
       MINIO_ADDRESS: mimirq-minio:9000
+      # 必须与 mimirq-minio 的账号保持一致；否则 Milvus 会按默认账号访问对象存储。
+      MINIO_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY_DOCKER:-minioadmin}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY_DOCKER:-minioadmin}
     volumes:
       - milvus_data:/var/lib/milvus
     healthcheck:

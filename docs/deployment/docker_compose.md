@@ -16,6 +16,17 @@ DeepDoc 的轻量解析模型不随源码仓库分发。Docker 构建会从
 `qwqqwq/mimirq@118452f3ea3ccd09a41b2d39ea82d7de535e2908` 下载并校验模型，
 因此首次构建需要访问 Hugging Face；镜像构建完成后，运行时不会联网下载模型。
 
+如果服务器只能通过代理访问外网，把代理写入 `.env` 的 `HTTP_PROXY`、
+`HTTPS_PROXY`（必要时再填写 `ALL_PROXY`），Compose 会将其传给构建步骤。例如：
+
+```dotenv
+HTTP_PROXY=http://proxy-host:7890
+HTTPS_PROXY=http://proxy-host:7890
+NO_PROXY=localhost,127.0.0.1,192.168.0.0/16
+```
+
+然后重新执行 `docker compose ... build`。不要把真实代理地址、账号或密码提交到仓库。
+
 另外，前端服务 `web` 放在 `docker/docker-compose.web.yml`，默认不启动；需要时用 `-f` 叠加即可（或直接 `make up-web`，它会启动后端、Worker、基础设施和前端整套 Docker Web 栈，而不是只启动前端）。
 
 ---
