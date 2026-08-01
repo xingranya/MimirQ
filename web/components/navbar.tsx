@@ -9,10 +9,8 @@ import { useTranslations } from 'next-intl'
 import {
   Activity,
   BarChart3,
-  Braces,
   ChevronDown,
   ChevronRight,
-  Coins,
   Database,
   FileText,
   History,
@@ -24,27 +22,21 @@ import {
   PanelLeftOpen,
   Palette,
   Plus,
-  Scissors,
   Search,
   Settings,
   Share2,
-  ShieldAlert,
   ShieldCheck,
-  Star,
-  User,
-  Users,
-  Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Link, usePathname, useRouter } from '@/i18n/navigation'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
-import { SURFACE_THEMES } from '@/lib/theme-surface'
 import { cn } from '@/lib/utils'
 import { BRAND_CONFIG } from '@/lib/brand'
 import { ModeToggle } from '@/components/mode-toggle'
 import { ThemeCustomizer } from '@/components/theme-customizer'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuth } from '@/hooks/use-auth'
 import { useBackendMetaDetails } from '@/hooks/use-backend-meta'
 import { useBackendReady } from '@/hooks/use-backend-ready'
@@ -53,7 +45,7 @@ import { useCommandMenuState } from '@/store/command-menu'
 import { TENANT_PERMISSIONS, tenantAccessAllows, type TenantPermission } from '@/lib/tenant-permissions'
 import { canShowAdminControlledNavigationModule, type AdminControlledNavigationModule } from '@/lib/navigation-visibility'
 
-type SectionId = 'core' | 'ingestion' | 'knowledge' | 'analysis' | 'system'
+type SectionId = 'conversation' | 'knowledge' | 'analysis' | 'system'
 
 type MenuItem = {
   icon: React.ComponentType<{ className?: string }>
@@ -69,11 +61,11 @@ type MenuSection = {
   items: MenuItem[]
 }
 
-// 导航信息架构：按「核心 → 入库流程 → 知识库管理 → 分析工具 → 系统」分组，降低认知负担。
+// 一级导航只保留高频任务，低频入口继续由命令搜索承载。
 const menuSections: MenuSection[] = [
   {
-    id: 'core',
-    titleKey: 'sections.core',
+    id: 'conversation',
+    titleKey: 'sections.conversation',
     items: [
       { icon: MessageSquare, labelKey: 'items.conversation', href: '/' },
       { icon: History, labelKey: 'items.history', href: '/history' },
@@ -85,19 +77,9 @@ const menuSections: MenuSection[] = [
     items: [
       { icon: Layers, labelKey: 'items.datasets', href: '/datasets' },
       { icon: Database, labelKey: 'items.knowledgeBase', href: '/knowledge' },
-      { icon: ShieldAlert, labelKey: 'items.quarantine', href: '/knowledge/quarantine' },
-      { icon: Star, labelKey: 'items.feedback', href: '/knowledge/feedback' },
-    ],
-  },
-  {
-    id: 'ingestion',
-    titleKey: 'sections.ingestion',
-    items: [
       { icon: Activity, labelKey: 'items.ingestion', href: '/knowledge/ingestion' },
       { icon: FileText, labelKey: 'items.parsing', href: '/parsing' },
       { icon: ShieldCheck, labelKey: 'items.dataGovernance', href: '/data-governance' },
-      { icon: Braces, labelKey: 'items.governanceProfiles', href: '/data-governance/profiles', visibilityKey: 'governanceProfiles' },
-      { icon: Scissors, labelKey: 'items.chunkPreview', href: '/chunk-preview' },
     ],
   },
   {
@@ -107,7 +89,6 @@ const menuSections: MenuSection[] = [
       { icon: Share2, labelKey: 'items.knowledgeGraph', href: '/graph', visibilityKey: 'knowledgeGraph' },
       { icon: BarChart3, labelKey: 'items.ragas', href: '/evaluations', visibilityKey: 'ragas' },
       { icon: FileText, labelKey: 'items.reports', href: '/reports', visibilityKey: 'reports' },
-      { icon: Wand2, labelKey: 'items.prompts', href: '/prompts', visibilityKey: 'prompts' },
     ],
   },
   {
@@ -115,17 +96,13 @@ const menuSections: MenuSection[] = [
     titleKey: 'sections.system',
     items: [
       { icon: Activity, labelKey: 'items.diagnostics', href: '/diagnostics', requiredPermission: TENANT_PERMISSIONS.OBSERVABILITY_READ },
-      { icon: Coins, labelKey: 'items.usage', href: '/usage', requiredPermission: TENANT_PERMISSIONS.USAGE_READ },
-      { icon: ShieldCheck, labelKey: 'items.audit', href: '/audit', requiredPermission: TENANT_PERMISSIONS.AUDIT_READ },
-      { icon: User, labelKey: 'items.members', href: '/settings/rbac', requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ },
-      { icon: Users, labelKey: 'items.groups', href: '/settings/groups', requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ },
       { icon: Settings, labelKey: 'items.settings', href: '/settings', requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ },
     ],
   },
 ]
 
-const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['core', 'knowledge', 'ingestion', 'analysis'])
-const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v2'
+const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['conversation', 'knowledge'])
+const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v3'
 const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',
@@ -164,12 +141,18 @@ function formatDepStatus(status: unknown): { label: string; className: string } 
   const label = trimmedPrimitiveString(status) || 'unknown'
   const lower = label.toLowerCase()
   if (lower === 'connected' || lower === 'ready') {
-    return { label, className: 'text-success' }
+    return { label: '正常', className: 'text-success' }
   }
-  if (lower === 'disabled' || lower === 'not_configured' || lower === 'unknown') {
-    return { label, className: 'text-muted-foreground' }
+  if (lower === 'disabled') {
+    return { label: '未启用', className: 'text-muted-foreground' }
   }
-  return { label, className: 'text-destructive' }
+  if (lower === 'not_configured') {
+    return { label: '未配置', className: 'text-muted-foreground' }
+  }
+  if (lower === 'unknown') {
+    return { label: '未知', className: 'text-muted-foreground' }
+  }
+  return { label: '异常', className: 'text-destructive' }
 }
 
 function createInitialOpenSections(): Record<SectionId, boolean> {
@@ -179,8 +162,7 @@ function createInitialOpenSections(): Record<SectionId, boolean> {
       return sections
     },
     {
-      core: false,
-      ingestion: false,
+      conversation: false,
       knowledge: false,
       analysis: false,
       system: false,
@@ -194,8 +176,7 @@ function sanitizeOpenSections(value: unknown): Record<SectionId, boolean> {
 
   const candidate = value as Partial<Record<SectionId, unknown>>
   return {
-    core: typeof candidate.core === 'boolean' ? candidate.core : fallback.core,
-    ingestion: typeof candidate.ingestion === 'boolean' ? candidate.ingestion : fallback.ingestion,
+    conversation: typeof candidate.conversation === 'boolean' ? candidate.conversation : fallback.conversation,
     knowledge: typeof candidate.knowledge === 'boolean' ? candidate.knowledge : fallback.knowledge,
     analysis: typeof candidate.analysis === 'boolean' ? candidate.analysis : fallback.analysis,
     system: typeof candidate.system === 'boolean' ? candidate.system : fallback.system,
@@ -271,24 +252,16 @@ export function Navbar({
   const activeHref = getMostSpecificActiveHref(activePathname, visibleMenuItems)
   const readyDetails = backendReady.data ?? null
   const backendOk =
-    (() => {
-    if (typeof readyDetails?.ok === 'boolean') {
-        return readyDetails.ok;
-    }
-    else if (backendReady.isError) {
-            return false;
-        }
-        else {
-            return null;
-        }
-})()
+    typeof readyDetails?.ok === 'boolean' ? readyDetails.ok : backendReady.isError ? false : null
+  const backendStatus = backendOk === true ? 'completed' : backendOk === false ? 'failed' : 'processing'
+  const backendStatusLabel = backendOk === true ? '正常' : backendOk === false ? '异常' : '检查中'
   const lastReadyAt = Math.max(backendReady.dataUpdatedAt || 0, backendReady.errorUpdatedAt || 0) || null
   const closeSidebarOnMobile = useCallback(() => {
     if (globalThis.window === undefined) return
     try {
       if (globalThis.window.matchMedia('(max-width: 768px)').matches) setSidebarOpen(false)
     } catch {
-      // ignore
+      // 浏览器不支持媒体查询时保持当前侧栏状态。
     }
   }, [setSidebarOpen])
   const toggleSection = useCallback((sectionId: SectionId) => {
@@ -296,14 +269,6 @@ export function Navbar({
       ...current,
       [sectionId]: !current[sectionId],
     }))
-  }, [])
-  const handleSidebarTogglePointerDown = useCallback(() => {
-    restoreToggleFocusOnCloseRef.current = false
-  }, [])
-  const handleSidebarToggleKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      restoreToggleFocusOnCloseRef.current = true
-    }
   }, [])
   const handleSidebarToggle = useCallback(() => {
     if (isSidebarOpen) {
@@ -315,19 +280,25 @@ export function Navbar({
     setSidebarOpen(!isSidebarOpen)
   }, [isSidebarOpen, setSidebarOpen])
 
-  // Accessibility: prevent focus from entering the sidebar when collapsed/hidden.
+  // 移动端侧栏隐藏时禁止焦点进入，桌面折叠图标栏仍保持可操作。
   useEffect(() => {
     const el = navRef.current as (HTMLElement & { inert: boolean }) | null
     if (!el) return
-    const inertNow = !isSidebarOpen
+    let isMobile = false
+    try {
+      isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches
+    } catch {
+      isMobile = false
+    }
+    const inertNow = !isSidebarOpen && isMobile
     try {
       el.inert = inertNow
     } catch {
-      // ignore: inert is not supported in all environments
+      // 部分旧浏览器不支持 inert，保留原有焦点行为。
     }
   }, [isSidebarOpen])
 
-  // Accessibility: close the mobile overlay with Escape.
+  // 移动端支持使用 Escape 关闭覆盖层。
   useEffect(() => {
     if (!isSidebarOpen) return
     if (globalThis.window === undefined) return
@@ -336,7 +307,7 @@ export function Navbar({
       if (e.defaultPrevented) return
       if (e.key !== 'Escape') return
       try {
-        // Only treat as an overlay on small screens.
+        // 仅在窄屏下按覆盖层处理。
         if (!globalThis.window.matchMedia('(max-width: 768px)').matches) return
       } catch {
         return
@@ -350,7 +321,7 @@ export function Navbar({
     return () => globalThis.window.removeEventListener('keydown', onKeyDown)
   }, [isSidebarOpen, setSidebarOpen])
 
-  // Accessibility: restore focus to the toggle on close; move focus into the sidebar on open.
+  // 键盘操作侧栏时，在展开和收起后恢复到可预期的焦点位置。
   useEffect(() => {
     if (globalThis.window === undefined) return
     if (prevIsSidebarOpenRef.current === null) {
@@ -364,7 +335,7 @@ export function Navbar({
 
     const active = document.activeElement
     if (isSidebarOpen) {
-      // Only move focus when the user opened the sidebar from the toggle (keyboard).
+      // 仅在用户通过键盘触发展开时把焦点移入侧栏。
       if (active && toggleButtonRef.current && active !== toggleButtonRef.current) return
       requestAnimationFrame(() => {
         firstActionRef.current?.focus()
@@ -387,8 +358,7 @@ export function Navbar({
   useEffect(() => {
     setOpenSections(loadOpenSections())
     setHasHydratedOpenSections(true)
-    // Keep SSR and the first client render structurally identical. Tenant access can
-    // be cached on the client, so applying it before mount can reorder/insert links.
+    // 保持服务端渲染和首次客户端渲染结构一致，避免租户权限缓存导致链接顺序变化。
     setHasHydratedNavigationAccess(true)
   }, [])
 
@@ -424,7 +394,7 @@ export function Navbar({
     writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(event.currentTarget.scrollTop))
   }, [])
 
-  // Dev UX: warm up route chunks in the background so first-click navigation feels snappier.
+  // 开发环境空闲时预取路由资源，降低首次导航等待时间。
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return
     if (globalThis.window === undefined) return
@@ -441,12 +411,12 @@ export function Navbar({
         try {
           router.prefetch(href)
         } catch {
-          // ignore
+          // 单个路由预取失败不影响导航。
         }
       }
     }
 
-    // Prefer idle time to avoid blocking initial render.
+    // 优先使用浏览器空闲时间，避免阻塞首次渲染。
     const w = globalThis.window as Window & {
       requestIdleCallback?: (
         callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void,
@@ -474,36 +444,36 @@ export function Navbar({
   const depRows: Array<{ key: string; status: unknown; note?: string; error?: unknown }> = readyDetails
     ? [
         {
-          key: 'DB',
+          key: '数据库',
           status: readyDetails.database?.status,
           error: readyDetails.database?.error,
         },
         {
-          key: `Vector (${String(readyDetails.vector?.backend || vectorBackend || '-')})`,
+          key: `向量库 (${String(readyDetails.vector?.backend || vectorBackend || '-')})`,
           status: readyDetails.vector?.status,
           error: readyDetails.vector?.error,
         },
         {
-          key: 'Redis',
+          key: '缓存服务',
           status: readyDetails.redis?.status,
           note: (() => {
             const r = readyDetails.redis
             if (!r) return undefined
-            if (!r.enabled) return 'disabled'
+            if (!r.enabled) return '未启用'
             const required = Boolean(r.required)
             const cache = Boolean(r.embedding_cache_enabled)
-            return `${required ? 'required' : 'optional'}${cache ? ', cache' : ''}`
+            return `${required ? '必须' : '可选'}${cache ? '，已启用向量缓存' : ''}`
           })(),
           error: readyDetails.redis?.error,
         },
         {
-          key: 'MinIO',
+          key: '文件存储',
           status: readyDetails.minio?.status,
           note: (() => {
             const m = readyDetails.minio
             if (!m) return undefined
-            if (!m.enabled) return 'disabled'
-            return m.bucket ? `bucket: ${m.bucket}` : undefined
+            if (!m.enabled) return '未启用'
+            return m.bucket ? `存储桶：${m.bucket}` : undefined
           })(),
           error: readyDetails.minio?.error,
         },
@@ -518,11 +488,11 @@ export function Navbar({
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* 移动端遮罩 */}
       {isSidebarOpen ? (
-      <button
-        type="button"
-        aria-label={t('toolbar.sidebarClose')}
+        <button
+          type="button"
+          aria-label={t('toolbar.sidebarClose')}
           className="fixed inset-0 z-40 bg-black/50 transition-opacity md:hidden border-0 p-0 focus:outline-none"
           onClick={() => {
             restoreToggleFocusOnCloseRef.current = false
@@ -535,68 +505,148 @@ export function Navbar({
         id="mimirq-sidebar"
         ref={navRef}
         aria-label={t('toolbar.navLabel')}
-        aria-hidden={!isSidebarOpen}
         className={cn(
           'peer flex-shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col transition-[width,transform] duration-200 ease-out z-50',
-          'fixed inset-y-0 left-0 md:relative', // Mobile: fixed, Desktop: relative
-          isSidebarOpen ? 'w-[264px] translate-x-0' : 'w-[264px] -translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden'
+          'fixed inset-y-0 left-0 md:relative', // 移动端固定覆盖，桌面端参与布局。
+          isSidebarOpen ? 'w-56 translate-x-0' : 'w-56 -translate-x-full md:w-14 md:translate-x-0 md:overflow-hidden'
         )}
       >
-        {/* Logo 区域 */}
-        <div className="h-14 px-4 border-b border-sidebar-border bg-sidebar flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 group rounded-md focus-ring">
-            <div className="flex h-8 w-[112px] shrink-0 items-center overflow-hidden rounded-md bg-card">
+        {!isSidebarOpen ? (
+          <TooltipProvider delayDuration={250}>
+            <div className="hidden h-full w-14 flex-col items-center gap-2 py-2 md:flex">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/"
+                    aria-label={BRAND_CONFIG.standardName}
+                    className="flex size-10 items-center justify-center rounded-md border border-border bg-card text-base font-bold text-primary focus-ring"
+                  >
+                    S
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">{BRAND_CONFIG.standardName}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={() => router.push('/')}
+                    aria-label={t('actions.newConversation')}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('actions.newConversation')}</TooltipContent>
+              </Tooltip>
+
+              <div className="my-1 h-px w-8 bg-border" />
+              <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-1 no-scrollbar">
+                {visibleMenuItems.map((item) => {
+                  const Icon = item.icon
+                  const isActive = activeHref === item.href
+                  return (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href={item.href}
+                          prefetch={false}
+                          aria-label={t(item.labelKey)}
+                          aria-current={isActive ? 'page' : undefined}
+                          className={cn(
+                            'relative flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors focus-ring',
+                            isActive ? 'bg-primary/10 text-primary before:absolute before:left-0 before:h-5 before:w-0.5 before:bg-primary' : 'hover:bg-muted hover:text-foreground'
+                          )}
+                        >
+                          <Icon className="size-4" />
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{t(item.labelKey)}</TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    ref={toggleButtonRef}
+                    variant="ghost"
+                    size="icon"
+                    aria-controls="mimirq-sidebar"
+                    aria-expanded={false}
+                    aria-label={t('toolbar.expand')}
+                    onClick={handleSidebarToggle}
+                  >
+                    <PanelLeftOpen className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('toolbar.expand')}</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        ) : null}
+
+        <div className={cn('min-h-0 flex-1 flex-col', isSidebarOpen ? 'flex' : 'hidden')}>
+          {/* 品牌区 */}
+          <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-3">
+            <Link href="/" className="flex min-w-0 flex-1 items-center rounded-md focus-ring">
               <Image
-                src={BRAND_CONFIG.shortWordmarkSrc}
-                alt={BRAND_CONFIG.shortName}
-                width={186}
-                height={46}
+                src={BRAND_CONFIG.wordmarkSrc}
+                alt={BRAND_CONFIG.standardName}
+                width={300}
+                height={80}
                 priority
                 unoptimized
-                className="h-7 w-auto object-contain"
+                className="h-8 w-auto max-w-[132px] object-contain"
               />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold text-sidebar-foreground leading-none">见外</span>
-              <span className="text-micro text-info/80 font-semibold mt-1">知识库</span>
-            </div>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-auto size-9 rounded-xl md:hidden"
-            onClick={() => setSidebarOpen(false)}
-            aria-label={t('toolbar.sidebarClose')}
-            title={t('toolbar.sidebarClose')}
-          >
-            <PanelLeftClose className="size-4" />
-          </Button>
-        </div>
+            </Link>
+            <Button
+              ref={toggleButtonRef}
+              variant="ghost"
+              size="icon"
+              className="hidden size-9 shrink-0 md:inline-flex"
+              onClick={handleSidebarToggle}
+              aria-controls="mimirq-sidebar"
+              aria-expanded={true}
+              aria-label={t('toolbar.collapse')}
+              title={t('toolbar.collapse')}
+            >
+              <PanelLeftClose className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-9 shrink-0 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+              aria-label={t('toolbar.sidebarClose')}
+              title={t('toolbar.sidebarClose')}
+            >
+              <PanelLeftClose className="size-4" />
+            </Button>
+          </div>
 
         {/* 新对话按钮 */}
-        <div className="p-4 pb-2">
+        <div className="px-3 pb-2 pt-3">
           <Button
             ref={firstActionRef}
-            variant="ghost"
-            className={cn(
-              "w-full justify-start gap-2 h-10 rounded-md border border-primary/30 bg-primary/10 font-semibold text-sidebar-foreground transition-colors",
-              "hover:border-primary/50 hover:bg-primary/15",
-              "active:bg-primary/20"
-            )}
+            variant="default"
+            className="h-10 w-full justify-start gap-2 px-3 font-semibold"
             onClick={() => {
               router.push('/')
               closeSidebarOnMobile()
             }}
           >
-            <Plus className="size-4.5 text-info" />
+            <Plus className="size-4" />
             <span>{t('actions.newConversation')}</span>
           </Button>
         </div>
 
-        <div className="px-4 pb-2">
+        <div className="px-3 pb-2">
           <button
             type="button"
-            className="group flex w-full items-center justify-between gap-3 rounded-md border border-sidebar-border bg-sidebar px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent focus-ring"
+            className="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-ring"
             onClick={() => {
               setCommandMenuOpen(true)
               closeSidebarOnMobile()
@@ -607,60 +657,47 @@ export function Navbar({
             aria-controls="mimirq-command-menu"
             title={t('command.triggerLabel')}
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                <Search className="size-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-sidebar-foreground">{t('command.triggerLabel')}</p>
-                <p className="text-[11px] font-medium text-info/80">{t('command.triggerHint')}</p>
-              </div>
-            </div>
-            <span className="rounded-lg border border-info/14 bg-card/80 px-2 py-0.5 text-[11px] font-bold text-info/85 shadow-sm">⌘K</span>
+            <Search className="size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate">{t('command.triggerLabel')}</span>
+            <kbd className="rounded border border-border bg-card px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">⌘K</kbd>
           </button>
         </div>
 
-        {/* 导航菜单 */}
-        {/* Allow internal scroll so items are never clipped on short viewports. */}
+        {/* 导航区独立滚动，短视口下仍可访问全部入口。 */}
         <div
           ref={navScrollRef}
           data-sidebar-scroll-container="true"
-          className="flex-1 min-h-0 px-3 py-2 overflow-y-auto overscroll-contain no-scrollbar"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-1 no-scrollbar"
           onScroll={handleNavScroll}
         >
-          <div className="space-y-3">
-            {visibleMenuSections.map((section, index) => {
+          <div className="space-y-2">
+            {visibleMenuSections.map((section) => {
               const isOpen = openSections[section.id] ?? false
               const hasActiveItem = sectionHasActiveRoute(activeHref, section.items)
               const ToggleIcon = isOpen ? ChevronDown : ChevronRight
 
               return (
-                <section
-                  key={section.id}
-                className={cn('space-y-1', index > 0 ? 'border-t border-info/12 pt-2' : '')}
-                >
+                <section key={section.id} className="space-y-1">
                   <button
                     type="button"
                     className={cn(
-                      'flex w-full items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-left transition-all duration-200 focus-ring',
-                      hasActiveItem ? 'text-info font-bold' : 'text-muted-foreground hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.06),hsl(var(--primary)/0.04))] hover:text-info'
+                      'flex h-8 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-xs font-medium transition-colors focus-ring',
+                      hasActiveItem
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
                     )}
                     onClick={() => toggleSection(section.id)}
                     aria-expanded={isOpen}
                     aria-controls={`sidebar-section-${section.id}`}
                   >
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-info/70">{t(section.titleKey)}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ToggleIcon className="size-4 shrink-0" />
-                    </div>
+                    <span className="truncate">{t(section.titleKey)}</span>
+                    <ToggleIcon className="size-3.5 shrink-0" aria-hidden="true" />
                   </button>
 
                   <div
                     id={`sidebar-section-${section.id}`}
                     className={cn(
-                      'grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out',
+                      'grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-out',
                       isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                     )}
                   >
@@ -671,29 +708,23 @@ export function Navbar({
                           const isActive = activeHref === item.href
 
                           return (
-                            <div key={item.href}>
-                              <Link
-                                href={item.href}
-                                prefetch={false}
-                                onClick={closeSidebarOnMobile}
-                                aria-current={isActive ? 'page' : undefined}
-                                className={cn(
-                                  'relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group focus-ring',
-                                  'before:pointer-events-none before:absolute before:left-1 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:transition-all before:duration-200',
-                                  isActive
-                                    ? 'text-info font-bold bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] border border-info/18 shadow-sm before:bg-[linear-gradient(180deg,hsl(var(--info)),hsl(var(--primary)))]'
-                                    : 'text-muted-foreground hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.06),hsl(var(--primary)/0.04))] hover:text-info before:bg-transparent hover:before:bg-info/28'
-                                )}
-                              >
-                                <Icon
-                                  className={cn(
-                                    'size-4 transition-all duration-200',
-                                    isActive ? 'text-info' : 'text-muted-foreground group-hover:text-info group-hover:scale-110'
-                                  )}
-                                />
-                                <span className="text-sm">{t(item.labelKey)}</span>
-                              </Link>
-                            </div>
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              prefetch={false}
+                              onClick={closeSidebarOnMobile}
+                              aria-current={isActive ? 'page' : undefined}
+                              className={cn(
+                                'group relative flex h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors focus-ring',
+                                'before:pointer-events-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full',
+                                isActive
+                                  ? 'bg-primary/10 font-medium text-primary before:bg-primary'
+                                  : 'text-muted-foreground before:bg-transparent hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                              )}
+                            >
+                              <Icon className="size-4 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{t(item.labelKey)}</span>
+                            </Link>
                           )
                         })}
                       </div>
@@ -706,13 +737,13 @@ export function Navbar({
         </div>
 
         {/* 底部信息 */}
-        <div className="p-3 border-t border-info/12 bg-[linear-gradient(90deg,hsl(var(--background)/0.98),hsl(var(--info)/0.04),hsl(var(--primary)/0.03))]">
+        <div className="border-t border-sidebar-border bg-sidebar p-3">
           <div className="flex items-center gap-2">
             <button
               type="button"
               aria-label={isAuthenticated ? t('user.openSettings') : t('auth.goToLogin')}
               title={isAuthenticated ? t('user.openSettings') : t('auth.goToLogin')}
-              className="flex-1 flex items-center gap-3 p-2 rounded-xl hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] transition-all duration-200 border border-transparent hover:border-info/18 hover:shadow-md group text-left focus-ring"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1 text-left transition-colors hover:bg-sidebar-accent focus-ring"
               onClick={() => {
                 if (isAuthenticated) {
                   router.push(canOpenSettings ? '/settings' : '/')
@@ -722,20 +753,19 @@ export function Navbar({
                 closeSidebarOnMobile()
               }}
             >
-              <div className="relative w-10 h-10 flex-shrink-0">
-                <div className="absolute inset-0 rounded-xl border border-info/18 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.10))] shadow-md group-hover:border-info/28 group-hover:bg-[linear-gradient(135deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] group-hover:shadow-lg transition-all duration-200" />
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-primary transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none" aria-hidden="true">
+              <div className="relative flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-sm font-bold text-primary">
+                <span aria-hidden="true">
                   S
-                </div>
+                </span>
                 {isAuthenticated && (
-                  <div className="absolute -right-0.5 -bottom-0.5 size-3 bg-[linear-gradient(135deg,hsl(var(--success)),hsl(var(--info)))] border-2 border-background rounded-full shadow-sm" />
+                  <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-sidebar bg-success" />
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-sidebar-foreground truncate group-hover:text-info transition-colors">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-sidebar-foreground">
                   {userDisplayName}
                 </p>
-                <p className="text-[11px] font-medium text-info truncate leading-tight mt-0.5">
+                <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">
                   {userStatusLine}
                 </p>
               </div>
@@ -744,7 +774,7 @@ export function Navbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-lg hover:bg-[linear-gradient(135deg,hsl(var(--destructive)/0.08),hsl(var(--background)))] hover:text-destructive transition-all duration-200"
+                className="size-8 hover:bg-sidebar-accent hover:text-destructive"
                 onClick={() => {
                   if (isAuthenticated) {
                     logout()
@@ -765,57 +795,31 @@ export function Navbar({
             </div>
           </div>
 
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-1">
             <ThemeCustomizer
               trigger={
                 <Button
                   variant="ghost"
-                  className="h-9 w-full justify-start gap-2 rounded-xl border border-border/60 bg-card/60 px-3 text-xs font-semibold text-foreground shadow-sm transition-colors duration-200 hover:border-primary/20 hover:bg-muted"
+                  className="h-8 min-w-0 flex-1 justify-start gap-2 px-2 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   title={t('toolbar.appearance')}
                   aria-label={t('toolbar.appearance')}
                 >
-                  <Palette className="size-4 text-primary" aria-hidden="true" />
+                  <Palette className="size-4" aria-hidden="true" />
                   <span>{t('toolbar.appearance')}</span>
-                  <span className="ml-auto text-[10px] font-medium text-muted-foreground">
-                    {t('toolbar.appearanceHint', { count: SURFACE_THEMES.length })}
-                  </span>
                 </Button>
               }
             />
-          </div>
-
-          <div className="mt-2 flex items-center justify-between gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-full focus-ring"
+                  className="rounded-md focus-ring"
                   aria-label={t('deps.openStatus')}
                   title={t('deps.openStatus')}
                 >
                   <StatusBadge
-                    status={(() => {
-    if (backendOk === true) {
-        return "completed";
-    }
-    else if (backendOk === false) {
-            return "failed";
-        }
-        else {
-            return "processing";
-        }
-})()}
-                    label={`Deps：${(() => {
-    if (backendOk === true) {
-        return "OK";
-    }
-    else if (backendOk === false) {
-            return "Down";
-        }
-        else {
-            return "...";
-        }
-})()}`}
+                    status={backendStatus}
+                    label={`服务：${backendStatusLabel}`}
                     dense
                   />
                 </button>
@@ -826,54 +830,38 @@ export function Navbar({
                     <p className="font-semibold">{t('deps.ready')}</p>
                     <span
                       className={cn(
-                        "font-medium",
-                        (() => {
-    if (backendOk === true) {
-        return "text-success";
-    }
-    else if (backendOk === false) {
-            return "text-destructive";
-        }
-        else {
-            return "text-muted-foreground";
-        }
-})()
+                        'font-medium',
+                        backendOk === true
+                          ? 'text-success'
+                          : backendOk === false
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
                       )}
                     >
-                      {(() => {
-    if (backendOk === true) {
-        return "OK";
-    }
-    else if (backendOk === false) {
-            return "Down";
-        }
-        else {
-            return "...";
-        }
-})()}
+                      {backendStatusLabel}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] text-muted-foreground">
                     <div className="flex items-center justify-between gap-2">
-                      <span>Auth</span>
+                      <span>认证</span>
                       <span className="text-foreground">{authMode || '-'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span>Vector</span>
+                      <span>向量库</span>
                       <span className="text-foreground">{vectorBackend || '-'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span>Build</span>
+                      <span>版本</span>
                       <span className="font-mono text-foreground">{buildShaShort || '-'}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span>Checked</span>
+                      <span>检查时间</span>
                       <span className="text-foreground">{checkedAtLabel}</span>
                     </div>
                   </div>
 
-                  <div className="rounded-md border border-border/60 bg-background/40 p-2.5">
+                  <div className="border-t border-border pt-2.5">
                     {readyDetails ? (
                       <div className="space-y-2">
                         {depRows.map((row) => {
@@ -918,56 +906,8 @@ export function Navbar({
             </Popover>
           </div>
         </div>
-      </nav>
-
-      {/* 侧边栏折叠按钮 */}
-      {isSidebarOpen ? (
-        <Button
-          ref={toggleButtonRef}
-          variant="ghost"
-          size="icon"
-          aria-controls="mimirq-sidebar"
-          aria-expanded={true}
-          aria-label={t('toolbar.collapse')}
-          title={t('toolbar.collapse')}
-          className={cn(
-            'fixed z-50 border border-border bg-background/92 text-muted-foreground shadow-soft backdrop-blur transition-colors duration-200 ease-out hover:bg-muted',
-            'bottom-4 left-[264px] size-11 rounded-xl opacity-0 pointer-events-none hover:text-primary supports-[padding:env(safe-area-inset-bottom)]:bottom-[calc(env(safe-area-inset-bottom)+1rem)] md:peer-hover:opacity-100 md:peer-hover:pointer-events-auto md:peer-focus-within:opacity-100 md:peer-focus-within:pointer-events-auto md:hover:opacity-100 md:hover:pointer-events-auto md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto sm:size-10'
-          )}
-          onPointerDown={handleSidebarTogglePointerDown}
-          onKeyDown={handleSidebarToggleKeyDown}
-          onClick={handleSidebarToggle}
-        >
-          <PanelLeftClose className="size-5" />
-        </Button>
-      ) : (
-        <div className="fixed left-0 top-0 z-50 h-16 w-4 overflow-visible md:top-14 md:h-14 md:w-5">
-          <div className="group/sidebar-toggle relative h-full w-full overflow-visible">
-            <Button
-              ref={toggleButtonRef}
-              variant="outline"
-              size="icon"
-              aria-controls="mimirq-sidebar"
-              aria-expanded={false}
-              aria-label={t('toolbar.expand')}
-              title={t('toolbar.expand')}
-              className={cn(
-                'absolute z-50 border border-border bg-background/92 text-foreground shadow-soft backdrop-blur transition-all duration-200 ease-out hover:bg-muted',
-                'left-3 top-4 size-9 rounded-full pointer-events-auto md:left-0 md:top-1/2 md:-translate-y-1/2 supports-[padding:env(safe-area-inset-left)]:md:left-[calc(env(safe-area-inset-left)-0.15rem)]',
-                'md:-translate-x-[110%] md:scale-95 md:opacity-0 md:pointer-events-none',
-                'md:group-hover/sidebar-toggle:translate-x-2 md:group-hover/sidebar-toggle:scale-100 md:group-hover/sidebar-toggle:opacity-100 md:group-hover/sidebar-toggle:pointer-events-auto',
-                'md:group-focus-within/sidebar-toggle:translate-x-2 md:group-focus-within/sidebar-toggle:scale-100 md:group-focus-within/sidebar-toggle:opacity-100 md:group-focus-within/sidebar-toggle:pointer-events-auto',
-                'focus-visible:translate-x-0 focus-visible:scale-100 focus-visible:opacity-100 focus-visible:pointer-events-auto md:focus-visible:translate-x-2'
-              )}
-              onPointerDown={handleSidebarTogglePointerDown}
-              onKeyDown={handleSidebarToggleKeyDown}
-              onClick={handleSidebarToggle}
-            >
-              <PanelLeftOpen className="size-4" />
-            </Button>
-          </div>
         </div>
-      )}
+      </nav>
     </>
   )
 }

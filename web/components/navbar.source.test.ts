@@ -1,4 +1,4 @@
-// Source contract check only; this is not behavior coverage.
+// 这里只检查源码契约，交互行为由行为测试覆盖。
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -61,7 +61,7 @@ describe('navbar source', () => {
     expect(src).toContain("import { useTranslations } from 'next-intl'")
     expect(src).toContain("const t = useTranslations('Navbar')")
     expect(src).toContain("t('actions.newConversation')")
-    expect(src).toContain("titleKey: 'sections.core'")
+    expect(src).toContain("titleKey: 'sections.conversation'")
     expect(src).toContain('t(section.titleKey)')
     expect(src).toContain("t('command.triggerLabel')")
   })
@@ -71,35 +71,32 @@ describe('navbar source', () => {
 
     expect(src).toContain("import { useTenantAccess } from '@/hooks/use-tenant-access'")
     expect(src).toContain('requiredPermission: TENANT_PERMISSIONS.OBSERVABILITY_READ')
-    expect(src).toContain('requiredPermission: TENANT_PERMISSIONS.USAGE_READ')
-    expect(src).toContain('requiredPermission: TENANT_PERMISSIONS.AUDIT_READ')
     expect(src).toContain('requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ')
+    expect(src).not.toContain('requiredPermission: TENANT_PERMISSIONS.USAGE_READ')
+    expect(src).not.toContain('requiredPermission: TENANT_PERMISSIONS.AUDIT_READ')
     expect(src).toContain('visibleMenuSections')
     expect(src).toContain('hasHydratedNavigationAccess')
     expect(src).toContain('tenantAccessAllows(navigationTenantAccess, permission)')
     expect(src).toContain('canShowAdminControlledNavigationModule(navigationTenantAccess, moduleKey)')
   })
 
-  it('keeps the expanded sidebar width aligned with the 2048px dashboard layout reference', () => {
+  it('uses the compact 224px expanded and 56px collapsed sidebar widths', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
 
-    expect(src).toContain('w-[264px] translate-x-0')
-    expect(src).toContain('w-[264px] -translate-x-full')
-    expect(src).toContain('left-[264px]')
+    expect(src).toContain("isSidebarOpen ? 'w-56 translate-x-0'")
+    expect(src).toContain("'w-56 -translate-x-full md:w-14 md:translate-x-0 md:overflow-hidden'")
+    expect(src).toContain('hidden h-full w-14 flex-col')
   })
 
-  it('keeps the top sidebar actions softly tinted in both themes', () => {
+  it('keeps the primary action flat and removes decorative sidebar effects', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
 
-    expect(src).toContain('hsl(var(--info)/0.18)')
-    expect(src).toContain('hsl(var(--card)/0.92)')
-    expect(src).toContain('ref={firstActionRef}\n            variant="ghost"')
-    expect(src).not.toContain(
-      'bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] text-white'
-    )
-    expect(src).not.toContain(
-      'bg-[linear-gradient(135deg,hsl(var(--background)/0.92),hsl(var(--info)/0.06))]'
-    )
+    expect(src).toContain('ref={firstActionRef}\n            variant="default"')
+    expect(src).toContain("src={BRAND_CONFIG.wordmarkSrc}")
+    expect(src).toContain('className="h-8 w-auto max-w-[132px] object-contain"')
+    expect(src).not.toContain('linear-gradient')
+    expect(src).not.toContain('backdrop-blur')
+    expect(src).not.toContain('rounded-xl')
   })
 
   it('keeps daily navigation focused while advanced vector diagnostics stay out of the sidebar', () => {
@@ -111,6 +108,9 @@ describe('navbar source', () => {
 
     expect(src).toContain("{ icon: Database, labelKey: 'items.knowledgeBase', href: '/knowledge' }")
     expect(src).toContain("{ icon: Layers, labelKey: 'items.datasets', href: '/datasets' }")
+    expect(src.match(/titleKey: 'sections\./g)).toHaveLength(4)
+    expect(src).toContain("titleKey: 'sections.conversation'")
+    expect(src).toContain("titleKey: 'sections.system'")
     expect(src.indexOf("labelKey: 'items.datasets'")).toBeLessThan(
       src.indexOf("labelKey: 'items.knowledgeBase'")
     )
@@ -118,13 +118,16 @@ describe('navbar source', () => {
     expect(src).not.toContain(
       "{ icon: Grid3X3, labelKey: 'items.ragVisualization', href: '/knowledge/similarity' }"
     )
+    expect(src).not.toContain("href: '/usage'")
+    expect(src).not.toContain("href: '/audit'")
+    expect(src).not.toContain("href: '/settings/rbac'")
     expect(src).toContain("'/knowledge/similarity': '/evaluations'")
     expect(src.indexOf("labelKey: 'items.knowledgeGraph'")).toBeLessThan(
       src.indexOf("labelKey: 'items.ragas'")
     )
 
-    expect(chatMessages).toContain("datasets: '知识库'")
-    expect(chatMessages).toContain("knowledgeBase: '数据集'")
-    expect(chatMessages).toContain("ragas: 'RAG评测'")
+    expect(chatMessages).toContain("datasets: '数据集'")
+    expect(chatMessages).toContain("knowledgeBase: '知识工作台'")
+    expect(chatMessages).toContain("ragas: 'RAG 评测'")
   })
 })

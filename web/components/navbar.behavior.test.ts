@@ -47,6 +47,7 @@ const messages: Record<
   'actions.newConversation': 'actions.newConversation',
   'auth.goToLogin': 'auth.goToLogin',
   'auth.login': 'auth.login',
+  'auth.logout': 'auth.logout',
   'brand.tagline': 'brand.tagline',
   'command.triggerHint': 'command.triggerHint',
   'command.triggerLabel': 'command.triggerLabel',
@@ -56,16 +57,17 @@ const messages: Record<
   'items.ragVisualization': 'items.ragVisualization',
   'items.knowledgeBase': 'items.knowledgeBase',
   'sections.analysis': 'sections.analysis',
-  'sections.core': 'sections.core',
+  'sections.conversation': 'sections.conversation',
   'sections.current': 'sections.current',
   'sections.entryCount': (values) => `count:${String(values?.count ?? '')}`,
-  'sections.ingestion': 'sections.ingestion',
   'sections.knowledge': 'sections.knowledge',
   'sections.system': 'sections.system',
   'status.badgePrefix': 'status.badgePrefix:',
   'toolbar.navLabel': 'toolbar.navLabel',
   'toolbar.appearance': '界面外观',
   'toolbar.appearanceHint': (values) => `${String(values?.count ?? '')} 种风格`,
+  'toolbar.collapse': 'toolbar.collapse',
+  'toolbar.expand': 'toolbar.expand',
   'toolbar.sidebarClose': 'toolbar.sidebarClose',
   'user.offlineEnvironment': 'user.offlineEnvironment',
   'user.openSettings': 'user.openSettings',
@@ -157,6 +159,11 @@ vi.mock('@/components/ui/popover', () => ({
 
 import { Navbar } from './navbar'
 
+const ControlledNavbar = Navbar as React.ComponentType<{
+  isSidebarOpen?: boolean
+  setSidebarOpen?: (open: boolean) => void
+}>
+
 function renderComponent(element: React.ReactElement) {
   ;(
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -228,7 +235,7 @@ describe('Navbar behavior', () => {
       (node) => node.textContent?.includes('items.ragVisualization')
     )
 
-    // After V3: "current" badge removed; verify active section is identified by expanded state
+    // 当前徽标移除后，通过分组展开状态确认活动区域。
     const analysisToggle = view.container.querySelector(
       'button[aria-controls="sidebar-section-analysis"]'
     ) as HTMLButtonElement
@@ -246,9 +253,32 @@ describe('Navbar behavior', () => {
     const appearance = view.container.querySelector('[data-testid="appearance-customizer"]')
     expect(appearance).not.toBeNull()
     expect(appearance?.textContent).toContain('界面外观')
-    expect(appearance?.textContent).toContain('5 种风格')
-    expect(appearance?.querySelector('button')?.getAttribute('class')).toContain('w-full')
+    expect(appearance?.querySelector('button')?.getAttribute('class')).toContain('flex-1')
     expect(view.container.querySelector('[data-testid="mode-toggle"]')).not.toBeNull()
+
+    view.unmount()
+  })
+
+  it('keeps a usable 56px desktop rail while collapsed', () => {
+    const setSidebarOpen = vi.fn()
+    const view = renderComponent(
+      React.createElement(ControlledNavbar, { isSidebarOpen: false, setSidebarOpen })
+    )
+
+    const nav = view.container.querySelector('#mimirq-sidebar')
+    const brandLink = view.container.querySelector('a[aria-label="SEEWAY 见外"]')
+    const expandButton = view.container.querySelector(
+      'button[aria-label="toolbar.expand"]'
+    ) as HTMLButtonElement
+
+    expect(nav?.getAttribute('class')).toContain('md:w-14')
+    expect(brandLink?.textContent).toBe('S')
+    expect(expandButton).not.toBeNull()
+
+    act(() => {
+      expandButton.click()
+    })
+    expect(setSidebarOpen).toHaveBeenCalledWith(true)
 
     view.unmount()
   })
@@ -277,15 +307,15 @@ describe('Navbar behavior', () => {
     routerMocks.pathname = '/'
 
     const firstView = renderComponent(React.createElement(Navbar))
-    const coreToggle = firstView.container.querySelector(
-      'button[aria-controls="sidebar-section-core"]'
+    const conversationToggle = firstView.container.querySelector(
+      'button[aria-controls="sidebar-section-conversation"]'
     ) as HTMLButtonElement
     const knowledgeToggle = firstView.container.querySelector(
       'button[aria-controls="sidebar-section-knowledge"]'
     ) as HTMLButtonElement
 
     act(() => {
-      coreToggle.click()
+      conversationToggle.click()
       knowledgeToggle.click()
     })
 
@@ -294,8 +324,8 @@ describe('Navbar behavior', () => {
     routerMocks.pathname = '/graph'
 
     const secondView = renderComponent(React.createElement(Navbar))
-    const coreSection = secondView.container.querySelector(
-      '#sidebar-section-core'
+    const conversationSection = secondView.container.querySelector(
+      '#sidebar-section-conversation'
     )
     const knowledgeSection = secondView.container.querySelector(
       '#sidebar-section-knowledge'
@@ -307,9 +337,11 @@ describe('Navbar behavior', () => {
       '#sidebar-section-analysis'
     )
 
-    // After V3: verify analysis section auto-opens for active route
+    // 活动路由所在的分析分组应自动展开。
     expect(analysisToggle.getAttribute('aria-expanded')).toBe('true')
     expect(analysisSection?.getAttribute('class')).toContain('grid-rows-[1fr]')
+    expect(conversationSection?.getAttribute('class')).toContain('grid-rows-[0fr]')
+    expect(knowledgeSection?.getAttribute('class')).toContain('grid-rows-[0fr]')
 
     secondView.unmount()
   })
