@@ -46,7 +46,7 @@ describe('history route source', () => {
   it('suppresses hydration drift for message-group date labels in the active conversation pane', () => {
     const client = fs.readFileSync(path.resolve(__dirname, 'page-client.tsx'), 'utf8')
 
-    expect(client).toContain('<div suppressHydrationWarning className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/28 whitespace-nowrap">')
+    expect(client).toContain('<div suppressHydrationWarning className="whitespace-nowrap text-xs font-medium text-muted-foreground/60">')
     expect(client).toContain('{group.label}')
   })
 
