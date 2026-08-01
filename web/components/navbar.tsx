@@ -218,6 +218,7 @@ export function Navbar({
   const navScrollRef = useRef<HTMLDivElement | null>(null)
   const toggleButtonRef = useRef<HTMLButtonElement | null>(null)
   const firstActionRef = useRef<HTMLButtonElement | null>(null)
+  const focusTimerRef = useRef<number | null>(null)
   const prevIsSidebarOpenRef = useRef<boolean | null>(null)
   const restoreToggleFocusOnCloseRef = useRef(false)
   const [internalIsOpen, setInternalIsOpen] = useState(true)
@@ -292,6 +293,24 @@ export function Navbar({
     setSidebarOpen(!isSidebarOpen)
   }, [isSidebarOpen, setSidebarOpen])
 
+  const focusAfterInertStateChange = useCallback((resolveTarget: () => HTMLElement | null | undefined) => {
+    if (focusTimerRef.current !== null) {
+      globalThis.window.clearTimeout(focusTimerRef.current)
+    }
+
+    // effect 完成后再聚焦，避免 inert 提交覆盖焦点；后台标签页也不能依赖动画帧。
+    focusTimerRef.current = globalThis.window.setTimeout(() => {
+      focusTimerRef.current = null
+      resolveTarget()?.focus({ preventScroll: true })
+    }, 0)
+  }, [])
+
+  useEffect(() => () => {
+    if (focusTimerRef.current !== null) {
+      globalThis.window.clearTimeout(focusTimerRef.current)
+    }
+  }, [])
+
   // 移动端侧栏隐藏时禁止焦点进入，桌面折叠图标栏仍保持可操作。
   useEffect(() => {
     const el = navRef.current as (HTMLElement & { inert: boolean }) | null
@@ -351,9 +370,7 @@ export function Navbar({
       const openedFromKnownTrigger =
         active === toggleButtonRef.current || active === mobileTriggerRef?.current
       if (active && active !== document.body && !openedFromKnownTrigger) return
-      requestAnimationFrame(() => {
-        firstActionRef.current?.focus()
-      })
+      focusAfterInertStateChange(() => firstActionRef.current)
       return
     }
 
@@ -364,12 +381,11 @@ export function Navbar({
     restoreToggleFocusOnCloseRef.current = false
     if (!shouldRestore || !shouldRestoreToggleFocus) return
 
-    requestAnimationFrame(() => {
+    focusAfterInertStateChange(() => {
       const isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches
-      const target = isMobile ? mobileTriggerRef?.current : toggleButtonRef.current
-      target?.focus()
+      return isMobile ? mobileTriggerRef?.current : toggleButtonRef.current
     })
-  }, [isSidebarOpen, mobileTriggerRef])
+  }, [focusAfterInertStateChange, isSidebarOpen, mobileTriggerRef])
 
   useEffect(() => {
     setOpenSections(loadOpenSections())

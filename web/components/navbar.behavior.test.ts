@@ -169,7 +169,28 @@ import { Navbar } from './navbar'
 const ControlledNavbar = Navbar as React.ComponentType<{
   isSidebarOpen?: boolean
   setSidebarOpen?: (open: boolean) => void
+  mobileTriggerRef?: React.RefObject<HTMLButtonElement | null>
 }>
+
+function MobileNavbarHarness() {
+  const [isOpen, setOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      'button',
+      { ref: triggerRef, type: 'button', onClick: () => setOpen(true) },
+      '打开侧栏'
+    ),
+    React.createElement(ControlledNavbar, {
+      isSidebarOpen: isOpen,
+      setSidebarOpen: setOpen,
+      mobileTriggerRef: triggerRef,
+    })
+  )
+}
 
 function renderComponent(element: React.ReactElement) {
   ;(
@@ -225,6 +246,7 @@ describe('Navbar behavior', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -291,6 +313,52 @@ describe('Navbar behavior', () => {
       expandButton.click()
     })
     expect(setSidebarOpen).toHaveBeenCalledWith(true)
+
+    view.unmount()
+  })
+
+  it('移动端在动画帧暂停时仍转移焦点，并在 Escape 关闭后返回触发按钮', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        addEventListener: vi.fn(),
+        addListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: query === '(max-width: 768px)',
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    })
+
+    vi.useFakeTimers()
+    vi.mocked(window.requestAnimationFrame).mockImplementation(() => 1)
+
+    const view = renderComponent(React.createElement(MobileNavbarHarness))
+    const trigger = Array.from(view.container.querySelectorAll('button')).find(
+      (button) => button.textContent === '打开侧栏'
+    ) as HTMLButtonElement
+    act(() => {
+      trigger.focus()
+      trigger.click()
+    })
+
+    act(() => vi.advanceTimersByTime(0))
+
+    const primaryAction = Array.from(view.container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('actions.newConversation')
+    ) as HTMLButtonElement
+    expect(document.activeElement).toBe(primaryAction)
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    act(() => vi.advanceTimersByTime(0))
+
+    expect(document.activeElement).toBe(trigger)
+    expect(view.container.querySelector('#mimirq-sidebar')?.getAttribute('class')).toContain('-translate-x-full')
 
     view.unmount()
   })
