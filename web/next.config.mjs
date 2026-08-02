@@ -1,7 +1,9 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import { networkInterfaces } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import createNextIntlPlugin from 'next-intl/plugin'
 
+const outputFileTracingRoot = fileURLToPath(new URL('.', import.meta.url))
 const sentryEnabled = Boolean(
   process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || process.env.SENTRY_AUTH_TOKEN
 )
@@ -120,6 +122,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   skipTrailingSlashRedirect: true,
+  outputFileTracingRoot,
   allowedDevOrigins: resolveAllowedDevOrigins(),
   distDir:
     process.env.NEXT_DIST_DIR ||
