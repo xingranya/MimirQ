@@ -1,5 +1,6 @@
 
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -10,7 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_account_id
 from app.api.dependencies.tenant import get_tenant_id
-from app.api.schemas.document import DocumentParsedContentResponse
+from app.api.schemas.document import (
+    DocumentParsedContentResponse,
+    DocumentParsedContentUpdateRequest,
+)
 from app.api.utils.response_headers import file_response_headers
 from app.core.config import settings
 from app.core.database import get_db
@@ -20,7 +24,10 @@ from app.models.document import DocumentParsedContent
 from app.parsing.factory import ParserFactory
 from app.parsing.output import markdown_to_blocks, render_clean_docx_bytes
 from app.services.dataset_service import DatasetService
-from app.services.document_access_service import assert_document_acl_readable
+from app.services.document_access_service import (
+    assert_document_acl_readable,
+    assert_document_writable_for_lifecycle,
+)
 from app.services.path_safety import resolve_under_base
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
@@ -181,6 +188,110 @@ def get_document_parsed_content(
         markdown_truncated=markdown_truncated,
         original_markdown_truncated=original_truncated,
         max_chars=max_chars_eff,
+    )
+
+
+@router.patch(
+    "/{document_id}/parsed-content",
+    response_model=DocumentParsedContentResponse,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
+def update_document_parsed_content(
+    document_id: uuid.UUID,
+    payload: DocumentParsedContentUpdateRequest,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """保存治理后的解析内容草稿，不在此接口中重建切块和索引。"""
+    DatasetService.ensure_member(db, tenant_id, account_id)
+
+    document = (
+        db.query(DBDocument)
+        .filter(DBDocument.id == document_id, DBDocument.tenant_id == tenant_id)
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail=DOC_NOT_FOUND_DETAIL)
+
+    assert_document_writable_for_lifecycle(
+        db,
+        tenant_id=tenant_id,
+        account_id=account_id,
+        document=document,
+    )
+
+    current_status = str(document.status or "").strip().lower()
+    if current_status in {"pending", "processing"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot edit parsed content for a {current_status} document",
+        )
+
+    markdown = str(payload.markdown_content or "").replace("\x00", "")
+    row = (
+        db.query(DocumentParsedContent)
+        .filter(
+            DocumentParsedContent.document_id == document_id,
+            DocumentParsedContent.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if payload.original_markdown_content is None:
+        original = (
+            str(getattr(row, "original_markdown_content", "") or "")
+            if row is not None
+            else markdown
+        )
+    else:
+        original = str(payload.original_markdown_content or "")
+    original = original.replace("\x00", "")
+
+    if row is None:
+        row = DocumentParsedContent(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            markdown_content=markdown,
+            original_markdown_content=original,
+        )
+        db.add(row)
+    else:
+        row.markdown_content = markdown
+        row.original_markdown_content = original
+
+    persisted_meta = {
+        "enabled": True,
+        "max_chars": 0,
+        "original": {
+            "raw_len": len(original),
+            "stored_len": len(original),
+            "truncated": False,
+        },
+        "cleaned": {
+            "raw_len": len(markdown),
+            "stored_len": len(markdown),
+            "truncated": False,
+        },
+    }
+    document_meta = dict(document.doc_metadata or {})
+    document_meta["parsed_content_persisted"] = persisted_meta
+    document_meta["governance_content_edited_at"] = datetime.now(UTC).isoformat()
+    document_meta.pop("ingest_checkpoint", None)
+    document.doc_metadata = document_meta
+
+    db.commit()
+    db.refresh(document)
+
+    return DocumentParsedContentResponse(
+        document_id=document_id,
+        available=True,
+        markdown_content=markdown,
+        original_markdown_content=original,
+        persisted_meta=persisted_meta,
+        markdown_truncated=False,
+        original_markdown_truncated=False,
+        max_chars=0,
     )
 
 

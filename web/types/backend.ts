@@ -92,6 +92,7 @@ export type DocumentTimelineItem = OpenApiSchema<'DocumentTimelineItem'>
 export type DocumentTimelineResponse = OpenApiSchema<'DocumentTimelineResponse'>
 
 export type DocumentParsedContentResponse = OpenApiSchema<'DocumentParsedContentResponse'>
+export type DocumentParsedContentUpdateRequest = OpenApiSchema<'DocumentParsedContentUpdateRequest'>
 
 export type DocumentQAGenerateRequest = OpenApiSchema<'DocumentQAGenerateRequest'>
 export type DocumentQAGenerateResponse = OpenApiSchema<'DocumentQAGenerateResponse'>

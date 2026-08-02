@@ -735,7 +735,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Document Parsed Content
+         * @description 保存治理后的解析内容草稿，不在此接口中重建切块和索引。
+         */
+        patch: operations["update_document_parsed_content_api_v1_documents__document_id__parsed_content_patch"];
         trace?: never;
     };
     "/api/v1/documents/{document_id}/clean-docx": {
@@ -13951,6 +13955,16 @@ export interface components {
             max_chars: number;
         };
         /**
+         * DocumentParsedContentUpdateRequest
+         * @description 治理工作台写回的解析内容草稿。
+         */
+        DocumentParsedContentUpdateRequest: {
+            /** Markdown Content */
+            markdown_content: string;
+            /** Original Markdown Content */
+            original_markdown_content?: string | null;
+        };
+        /**
          * DocumentPipelineOptions
          * @description Per-document pipeline options.
          */
@@ -27002,6 +27016,80 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentParsedContentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range Not Satisfiable */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_document_parsed_content_api_v1_documents__document_id__parsed_content_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentParsedContentUpdateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

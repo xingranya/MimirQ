@@ -415,6 +415,7 @@ DataGovernancePanel: {
       skippedUnsupported: '已跳过 {count} 个不支持的文件',
       parseFailed: '解析失败，请稍后重试',
       resultsSaved: '已保存治理结果',
+      resultsSaveFailed: '治理结果保存失败，请稍后重试',
       noChunkReadySelection: '请先保存并选择待切块文档',
       submittedToChunkPreview: '已提交 {count} 个文档到切块预览',
       filenameCopied: '文件名已复制',

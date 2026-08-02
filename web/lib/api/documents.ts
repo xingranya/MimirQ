@@ -31,6 +31,7 @@ import type {
   DocumentLifecycleMetadataUpdateRequest,
   DocumentList,
   DocumentParsedContentResponse,
+  DocumentParsedContentUpdateRequest,
   DocumentPipelineOptions,
   DocumentPipelinePatchRequest,
   DocumentPreview,
@@ -320,6 +321,20 @@ export const documentApi = {
       method: 'get',
       pathParams: { document_id: documentId },
       query: params,
+      responseSchema: documentParsedContentResponseSchema,
+      responseSchemaName: 'DocumentParsedContentResponse',
+    })
+  },
+
+  async updateParsedContent(
+    documentId: string,
+    payload: DocumentParsedContentUpdateRequest
+  ): Promise<DocumentParsedContentResponse> {
+    return openapiRequest({
+      path: '/api/v1/documents/{document_id}/parsed-content',
+      method: 'patch',
+      pathParams: { document_id: documentId },
+      body: payload,
       responseSchema: documentParsedContentResponseSchema,
       responseSchemaName: 'DocumentParsedContentResponse',
     })

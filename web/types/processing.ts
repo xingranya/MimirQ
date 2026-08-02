@@ -103,6 +103,7 @@ export interface DocumentPreview {
 }
 
 export type DocumentParsedContentResponse = import('./backend').DocumentParsedContentResponse
+export type DocumentParsedContentUpdateRequest = import('./backend').DocumentParsedContentUpdateRequest
 
 export interface ManualChunk {
   content: string

@@ -943,6 +943,13 @@ class DocumentParsedContentResponse(BaseModel):
     max_chars: int = Field(default=200_000, ge=0, le=2_000_000)
 
 
+class DocumentParsedContentUpdateRequest(BaseModel):
+    """治理工作台写回的解析内容草稿。"""
+
+    markdown_content: str
+    original_markdown_content: str | None = None
+
+
 class ManualChunkCreate(BaseModel):
     """Single chunk entry in a manual chunking request."""
     content: str

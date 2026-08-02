@@ -90,6 +90,7 @@ import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 import { deleteGovernanceFileFromBackend } from '@/lib/governance-file-delete'
+import { saveGovernanceFileToBackend } from '@/lib/governance-file-save'
 
 const GOVERNANCE_TAB_CONFIGS = [
   { id: 'quality', icon: ScanLine },
@@ -369,6 +370,7 @@ export function DataGovernancePanel() {
   const [uploading, setUploading] = useState(false)
   const [deleteFileOpen, setDeleteFileOpen] = useState(false)
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
+  const [savingGovernance, setSavingGovernance] = useState(false)
   const [deleteFileTarget, setDeleteFileTarget] = useState<{
     id: string
     filename: string
@@ -1233,7 +1235,7 @@ export function DataGovernancePanel() {
 
   // 将治理后的内容写回共享存储，供 /chunk-preview 使用最新版本
   const persistGovernanceEdits = useCallback(
-    (options?: {
+    async (options?: {
       markReadyFileIds?: Set<string>
       markSubmittedFileIds?: Set<string>
     }) => {
@@ -1263,7 +1265,25 @@ export function DataGovernancePanel() {
           Boolean(state) && typeof f.originalMarkdownContent !== 'string'
 
         if (shouldUpdateMarkdown || shouldSetOriginal || nextChunkStatus) {
-          updateParsedFile(f.id, {
+          const nextMarkdownContent = shouldUpdateMarkdown
+            ? state?.cleanedContent || ''
+            : f.markdownContent
+          if (shouldUpdateMarkdown || shouldSetOriginal) {
+            await saveGovernanceFileToBackend(
+              f.id,
+              f.source,
+              {
+                markdown_content: nextMarkdownContent,
+                original_markdown_content: originalMarkdownContent,
+              },
+              {
+                updateKnowledgeDocument: documentApi.updateParsedContent,
+                updateParsingDocument: parsingApi.updateContent,
+              }
+            )
+          }
+
+          await updateParsedFile(f.id, {
             ...(shouldUpdateMarkdown
               ? { markdownContent: state?.cleanedContent }
               : {}),
@@ -1276,25 +1296,47 @@ export function DataGovernancePanel() {
     [files, governanceStates, updateParsedFile]
   )
 
-  const handleSave = useCallback(() => {
+  const persistGovernanceEditsSafely = useCallback(
+    async (options?: {
+      markReadyFileIds?: Set<string>
+      markSubmittedFileIds?: Set<string>
+    }): Promise<boolean> => {
+      setSavingGovernance(true)
+      try {
+        await persistGovernanceEdits(options)
+        return true
+      } catch (error) {
+        reportClientError('Failed to persist governance edits', error)
+        toast.error(t('toasts.resultsSaveFailed'))
+        return false
+      } finally {
+        setSavingGovernance(false)
+      }
+    },
+    [persistGovernanceEdits, t]
+  )
+
+  const handleSave = useCallback(async () => {
     if (!selectedFileId) return
-    persistGovernanceEdits({
+    const saved = await persistGovernanceEditsSafely({
       markReadyFileIds: new Set([selectedFileId]),
     })
+    if (!saved) return
     setSelectedChunkFileIds((prev) => new Set(prev).add(selectedFileId))
     toast.success(t('toasts.resultsSaved'))
-  }, [persistGovernanceEdits, selectedFileId, t])
+  }, [persistGovernanceEditsSafely, selectedFileId, t])
 
-  const handleSubmitSelectedToChunkPreview = useCallback(() => {
+  const handleSubmitSelectedToChunkPreview = useCallback(async () => {
     if (!selectedReadyChunkFiles.length) {
       toast.error(t('toasts.noChunkReadySelection'))
       return
     }
 
     const targetIds = new Set(selectedReadyChunkFiles.map((file) => file.id))
-    persistGovernanceEdits({
+    const saved = await persistGovernanceEditsSafely({
       markSubmittedFileIds: targetIds,
     })
+    if (!saved) return
     setSelectedChunkFileIds(new Set())
     toast.success(
       t('toasts.submittedToChunkPreview', {
@@ -1305,27 +1347,29 @@ export function DataGovernancePanel() {
     if (selectedDatasetId) params.set('dataset_id', selectedDatasetId)
     const query = params.toString()
     router.push(query ? `/chunk-preview?${query}` : '/chunk-preview')
-  }, [persistGovernanceEdits, router, selectedDatasetId, selectedReadyChunkFiles, t])
+  }, [persistGovernanceEditsSafely, router, selectedDatasetId, selectedReadyChunkFiles, t])
 
-  const handlePushToChunkPreview = useCallback(() => {
+  const handlePushToChunkPreview = useCallback(async () => {
     if (selectedReadyChunkFiles.length > 0) {
-      handleSubmitSelectedToChunkPreview()
+      await handleSubmitSelectedToChunkPreview()
       return
     }
+    let saved = false
     if (selectedFileId) {
-      persistGovernanceEdits({
+      saved = await persistGovernanceEditsSafely({
         markSubmittedFileIds: new Set([selectedFileId]),
       })
     } else {
-      persistGovernanceEdits()
+      saved = await persistGovernanceEditsSafely()
     }
+    if (!saved) return
     const params = new URLSearchParams()
     if (selectedDatasetId) params.set('dataset_id', selectedDatasetId)
     const query = params.toString()
     router.push(query ? `/chunk-preview?${query}` : '/chunk-preview')
   }, [
     handleSubmitSelectedToChunkPreview,
-    persistGovernanceEdits,
+    persistGovernanceEditsSafely,
     router,
     selectedDatasetId,
     selectedFileId,
@@ -1675,10 +1719,14 @@ export function DataGovernancePanel() {
                 variant="info"
                 size="sm"
                 onClick={handleSave}
-                disabled={!governanceState}
+                disabled={!governanceState || savingGovernance}
                 className="gap-2 h-8 text-xs"
               >
-                <Save className="w-3.5 h-3.5" />
+                {savingGovernance ? (
+                  <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
                 {t('actions.save')}
               </Button>
               <div className="w-px h-4 bg-border dark:bg-card mx-1" />
@@ -1686,7 +1734,7 @@ export function DataGovernancePanel() {
                 variant="outline"
                 size="sm"
                 onClick={handleSubmitSelectedToChunkPreview}
-                disabled={selectedReadyChunkCount === 0}
+                disabled={selectedReadyChunkCount === 0 || savingGovernance}
                 className="gap-2 h-8 text-xs"
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -1714,10 +1762,14 @@ export function DataGovernancePanel() {
             variant="info"
             size="sm"
             onClick={handleSave}
-            disabled={!governanceState}
+            disabled={!governanceState || savingGovernance}
             className="gap-2 h-8 text-xs"
           >
-            <Save className="w-3.5 h-3.5" />
+            {savingGovernance ? (
+              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Save className="size-3.5" />
+            )}
             {t('actions.save')}
           </Button>
           <div className="w-px h-4 bg-border dark:bg-card mx-1" />
@@ -1725,7 +1777,7 @@ export function DataGovernancePanel() {
             variant="outline"
             size="sm"
             onClick={handleSubmitSelectedToChunkPreview}
-            disabled={selectedReadyChunkCount === 0}
+            disabled={selectedReadyChunkCount === 0 || savingGovernance}
             className="gap-2 h-8 text-xs"
           >
             <Layers className="w-3.5 h-3.5" />
@@ -1737,7 +1789,7 @@ export function DataGovernancePanel() {
             variant="default"
             size="sm"
             onClick={handlePushToChunkPreview}
-            disabled={!isLoaded || files.length === 0}
+            disabled={!isLoaded || files.length === 0 || savingGovernance}
             className="gap-2 h-8 text-xs"
           >
             <Layers className="w-3.5 h-3.5" />

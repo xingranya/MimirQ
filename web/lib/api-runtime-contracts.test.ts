@@ -112,25 +112,47 @@ describe('API runtime contracts', () => {
   })
 
   it('passes a runtime response schema for persisted document parsed content', async () => {
-    openapiRequestMock.mockResolvedValueOnce({ document_id: SAMPLE_UUID })
+    openapiRequestMock
+      .mockResolvedValueOnce({ document_id: SAMPLE_UUID })
+      .mockResolvedValueOnce({ document_id: SAMPLE_UUID })
 
     await documentApi.getParsedContent(SAMPLE_UUID)
+    await documentApi.updateParsedContent(SAMPLE_UUID, {
+      markdown_content: '# Updated',
+      original_markdown_content: '# Original',
+    })
 
-    const requestArgs = openapiRequestMock.mock.calls[0]?.[0]
-    expect(requestArgs?.responseSchemaName).toBe('DocumentParsedContentResponse')
-    expect(
-      requestArgs?.responseSchema.safeParse({
-        document_id: SAMPLE_UUID,
-        available: true,
-        markdown_content: '# Stored',
+    const requestArgsList = openapiRequestMock.mock.calls.map((call) => call[0])
+    for (const requestArgs of requestArgsList) {
+      expect(requestArgs?.responseSchemaName).toBe(
+        'DocumentParsedContentResponse'
+      )
+      expect(
+        requestArgs?.responseSchema.safeParse({
+          document_id: SAMPLE_UUID,
+          available: true,
+          markdown_content: '# Stored',
+          original_markdown_content: '# Original',
+          persisted_meta: { source: 'pipeline' },
+          markdown_truncated: false,
+          original_markdown_truncated: false,
+          max_chars: 1000,
+        }).success
+      ).toBe(true)
+      expect(
+        requestArgs?.responseSchema.safeParse({ document_id: null }).success
+      ).toBe(false)
+    }
+
+    expect(requestArgsList[1]).toMatchObject({
+      path: '/api/v1/documents/{document_id}/parsed-content',
+      method: 'patch',
+      pathParams: { document_id: SAMPLE_UUID },
+      body: {
+        markdown_content: '# Updated',
         original_markdown_content: '# Original',
-        persisted_meta: { source: 'pipeline' },
-        markdown_truncated: false,
-        original_markdown_truncated: false,
-        max_chars: 1000,
-      }).success
-    ).toBe(true)
-    expect(requestArgs?.responseSchema.safeParse({ document_id: null }).success).toBe(false)
+      },
+    })
   })
 
   it('passes a runtime response schema for chat responses', async () => {
