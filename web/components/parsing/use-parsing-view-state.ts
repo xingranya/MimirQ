@@ -11,6 +11,7 @@ import { getDocContentFromCache, getDocSourceFromCache } from '@/lib/doc-content
 import { extractMarkdownHeadings } from '@/lib/markdown'
 import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
+import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 import { shouldRefreshParsingContentFromRemote } from '@/lib/parsing-run-restore'
 import { ROOT_FOLDER_ID, useParsedFiles, type FolderNode, type ParsedFileData } from '@/store/use-parsed-files-store'
 import { type FileStatus } from '@/components/ui/file-queue-item'
@@ -93,13 +94,14 @@ function mapParsingDocumentToLibraryFile(
   const resolved = resolveParserBackendForFilename(doc.filename || existing?.filename || 'document', preferredBackend)
   const backend = resolved.backend
   const status = mapBackendStatusToLibraryStatus(doc.status)
-  const targetDatasetId =
-    normalizeBackendCandidate(meta?.target_dataset_id) ||
-    existing?.datasetId ||
-    null
-  const targetDatasetName =
-    normalizeBackendCandidate(meta?.target_dataset_name) ||
-    (targetDatasetId ? datasetNameById.get(targetDatasetId) || existing?.datasetName || targetDatasetId : null)
+  const targetDataset = resolveParsingWorkspaceDataset(
+    meta,
+    datasetNameById,
+    {
+      datasetId: existing?.datasetId,
+      datasetName: existing?.datasetName,
+    }
+  )
 
   return {
     id,
@@ -114,8 +116,8 @@ function mapParsingDocumentToLibraryFile(
     durationSec,
     elements: serverElements.length > 0 ? serverElements : existing?.elements || [],
     folderId: existing?.folderId || ROOT_FOLDER_ID,
-    datasetId: targetDatasetId,
-    datasetName: targetDatasetName,
+    datasetId: targetDataset.datasetId,
+    datasetName: targetDataset.datasetName,
     source: 'parsing_workspace',
     status,
     error: status === 'error' ? String(doc.error_message || existing?.error || '解析失败') : undefined,

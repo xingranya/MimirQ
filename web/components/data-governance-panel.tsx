@@ -88,6 +88,7 @@ import {
 } from '@/lib/upload-extensions'
 import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
+import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 
 const GOVERNANCE_TAB_CONFIGS = [
   { id: 'quality', icon: ScanLine },
@@ -274,7 +275,8 @@ function mapKnowledgeDocumentToGovernanceFile(
 }
 
 function mapParsingDocumentToGovernanceFile(
-  doc: GovernanceParsingDocument
+  doc: GovernanceParsingDocument,
+  datasetNameById: Map<string, string>
 ): ParsedFileData {
   const meta = doc.metadata
   const backendCandidate =
@@ -286,6 +288,10 @@ function mapParsingDocumentToGovernanceFile(
     backendCandidate
   )
   const backend = resolved.backend || backendCandidate
+  const targetDataset = resolveParsingWorkspaceDataset(
+    meta,
+    datasetNameById
+  )
 
   return {
     id: String(doc.id || '').trim(),
@@ -300,8 +306,8 @@ function mapParsingDocumentToGovernanceFile(
     parser: getParserLabel(backend),
     parserBackend: backend,
     folderId: ROOT_FOLDER_ID,
-    datasetId: doc.dataset_id || null,
-    datasetName: null,
+    datasetId: targetDataset.datasetId,
+    datasetName: targetDataset.datasetName,
     source: 'parsing_workspace',
     status: mapBackendStatusToGovernanceStatus(doc.status),
     error: doc.error_message || undefined,
@@ -491,7 +497,9 @@ export function DataGovernancePanel() {
           ? knowledgeResult.value.items || []
           : []
       return [
-        ...parsingItems.map(mapParsingDocumentToGovernanceFile),
+        ...parsingItems.map((doc) =>
+          mapParsingDocumentToGovernanceFile(doc, datasetNameById)
+        ),
         ...knowledgeItems
           .filter((doc) => !isParsingWorkspaceDocument(doc))
           .map((doc) =>
