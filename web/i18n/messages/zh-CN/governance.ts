@@ -405,6 +405,7 @@ DataGovernancePanel: {
     toasts: {
       uploadCancelled: '已取消解析',
       fileDeleted: '已删除文件',
+      fileDeleteFailed: '删除失败，请稍后重试',
       zipExtractFailed: 'ZIP 解压失败：{filename}',
       zipNoFilesFound: 'ZIP 中未找到文件：{filename}',
       zipNoSupportedFiles: 'ZIP 中没有可解析文件：{filename}',

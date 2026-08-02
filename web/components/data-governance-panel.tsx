@@ -89,6 +89,7 @@ import {
 import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
+import { deleteGovernanceFileFromBackend } from '@/lib/governance-file-delete'
 
 const GOVERNANCE_TAB_CONFIGS = [
   { id: 'quality', icon: ScanLine },
@@ -367,6 +368,7 @@ export function DataGovernancePanel() {
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleteFileOpen, setDeleteFileOpen] = useState(false)
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
   const [deleteFileTarget, setDeleteFileTarget] = useState<{
     id: string
     filename: string
@@ -830,19 +832,23 @@ export function DataGovernancePanel() {
   }, [initializeGovernanceState, selectedFile, updateParsedFile])
 
   const handleDeleteFile = useCallback(
-    (fileId: string) => {
+    async (fileId: string) => {
       const target = files.find((f) => f.id === fileId)
       if (!target) return
 
-      detachPromise(
-        (async () => {
-          try {
-            await parsingApi.delete(fileId)
-          } catch {
-            // ignore: some entries may be local-only or already deleted on the backend
-          }
-        })()
-      )
+      setDeletingFileId(fileId)
+      try {
+        await deleteGovernanceFileFromBackend(fileId, target.source, {
+          deleteKnowledgeDocument: documentApi.delete,
+          deleteParsingDocument: parsingApi.delete,
+        })
+      } catch (error) {
+        reportClientError('Failed to delete governance file', error)
+        toast.error(t('toasts.fileDeleteFailed'))
+        return
+      } finally {
+        setDeletingFileId(null)
+      }
 
       removeFile(fileId)
       setGovernanceStates((prev) => {
@@ -2452,12 +2458,16 @@ export function DataGovernancePanel() {
                   {t('dialogs.deleteFile.cancel')}
                 </AlertDialogCancel>
                 <AlertDialogAction
+                  disabled={Boolean(deletingFileId)}
                   onClick={() => {
                     const id = deleteFileTarget?.id
                     if (!id) return
-                    handleDeleteFile(id)
+                    detachPromise(handleDeleteFile(id))
                   }}
                 >
+                  {deletingFileId ? (
+                    <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
+                  ) : null}
                   {t('dialogs.deleteFile.confirm')}
                 </AlertDialogAction>
               </AlertDialogFooter>
