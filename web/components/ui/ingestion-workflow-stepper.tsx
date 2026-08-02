@@ -71,7 +71,7 @@ export function IngestionWorkflowStepper({
       aria-label={t("ingestionWorkflow.navLabel")}
       className={cn(
         'flex items-center',
-        compact ? 'gap-2' : 'min-w-[640px] gap-0',
+        compact ? 'gap-2' : 'w-full min-w-0 gap-1',
         className
       )}
     >
@@ -87,23 +87,21 @@ export function IngestionWorkflowStepper({
               'flex items-center',
               compact
                 ? 'gap-2'
-                : index < steps.length - 1
-                  ? 'min-w-0 flex-1'
-                  : 'shrink-0'
+                : 'min-w-0 flex-1'
             )}
           >
             <Link
               href={step.href}
               aria-current={isActive ? 'step' : undefined}
               className={cn(
-                'inline-flex items-center rounded-full border font-medium transition-colors focus-ring',
+                'inline-flex items-center rounded-md border font-medium transition-colors focus-ring',
                 compact
                   ? 'h-7 gap-1.5 px-3 py-1.5 text-[11px]'
-                  : 'h-10 min-w-[142px] justify-center gap-2 px-4 text-[13px]',
+                  : 'h-9 w-full min-w-0 justify-center gap-1.5 px-1 text-xs sm:px-2',
                 isActive &&
                   (compact
                     ? 'border-primary/25 bg-primary/10 text-primary'
-                    : 'border-info/18 bg-[linear-gradient(90deg,hsl(var(--info)/0.16),hsl(var(--info)/0.06))] text-info shadow-[0_12px_30px_-24px_hsl(var(--info)/0.75)]'),
+                    : 'border-primary/30 bg-primary/10 text-primary'),
                 isDone &&
                   !isActive &&
                   (compact
@@ -131,10 +129,10 @@ export function IngestionWorkflowStepper({
                   className={cn(
                     'flex size-5 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums',
                     isActive &&
-                      'border-info bg-info text-info-foreground shadow-[0_8px_18px_-10px_hsl(var(--info)/0.85)]',
+                      'border-primary bg-primary text-primary-foreground',
                     isDone &&
                       !isActive &&
-                      'border-info/20 bg-info/[0.08] text-info',
+                      'border-primary/20 bg-primary/[0.08] text-primary',
                     !isDone &&
                       !isActive &&
                       'border-border bg-background text-muted-foreground'
@@ -154,12 +152,6 @@ export function IngestionWorkflowStepper({
               >
                 →
               </span>
-            ) : null}
-            {index < steps.length - 1 && !compact ? (
-              <span
-                aria-hidden="true"
-                className="mx-4 h-px min-w-8 flex-1 border-t border-dashed border-border/55"
-              />
             ) : null}
           </div>
         )

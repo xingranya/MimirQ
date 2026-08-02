@@ -3,7 +3,6 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive,
-  ArrowRight,
   BarChart3,
   Cloud,
   Copy,
@@ -20,8 +19,6 @@ import {
   Play,
   Plus,
   RefreshCw,
-  ShieldCheck,
-  Sparkles,
   Trash2,
   UploadCloud,
   type LucideIcon,
@@ -33,7 +30,10 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PageTitleIcon } from '@/components/ui/page-title-icon'
+import {
+  KnowledgeOpsHero,
+  KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
+} from '@/components/ui/knowledge-ops-hero'
 import {
   Select,
   SelectContent,
@@ -64,10 +64,7 @@ const TASK_LIST_PAGE_SIZE = 6
 const DEFAULT_COLLECTION = 'default'
 const NO_DATASET_FILE_BUCKET = '__mimirq_no_dataset__'
 const EMPTY_FILES: File[] = []
-const OPERATION_BACKGROUND_CLASS =
-  'bg-background bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.10),transparent_34rem)] dark:bg-background'
-const OPERATION_HERO_PANEL_CLASS =
-  'relative overflow-hidden rounded-[28px] border border-info/30 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--info)/0.10)_45%,hsl(var(--background)/0.82))] px-4 py-3 shadow-[0_24px_70px_-48px_hsl(var(--info)/0.55)] backdrop-blur-2xl'
+const OPERATION_BACKGROUND_CLASS = 'bg-background'
 
 type UploadSource = 'local' | 'folder' | 'url' | 'object' | 'api'
 type ParserBackend = 'auto' | 'docling' | 'markitdown' | 'deepdoc' | 'csv' | 'json' | 'markdown'
@@ -159,23 +156,23 @@ const ACCEPTED_EXTENSIONS = [
 ]
 
 const WORKBENCH_SURFACE_CLASS =
-  'rounded-[1.45rem] border border-border/50 bg-card/74 shadow-[0_18px_46px_-36px_hsl(var(--primary)/0.26),inset_0_1px_0_hsl(var(--card)/0.78)] backdrop-blur-2xl'
+  'rounded-md border border-border bg-card'
 const SOFT_PANEL_CLASS =
-  'rounded-[1.28rem] border border-border/50 bg-card/62 shadow-[0_14px_34px_-34px_hsl(var(--primary)/0.22),inset_0_1px_0_hsl(var(--card)/0.72)] backdrop-blur-xl'
+  'rounded-md border border-border bg-card'
 const SOFT_CONTROL_CLASS =
-  'rounded-[1rem] border-border/55 bg-background/76 text-[13px] shadow-[inset_0_1px_0_hsl(var(--card)/0.68)]'
+  'rounded-md border-border bg-background text-[13px] shadow-none'
 const INLINE_FIELD_CLASS =
-  'border border-border/50 bg-background/46 text-foreground shadow-[inset_0_1px_0_hsl(var(--card)/0.52)]'
-const CONFIG_BOX_CLASS = 'rounded-[1.25rem] border border-border/50 bg-background/42'
+  'border border-border bg-background text-foreground shadow-none'
+const CONFIG_BOX_CLASS = 'rounded-md border border-border bg-muted/20'
 const CONFIG_INPUT_CLASS =
-  'rounded-[1rem] border-border/55 bg-card/72 text-[13px] shadow-[inset_0_1px_0_hsl(var(--card)/0.66)]'
-const TABLE_SHELL_CLASS = 'overflow-hidden rounded-[1.15rem] border border-border/50 bg-card/66'
-const TABLE_HEAD_CLASS = 'bg-muted/28 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/72'
+  'rounded-md border-border bg-background text-[13px] shadow-none'
+const TABLE_SHELL_CLASS = 'overflow-hidden rounded-md border border-border bg-card'
+const TABLE_HEAD_CLASS = 'bg-muted/40 text-xs font-medium text-muted-foreground'
 const TABLE_ROW_CLASS = 'border-t border-border/45 text-[12px] leading-5 transition-colors hover:bg-muted/[0.16]'
 const SELECT_MENU_CLASS =
-  'rounded-[18px] border-border/50 bg-popover/96 p-1 shadow-[0_22px_56px_-34px_hsl(var(--foreground)/0.28)] backdrop-blur-xl'
+  'rounded-md border-border bg-popover p-1 shadow-md'
 const SELECT_OPTION_CLASS =
-  'min-h-[46px] items-start rounded-[14px] py-2 pl-8 pr-3 text-[12px] data-[highlighted]:bg-primary/[0.08] data-[state=checked]:bg-primary/[0.08] data-[state=checked]:text-primary'
+  'min-h-[46px] items-start rounded-md py-2 pl-8 pr-3 text-[12px] data-[highlighted]:bg-primary/[0.08] data-[state=checked]:bg-primary/[0.08] data-[state=checked]:text-primary'
 const INGEST_MODE_OPTIONS: Array<SelectOption<IngestMode>> = [
   {
     value: 'append',
@@ -1121,94 +1118,41 @@ export default function KnowledgeIngestionOperationPage() {
       )}
     >
       <div className="mx-auto flex min-h-[max(52rem,calc(100dvh-1.25rem))] w-full max-w-[1680px] flex-col gap-2">
-        <div
-          className={cn(
-            'flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between',
-            OPERATION_HERO_PANEL_CLASS
-          )}
-        >
-          <div className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/30 blur-3xl" aria-hidden="true" />
-          <div className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.38),transparent)]" aria-hidden="true" />
-          <div className="relative flex min-w-0 items-center gap-3">
-            <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[22px] border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.12))] text-info shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_36px_-24px_hsl(var(--info)/0.9)]">
-              <span
-                className="absolute inset-x-2 top-1 h-px bg-card/70"
-                aria-hidden="true"
-              />
-              <PageTitleIcon name="ingestion-operation" className="size-9" />
+        <KnowledgeOpsHero
+          iconImage="ingestion-operation"
+          title="入库管理"
+          description="选择数据集与来源，登记原始文件后再进入解析与索引流程。"
+          eyebrow={null}
+          badge={null}
+          summary={
+            <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
+              <span className="inline-flex items-center gap-1.5">
+                <Database className="size-3.5 text-primary" />
+                范围
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                {selectedDataset?.name ?? (datasetsQuery.isLoading ? '正在加载数据集' : '选择目标数据集')}
+              </span>
+              <span className="h-3.5 w-px bg-border" aria-hidden="true" />
+              <span>文档</span>
+              <span className="tabular-nums text-foreground">{totalDocuments}</span>
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-info">
-                  <Sparkles className="size-3" />
-                  Knowledge Ops
-                </span>
-                <span className="inline-flex items-center rounded-full border border-success/30 bg-success/5 px-2.5 py-1 text-[10px] font-medium text-success">
-                  <ShieldCheck className="mr-1.5 size-3" />
-                  文档资产治理中枢
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h1 className="text-[22px] font-semibold tracking-[-0.025em] text-foreground">
-                  <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                    入库管理
-                  </span>
-                </h1>
-                <p className="text-[13px] leading-5 text-muted-foreground/85">
-                  选择数据集与来源，先登记原始文件；解析、切块、建索引在后续流程手动控制。
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="relative flex min-w-0 flex-col gap-2 lg:min-w-[470px]">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-info/30 bg-card/64 px-3 py-2 text-[11px] text-muted-foreground shadow-[0_12px_28px_-24px_hsl(var(--info)/0.45)] backdrop-blur dark:bg-background/28">
-                <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className="size-1 rounded-full bg-info/70"
-                    aria-hidden
-                  />
-                  范围
-                </span>
-                <span className="min-w-0 truncate font-medium text-foreground">
-                  {selectedDataset?.name ?? (datasetsQuery.isLoading ? '正在加载数据集' : '选择目标数据集')}
-                </span>
-                <span className="h-3.5 w-px bg-border/70" />
-                <span>文档</span>
-                <span className="font-mono tabular-nums text-foreground">
-                  {totalDocuments}
-                </span>
-              </div>
-              <div className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-info/30 bg-card/64 px-3 py-2 text-[11px] text-muted-foreground shadow-[0_12px_28px_-24px_hsl(var(--info)/0.45)] backdrop-blur dark:bg-background/28">
-                <span className="inline-flex items-center gap-1.5">
-                  <UploadCloud className="size-3 text-info" />
-                  登记
-                </span>
-                <ArrowRight className="size-3 shrink-0 text-muted-foreground/45" />
-                <span className="inline-flex items-center gap-1.5">
-                  <FileText className="size-3 text-info" />
-                  解析
-                </span>
-                <ArrowRight className="size-3 shrink-0 text-muted-foreground/45" />
-                <span className="inline-flex items-center gap-1.5">
-                  <Database className="size-3 text-info" />
-                  建索引
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+          }
+          actions={
+            <>
               <IngestionViewSwitch />
               <Button
                 variant="outline"
-                className="h-9 rounded-xl border-border/55 bg-card/76 px-3.5 text-[12px] font-medium text-foreground shadow-none hover:!border-primary/20 hover:!bg-card/82 hover:!text-foreground"
+                size="sm"
+                className="h-8 gap-1.5 rounded-md px-3 text-xs"
                 onClick={() => detachPromise(handleSyncDatasets())}
               >
-                <RefreshCw className="mr-1.5 size-4" />
+                <RefreshCw className="size-3.5" />
                 同步数据
               </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <section className={cn(WORKBENCH_SURFACE_CLASS, 'space-y-2 p-3')}>
           <div className="grid gap-2 xl:grid-cols-[1.1fr_0.85fr_1.15fr_1.7fr_auto]">
@@ -1277,14 +1221,14 @@ export default function KnowledgeIngestionOperationPage() {
             </FieldBlock>
             <FieldBlock label="数据来源">
               <Tabs value={source} onValueChange={(value) => setSource(value as UploadSource)}>
-                <TabsList className="grid h-10 grid-cols-5 overflow-hidden rounded-[1rem] border border-border/50 bg-muted/26 p-0.5">
+                <TabsList className="grid h-10 grid-cols-5 overflow-hidden rounded-md border border-border bg-muted/40 p-0.5">
                   {SOURCE_OPTIONS.map((item) => {
                     const Icon = item.icon
                     return (
                       <TabsTrigger
                         key={item.value}
                         value={item.value}
-                        className="h-full gap-2 rounded-[0.85rem] text-[12px] font-medium text-muted-foreground/76 data-[state=active]:bg-card/92 data-[state=active]:text-primary data-[state=active]:shadow-[0_8px_18px_-14px_hsl(var(--primary)/0.40)]"
+                        className="h-full gap-2 rounded-md text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-none"
                       >
                         <Icon className="size-4" />
                         <span className="hidden md:inline">{item.label}</span>
@@ -1295,11 +1239,11 @@ export default function KnowledgeIngestionOperationPage() {
               </Tabs>
             </FieldBlock>
             <div className="flex items-end gap-2">
-              <Button variant="outline" className="h-9 rounded-[1rem] border-border/55 bg-card/76 text-[13px] font-medium text-foreground shadow-none hover:!border-primary/20 hover:!bg-card/82 hover:!text-foreground" onClick={() => router.push('/datasets')}>
+              <Button variant="outline" className="h-9 rounded-md border-border bg-background text-[13px] font-medium text-foreground shadow-none hover:!border-primary/20 hover:!bg-muted hover:!text-foreground" onClick={() => router.push('/datasets')}>
                 <Plus className="mr-2 size-4" />
                 新建数据集
               </Button>
-              <Button className="h-9 rounded-[1rem] bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(var(--info)))] px-4 text-[13px] font-semibold text-primary-foreground shadow-[0_12px_24px_-16px_hsl(var(--primary)/0.58)] hover:brightness-105" onClick={() => detachPromise(uploadFiles(draft.executionMode === 'upload_only' ? 'upload_only' : 'ingest'))} disabled={!canStartIngest}>
+              <Button className="h-9 rounded-md bg-primary px-4 text-[13px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90" onClick={() => detachPromise(uploadFiles(draft.executionMode === 'upload_only' ? 'upload_only' : 'ingest'))} disabled={!canStartIngest}>
                 {status === 'uploading' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Play className="mr-2 size-4" />}
                 {draft.executionMode === 'upload_only' ? '登记到知识库' : draft.executionMode === 'full_index' ? '解析并建索引' : '入库并解析'}
               </Button>
@@ -1407,7 +1351,7 @@ function SectionTitle({
   return (
     <div className="mb-2 flex min-w-0 items-end justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="text-[14px] font-semibold leading-none tracking-[-0.01em] text-foreground">{title}</h2>
+        <h2 className="text-[14px] font-semibold leading-none text-foreground">{title}</h2>
         {caption ? <p className="mt-1 text-[11px] leading-4 text-muted-foreground/70">{caption}</p> : null}
       </div>
     </div>
@@ -1426,7 +1370,7 @@ function StatusRail({
   }>
 }>) {
   return (
-    <div className="grid gap-1 rounded-[1.1rem] border border-border/50 bg-background/36 px-2 py-1.5 md:grid-cols-4">
+    <div className="grid divide-y divide-border border-t border-border pt-2 md:grid-cols-4 md:divide-x md:divide-y-0">
       {items.map((item) => (
         <StatusRailItem key={item.label} {...item} />
       ))}
@@ -1448,25 +1392,22 @@ function StatusRailItem({
   tone: 'blue' | 'green' | 'amber'
 }>) {
   const toneClass = {
-    blue: 'bg-info/[0.10] text-info ring-1 ring-info/20',
-    green: 'bg-success/5 text-success ring-1 ring-success/20',
-    amber: 'bg-warning/5 text-warning ring-1 ring-warning/20',
+    blue: 'bg-info/10 text-info',
+    green: 'bg-success/10 text-success',
+    amber: 'bg-warning/10 text-warning',
   }[tone]
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[0.95rem] px-2 py-1.5 md:border-r md:border-border/45 md:last:border-r-0">
-      <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-[0.9rem]', toneClass)}>
+    <div className="flex min-w-0 items-center gap-2 px-2 py-2">
+      <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', toneClass)}>
         <Icon className="size-3.5" />
       </span>
       <div className="min-w-0">
         <div className="flex items-baseline gap-1.5">
           <span className="text-[11px] font-medium leading-none text-muted-foreground/72">{label}</span>
-          <span className="text-[16px] font-semibold leading-5 tracking-[-0.035em] text-foreground">{value}</span>
+          <span className="text-[16px] font-semibold leading-5 text-foreground">{value}</span>
         </div>
         <div className="mt-0.5 truncate text-[10px] leading-4 text-muted-foreground/68">{helper}</div>
       </div>
-      <span className={cn('ml-auto hidden size-7 items-center justify-center rounded-[0.9rem] opacity-55 xl:flex', toneClass)}>
-        <Icon className="size-4" />
-      </span>
     </div>
   )
 }
@@ -1491,16 +1432,16 @@ function DatasetSummaryCard({
     : '选择数据集后承接原始文件登记，解析与切块留到后续流程'
 
   return (
-    <div className="rounded-[1.2rem] border border-border/50 bg-[linear-gradient(135deg,hsl(var(--card)/0.88)_0%,hsl(var(--surface-2)/0.48)_52%,hsl(var(--background)/0.72)_100%)] px-3 py-2 shadow-[inset_0_1px_0_hsl(var(--card)/0.76)]">
+    <div className="border-y border-border bg-muted/20 px-3 py-2">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[1rem] border border-border/50 bg-card/82 text-primary shadow-[0_10px_22px_-16px_hsl(var(--primary)/0.34)]">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-primary">
             <Database className="size-4" />
           </span>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <div className="truncate text-[15px] font-semibold leading-5 tracking-[-0.01em] text-foreground">{dataset?.name ?? '未选择数据集'}</div>
-              <span className="flex items-center gap-1 rounded-full border border-border/45 bg-background/50 px-2 py-0.5 text-[10px] text-muted-foreground/72">
+              <div className="truncate text-[15px] font-semibold leading-5 text-foreground">{dataset?.name ?? '未选择数据集'}</div>
+              <span className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground">
                 ID <span className="font-mono">{datasetShortId(dataset)}</span>
                 <Copy className="size-3" />
               </span>
@@ -1510,7 +1451,7 @@ function DatasetSummaryCard({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end [&_[data-slot=badge]]:rounded-full [&_[data-slot=badge]]:px-2.5">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end [&_[data-slot=badge]]:rounded-md [&_[data-slot=badge]]:px-2.5">
           <Badge variant={dataset ? 'success' : 'warning'}>{dataset ? '数据集已选' : '待选择'}</Badge>
           <Badge variant={syncEnabled ? 'success' : 'warning'}>{syncEnabled ? '自动同步知识库' : '手动同步'}</Badge>
         </div>
@@ -1549,16 +1490,16 @@ function UploadDropArea({
         onFiles(Array.from(event.dataTransfer.files ?? []))
       }}
       className={cn(
-        'flex min-h-[3.6rem] w-full flex-col items-center justify-center rounded-[1.35rem] border border-dashed bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.09),transparent_48%),linear-gradient(180deg,hsl(var(--card)/0.88),hsl(var(--background)/0.72))] px-4 py-2.5 text-center transition',
+        'flex min-h-[6rem] w-full flex-col items-center justify-center rounded-md border border-dashed bg-background px-4 py-3 text-center transition-colors',
         dragging
-          ? 'border-primary/45 shadow-[0_0_0_4px_hsl(var(--primary)/0.14)]'
-          : 'border-border/70 hover:border-primary/35 hover:bg-primary/[0.04]'
+          ? 'border-primary bg-primary/[0.03]'
+          : 'border-border hover:border-primary/35 hover:bg-muted/30'
       )}
     >
-      <span className="flex size-7 items-center justify-center rounded-[0.95rem] bg-primary/10 text-primary ring-1 ring-primary/20">
+      <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
         <UploadCloud className="size-3.5" />
       </span>
-      <div className="mt-1 text-[14px] font-semibold leading-5 tracking-[-0.01em] text-foreground">点击选择文件，或将文件拖拽到此处</div>
+      <div className="mt-2 text-[14px] font-semibold leading-5 text-foreground">点击选择文件，或将文件拖拽到此处</div>
       <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground/70">
         支持 pdf、docx、txt、md、xlsx、csv、pptx 等格式，单文件 ≤ 2GB
       </div>
@@ -1618,7 +1559,7 @@ function SourceConfiguration({
       <div className={cn(CONFIG_BOX_CLASS, 'border-dashed px-3 py-2')}>
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-[1rem] bg-primary/10 text-primary ring-1 ring-primary/20">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Folder className="size-4" />
             </span>
             <div className="min-w-0">
@@ -1678,7 +1619,7 @@ function SourceConfiguration({
     return (
       <div className={cn(CONFIG_BOX_CLASS, 'grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-4')}>
         {urlIngestEnabled ? null : (
-          <div className="rounded-[1rem] border border-warning/20 bg-warning/[0.08] px-3 py-2 text-[11px] leading-4 text-warning md:col-span-2 xl:col-span-4">
+          <div className="rounded-md border border-warning/20 bg-warning/[0.08] px-3 py-2 text-[11px] leading-4 text-warning md:col-span-2 xl:col-span-4">
             URL 导入未启用：对象存储需要后端通过 presigned URL 拉取文件，请先开启 URL_INGEST_ENABLED。
           </div>
         )}
@@ -1762,11 +1703,11 @@ function SelectedFilesTable({
   return (
     <div
       data-selected-files-table="stable"
-      className={cn('mt-2 flex h-[10.75rem] flex-col rounded-[1.2rem] shadow-[0_12px_30px_-28px_hsl(var(--primary)/0.18)]', TABLE_SHELL_CLASS)}
+      className={cn('mt-2 flex h-[10.75rem] flex-col', TABLE_SHELL_CLASS)}
     >
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/50 px-3 py-1.5">
         <div className="text-[13px] font-semibold leading-none text-foreground">已选文件（{rows.length}）</div>
-        <Button variant="ghost" className="h-7 rounded-[0.85rem] px-2 text-[11px] text-muted-foreground/72 hover:bg-background/72" onClick={onClear} disabled={!rows.length}>
+        <Button variant="ghost" className="h-7 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted" onClick={onClear} disabled={!rows.length}>
           清空列表
         </Button>
       </div>
@@ -1793,7 +1734,7 @@ function SelectedFilesTable({
               <tr key={key} className={TABLE_ROW_CLASS}>
                 <td className="px-3 py-1.5">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-[0.8rem] border border-border/60 bg-primary/10 text-primary">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-primary/10 text-primary">
                       <Icon className="size-3.5" />
                     </span>
                     <span className="min-w-0 truncate font-medium text-foreground" title={file.name}>{file.name}</span>
@@ -1808,7 +1749,7 @@ function SelectedFilesTable({
                     size="icon"
                     aria-label={`移除文件 ${file.name}`}
                     title={`移除文件 ${file.name}`}
-                    className="size-7 rounded-[0.85rem] text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="size-7 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => onRemove(key)}
                   >
                     <Trash2 className="size-3.5" />
@@ -1842,7 +1783,7 @@ function IngestTaskControls({
 
   return (
     <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-      <label className={cn('flex h-7 min-w-[10rem] items-center gap-1.5 rounded-[0.85rem] px-2', INLINE_FIELD_CLASS)}>
+      <label className={cn('flex h-7 min-w-[10rem] items-center gap-1.5 rounded-md px-2', INLINE_FIELD_CLASS)}>
         <span className="shrink-0 text-[11px] font-medium text-muted-foreground/72">标签</span>
         <Input
           list={tagListId}
@@ -1857,7 +1798,7 @@ function IngestTaskControls({
           ))}
         </datalist>
       </label>
-      <label className={cn('flex h-7 min-w-[8.8rem] items-center gap-1.5 rounded-[0.85rem] px-2', INLINE_FIELD_CLASS)}>
+      <label className={cn('flex h-7 min-w-[8.8rem] items-center gap-1.5 rounded-md px-2', INLINE_FIELD_CLASS)}>
         <span className="shrink-0 text-[11px] font-medium text-muted-foreground/72">目标目录</span>
         <Input
           list={collectionListId}
@@ -1872,7 +1813,7 @@ function IngestTaskControls({
           ))}
         </datalist>
       </label>
-      <div className={cn('flex h-7 items-center gap-1.5 rounded-[0.85rem] px-2', INLINE_FIELD_CLASS)}>
+      <div className={cn('flex h-7 items-center gap-1.5 rounded-md px-2', INLINE_FIELD_CLASS)}>
         <span className="shrink-0 text-[11px] font-medium text-muted-foreground/72">重复处理</span>
         <Select value={draft.dedupStrategy} onValueChange={(value) => updateDraft('dedupStrategy', value)}>
           <SelectTrigger className="h-5 w-[7.8rem] border-0 bg-transparent px-0 text-[12px] shadow-none focus:ring-1 focus:ring-primary/30 focus:ring-offset-0">
@@ -1894,7 +1835,7 @@ function IngestTaskControls({
           </SelectContent>
         </Select>
       </div>
-      <label className={cn('flex h-7 items-center gap-1.5 rounded-[0.85rem] px-2 text-[12px] text-muted-foreground/72', INLINE_FIELD_CLASS)}>
+      <label className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground/72', INLINE_FIELD_CLASS)}>
         <Switch
           checked={shouldBuildIndexes(draft)}
           className="h-5 w-9 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted [&>span]:h-4 [&>span]:w-4 [&>span[data-state=checked]]:translate-x-4"
@@ -1998,7 +1939,7 @@ function TaskListCard({
             size="icon"
             aria-label="刷新入库任务列表"
             title="刷新入库任务列表"
-            className={cn('size-7 rounded-[0.85rem] hover:bg-background/88', CONFIG_INPUT_CLASS)}
+            className={cn('size-7 rounded-md hover:bg-muted', CONFIG_INPUT_CLASS)}
             onClick={() => detachPromise(onRefresh())}
           >
             <RefreshCw className="size-3.5" />
@@ -2043,7 +1984,7 @@ function TaskListCard({
                   </td>
                   <td className="px-2.5 py-1.5 text-muted-foreground">{formatDate(task.created_at)}</td>
                   <td className="px-2.5 py-1.5">
-                    <Button variant="ghost" className="h-7 rounded-[0.85rem] px-2 text-xs hover:bg-background/72" onClick={() => detachPromise(onInspectTask(task))}>
+                    <Button variant="ghost" className="h-7 rounded-md px-2 text-xs hover:bg-muted" onClick={() => detachPromise(onInspectTask(task))}>
                       查看
                     </Button>
                   </td>
@@ -2060,12 +2001,12 @@ function TaskListCard({
         </table>
       </div>
       <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-2">
-        <div className="inline-flex items-center gap-1 rounded-[0.95rem] border border-border/50 bg-card/66 px-1.5 py-1 text-[12px] text-muted-foreground/72 shadow-sm">
+        <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-[12px] text-muted-foreground">
           <span className="px-1 text-muted-foreground/72">共 {filteredTasks.length} 条</span>
           <Button
             type="button"
             variant="ghost"
-            className="h-5 rounded-[0.7rem] px-1.5 text-[12px] hover:bg-background/72"
+            className="h-5 rounded-md px-1.5 text-[12px] hover:bg-muted"
             disabled={safePage <= 1}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
           >
@@ -2077,7 +2018,7 @@ function TaskListCard({
           <Button
             type="button"
             variant="ghost"
-            className="h-5 rounded-[0.7rem] px-1.5 text-[12px] hover:bg-background/72"
+            className="h-5 rounded-md px-1.5 text-[12px] hover:bg-muted"
             disabled={safePage >= totalPages}
             onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
           >

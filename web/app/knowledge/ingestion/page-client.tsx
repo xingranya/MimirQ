@@ -146,10 +146,9 @@ const EXECUTION_TASK_PAGE_SIZE = 5
 const PRECHECK_SAMPLE_NUMERATOR = 3
 const PRECHECK_SAMPLE_DENOMINATOR = 1000
 const PRECHECK_SAMPLE_MAX = 2000
-const INGESTION_BACKGROUND_CLASS =
-  'bg-background bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.10),transparent_34rem)] dark:bg-background'
+const INGESTION_BACKGROUND_CLASS = 'bg-background'
 const INGESTION_HERO_PANEL_CLASS =
-  'relative overflow-hidden rounded-[28px] border border-info/30 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--info)/0.10)_45%,hsl(var(--background)/0.82))] shadow-[0_24px_70px_-48px_hsl(var(--info)/0.55)] backdrop-blur-2xl'
+  'relative overflow-hidden rounded-md border border-border bg-background'
 
 type AuditDispositionFilter = 'all' | 'pending' | 'manual' | 'approved'
 
@@ -2622,7 +2621,7 @@ export default function KnowledgeIngestionPageClient() {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <div className="sticky top-3 z-30">
+            <div className="sticky top-0 z-30">
               <motion.div
                 className={cn(
                   'relative overflow-hidden',
@@ -2632,20 +2631,8 @@ export default function KnowledgeIngestionPageClient() {
                 transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
               >
                 <div
-                  className="pointer-events-none absolute inset-y-3 left-0 w-1 rounded-r-full bg-[linear-gradient(180deg,hsl(var(--info)),hsl(var(--primary)))]"
-                  aria-hidden="true"
-                />
-                <div
-                  className="pointer-events-none absolute -right-10 -top-14 size-44 rounded-full bg-info/30 blur-3xl"
-                  aria-hidden="true"
-                />
-                <div
-                  className="pointer-events-none absolute bottom-0 left-8 right-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--info)/0.38),transparent)]"
-                  aria-hidden="true"
-                />
-                <div
                   className={cn(
-                    'relative px-2.5 md:px-3',
+                    'px-3 md:px-4',
                     mode === 'execution-monitor'
                       ? 'py-3 md:py-3.5'
                       : 'py-0'
@@ -2655,12 +2642,12 @@ export default function KnowledgeIngestionPageClient() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {showSalesPolicyBadge ? (
-                          <span className="inline-flex items-center rounded-full border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-[7px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                            Sensitive Data Policy
+                          <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                            敏感数据策略
                           </span>
                         ) : null}
                         {demoMode ? (
-                          <span className="inline-flex items-center rounded-full border border-info/20 bg-info/10 px-2 py-0.5 text-[7px] font-medium uppercase tracking-[0.16em] text-info">
+                          <span className="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                             演示模式
                           </span>
                         ) : null}
@@ -2672,26 +2659,20 @@ export default function KnowledgeIngestionPageClient() {
                         )}
                       >
                         <div className="flex min-w-0 items-start gap-2">
-                          <div className="relative flex size-12 shrink-0 items-center justify-center rounded-[22px] border border-info/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.12))] text-info shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_36px_-24px_hsl(var(--info)/0.9)]">
-                            <span
-                              className="absolute inset-x-2 top-1 h-px bg-card/70"
-                              aria-hidden="true"
-                            />
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
                             <PageTitleIcon name="ingestion-monitor" className="size-9" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h1 className="text-[clamp(0.96rem,1.18vw,1.26rem)] font-semibold tracking-[-0.015em] text-foreground">
-                                <span className="bg-[linear-gradient(90deg,hsl(var(--foreground)),hsl(var(--info))_92%)] bg-clip-text text-transparent">
-                                  {mode === 'sales-audit'
-                                    ? '入库预检工作台'
-                                    : '执行监控'}
-                                </span>
+                              <h1 className="text-xl font-semibold text-foreground">
+                                {mode === 'sales-audit'
+                                  ? '入库预检工作台'
+                                  : '执行监控'}
                               </h1>
                               {mode === 'execution-monitor' ? (
                                 <span
                                   className={cn(
-                                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[8px] font-medium',
+                                    'inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium',
                                     taskQueueStatusTone
                                   )}
                                 >
@@ -2699,7 +2680,7 @@ export default function KnowledgeIngestionPageClient() {
                                 </span>
                               ) : null}
                             </div>
-                            <p className="mt-1 max-w-[52rem] text-[9px] leading-[1.42] text-muted-foreground">
+                            <p className="mt-1 max-w-[52rem] text-[13px] leading-5 text-muted-foreground">
                               {mode === 'sales-audit'
                                 ? '选择目标数据集后先做入库预检，确认目录、策略、重复与风险，再把文件写入知识库；入库完成后可切换执行监控查看队列和失败重试。'
                                 : '集中观察处理模式、吞吐、失败重试与运行态列表，快速判断入库链路是否健康。'}
@@ -2715,7 +2696,7 @@ export default function KnowledgeIngestionPageClient() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-7 rounded-lg px-2 text-[9px]"
+                          className="h-8 rounded-md px-3 text-xs"
                           onClick={handleExitDemoMode}
                         >
                           退出演示
@@ -2726,7 +2707,7 @@ export default function KnowledgeIngestionPageClient() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-7 rounded-lg px-2 text-[9px]"
+                            className="h-8 rounded-md px-3 text-xs"
                             onClick={handleUploadSampleAssessment}
                           >
                             <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
@@ -2734,7 +2715,7 @@ export default function KnowledgeIngestionPageClient() {
                           </Button>
                           <Button
                             type="button"
-                            className="h-7 rounded-lg px-2 text-[9px]"
+                            className="h-8 rounded-md px-3 text-xs"
                             onClick={handleUploadFormalIngest}
                           >
                             <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
@@ -2743,7 +2724,7 @@ export default function KnowledgeIngestionPageClient() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-7 rounded-lg px-2 text-[9px]"
+                            className="h-8 rounded-md px-3 text-xs"
                             onClick={() => handleExportSalesAuditReport()}
                           >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -2754,7 +2735,7 @@ export default function KnowledgeIngestionPageClient() {
                         <>
                           <Button
                             type="button"
-                            className="h-7 rounded-lg px-2 text-[9px]"
+                            className="h-8 rounded-md px-3 text-xs"
                             onClick={handleDownloadReport}
                           >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -4036,7 +4017,7 @@ export default function KnowledgeIngestionPageClient() {
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
                   <div className="rounded-[1.4rem] border border-border/60 bg-muted/20 p-4">
                     <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Sensitive Data Policy
+                      敏感数据策略
                     </div>
                     <div className="mt-2 text-sm leading-6 text-foreground/82">
                       默认仅展示脱敏后的聚合事实与待确认线索，不做主观评分。该快照用于演示侧边抽屉入库依据视图。

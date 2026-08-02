@@ -28,13 +28,14 @@ import {
   AlertTriangle,
   Copy,
   Check,
+  CheckCircle2,
+  Loader2,
   PanelRightOpen,
   PanelRightClose,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
-  KnowledgeOpsFlowCard,
   KnowledgeOpsHero,
   KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
 } from '@/components/ui/knowledge-ops-hero'
@@ -89,55 +90,13 @@ import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 
 const GOVERNANCE_TAB_CONFIGS = [
-  { id: 'quality', icon: ScanLine, color: 'info' },
-  { id: 'clean', icon: Wrench, color: 'teal' },
-  { id: 'annotate', icon: Tag, color: 'accent' },
-  { id: 'classify', icon: FolderTree, color: 'orange' },
+  { id: 'quality', icon: ScanLine },
+  { id: 'clean', icon: Wrench },
+  { id: 'annotate', icon: Tag },
+  { id: 'classify', icon: FolderTree },
 ] as const
 
 type GovernanceTab = (typeof GOVERNANCE_TAB_CONFIGS)[number]['id']
-type GovernanceTabColor = (typeof GOVERNANCE_TAB_CONFIGS)[number]['color']
-
-// Tailwind needs literal class strings — keep this map close to the consts.
-const TAB_COLOR_CLASSES: Record<
-  GovernanceTabColor,
-  {
-    active: string
-    icon: string
-    ring: string
-    ringStatic: string
-    dot: string
-  }
-> = {
-  info: {
-    active: 'bg-info/10 text-info ring-info/25',
-    icon: 'text-info',
-    ring: 'focus-visible:ring-info/30',
-    ringStatic: 'ring-info/25',
-    dot: 'bg-info',
-  },
-  teal: {
-    active: 'bg-teal/10 text-teal ring-teal/25',
-    icon: 'text-teal',
-    ring: 'focus-visible:ring-teal/30',
-    ringStatic: 'ring-teal/25',
-    dot: 'bg-teal',
-  },
-  accent: {
-    active: 'bg-accent/10 text-accent ring-accent/25',
-    icon: 'text-accent',
-    ring: 'focus-visible:ring-accent/30',
-    ringStatic: 'ring-accent/25',
-    dot: 'bg-accent',
-  },
-  orange: {
-    active: 'bg-orange/10 text-orange ring-orange/25',
-    icon: 'text-orange',
-    ring: 'focus-visible:ring-orange/30',
-    ringStatic: 'ring-orange/25',
-    dot: 'bg-orange',
-  },
-}
 type DatasetOption = {
   id: string
   name: string
@@ -166,11 +125,11 @@ function getScoreBadgeClass(score: number): string {
   return 'bg-rose/12 text-rose border-rose/25'
 }
 
-function getAvgScoreGradientClass(avgScore: number): string {
-  if (avgScore >= 80) return 'from-success/80 via-success to-success'
-  if (avgScore >= 60) return 'from-warning/70 via-warning to-warning'
-  if (avgScore > 0) return 'from-rose/70 via-rose to-rose'
-  return 'from-info/40 to-info/70'
+function getAvgScoreFillClass(avgScore: number): string {
+  if (avgScore >= 80) return 'bg-success'
+  if (avgScore >= 60) return 'bg-warning'
+  if (avgScore > 0) return 'bg-rose'
+  return 'bg-primary/60'
 }
 
 const ALL_DATASETS_VALUE = '__all_datasets__'
@@ -203,18 +162,18 @@ function EmptyStructurePreview({
   return (
     <div
       data-governance-empty-structure-rail="true"
-      className="relative border-l border-border/70 pl-4"
+      className="min-w-0"
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary/75">
+          <div className="text-xs font-medium text-muted-foreground">
             {t('emptyUpload.structureTitle')}
           </div>
-          <div className="mt-1 text-sm font-semibold tracking-[-0.01em] text-foreground">
+          <div className="mt-1 text-sm font-semibold text-foreground">
             {t('emptyUpload.structureEmptyTitle')}
           </div>
         </div>
-        <div className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+        <div className="grid size-8 place-items-center rounded-md border border-border bg-muted text-primary">
           <FolderTree className="size-4" />
         </div>
       </div>
@@ -224,10 +183,10 @@ function EmptyStructurePreview({
       </p>
 
       <div className="mt-4 divide-y divide-border/50">
-        {previewNodes.map((node, index) => (
+        {previewNodes.map((node) => (
           <div
             key={node.label}
-            className="grid grid-cols-[2rem_minmax(0,1fr)_3.5rem] items-center gap-3 py-2.5"
+            className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 py-2.5"
           >
             <span
               aria-hidden
@@ -243,15 +202,6 @@ function EmptyStructurePreview({
             <span className="min-w-0 text-xs font-medium text-foreground/86">
               {node.label}
             </span>
-            <span
-              aria-hidden
-              className={cn(
-                'h-1.5 justify-self-end rounded-full',
-                index === 0 && 'w-14 bg-primary/28',
-                index === 1 && 'w-10 bg-info/22',
-                index === 2 && 'w-8 bg-success/22'
-              )}
-            />
           </div>
         ))}
       </div>
@@ -426,10 +376,9 @@ export function DataGovernancePanel() {
   const headerSubtitle = t('header.subtitle')
   const governanceTabs = useMemo(
     () =>
-      GOVERNANCE_TAB_CONFIGS.map(({ id, icon, color }) => ({
+      GOVERNANCE_TAB_CONFIGS.map(({ id, icon }) => ({
         id,
         icon,
-        color,
         label: t(`tabs.${id}.label`),
         desc: t(`tabs.${id}.description`),
       })),
@@ -1387,28 +1336,12 @@ export function DataGovernancePanel() {
   }, [governanceStates, scopedFiles])
 
   const governanceHeroSummary = (
-    <div className="grid gap-2 sm:grid-cols-2">
-      <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-1 rounded-full bg-info/70" aria-hidden />
-          文件
-        </span>
-        <span className="font-mono tabular-nums text-foreground">
-          {stats.totalFiles}
-        </span>
-        <span className="h-3.5 w-px bg-border/70" />
-        <span>已完成</span>
-        <span className="font-mono tabular-nums text-foreground">
-          {stats.completedFiles}
-        </span>
-      </div>
-      <KnowledgeOpsFlowCard
-        steps={[
-          { icon: ScanLine, label: '质检' },
-          { icon: Tag, label: '标注' },
-          { icon: Layers, label: '切块' },
-        ]}
-      />
+    <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
+      <span className="font-medium text-foreground">文件</span>
+      <span className="tabular-nums text-foreground">{stats.totalFiles}</span>
+      <span className="h-3.5 w-px bg-border" aria-hidden="true" />
+      <span>已完成</span>
+      <span className="tabular-nums text-foreground">{stats.completedFiles}</span>
     </div>
   )
 
@@ -1430,60 +1363,30 @@ export function DataGovernancePanel() {
             iconImage="data-governance"
             title={headerTitle}
             description={headerSubtitle}
+            eyebrow={null}
+            badge={null}
             summary={governanceHeroSummary}
           />
         }
         pipelineRail={<PipelineRail />}
         mainPanel={
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4 md:p-6">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_12%,hsl(var(--primary)/0.14),transparent_30%),radial-gradient(circle_at_82%_18%,hsl(var(--teal)/0.12),transparent_28%),linear-gradient(135deg,hsl(var(--background)),hsl(var(--surface-2)/0.62))]"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-8 top-8 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--primary)/0.32),transparent)]"
-              />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-1 items-start justify-start overflow-y-auto bg-background p-4 md:p-6 lg:items-center lg:justify-center">
               <div
                 data-governance-empty-workbench="true"
                 className={cn(
-                  'group relative w-full max-w-6xl px-1 transition-all duration-200 motion-reduce:transition-none md:px-2 xl:px-4',
-                  isDragging
-                    ? 'bg-primary/8'
-                    : 'bg-transparent'
+                  'w-full max-w-5xl transition-colors duration-150 motion-reduce:transition-none',
+                  isDragging && 'bg-primary/[0.03]'
                 )}
               >
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 bg-[url('/grid.svg')] opacity-[0.045]"
-                />
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -left-24 top-16 h-64 w-64 rounded-full bg-primary/12 blur-3xl"
-                />
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-24 -top-16 h-72 w-72 rounded-full bg-teal/12 blur-3xl"
-                />
-
-                <div className="relative z-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
-                  <div className="relative min-h-[520px] overflow-hidden border-y border-dashed border-primary/24 bg-transparent px-2 py-6 md:px-4 md:py-8">
-                    <div
-                      aria-hidden
-                      className={cn(
-                        'absolute inset-x-4 top-4 h-px bg-primary/18 opacity-70',
-                        isDragging && 'bg-primary/45'
-                      )}
-                    />
-                    <div
-                      aria-hidden
-                      className="absolute left-1/2 top-10 h-40 w-40 -translate-x-1/2 rounded-full border border-primary/12 bg-[conic-gradient(from_140deg,hsl(var(--primary)/0.08),hsl(var(--teal)/0.18),hsl(var(--primary)/0.08))] blur-[0.2px]"
-                    />
-
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="min-w-0">
                     <button
                       type="button"
-                      className="relative z-10 flex w-full flex-col items-center rounded-[1.25rem] bg-transparent text-center focus-ring"
+                      className={cn(
+                        'flex min-h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed border-border bg-background px-6 py-8 text-center transition-colors duration-150 focus-ring motion-reduce:transition-none',
+                        isDragging && 'border-primary bg-primary/[0.03]'
+                      )}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
@@ -1495,59 +1398,41 @@ export function DataGovernancePanel() {
                       disabled={uploading}
                       aria-label={t('emptyUpload.openUploadDialog')}
                     >
-                      <div className="relative mb-5 mt-2 grid size-28 place-items-center">
-                        <span
-                          aria-hidden
-                          className="absolute inset-0 rounded-full border border-primary/18 bg-primary/8 shadow-[inset_0_0_32px_hsl(var(--primary)/0.08)]"
-                        />
-                        <span
-                          aria-hidden
-                          className={cn(
-                            'absolute inset-3 rounded-full border border-dashed border-teal/25',
-                            uploading && 'animate-spin motion-reduce:animate-none'
-                          )}
-                        />
-                        <span className="relative grid size-16 place-items-center rounded-3xl border border-primary/18 bg-card/90 text-primary shadow-[0_18px_42px_-28px_hsl(var(--primary)/0.8)]">
-                          {uploading ? (
-                            <Sparkles className="size-7 animate-spin motion-reduce:animate-none" />
-                          ) : (
-                            <Upload className="size-7" />
-                          )}
-                        </span>
+                      <div className="mb-4 grid size-12 place-items-center rounded-md border border-border bg-muted text-primary">
+                        {uploading ? (
+                          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+                        ) : (
+                          <Upload className="size-5" />
+                        )}
                       </div>
 
-                      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/8 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
-                        <ScanLine className="size-3.5" />
-                        {t('emptyUpload.scanRingLabel')}
-                      </div>
-
-                      <h3 className="max-w-xl text-balance text-3xl font-semibold tracking-[-0.04em] text-foreground md:text-4xl">
+                      <h3 className="max-w-xl text-balance text-xl font-semibold text-foreground">
                         {uploading
                           ? t('emptyUpload.uploadingTitle')
                           : t('emptyUpload.idleTitle')}
                       </h3>
-                      <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-[15px]">
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                         {uploading
                           ? t('emptyUpload.uploadingDescription')
                           : t('emptyUpload.idleDescription')}
                       </p>
-                      <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-muted-foreground/78">
+                      <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
                         {t('emptyUpload.dropCta')}
                       </p>
                     </button>
 
-                    <div className="relative z-20 mt-6 flex flex-wrap items-center justify-center gap-2">
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                       {EMPTY_UPLOAD_FORMATS.map((format) => (
                         <span
                           key={format}
-                          className="rounded-full border border-border/55 bg-card/78 px-3 py-1 text-[11px] font-semibold text-foreground/80 shadow-sm"
+                          className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground"
                         >
                           {format}
                         </span>
                       ))}
                     </div>
 
-                    <div className="relative z-20 mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                    <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
                       <div className="relative">
                         <input
                           type="file"
@@ -1561,11 +1446,11 @@ export function DataGovernancePanel() {
                         <label
                           htmlFor="file-upload"
                           className={cn(
-                            'inline-flex cursor-pointer items-center gap-3 rounded-2xl border border-info/25 bg-info px-7 py-3.5 text-sm font-semibold text-info-foreground shadow-[0_18px_38px_-28px_hsl(var(--info)/0.88)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-info/90 motion-reduce:transition-none',
+                            'inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-ring motion-reduce:transition-none',
                             uploading && 'cursor-not-allowed opacity-50'
                           )}
                         >
-                          <Upload className="size-5" />
+                          <Upload className="size-4" />
                           {t('emptyUpload.selectLocalFiles')}
                         </label>
                       </div>
@@ -1574,51 +1459,39 @@ export function DataGovernancePanel() {
                           type="button"
                           variant="outline"
                           onClick={cancelUploadAndParse}
-                          className="gap-2 rounded-2xl border-border/60 bg-background px-7 py-3.5 text-muted-foreground transition-colors duration-150 hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive motion-reduce:transition-none"
+                          className="h-10 gap-2 rounded-md border-border bg-background px-5 text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                         >
-                          <X className="size-5" />
+                          <X className="size-4" />
                           {t('emptyUpload.cancelParsing')}
                         </Button>
                       )}
                     </div>
 
-                    <div className="relative z-20 mt-7 grid gap-3 border-t border-border/50 pt-4 md:grid-cols-3">
+                    <div className="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
                       {EMPTY_UPLOAD_STEPS.map((step, index) => (
                         <div
                           key={step}
-                          className="text-left"
-                      >
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="grid size-6 place-items-center rounded-lg bg-primary/10 text-[10px] font-bold text-primary">
-                              {index + 1}
-                            </span>
-                            <span className="text-xs font-semibold text-foreground">
-                              {t(`emptyUpload.stages.${step}`)}
-                            </span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted/70">
-                            <div
-                              className={cn(
-                                'h-full rounded-full',
-                                index === 0 && 'w-10/12 bg-primary/55',
-                                index === 1 && 'w-8/12 bg-info/55',
-                                index === 2 && 'w-6/12 bg-teal/55'
-                              )}
-                            />
-                          </div>
+                          className="flex items-center gap-2 text-left"
+                        >
+                          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                            {index + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">
+                            {t(`emptyUpload.stages.${step}`)}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="space-y-5 py-2 lg:py-4">
+                  <div className="space-y-6 border-t border-border pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
                     <EmptyStructurePreview t={t} />
-                    <div className="border-l border-border/70 pl-4">
-                      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        <Sparkles className="size-3.5 text-teal" />
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <CheckCircle2 className="size-4 text-primary" />
                         {t('emptyUpload.intakeChecksTitle')}
                       </div>
-                      <div className="mt-3 divide-y divide-border/50">
+                      <div className="mt-3 divide-y divide-border">
                         {[
                           t('emptyUpload.intakeChecks.structure'),
                           t('emptyUpload.intakeChecks.quality'),
@@ -1626,7 +1499,7 @@ export function DataGovernancePanel() {
                         ].map((item) => (
                           <div
                             key={item}
-                            className="flex items-center gap-2 py-2.5 text-xs text-foreground/82"
+                            className="flex items-center gap-2 py-2.5 text-xs text-foreground"
                           >
                             <Check className="size-3.5 text-success" />
                             <span>{item}</span>
@@ -1647,8 +1520,8 @@ export function DataGovernancePanel() {
   const contentBody = (() => {
     if (viewMode === 'edit') {
       return (
-        <div className="grid grid-cols-2 gap-4 h-full">
-          <div className="flex flex-col bg-muted rounded-xl border border-border shadow-sm overflow-hidden h-full">
+        <div className="grid h-full grid-cols-2 gap-4">
+          <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-muted">
             <div className="px-4 py-2 bg-muted border-b border-border text-xs font-medium text-muted-foreground">
               {t('canvas.livePreview')}
             </div>
@@ -1656,7 +1529,7 @@ export function DataGovernancePanel() {
               <MarkdownRenderer markdown={displayContent || ''} />
             </div>
           </div>
-          <div className="flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden h-full">
+          <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-card">
             <div className="px-4 py-2 bg-muted border-b border-border text-xs font-medium text-muted-foreground">
               {t('canvas.sourceEditor')}
             </div>
@@ -1674,23 +1547,23 @@ export function DataGovernancePanel() {
     if (displayContent?.includes(libraryOnlyNotice)) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-          <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mb-6 border border-border shadow-sm">
+          <div className="mb-6 flex size-12 items-center justify-center rounded-md border border-border bg-muted">
             <FileText className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium text-foreground mb-2 truncate max-w-lg">
             {selectedFile?.filename || t('libraryFile.unknownFile')}
           </h3>
           <div className="flex items-center gap-2 mb-8">
-            <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border">
+            <span className="rounded-md border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
               {t('libraryFile.badge')}
             </span>
-            <span className="px-2.5 py-1 rounded-full bg-warning/10 dark:bg-warning/20 text-warning dark:text-warning text-xs font-medium border border-warning/30 flex items-center gap-1">
+            <span className="flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning dark:bg-warning/20">
               <div className="w-1.5 h-1.5 rounded-full bg-warning/10 dark:bg-warning/20" />
               {t('libraryFile.pending')}
             </span>
           </div>
 
-          <div className="max-w-md bg-muted rounded-xl p-5 border border-border mb-8 text-left">
+          <div className="mb-8 max-w-md rounded-md border border-border bg-muted p-5 text-left">
             <p className="text-sm text-muted-foreground leading-relaxed flex gap-3">
               <Info className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
               {t('libraryFile.description', { notice: libraryOnlyNotice })}
@@ -1769,6 +1642,8 @@ export function DataGovernancePanel() {
           iconImage="data-governance"
           title={headerTitle}
           description={t('header.workspaceSubtitle')}
+          eyebrow={null}
+          badge={null}
           summary={governanceHeroSummary}
           actions={
             <>
@@ -1876,7 +1751,7 @@ export function DataGovernancePanel() {
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'absolute -right-3 top-3 z-30 h-6 w-6 rounded-full border border-border bg-card shadow-sm text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-opacity opacity-0 group-hover/sidebar:opacity-100',
+                  'absolute -right-3 top-3 z-30 h-6 w-6 rounded-md border border-border bg-card text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground opacity-0 group-hover/sidebar:opacity-100',
                   isSidebarCollapsed && 'opacity-100 -right-8 translate-x-2'
                 )}
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -1933,24 +1808,20 @@ export function DataGovernancePanel() {
                     <input
                       type="text"
                       placeholder={t('sidebar.searchPlaceholder')}
-                      className="w-full rounded-lg border border-border bg-muted py-1.5 pl-9 pr-3 text-xs text-foreground/80 placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:border-primary/30 focus-ring transition-colors duration-200 motion-reduce:transition-none"
+                      className="w-full rounded-md border border-border bg-muted py-1.5 pl-9 pr-3 text-xs text-foreground/80 placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:border-primary/30 focus-ring transition-colors duration-200 motion-reduce:transition-none"
                     />
                   </div>
                 </div>
 
-                <div className="relative border-b border-border/40">
-                  <div
-                    aria-hidden
-                    className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-info/70"
-                  />
-                  <div className="space-y-1.5 from-info/[0.08] via-info/[0.03] to-transparent py-2.5 pl-4 pr-3 dark:from-info/[0.14] dark:via-info/[0.05]">
+                <div className="border-b border-border">
+                  <div className="space-y-1.5 px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-info/90 dark:text-info">
+                      <span className="text-xs font-medium text-foreground">
                         {t('scope.title')}
                       </span>
                       <span
                         className={cn(
-                          'rounded-full border px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors',
+                          'rounded-md border px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors',
                           selectedDatasetId
                             ? 'border-info/30 bg-info/15 text-info'
                             : 'border-border/60 bg-muted/60 text-muted-foreground'
@@ -2019,7 +1890,7 @@ export function DataGovernancePanel() {
                 <div className="space-y-1.5 border-b border-border/40 px-3 py-2">
                   <div className="flex items-center gap-1.5 px-1">
                     <FolderTree className="size-3 text-muted-foreground/65" />
-                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/75">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {t('sidebar.foldersHeader')}
                     </span>
                     <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
@@ -2032,7 +1903,7 @@ export function DataGovernancePanel() {
                 </div>
 
                 <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
-                  <h3 className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/75">
+                  <h3 className="text-xs font-medium text-muted-foreground">
                     {t('sidebar.filesTitle', { count: visibleFiles.length })}
                   </h3>
                 </div>
@@ -2061,10 +1932,10 @@ export function DataGovernancePanel() {
                             type="button"
                             onClick={() => handleSelectFile(file.id)}
                             className={cn(
-                              'relative w-full text-left p-3 rounded-lg border transition-[background,border,box-shadow,transform] duration-200 motion-reduce:transition-none cursor-pointer overflow-hidden',
+                              'relative w-full cursor-pointer overflow-hidden rounded-md border p-3 text-left transition-colors duration-150 motion-reduce:transition-none',
                               selectedFileId === file.id
-                                ? 'border-info/30 from-info/[0.08] via-info/[0.03] to-transparent shadow-soft dark:from-info/[0.14]'
-                                : 'border-border/60 bg-card hover:border-info/25 hover:bg-muted/40 hover:translate-x-[1px]'
+                                ? 'border-primary/40 bg-primary/[0.04]'
+                                : 'border-border bg-card hover:border-primary/25 hover:bg-muted/40'
                             )}
                             aria-label={t('a11y.openFile', {
                               filename: file.filename,
@@ -2150,7 +2021,7 @@ export function DataGovernancePanel() {
                                 <div className="flex items-center justify-between h-5 pr-8">
                                   <div className="flex items-center gap-2">
                                     {file.source ? (
-                                      <span className="text-[9px] text-muted-foreground flex items-center gap-1 bg-muted/60 px-1.5 py-0.5 rounded border border-border/60 font-medium uppercase">
+                                      <span className="flex items-center gap-1 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
                                         {file.source === 'knowledge_base'
                                           ? t('scope.sourceKnowledge')
                                           : t('scope.sourceParsing')}
@@ -2213,7 +2084,7 @@ export function DataGovernancePanel() {
                               className={cn(
                                 'absolute right-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-md border text-[10px] transition-colors duration-150 motion-reduce:transition-none',
                                 isSelectedForChunk
-                                  ? 'border-info/45 bg-info text-info-foreground shadow-sm'
+                                  ? 'border-primary bg-primary text-primary-foreground'
                                   : 'border-border/70 bg-background/90 text-muted-foreground hover:border-info/35 hover:bg-info/10 hover:text-info'
                               )}
                             >
@@ -2228,9 +2099,9 @@ export function DataGovernancePanel() {
 
                 {/* 底部统计栏 */}
                 {/* Footer KPI bar */}
-                <div className="mt-auto border-t border-border/60 from-muted/30 to-muted/55 backdrop-blur-sm px-3 py-2.5 space-y-1.5">
+                <div className="mt-auto space-y-1.5 border-t border-border bg-muted/30 px-3 py-2.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/75">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {t('stats.storage')}
                     </span>
                     <span className="text-[10px] tabular-nums text-muted-foreground/80">
@@ -2244,7 +2115,7 @@ export function DataGovernancePanel() {
                     <div
                       className={cn(
                         'h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none',
-                        getAvgScoreGradientClass(stats.avgScore)
+                        getAvgScoreFillClass(stats.avgScore)
                       )}
                       style={{
                         width:
@@ -2290,9 +2161,9 @@ export function DataGovernancePanel() {
                   {/* 中间预览画布 */}
                   <div className="flex-1 flex flex-col overflow-hidden relative z-0">
                     {/* 画布工具栏 */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-card border border-border/60 shadow-soft rounded-full px-2 py-1 gap-1 transition-colors duration-150 motion-reduce:transition-none">
+                    <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border bg-card p-1 transition-colors duration-150 motion-reduce:transition-none">
                       {/* Segmented view-mode control */}
-                      <div className="flex items-center bg-muted/60 rounded-full p-0.5 border border-border/60">
+                      <div className="flex items-center rounded-md bg-muted/60 p-0.5">
                         {(['preview', 'edit', 'original'] as const).map(
                           (mode) => (
                             <button
@@ -2301,9 +2172,9 @@ export function DataGovernancePanel() {
                               onClick={() => setViewMode(mode)}
                               aria-pressed={viewMode === mode}
                               className={cn(
-                                'px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
+                                'rounded-md px-3 py-1 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
                                 viewMode === mode
-                                  ? 'bg-card text-foreground shadow-sm ring-1 ring-border/60'
+                                  ? 'bg-background text-primary'
                                   : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]'
                               )}
                             >
@@ -2318,7 +2189,7 @@ export function DataGovernancePanel() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground/80 hover:bg-muted"
+                        className="h-7 w-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() =>
                           setPreviewFormat((prev) =>
                             prev === 'rendered' ? 'markdown' : 'rendered'
@@ -2349,7 +2220,7 @@ export function DataGovernancePanel() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsSidebarCollapsed(false)}
-                        className="absolute left-4 top-4 z-20 h-8 w-8 bg-card border border-border/60 shadow-soft rounded-lg text-muted-foreground hover:text-info hover:bg-card transition-colors duration-150 motion-reduce:transition-none"
+                        className="absolute left-4 top-4 z-20 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none"
                         aria-label={t('sidebar.expand')}
                         title={t('sidebar.expand')}
                       >
@@ -2362,7 +2233,7 @@ export function DataGovernancePanel() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsPanelCollapsed(false)}
-                        className="absolute right-4 top-4 z-20 h-8 w-8 bg-card border border-border/60 shadow-soft rounded-lg text-muted-foreground hover:text-info hover:bg-card transition-colors duration-150 motion-reduce:transition-none"
+                        className="absolute right-4 top-4 z-20 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none"
                         aria-label={t('panel.expand')}
                         title={t('panel.expand')}
                       >
@@ -2384,7 +2255,7 @@ export function DataGovernancePanel() {
                         {/* 纸张效果容器 */}
                         <div
                           className={cn(
-                            'bg-card min-h-[800px] shadow-sm border border-border/60 rounded-xl overflow-hidden relative',
+                            'relative min-h-[800px] overflow-hidden rounded-md border border-border bg-card',
                             viewMode === 'edit'
                               ? 'h-[calc(100vh-140px)] border-0 shadow-none bg-transparent'
                               : 'p-10 md:p-14'
@@ -2394,7 +2265,7 @@ export function DataGovernancePanel() {
                           {viewMode !== 'edit' &&
                             governanceState.isModified && (
                               <div className="absolute top-0 right-0 p-4">
-                                <span className="bg-accent/10 dark:bg-accent/20 text-accent dark:text-accent border border-accent/30 text-xs px-2 py-1 rounded-md font-medium shadow-sm">
+                                <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-xs font-medium text-accent dark:bg-accent/20">
                                   {t('canvas.modified')}
                                 </span>
                               </div>
@@ -2412,7 +2283,7 @@ export function DataGovernancePanel() {
                   <div
                     ref={panelRef}
                     className={cn(
-                      'group/panel relative flex-shrink-0 border-l border-border bg-card flex flex-col transition-transform duration-200 ease-out motion-reduce:transition-none z-10 shadow-strong',
+                      'group/panel relative z-10 flex flex-shrink-0 flex-col border-l border-border bg-card transition-transform duration-200 ease-out motion-reduce:transition-none',
                       isPanelCollapsed ? 'w-0 border-l-0 translate-x-full' : ''
                     )}
                     style={{ width: isPanelCollapsed ? 0 : panelWidth }}
@@ -2421,17 +2292,8 @@ export function DataGovernancePanel() {
                     <div className="flex-shrink-0 border-b border-border/60 bg-card">
                       <div className="flex items-center justify-between px-4 pt-3 pb-2 gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            aria-hidden
-                            className={cn(
-                              'size-1.5 rounded-full flex-shrink-0 transition-colors',
-                              TAB_COLOR_CLASSES[
-                                governanceTabs.find((t) => t.id === activeTab)
-                                  ?.color ?? 'info'
-                              ].dot
-                            )}
-                          />
-                          <h2 className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/85 truncate">
+                          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
+                          <h2 className="truncate text-xs font-medium text-foreground">
                             {t('panel.title')}
                           </h2>
                         </div>
@@ -2449,23 +2311,18 @@ export function DataGovernancePanel() {
 
                       {/* Token-colored tab pills */}
                       <div className="px-3 pb-2.5">
-                        <div className="flex items-center gap-1 p-0.5 bg-muted/60 rounded-lg border border-border/60">
+                        <div className="flex items-center gap-1 rounded-md border border-border bg-muted/60 p-0.5">
                           {governanceTabs.map((tab) => {
                             const Icon = tab.icon
                             const isActive = activeTab === tab.id
-                            const palette = TAB_COLOR_CLASSES[tab.color]
                             return (
                               <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={cn(
-                                  'relative flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
+                                  'relative flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
                                   isActive
-                                    ? cn(
-                                        'ring-1 shadow-sm bg-card',
-                                        palette.icon,
-                                        palette.ringStatic
-                                      )
+                                    ? 'bg-background text-primary'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-card/95'
                                 )}
                                 title={tab.label}
@@ -2476,10 +2333,7 @@ export function DataGovernancePanel() {
                                 {tab.id === 'clean' &&
                                   governanceState.isModified && (
                                     <span
-                                      className={cn(
-                                        'absolute top-1 right-1 size-1.5 rounded-full ring-1 ring-card',
-                                        palette.dot
-                                      )}
+                                      className="absolute right-1 top-1 size-1.5 rounded-full bg-primary"
                                     />
                                   )}
                               </button>
@@ -2503,7 +2357,7 @@ export function DataGovernancePanel() {
                     <div
                       key={activeTab}
                       data-governance-tool-scroll="true"
-                      className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar bg-surface-2 animate-fade-in-up"
+                      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-2 custom-scrollbar"
                     >
                       {activeTab === 'quality' && (
                         <QualityChecker
@@ -2552,14 +2406,14 @@ export function DataGovernancePanel() {
                 </>
               ) : (
                 // 空状态占位
-                <div className="flex-1 flex flex-col items-center justify-center bg-muted">
-                  <div className="w-24 h-24 bg-card rounded-full border border-border flex items-center justify-center mb-6 shadow-sm">
-                    <FileSearch className="w-10 h-10 text-muted-foreground" />
+                <div className="flex flex-1 flex-col items-center justify-center bg-muted/30 p-6 text-center">
+                  <div className="mb-4 flex size-12 items-center justify-center rounded-md border border-border bg-background">
+                    <FileSearch className="size-5 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-medium text-foreground mb-2">
+                  <h3 className="mb-2 text-lg font-semibold text-foreground">
                     {t('emptySelection.title')}
                   </h3>
-                  <p className="text-muted-foreground max-w-sm text-center">
+                  <p className="max-w-sm text-sm leading-6 text-muted-foreground">
                     {t('emptySelection.description')}
                   </p>
                 </div>

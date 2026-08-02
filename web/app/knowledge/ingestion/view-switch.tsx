@@ -41,8 +41,8 @@ export function IngestionViewSwitch({ className, compact = false }: Readonly<Ing
   return (
     <div
       className={cn(
-        'inline-flex rounded-2xl border border-border/60 bg-card/72 p-1 shadow-[0_10px_28px_hsl(var(--primary)/0.06)] backdrop-blur-xl',
-        compact && 'rounded-xl p-0.5 shadow-none',
+        'inline-flex rounded-md border border-border bg-muted/40 p-0.5',
+        compact && 'p-0.5',
         className
       )}
     >
@@ -55,11 +55,11 @@ export function IngestionViewSwitch({ className, compact = false }: Readonly<Ing
             aria-pressed={selected}
             onClick={() => handleChangeView(option.value)}
             className={cn(
-              'h-8 rounded-xl px-3 text-sm font-medium transition-colors',
-              compact && 'h-7 rounded-lg px-2 text-[9px]',
+              'h-8 rounded-md px-3 text-sm font-medium transition-colors',
+              compact && 'h-7 px-2 text-xs',
               selected
-                ? 'bg-primary text-primary-foreground shadow-[0_8px_20px_hsl(var(--primary)/0.18)]'
-                : 'text-muted-foreground hover:bg-background/82 hover:text-foreground'
+                ? 'bg-background text-primary'
+                : 'text-muted-foreground hover:bg-background/70 hover:text-foreground'
             )}
           >
             {option.label}
