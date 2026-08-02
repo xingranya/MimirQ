@@ -52,7 +52,7 @@ class UserService:
         return user
 
     @staticmethod
-    def create_user(db: Session, *, email: str, username: str, password: str) -> User:
+    def _create_user_record(db: Session, *, email: str, username: str, password: str) -> User:
         normalized_email = (email or "").strip().lower()
         normalized_username = (username or "").strip()
 
@@ -85,9 +85,70 @@ class UserService:
         )
         db.add(user)
         db.flush()
+        return user
+
+    @staticmethod
+    def create_user(db: Session, *, email: str, username: str, password: str) -> User:
+        """创建首个本地管理员账号并绑定默认租户。"""
+        user = UserService._create_user_record(
+            db,
+            email=email,
+            username=username,
+            password=password,
+        )
 
         UserService.ensure_default_membership(db, user_id=str(user.id))
 
+        db.commit()
+        db.refresh(user)
+        return user
+
+    @staticmethod
+    def create_invited_user(
+        db: Session,
+        *,
+        email: str,
+        username: str,
+        password: str,
+        tenant_id: UUID,
+        role: str,
+    ) -> User:
+        """按已验证的邀请创建本地账号与租户成员关系。"""
+        normalized_role = str(role or "").strip().lower()
+        allowed_roles = {
+            UserRoles.ADMIN,
+            UserRoles.AUDITOR,
+            UserRoles.EDITOR,
+            UserRoles.DATASET_OPERATOR,
+            UserRoles.VIEWER,
+        }
+        if normalized_role not in allowed_roles:
+            raise HTTPException(status_code=400, detail="邀请角色无效")
+
+        tenant = (
+            db.query(Tenant)
+            .filter(Tenant.id == tenant_id, func.lower(Tenant.status) == "active")
+            .with_for_update()
+            .first()
+        )
+        if not tenant:
+            raise HTTPException(status_code=404, detail="邀请对应的组织不存在或已停用")
+
+        user = UserService._create_user_record(
+            db,
+            email=email,
+            username=username,
+            password=password,
+        )
+        db.add(
+            TenantMember(
+                tenant_id=tenant_id,
+                user_id=str(user.id),
+                role=normalized_role,
+                is_active=True,
+                is_current=True,
+            )
+        )
         db.commit()
         db.refresh(user)
         return user

@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.api.v1.auth as auth_module
+import app.api.v1.rbac as rbac_module
 from app.core.config import settings
 from app.core.database import Base
 from app.core.security import hash_password
@@ -105,6 +106,83 @@ def test_local_account_bootstrap_login_and_me(monkeypatch) -> None:
         with test_session() as db:
             assert db.query(User).count() == 1
             assert db.query(TenantMember).count() == 1
+    finally:
+        engine.dispose()
+
+
+def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> None:
+    tenant_id = uuid4()
+    monkeypatch.setattr(settings, "AUTH_MODE", "jwt", raising=False)
+    monkeypatch.setattr(settings, "ALGORITHM", "HS256", raising=False)
+    monkeypatch.setattr(settings, "SECRET_KEY", "k" * 40, raising=False)
+    monkeypatch.setattr(settings, "SECRET_KEY_FALLBACKS", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_ISSUER", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_AUDIENCE", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_TENANT_CLAIM", "tenant_id", raising=False)
+    monkeypatch.setattr(settings, "JWT_ENFORCE_TENANT_HEADER_MATCH", False, raising=False)
+    monkeypatch.setattr(settings, "JWT_GROUPS_SYNC_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "JWT_TENANT_MEMBER_AUTO_PROVISION_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "DEFAULT_TENANT_ID", str(tenant_id), raising=False)
+    monkeypatch.setattr(settings, "INITIAL_REGISTRATION_TOKEN", "", raising=False)
+    monkeypatch.setattr(settings, "MEMBER_INVITATION_TTL_SEC", 604800, raising=False)
+    monkeypatch.setattr(auth_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+    monkeypatch.setattr(rbac_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+
+    engine, test_session, app = _build_auth_test_client()
+    app.include_router(rbac_module.router, prefix="/rbac")
+
+    try:
+        with TestClient(app) as client:
+            owner = client.post(
+                "/auth/register",
+                json={
+                    "email": "owner@example.com",
+                    "username": "owner",
+                    "password": "correct-horse-battery-staple",
+                },
+            )
+            assert owner.status_code == 201, owner.text
+            owner_token = owner.json()["token"]["access_token"]
+
+            invitation = client.post(
+                "/rbac/invitations",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"email": "member@example.com", "role": "editor"},
+            )
+            assert invitation.status_code == 201, invitation.text
+            assert invitation.headers["cache-control"] == "no-store"
+            invitation_token = invitation.json()["token"]
+
+            accepted = client.post(
+                "/auth/invitations/accept",
+                json={
+                    "token": invitation_token,
+                    "username": "member",
+                    "password": "member-password",
+                },
+            )
+            assert accepted.status_code == 201, accepted.text
+            assert accepted.json()["user"]["email"] == "member@example.com"
+
+            replayed = client.post(
+                "/auth/invitations/accept",
+                json={
+                    "token": invitation_token,
+                    "username": "member-two",
+                    "password": "member-password",
+                },
+            )
+            assert replayed.status_code == 400
+
+        with test_session() as db:
+            member_user = db.query(User).filter(User.email == "member@example.com").one()
+            membership = (
+                db.query(TenantMember)
+                .filter(TenantMember.tenant_id == tenant_id, TenantMember.user_id == str(member_user.id))
+                .one()
+            )
+            assert membership.role == "editor"
+            assert membership.is_current is True
     finally:
         engine.dispose()
 

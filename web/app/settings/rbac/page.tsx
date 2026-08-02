@@ -3,10 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   ListChecks,
   Loader2,
+  Mail,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -27,6 +30,15 @@ import { Label } from '@/components/ui/label'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,7 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatApiError } from '@/lib/api-errors'
-import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
+import { TENANT_PERMISSIONS, tenantAccessAllows } from '@/lib/tenant-permissions'
 import { cn } from '@/lib/utils'
 import { rbacApi, type TenantMember } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
@@ -185,6 +197,12 @@ function SettingsRbacPageContent() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(7)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('viewer')
+  const [inviteLink, setInviteLink] = useState('')
+  const [inviteExpiresAt, setInviteExpiresAt] = useState('')
+  const [inviteCopied, setInviteCopied] = useState(false)
 
   const membersQuery = useQuery<RbacMembersSnapshot>({
     queryKey: queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
@@ -209,6 +227,10 @@ function SettingsRbacPageContent() {
     [membersQuery.data?.items]
   )
   const currentAccountId = String(tenantAccessQuery.data?.account_id || '').trim()
+  const canManageMembers = tenantAccessAllows(
+    tenantAccessQuery.data,
+    TENANT_PERMISSIONS.SETTINGS_WRITE
+  )
   const totalMembers = Number(membersQuery.data?.total ?? members.length)
   const loading = membersQuery.isFetching
 
@@ -355,6 +377,47 @@ function SettingsRbacPageContent() {
     removeMemberMutation.mutate(uid)
   }
 
+  const inviteMutation = useMutation({
+    mutationFn: async () =>
+      rbacApi.createTenantInvitation({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      }),
+    onSuccess: (invitation) => {
+      const token = encodeURIComponent(invitation.token)
+      setInviteLink(`${globalThis.location.origin}/auth/invite#token=${token}`)
+      setInviteExpiresAt(invitation.expires_at)
+      setInviteCopied(false)
+      toast.success('邀请链接已生成')
+    },
+    onError: (err: unknown) => {
+      toast.error(formatApiError(err, '生成邀请链接失败'))
+    },
+  })
+
+  async function copyInviteLink(): Promise<void> {
+    if (!inviteLink || !globalThis.navigator?.clipboard?.writeText) {
+      toast.error('当前浏览器无法自动复制，请手动选择链接')
+      return
+    }
+    try {
+      await globalThis.navigator.clipboard.writeText(inviteLink)
+      setInviteCopied(true)
+      toast.success('邀请链接已复制')
+    } catch {
+      toast.error('复制失败，请手动选择链接')
+    }
+  }
+
+  function resetInvitationForm(): void {
+    setInviteEmail('')
+    setInviteRole('viewer')
+    setInviteLink('')
+    setInviteExpiresAt('')
+    setInviteCopied(false)
+    inviteMutation.reset()
+  }
+
   return (
     <AppFrame>
       <PageScaffold
@@ -407,6 +470,132 @@ function SettingsRbacPageContent() {
         }
         actions={
           <div className="flex items-center gap-2">
+            <Dialog
+              open={inviteOpen}
+              onOpenChange={(open) => {
+                if (!open && inviteMutation.isPending) return
+                setInviteOpen(open)
+                if (!open) resetInvitationForm()
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  className="h-9 gap-2 rounded-md px-3"
+                  disabled={!canManageMembers}
+                  title={canManageMembers ? '邀请成员' : '当前账号没有成员管理权限'}
+                >
+                  <UserPlus className="size-4" />
+                  邀请成员
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-lg shadow-lg sm:max-w-md">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (!inviteLink) inviteMutation.mutate()
+                  }}
+                >
+                  <DialogHeader>
+                    <DialogTitle>邀请公司成员</DialogTitle>
+                    <DialogDescription>
+                      生成默认 7 天内有效的邀请链接。受邀者将自行设置用户名和密码。
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {inviteLink ? (
+                    <div className="mt-5 space-y-2">
+                      <Label htmlFor="tenant-invitation-link">邀请链接</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="tenant-invitation-link"
+                          value={inviteLink}
+                          readOnly
+                          className="h-10 min-w-0 rounded-md font-mono text-xs"
+                          onFocus={(event) => event.currentTarget.select()}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="size-10 shrink-0 rounded-md"
+                          aria-label={inviteCopied ? '邀请链接已复制' : '复制邀请链接'}
+                          title={inviteCopied ? '已复制' : '复制链接'}
+                          onClick={() => {
+                            void copyInviteLink()
+                          }}
+                        >
+                          {inviteCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        请通过公司内部的安全渠道发送给 {inviteEmail.trim()}。有效期至 {fmtDateTime(inviteExpiresAt)}。
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="tenant-invitation-email">成员邮箱</Label>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="tenant-invitation-email"
+                            type="email"
+                            autoComplete="email"
+                            value={inviteEmail}
+                            onChange={(event) => setInviteEmail(event.target.value)}
+                            placeholder="name@company.com"
+                            className="h-10 rounded-md pl-9"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tenant-invitation-role">初始角色</Label>
+                        <Select value={inviteRole} onValueChange={setInviteRole}>
+                          <SelectTrigger id="tenant-invitation-role" className="h-10 rounded-md">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_OPTIONS.filter((role) => role.key !== 'owner').map((role) => (
+                              <SelectItem key={role.key} value={role.key}>
+                                {role.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  <DialogFooter className="mt-6 gap-2 sm:space-x-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-md"
+                      disabled={inviteMutation.isPending}
+                      onClick={() => setInviteOpen(false)}
+                    >
+                      {inviteLink ? '完成' : '取消'}
+                    </Button>
+                    {!inviteLink ? (
+                      <Button
+                        type="submit"
+                        className="rounded-md"
+                        disabled={!inviteEmail.trim() || inviteMutation.isPending}
+                      >
+                        {inviteMutation.isPending ? (
+                          <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
+                        ) : (
+                          <UserPlus className="mr-2 size-4" />
+                        )}
+                        {inviteMutation.isPending ? '生成中' : '生成邀请链接'}
+                      </Button>
+                    ) : null}
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="outline"
               size="sm"
@@ -439,7 +628,7 @@ function SettingsRbacPageContent() {
                     成员管理
                   </h2>
                   <p className="mt-0.5 text-[12px] text-muted-foreground">
-                    调整角色、移除成员，并同步当前访问控制状态
+                    邀请新成员、调整角色，并同步当前访问控制状态
                   </p>
                 </div>
               </div>
@@ -612,7 +801,7 @@ function SettingsRbacPageContent() {
                                       [uid]: v,
                                     }))
                                   }}
-                                  disabled={!uid}
+                                  disabled={!canManageMembers || !uid}
                                 >
                                   <SelectTrigger className="h-8 min-w-0 rounded-full border-border/60 bg-card text-[12px] shadow-none">
                                     <SelectValue placeholder="选择角色" />
@@ -656,7 +845,7 @@ function SettingsRbacPageContent() {
                                     data-rbac-save-role-action="true"
                                     aria-label={`保存 ${display.primary} 的角色`}
                                     className="h-8 rounded-full bg-info px-3 text-[12px] font-semibold text-primary-foreground shadow-sm hover:bg-info/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                                    disabled={!uid || saving || removing}
+                                    disabled={!canManageMembers || !uid || saving || removing}
                                     onClick={() => saveRole(uid)}
                                   >
                                     {saving ? '保存中' : '保存'}
@@ -672,7 +861,7 @@ function SettingsRbacPageContent() {
                                       variant="outline"
                                       size="icon"
                                       className="size-8 rounded-full border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"
-                                      disabled={!uid || removing}
+                                      disabled={!canManageMembers || !uid || removing}
                                       title={isSelf ? '查看不能移除当前用户的原因' : '移除成员'}
                                       aria-label={isSelf ? '不能移除当前用户' : `移除成员 ${display.primary}`}
                                     >
@@ -699,7 +888,7 @@ function SettingsRbacPageContent() {
                               <EmptyState
                                 icon={Users}
                                 title="暂无成员"
-                                description="还没有添加任何成员，或您没有查看权限"
+                                description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员"
                                 className="rounded-none border-0 shadow-none"
                               />
                             )}

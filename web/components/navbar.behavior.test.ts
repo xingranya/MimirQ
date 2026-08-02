@@ -56,6 +56,7 @@ const messages: Record<
   'deps.unavailable': 'deps.unavailable',
   'items.ragVisualization': 'items.ragVisualization',
   'items.knowledgeBase': 'items.knowledgeBase',
+  'items.members': 'items.members',
   'sections.analysis': 'sections.analysis',
   'sections.conversation': 'sections.conversation',
   'sections.current': 'sections.current',
@@ -278,6 +279,16 @@ describe('Navbar behavior', () => {
     expect(evaluationsLink?.getAttribute('aria-current')).toBe('page')
     expect(ragVisualizationLink).toBeUndefined()
 
+    view.unmount()
+  })
+
+  it('向管理员展示成员管理入口', () => {
+    const view = renderComponent(React.createElement(Navbar))
+    const memberLink = Array.from(view.container.querySelectorAll('a')).find(
+      (node) => node.getAttribute('href') === '/settings/rbac'
+    )
+
+    expect(memberLink?.textContent).toContain('items.members')
     view.unmount()
   })
 

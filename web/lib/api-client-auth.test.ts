@@ -89,4 +89,25 @@ describe('authApi', () => {
       }
     )
   })
+
+  it('accepts a tenant invitation through the public auth endpoint', async () => {
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: {
+        user: { id: 'member-1' },
+        token: { access_token: 'token', token_type: 'bearer', expires_in: 3600 },
+      },
+    } as any)
+
+    await authApi.acceptTenantInvitation({
+      token: 'signed-invitation',
+      username: 'member',
+      password: 'member-password',
+    })
+
+    expect(post).toHaveBeenCalledWith('/auth/invitations/accept', {
+      token: 'signed-invitation',
+      username: 'member',
+      password: 'member-password',
+    })
+  })
 })

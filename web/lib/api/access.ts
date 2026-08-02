@@ -27,6 +27,13 @@ export const rbacApi = {
     return data
   },
 
+  async createTenantInvitation(
+    payload: OpenApiSchema<'TenantInvitationCreateRequest'>
+  ): Promise<OpenApiSchema<'TenantInvitationOut'>> {
+    const { data } = await apiClient.post('/rbac/invitations', payload)
+    return data
+  },
+
   async patchTenantMemberRole(userId: string, payload: { role: string }): Promise<TenantMember> {
     const { data } = await apiClient.patch(`/rbac/members/${encodeURIComponent(userId)}`, payload)
     return data

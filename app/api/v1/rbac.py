@@ -11,13 +11,15 @@ Notes:
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_account_id
 from app.api.dependencies.tenant import get_tenant_id
 from app.api.schemas.rbac import (
     TenantAccessOut,
+    TenantInvitationCreateRequest,
+    TenantInvitationOut,
     TenantMemberDeleteResponse,
     TenantMemberListResponse,
     TenantMemberOut,
@@ -34,6 +36,8 @@ from app.services.audit_log_service import audit_log_event
 from app.services.dataset_service import DatasetService
 from app.services.navigation_visibility import navigation_user_visible_modules_from_settings
 from app.services.rbac_service import TenantPermissions, all_tenant_permissions, ensure_tenant_permission, role_allows
+from app.services.tenant_invitation_service import TenantInvitationTokenError, issue_tenant_invitation_token
+from app.services.user_service import UserService
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
     400: {"description": "Bad Request"},
@@ -111,6 +115,61 @@ def list_tenant_members(
         .all()
     )
     return TenantMemberListResponse(total=total, items=[TenantMemberOut.model_validate(it) for it in items])
+
+
+@router.post(
+    "/invitations",
+    response_model=TenantInvitationOut,
+    status_code=status.HTTP_201_CREATED,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
+def create_tenant_invitation(
+    payload: TenantInvitationCreateRequest,
+    response: Response,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """创建可分享给新本地账号的一次性邀请链接令牌。"""
+    ensure_tenant_permission(
+        db,
+        tenant_id,
+        account_id,
+        TenantPermissions.SETTINGS_WRITE,
+        detail="没有权限邀请成员",
+    )
+
+    email = str(payload.email).strip().lower()
+    if UserService.get_by_email(db, email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该邮箱已有账号，无法重复邀请")
+
+    try:
+        token, expires_at = issue_tenant_invitation_token(
+            tenant_id=tenant_id,
+            email=email,
+            role=payload.role,
+            invited_by=account_id,
+        )
+    except TenantInvitationTokenError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="邀请功能尚未正确配置") from exc
+
+    audit_log_event(
+        db,
+        tenant_id=tenant_id,
+        actor_id=account_id,
+        action="rbac.member.invitation.create",
+        resource_type="tenant_invitation",
+        details={"role": payload.role, "expires_at": expires_at.isoformat()},
+    )
+    db.commit()
+    response.headers["Cache-Control"] = "no-store"
+    return TenantInvitationOut(
+        email=email,
+        role=payload.role,
+        token=token,
+        expires_at=expires_at,
+    )
 
 
 @router.patch("/members/{user_id}", response_model=TenantMemberOut, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)

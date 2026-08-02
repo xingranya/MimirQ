@@ -34,6 +34,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -105,6 +106,7 @@ const menuSections: MenuSection[] = [
     id: 'system',
     titleKey: 'sections.system',
     items: [
+      { icon: Users, labelKey: 'items.members', href: '/settings/rbac', requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ },
       { icon: Activity, labelKey: 'items.diagnostics', href: '/diagnostics', requiredPermission: TENANT_PERMISSIONS.OBSERVABILITY_READ },
       { icon: Settings, labelKey: 'items.settings', href: '/settings', requiredPermission: TENANT_PERMISSIONS.SETTINGS_READ },
     ],

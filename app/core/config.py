@@ -837,6 +837,8 @@ class Settings(BaseSettings):
     # One-time bootstrap gate for the very first local owner registration in production.
     # Provide either a raw token or `sha256:<hex>` and send it via `X-Bootstrap-Token`.
     INITIAL_REGISTRATION_TOKEN: str = ""
+    # 管理员签发本地成员邀请链接的有效期，默认 7 天。
+    MEMBER_INVITATION_TTL_SEC: int = 604800
     # Optional unattended bootstrap for the very first local owner account.
     # Configure email + username + exactly one password source, then remove after first successful startup.
     INITIAL_ADMIN_EMAIL: str = ""

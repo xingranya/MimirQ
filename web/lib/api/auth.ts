@@ -1,4 +1,5 @@
 import type { AuthResponse, LoginRequest, RegisterRequest, UserProfile } from '@/types'
+import type { OpenApiSchema } from '@/types/backend'
 
 import { apiClient, openapiRequest } from '@/lib/api/core'
 
@@ -21,6 +22,13 @@ export const authApi = {
 
   async login(payload: LoginRequest): Promise<AuthResponse> {
     return openapiRequest({ path: '/api/v1/auth/login', method: 'post', body: payload })
+  },
+
+  async acceptTenantInvitation(
+    payload: OpenApiSchema<'TenantInvitationAcceptRequest'>
+  ): Promise<AuthResponse> {
+    const { data } = await apiClient.post('/auth/invitations/accept', payload)
+    return data
   },
 
   async me(): Promise<UserProfile> {

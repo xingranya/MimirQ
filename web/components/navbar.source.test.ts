@@ -23,6 +23,7 @@ describe('navbar source', () => {
     const wrapperPaths = [
       'app/[locale]/audit/page.tsx',
       'app/[locale]/auth/page.tsx',
+      'app/[locale]/auth/invite/page.tsx',
       'app/[locale]/chunk-preview/page.tsx',
       'app/[locale]/data-governance/page.tsx',
       'app/[locale]/data-governance/common-lines/page.tsx',
@@ -120,7 +121,7 @@ describe('navbar source', () => {
     )
     expect(src).not.toContain("href: '/usage'")
     expect(src).not.toContain("href: '/audit'")
-    expect(src).not.toContain("href: '/settings/rbac'")
+    expect(src).toContain("labelKey: 'items.members', href: '/settings/rbac'")
     expect(src).toContain("'/knowledge/similarity': '/evaluations'")
     expect(src.indexOf("labelKey: 'items.knowledgeGraph'")).toBeLessThan(
       src.indexOf("labelKey: 'items.ragas'")

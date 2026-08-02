@@ -2,7 +2,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core.constants import UserRoles
 
@@ -67,3 +67,34 @@ class TenantMemberUpdateRequest(BaseModel):
         if v not in allowed:
             raise ValueError(f"role must be one of: {', '.join(sorted(allowed))}")
         return v
+
+
+class TenantInvitationCreateRequest(BaseModel):
+    email: EmailStr
+    role: str = Field(default=UserRoles.VIEWER, description="admin|auditor|editor|dataset_operator|viewer")
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _normalize_role(cls, value):  # noqa: ANN001
+        return str(value or "").strip().lower()
+
+    @field_validator("role")
+    @classmethod
+    def _validate_role(cls, value: str) -> str:
+        allowed = {
+            UserRoles.ADMIN,
+            UserRoles.AUDITOR,
+            UserRoles.EDITOR,
+            UserRoles.DATASET_OPERATOR,
+            UserRoles.VIEWER,
+        }
+        if value not in allowed:
+            raise ValueError(f"role must be one of: {', '.join(sorted(allowed))}")
+        return value
+
+
+class TenantInvitationOut(BaseModel):
+    email: EmailStr
+    role: str
+    token: str
+    expires_at: datetime

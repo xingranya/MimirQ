@@ -16,6 +16,7 @@ from app.api.schemas.auth import (
     SamlBridgeConsumeRequest,
     SamlExchangeRequest,
     SamlExchangeResponse,
+    TenantInvitationAcceptRequest,
     TokenResponse,
     UserPublic,
 )
@@ -23,6 +24,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.env import is_production_env
 from app.core.jwt_utils import create_access_token
+from app.services.audit_log_service import audit_log_event
 from app.services.saml_bridge_service import (
     consume_saml_bridge_session,
     issue_saml_bridge_session,
@@ -30,6 +32,7 @@ from app.services.saml_bridge_service import (
     saml_bridge_session_to_exchange,
 )
 from app.services.saml_service import build_saml_sp_metadata_xml, exchange_saml_response
+from app.services.tenant_invitation_service import TenantInvitationTokenError, decode_tenant_invitation_token
 from app.services.user_service import UserService
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
@@ -92,6 +95,48 @@ def register_user(
         current_tenant = UserService.get_current_tenant_id(db, user_id=str(user.id))
         tenant_id = str(current_tenant) if current_tenant else None
     token, expires_in = create_access_token(str(user.id), tenant_id=tenant_id)
+    return AuthResponse(
+        user=user,
+        token=TokenResponse(access_token=token, expires_in=expires_in),
+    )
+
+
+@router.post("/invitations/accept", status_code=201, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+def accept_tenant_invitation(
+    payload: TenantInvitationAcceptRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> AuthResponse:
+    """接受成员邀请、创建本地账号并直接建立登录会话。"""
+    try:
+        invitation = decode_tenant_invitation_token(payload.token)
+    except TenantInvitationTokenError as exc:
+        raise HTTPException(status_code=400, detail="邀请链接无效或已过期") from exc
+
+    tenant_id = invitation["tenant_id"]
+    user = UserService.create_invited_user(
+        db,
+        email=invitation["email"],
+        username=payload.username,
+        password=payload.password,
+        tenant_id=tenant_id,
+        role=invitation["role"],
+    )
+    audit_log_event(
+        db,
+        tenant_id=tenant_id,
+        actor_id=str(user.id),
+        action="rbac.member.invitation.accept",
+        resource_type="tenant_member",
+        resource_id=str(user.id),
+        details={
+            "role": invitation["role"],
+            "invited_by": invitation["invited_by"],
+        },
+    )
+    db.commit()
+
+    token_tenant_id = str(tenant_id) if str(getattr(settings, "JWT_TENANT_CLAIM", "") or "").strip() else None
+    token, expires_in = create_access_token(str(user.id), tenant_id=token_tenant_id)
     return AuthResponse(
         user=user,
         token=TokenResponse(access_token=token, expires_in=expires_in),
