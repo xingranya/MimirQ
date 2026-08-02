@@ -36,7 +36,7 @@ describe('用户可见品牌', () => {
       name: '见外传媒知识库',
       shortName: 'SEEWAY',
       standardName: 'SEEWAY 见外',
-      assistantName: '我是见外传媒知识库',
+      assistantName: '见外传媒知识库',
     })
   })
 
