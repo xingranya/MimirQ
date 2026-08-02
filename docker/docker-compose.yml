@@ -201,6 +201,8 @@ services:
       - mimirq-proxy
     volumes:
       - upload_data:/data/uploads
+      # 保留本地向量模型缓存，容器重建后不再重复下载大模型。
+      - huggingface_cache:/app/.cache/huggingface
       - ../plugins:/app/plugins:ro
       # Reuse the MinerU/PDF-Extract-Kit cache for MagicPDF local parsing.
       # Mounted read-only; populate/update it via the optional mineru parser service.
@@ -231,6 +233,7 @@ services:
       TABLE_STORE_DIR: /data/uploads/table_store
     volumes:
       - upload_data:/data/uploads
+      - huggingface_cache:/app/.cache/huggingface
       - ../plugins:/app/plugins:ro
       # Worker runs persisted ingestion; it needs the same local MagicPDF models.
       - mineru_cache:/opt/mimirq-model-cache:ro
@@ -249,6 +252,8 @@ volumes:
   upload_data:
   # Shared MinerU/PDF-Extract-Kit model cache, also used by MagicPDF local parser.
   mineru_cache:
+  # Shared Hugging Face cache for local embedding models used by API and worker.
+  huggingface_cache:
 
 networks:
   mimirq-proxy:

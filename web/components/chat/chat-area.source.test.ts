@@ -25,4 +25,11 @@ describe('首页对话界面源码契约', () => {
     expect(settingsSheetSource).toContain("t('voiceMode')")
     expect(settingsSheetSource).toContain("t('deepReasoning')")
   })
+
+  it('发送后立即展示流式助手消息容器', () => {
+    expect(chatAreaSource).toContain('{isLoading && (')
+    expect(chatAreaSource).not.toContain(
+      'isLoading && (currentResponse || (currentSteps && currentSteps.length > 0))'
+    )
+  })
 })

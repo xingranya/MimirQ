@@ -67,3 +67,11 @@ def test_worker_compose_healthcheck_uses_lightweight_arq_check() -> None:
             "app.tasks.queue.WorkerHealthSettings",
         ]
         assert worker["healthcheck"]["start_period"] == "${WORKER_HEALTHCHECK_START_PERIOD:-45s}"
+
+
+def test_local_embedding_cache_is_shared_by_api_and_worker() -> None:
+    compose = _compose("docker/docker-compose.yml")
+
+    assert "huggingface_cache:/app/.cache/huggingface" in compose["services"]["mimirq-api"]["volumes"]
+    assert "huggingface_cache:/app/.cache/huggingface" in compose["services"]["mimirq-worker"]["volumes"]
+    assert "huggingface_cache" in compose["volumes"]

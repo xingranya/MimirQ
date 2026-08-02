@@ -139,6 +139,14 @@ def test_embedding_probe_reuses_active_store_embedding_client(monkeypatch: pytes
     assert result["dimension"] == 2
 
 
+def test_runtime_warmup_timeout_supports_local_model_cold_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(warmup.settings, "RAG_RUNTIME_WARMUP_TIMEOUT_SEC", 300.0, raising=False)
+
+    assert warmup._resolve_timeout_sec() == 300.0  # type: ignore[attr-defined]
+
+
 @pytest.mark.asyncio
 async def test_runtime_warmup_scheduler_retains_task_until_completion(monkeypatch: pytest.MonkeyPatch) -> None:
     release = asyncio.Event()

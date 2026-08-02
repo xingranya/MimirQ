@@ -99,7 +99,7 @@ def _resolve_timeout_sec() -> float:
         timeout_sec = float(getattr(settings, "RAG_RUNTIME_WARMUP_TIMEOUT_SEC", 15.0) or 15.0)
     except (TypeError, ValueError):
         timeout_sec = 15.0
-    return max(0.5, min(timeout_sec, 120.0))
+    return max(0.5, min(timeout_sec, 600.0))
 
 
 def _sanitize_error_message(exc: BaseException) -> str:

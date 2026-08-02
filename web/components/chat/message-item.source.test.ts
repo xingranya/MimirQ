@@ -20,4 +20,9 @@ describe('对话消息层级源码契约', () => {
     expect(source).not.toContain('backdrop-blur')
     expect(source).not.toContain('glass-card')
   })
+
+  it('流式内容到达前展示明确的等待状态', () => {
+    expect(source).toContain('isStreaming && !message.content')
+    expect(source).toContain('正在准备回答…')
+  })
 })

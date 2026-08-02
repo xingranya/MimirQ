@@ -567,6 +567,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   let renderedContent: ReactNode
   if (isUser) {
      renderedContent = <div className="whitespace-pre-wrap font-normal text-primary-foreground [&>*]:text-inherit">{message.content}</div>
+  } else if (isStreaming && !message.content) {
+    renderedContent = (
+      <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
+        正在准备回答…
+      </div>
+    )
   } else if (isStreaming) {
     renderedContent = <div className="whitespace-pre-wrap">{message.content}</div>
   } else {

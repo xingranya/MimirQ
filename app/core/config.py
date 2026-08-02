@@ -493,7 +493,7 @@ class Settings(BaseSettings):
     # Optional per-process startup warmup for the active embedding + reranker providers.
     # This performs bounded synthetic probes only and does not touch business datasets.
     RAG_RUNTIME_WARMUP_ENABLED: bool = False
-    RAG_RUNTIME_WARMUP_TIMEOUT_SEC: float = 15.0
+    RAG_RUNTIME_WARMUP_TIMEOUT_SEC: float = 300.0
     RAG_RUNTIME_WARMUP_REQUIRED_FOR_READY: bool = False
 
     # Embedding blue-green migration (Gap5) — shadow embedding config (optional).

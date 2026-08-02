@@ -651,7 +651,7 @@ export function ChatArea({
               </div>
             ))}
 
-            {isLoading && (currentResponse || (currentSteps && currentSteps.length > 0)) && (
+            {isLoading && (
               <ChatMessageItem
                 message={{
                   id: 'streaming',
