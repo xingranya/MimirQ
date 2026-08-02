@@ -11,6 +11,7 @@ const USER_VISIBLE_SOURCES = [
   'app/auth/saml/callback/page.tsx',
   'app/evaluations/page.tsx',
   'app/settings/_sections/dify-integration-section.tsx',
+  'app/settings/_sections/system-status-section.tsx',
   'components/navbar.tsx',
   'components/chat-area.tsx',
   'components/chat/message-item.tsx',

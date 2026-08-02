@@ -4,6 +4,7 @@ import type { BackendMetaDetails, SystemStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, Server, XCircle } from 'lucide-react'
 import { systemPageTokens } from '@/components/ui/system-page-tokens'
+import { BRAND_CONFIG } from '@/lib/brand'
 
 type SystemStatusSectionProps = {
   status: SystemStatus
@@ -111,7 +112,7 @@ export function SystemStatusSection({
             {backendMeta ? (
               <div className="text-right text-[11px] font-medium leading-5 text-muted-foreground">
                 <div className="text-foreground">
-                  {backendMeta.name} · {backendMeta.api_version}
+                  {BRAND_CONFIG.name} · {backendMeta.api_version}
                   {backendMeta.build?.sha ? ` · ${backendMeta.build.sha.slice(0, 7)}` : ''}
                 </div>
                 {backendMeta.runtime?.python ? <div>Python {backendMeta.runtime.python}</div> : null}
