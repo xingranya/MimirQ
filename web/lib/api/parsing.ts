@@ -2,7 +2,11 @@ import type { Document } from '@/types'
 import { z } from 'zod'
 
 import { API_LONG_TIMEOUT_MS } from '@/lib/env'
-import { apiClient, openapiRequest } from '@/lib/api/core'
+import {
+  apiClient,
+  openapiRequest,
+  type ApiRequestOptions,
+} from '@/lib/api/core'
 
 export interface ParsingElement {
   id: string
@@ -225,8 +229,19 @@ const parsingContentResponseTypedSchema = parsingContentResponseSchema as unknow
 const parsingExtractResponseTypedSchema = parsingExtractResponseSchema as unknown as z.ZodType<ParsingExtractResponse>
 
 export const parsingApi = {
-  async listDocuments(params?: { skip?: number; limit?: number; status?: string; dataset_id?: string }): Promise<{ total: number; items: Document[] }> {
-    const { data } = await apiClient.get('/parsing/documents', { params })
+  async listDocuments(
+    params?: {
+      skip?: number
+      limit?: number
+      status?: string
+      dataset_id?: string
+    },
+    options?: ApiRequestOptions
+  ): Promise<{ total: number; items: Document[] }> {
+    const { data } = await apiClient.get('/parsing/documents', {
+      params,
+      signal: options?.signal,
+    })
     return data
   },
 

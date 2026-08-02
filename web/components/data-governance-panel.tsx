@@ -91,6 +91,11 @@ import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 import { deleteGovernanceFileFromBackend } from '@/lib/governance-file-delete'
 import { saveGovernanceFileToBackend } from '@/lib/governance-file-save'
+import {
+  fetchAllGovernanceDocuments,
+  reconcileGovernanceFiles,
+  type GovernanceRemoteSource,
+} from '@/lib/governance-document-sync'
 
 const GOVERNANCE_TAB_CONFIGS = [
   { id: 'quality', icon: ScanLine },
@@ -469,14 +474,29 @@ export function DataGovernancePanel() {
       selectedDatasetId,
     ],
     enabled: isLoaded,
-    queryFn: async (): Promise<ParsedFileData[]> => {
+    queryFn: async ({ signal }): Promise<{
+      files: ParsedFileData[]
+      syncedSources: GovernanceRemoteSource[]
+    }> => {
       const [parsingResult, knowledgeResult] = await Promise.allSettled([
-        parsingApi.listDocuments({ skip: 0, limit: 200 }),
-        documentApi.list({
-          skip: 0,
-          limit: 200,
-          dataset_id: selectedDatasetId,
-        }),
+        fetchAllGovernanceDocuments((params) =>
+          parsingApi.listDocuments(
+            {
+              ...params,
+              dataset_id: selectedDatasetId || undefined,
+            },
+            { signal }
+          )
+        ),
+        fetchAllGovernanceDocuments((params) =>
+          documentApi.list(
+            {
+              ...params,
+              dataset_id: selectedDatasetId,
+            },
+            { signal }
+          )
+        ),
       ])
 
       if (parsingResult.status === 'rejected') {
@@ -494,49 +514,48 @@ export function DataGovernancePanel() {
 
       const parsingItems =
         parsingResult.status === 'fulfilled'
-          ? parsingResult.value.items || []
+          ? parsingResult.value
           : []
       const knowledgeItems =
         knowledgeResult.status === 'fulfilled'
-          ? knowledgeResult.value.items || []
+          ? knowledgeResult.value
           : []
-      return [
-        ...parsingItems.map((doc) =>
-          mapParsingDocumentToGovernanceFile(doc, datasetNameById)
-        ),
-        ...knowledgeItems
-          .filter((doc) => !isParsingWorkspaceDocument(doc))
-          .map((doc) =>
-            mapKnowledgeDocumentToGovernanceFile(doc, datasetNameById)
+      const syncedSources: GovernanceRemoteSource[] = []
+      if (parsingResult.status === 'fulfilled') {
+        syncedSources.push('parsing_workspace')
+      }
+      if (knowledgeResult.status === 'fulfilled') {
+        syncedSources.push('knowledge_base')
+      }
+      return {
+        files: [
+          ...parsingItems.map((doc) =>
+            mapParsingDocumentToGovernanceFile(doc, datasetNameById)
           ),
-      ].filter((file) => file.id)
+          ...knowledgeItems
+            .filter((doc) => !isParsingWorkspaceDocument(doc))
+            .map((doc) =>
+              mapKnowledgeDocumentToGovernanceFile(doc, datasetNameById)
+            ),
+        ].filter((file) => file.id),
+        syncedSources,
+      }
     },
   })
 
   useEffect(() => {
     if (!isLoaded || !documentSyncQuery.data) return
 
-    const remoteById = new Map(
-      documentSyncQuery.data.map((file) => [file.id, file])
-    )
     const currentFiles = useParsedFiles.getState().files || []
-    const merged = currentFiles.map((file) => {
-      const remote = remoteById.get(file.id)
-      if (!remote) return file
-      remoteById.delete(file.id)
-      return {
-        ...remote,
-        markdownContent: file.markdownContent || remote.markdownContent,
-        originalMarkdownContent:
-          file.originalMarkdownContent || remote.originalMarkdownContent,
-        folderId: file.folderId || remote.folderId || ROOT_FOLDER_ID,
-        governanceStatus: file.governanceStatus || remote.governanceStatus,
-        chunkStatus: file.chunkStatus || remote.chunkStatus,
-      }
-    })
-
-    setParsedFiles([...merged, ...remoteById.values()])
-  }, [documentSyncQuery.data, isLoaded, setParsedFiles])
+    setParsedFiles(
+      reconcileGovernanceFiles({
+        currentFiles,
+        remoteFiles: documentSyncQuery.data.files,
+        syncedSources: new Set(documentSyncQuery.data.syncedSources),
+        datasetId: selectedDatasetId,
+      })
+    )
+  }, [documentSyncQuery.data, isLoaded, selectedDatasetId, setParsedFiles])
 
   const handleDatasetScopeChange = useCallback(
     (value: string) => {
