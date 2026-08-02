@@ -1,0 +1,240 @@
+{
+  "id": "2026-08-01-024056",
+  "generated_at": "2026-07-31T18:40:56.303381Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-xiang-mu-gai-lan-ke-jian-cha-ke-hui-gui-ke-zhi-li-de-qi-ye-rag-zhi-shi-ku",
+      "title": "项目概览：可检查、可回归、可治理的企业 RAG 知识库",
+      "file": "1-xiang-mu-gai-lan-ke-jian-cha-ke-hui-gui-ke-zhi-li-de-qi-ye-rag-zhi-shi-ku.md",
+      "section": "快速开始",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-kai-shi-docker-jian-qi-dong-yu-yuan-ma-kai-fa-mo-shi",
+      "title": "快速开始：Docker 一键启动与源码开发模式",
+      "file": "2-kuai-su-kai-shi-docker-jian-qi-dong-yu-yuan-ma-kai-fa-mo-shi.md",
+      "section": "快速开始",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-huan-jing-bian-liang-yu-mo-xing-fu-wu-jie-ru-llm-embedding-reranker-pei-zhi",
+      "title": "环境变量与模型服务接入：LLM、Embedding、Reranker 配置",
+      "file": "3-huan-jing-bian-liang-yu-mo-xing-fu-wu-jie-ru-llm-embedding-reranker-pei-zhi.md",
+      "section": "快速开始",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-jie-xi-qi-sheng-tai-yu-an-xu-qi-dong-deepdoc-mineru-marker-olmocr-deng-30-hou-duan",
+      "title": "解析器生态与按需启动：DeepDoc、MinerU、Marker、olmOCR 等 30+ 后端",
+      "file": "4-jie-xi-qi-sheng-tai-yu-an-xu-qi-dong-deepdoc-mineru-marker-olmocr-deng-30-hou-duan.md",
+      "section": "快速开始",
+      "level": "Beginner"
+    },
+    {
+      "slug": "5-yong-hu-cao-zuo-zhi-nan-shu-ju-ji-shang-chuan-jie-xi-qie-kuai-jian-suo-yu-yin-yong-yan-zheng",
+      "title": "用户操作指南：数据集、上传解析、切块、检索与引用验证",
+      "file": "5-yong-hu-cao-zuo-zhi-nan-shu-ju-ji-shang-chuan-jie-xi-qie-kuai-jian-suo-yu-yin-yong-yan-zheng.md",
+      "section": "快速开始",
+      "level": "Beginner"
+    },
+    {
+      "slug": "6-dify-wai-bu-zhi-shi-ceng-jie-ru-zuo-wei-du-li-jian-suo-ceng-de-ji-cheng-fang-shi",
+      "title": "Dify 外部知识层接入：作为独立检索层的集成方式",
+      "file": "6-dify-wai-bu-zhi-shi-ceng-jie-ru-zuo-wei-du-li-jian-suo-ceng-de-ji-cheng-fang-shi.md",
+      "section": "快速开始",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-kai-fa-ce-shi-yu-yan-zheng-gong-zuo-liu-makefile-yu-qian-hou-duan-zhi-liang-jian-cha",
+      "title": "开发、测试与验证工作流：Makefile 与前后端质量检查",
+      "file": "7-kai-fa-ce-shi-yu-yan-zheng-gong-zuo-liu-makefile-yu-qian-hou-duan-zhi-liang-jian-cha.md",
+      "section": "快速开始",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "8-fastapi-ying-yong-gu-jia-yu-qi-dong-sheng-ming-zhou-qi-zhong-jian-jian-pei-zhi-yi-chang-chu-li-yu-yun-xing-shi-qian-yi",
+      "title": "FastAPI 应用骨架与启动生命周期：中间件、配置、异常处理与运行时迁移",
+      "file": "8-fastapi-ying-yong-gu-jia-yu-qi-dong-sheng-ming-zhou-qi-zhong-jian-jian-pei-zhi-yi-chang-chu-li-yu-yun-xing-shi-qian-yi.md",
+      "section": "深入解析",
+      "group": "后端核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "9-shu-ju-mo-xing-yu-alembic-qian-yi-ti-xi-26-ge-qian-yi-ban-ben-yu-ji-xian-yan-jin",
+      "title": "数据模型与 Alembic 迁移体系：26 个迁移版本与基线演进",
+      "file": "9-shu-ju-mo-xing-yu-alembic-qian-yi-ti-xi-26-ge-qian-yi-ban-ben-yu-ji-xian-yan-jin.md",
+      "section": "深入解析",
+      "group": "后端核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "10-duo-zu-hu-yu-an-quan-bian-jie-xing-ji-an-quan-rbac-jwt-saml-sso-yu-scim-gong-ying",
+      "title": "多租户与安全边界：行级安全、RBAC、JWT、SAML SSO 与 SCIM 供应",
+      "file": "10-duo-zu-hu-yu-an-quan-bian-jie-xing-ji-an-quan-rbac-jwt-saml-sso-yu-scim-gong-ying.md",
+      "section": "深入解析",
+      "group": "后端核心架构",
+      "level": "Advanced"
+    },
+    {
+      "slug": "11-hou-tai-ren-wu-dui-lie-yu-worker-ji-yu-redis-arq-de-yi-bu-ren-wu-zhi-xing",
+      "title": "后台任务队列与 Worker：基于 Redis/arq 的异步任务执行",
+      "file": "11-hou-tai-ren-wu-dui-lie-yu-worker-ji-yu-redis-arq-de-yi-bu-ren-wu-zhi-xing.md",
+      "section": "深入解析",
+      "group": "后端核心架构",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "12-wen-dang-jie-xi-kuang-jia-jie-xi-qi-gong-han-hou-duan-lu-you-yu-zi-jin-cheng-ge-chi",
+      "title": "文档解析框架：解析器工厂、后端路由与子进程隔离",
+      "file": "12-wen-dang-jie-xi-kuang-jia-jie-xi-qi-gong-han-hou-duan-lu-you-yu-zi-jin-cheng-ge-chi.md",
+      "section": "深入解析",
+      "group": "知识处理流水线",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "13-qie-kuai-ce-lue-ti-xi-86-chong-ce-lue-fu-zi-qie-kuai-yu-ce-lue-ju-zhen",
+      "title": "切块策略体系：86 种策略、父子切块与策略矩阵",
+      "file": "13-qie-kuai-ce-lue-ti-xi-86-chong-ce-lue-fu-zi-qie-kuai-yu-ce-lue-ju-zhen.md",
+      "section": "深入解析",
+      "group": "知识处理流水线",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "14-shu-ju-zhi-li-gong-zuo-tai-zhi-li-profile-qing-xi-gui-ze-yu-zhi-liang-jian-ce",
+      "title": "数据治理工作台：治理 Profile、清洗规则与质量检测",
+      "file": "14-shu-ju-zhi-li-gong-zuo-tai-zhi-li-profile-qing-xi-gui-ze-yu-zhi-liang-jian-ce.md",
+      "section": "深入解析",
+      "group": "知识处理流水线",
+      "level": "Advanced"
+    },
+    {
+      "slug": "15-ru-ku-sheng-ming-zhou-qi-yu-shi-bai-chu-li-ingestion-runs-si-xin-dui-lie-yu-zhong-shi-ji-zhi",
+      "title": "入库生命周期与失败处理：ingestion runs、死信队列与重试机制",
+      "file": "15-ru-ku-sheng-ming-zhou-qi-yu-shi-bai-chu-li-ingestion-runs-si-xin-dui-lie-yu-zhong-shi-ji-zhi.md",
+      "section": "深入解析",
+      "group": "知识处理流水线",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "16-hun-he-jian-suo-yu-rong-he-ce-lue-xiang-liang-xi-shu-jian-suo-yu-rrf-rong-he",
+      "title": "混合检索与融合策略：向量、稀疏检索与 RRF 融合",
+      "file": "16-hun-he-jian-suo-yu-rong-he-ce-lue-xiang-liang-xi-shu-jian-suo-yu-rrf-rong-he.md",
+      "section": "深入解析",
+      "group": "检索与知识图谱",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "17-zhong-pai-qi-ti-xi-cross-encoder-colbert-ltr-mmr-yu-hun-he-zhong-pai",
+      "title": "重排器体系：Cross-Encoder、ColBERT、LTR、MMR 与混合重排",
+      "file": "17-zhong-pai-qi-ti-xi-cross-encoder-colbert-ltr-mmr-yu-hun-he-zhong-pai.md",
+      "section": "深入解析",
+      "group": "检索与知识图谱",
+      "level": "Advanced"
+    },
+    {
+      "slug": "18-jian-suo-bian-pai-yu-shang-xia-wen-kuo-zhan-er-ci-zhao-hui-cha-xun-gai-xie-yu-zheng-ju-que-kou-bu-quan",
+      "title": "检索编排与上下文扩展：二次召回、查询改写与证据缺口补全",
+      "file": "18-jian-suo-bian-pai-yu-shang-xia-wen-kuo-zhan-er-ci-zhao-hui-cha-xun-gai-xie-yu-zheng-ju-que-kou-bu-quan.md",
+      "section": "深入解析",
+      "group": "检索与知识图谱",
+      "level": "Advanced"
+    },
+    {
+      "slug": "19-zhi-shi-tu-pu-shi-ti-chou-qu-guan-xi-chu-li-tu-pu-sou-suo-yu-su-yuan",
+      "title": "知识图谱：实体抽取、关系处理、图谱搜索与溯源",
+      "file": "19-zhi-shi-tu-pu-shi-ti-chou-qu-guan-xi-chu-li-tu-pu-sou-suo-yu-su-yuan.md",
+      "section": "深入解析",
+      "group": "检索与知识图谱",
+      "level": "Advanced"
+    },
+    {
+      "slug": "20-rag-dui-hua-yin-qing-yin-yong-sheng-cheng-sheng-ming-zheng-ju-ying-she-yu-zhong-shi-du-ping-fen",
+      "title": "RAG 对话引擎：引用生成、声明证据映射与忠实度评分",
+      "file": "20-rag-dui-hua-yin-qing-yin-yong-sheng-cheng-sheng-ming-zheng-ju-ying-she-yu-zhong-shi-du-ping-fen.md",
+      "section": "深入解析",
+      "group": "RAG 引擎与对话",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "21-liu-shi-dui-hua-yu-gong-zuo-liu-langgraph-bian-pai-crag-self-rag-yu-duo-zhi-neng-ti",
+      "title": "流式对话与工作流：LangGraph 编排、CRAG、Self-RAG 与多智能体",
+      "file": "21-liu-shi-dui-hua-yu-gong-zuo-liu-langgraph-bian-pai-crag-self-rag-yu-duo-zhi-neng-ti.md",
+      "section": "深入解析",
+      "group": "RAG 引擎与对话",
+      "level": "Advanced"
+    },
+    {
+      "slug": "22-hui-hua-ji-yi-yu-chi-jiu-hua-duan-qi-chang-qi-ji-yi-yu-dui-hua-huan-cun",
+      "title": "会话记忆与持久化：短期/长期记忆与对话缓存",
+      "file": "22-hui-hua-ji-yi-yu-chi-jiu-hua-duan-qi-chang-qi-ji-yi-yu-dui-hua-huan-cun.md",
+      "section": "深入解析",
+      "group": "RAG 引擎与对话",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-ping-ce-ti-xi-golden-hui-gui-recall-mrr-zhi-biao-yu-800-ti-ji-zhun",
+      "title": "评测体系：Golden 回归、Recall/MRR 指标与 800 题基准",
+      "file": "23-ping-ce-ti-xi-golden-hui-gui-recall-mrr-zhi-biao-yu-800-ti-ji-zhun.md",
+      "section": "深入解析",
+      "group": "质量保证与评测",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "24-ci-zhi-liang-men-jin-jian-suo-yu-zhi-jie-xi-zheng-ming-cha-xun-ji-jian-kang-yu-fa-bu-yu-suan-ce-lue",
+      "title": "CI 质量门禁：检索阈值、解析证明、查询集健康与发布预算策略",
+      "file": "24-ci-zhi-liang-men-jin-jian-suo-yu-zhi-jie-xi-zheng-ming-cha-xun-ji-jian-kang-yu-fa-bu-yu-suan-ce-lue.md",
+      "section": "深入解析",
+      "group": "质量保证与评测",
+      "level": "Advanced"
+    },
+    {
+      "slug": "25-hui-gui-tao-jian-yu-zheng-ju-guan-li-hui-gui-yun-xing-xiao-rong-shi-yan-yu-zheng-ju-xiao-nang",
+      "title": "回归套件与证据管理：回归运行、消融实验与证据胶囊",
+      "file": "25-hui-gui-tao-jian-yu-zheng-ju-guan-li-hui-gui-yun-xing-xiao-rong-shi-yan-yu-zheng-ju-xiao-nang.md",
+      "section": "深入解析",
+      "group": "质量保证与评测",
+      "level": "Advanced"
+    },
+    {
+      "slug": "26-next-js-qian-duan-jia-gou-app-router-guo-ji-hua-yu-api-qi-yue-xiao-yan",
+      "title": "Next.js 前端架构：App Router、国际化与 API 契约校验",
+      "file": "26-next-js-qian-duan-jia-gou-app-router-guo-ji-hua-yu-api-qi-yue-xiao-yan.md",
+      "section": "深入解析",
+      "group": "前端应用",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "27-zhi-shi-gong-zuo-tai-yu-tu-pu-ke-shi-hua-jian-suo-mian-ban-xiang-liang-xing-yun-yu-guan-xi-tu",
+      "title": "知识工作台与图谱可视化：检索面板、向量星云与关系图",
+      "file": "27-zhi-shi-gong-zuo-tai-yu-tu-pu-ke-shi-hua-jian-suo-mian-ban-xiang-liang-xing-yun-yu-guan-xi-tu.md",
+      "section": "深入解析",
+      "group": "前端应用",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "28-jie-xi-gong-zuo-tai-pdf-xuan-ran-ban-mian-yuan-su-bian-ji-yu-jie-xi-dui-bi",
+      "title": "解析工作台：PDF 渲染、版面元素编辑与解析对比",
+      "file": "28-jie-xi-gong-zuo-tai-pdf-xuan-ran-ban-mian-yuan-su-bian-ji-yu-jie-xi-dui-bi.md",
+      "section": "深入解析",
+      "group": "前端应用",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "29-bu-shu-fang-an-yu-yun-wei-shou-ce-docker-compose-helm-bei-fen-hui-fu-yu-yan-lian",
+      "title": "部署方案与运维手册：Docker Compose、Helm、备份恢复与演练",
+      "file": "29-bu-shu-fang-an-yu-yun-wei-shou-ce-docker-compose-helm-bei-fen-hui-fu-yu-yan-lian.md",
+      "section": "深入解析",
+      "group": "部署与可观测性",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "30-ke-guan-ce-xing-yu-lian-lu-zhui-zong-prometheus-zhi-biao-opentelemetry-yu-phoenix",
+      "title": "可观测性与链路追踪：Prometheus 指标、OpenTelemetry 与 Phoenix",
+      "file": "30-ke-guan-ce-xing-yu-lian-lu-zhui-zong-prometheus-zhi-biao-opentelemetry-yu-phoenix.md",
+      "section": "深入解析",
+      "group": "部署与可观测性",
+      "level": "Advanced"
+    }
+  ]
+}

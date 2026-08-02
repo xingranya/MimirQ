@@ -1,0 +1,245 @@
+{
+  "id": "2026-08-02-145715",
+  "generated_at": "2026-08-02T06:57:15.935722Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-xiang-mu-gai-lan-qi-ye-zhi-shi-yun-ying-ping-tai",
+      "title": "项目概览：企业知识运营平台",
+      "file": "1-xiang-mu-gai-lan-qi-ye-zhi-shi-yun-ying-ping-tai.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-qi-dong-yu-shou-ci-ti-yan",
+      "title": "快速启动与首次体验",
+      "file": "2-kuai-su-qi-dong-yu-shou-ci-ti-yan.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-bu-shu-fang-shi-xuan-ze-wan-zheng-zhan-qing-liang-yu-yuan-ma-kai-fa",
+      "title": "部署方式选择：完整栈、轻量与源码开发",
+      "file": "3-bu-shu-fang-shi-xuan-ze-wan-zheng-zhan-qing-liang-yu-yuan-ma-kai-fa.md",
+      "section": "入门指南",
+      "group": "部署与配置",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-mo-xing-fu-wu-yu-shou-ci-guan-li-yuan-pei-zhi",
+      "title": "模型服务与首次管理员配置",
+      "file": "4-mo-xing-fu-wu-yu-shou-ci-guan-li-yuan-pei-zhi.md",
+      "section": "入门指南",
+      "group": "部署与配置",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "5-zong-ti-jia-gou-yu-ji-zhu-zhan",
+      "title": "总体架构与技术栈",
+      "file": "5-zong-ti-jia-gou-yu-ji-zhu-zhan.md",
+      "section": "深入解析",
+      "group": "系统架构与后端基础",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "6-api-fen-ceng-she-ji-yu-ren-zheng-jian-quan",
+      "title": "API 分层设计与认证鉴权",
+      "file": "6-api-fen-ceng-she-ji-yu-ren-zheng-jian-quan.md",
+      "section": "深入解析",
+      "group": "系统架构与后端基础",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-shu-ju-mo-xing-yu-shu-ju-ku-qian-yi",
+      "title": "数据模型与数据库迁移",
+      "file": "7-shu-ju-mo-xing-yu-shu-ju-ku-qian-yi.md",
+      "section": "深入解析",
+      "group": "系统架构与后端基础",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "8-duo-zu-hu-rbac-yu-wen-dang-ji-acl",
+      "title": "多租户、RBAC 与文档级 ACL",
+      "file": "8-duo-zu-hu-rbac-yu-wen-dang-ji-acl.md",
+      "section": "深入解析",
+      "group": "系统架构与后端基础",
+      "level": "Advanced"
+    },
+    {
+      "slug": "9-jie-xi-hou-duan-yu-wen-dang-chu-li-liu-shui-xian",
+      "title": "解析后端与文档处理流水线",
+      "file": "9-jie-xi-hou-duan-yu-wen-dang-chu-li-liu-shui-xian.md",
+      "section": "深入解析",
+      "group": "文档处理与知识入库",
+      "level": "Advanced"
+    },
+    {
+      "slug": "10-qie-kuai-ce-lue-yu-suo-yin-gou-jian",
+      "title": "切块策略与索引构建",
+      "file": "10-qie-kuai-ce-lue-yu-suo-yin-gou-jian.md",
+      "section": "深入解析",
+      "group": "文档处理与知识入库",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "11-lian-jie-qi-yu-duo-yuan-shu-ju-jie-ru",
+      "title": "连接器与多源数据接入",
+      "file": "11-lian-jie-qi-yu-duo-yuan-shu-ju-jie-ru.md",
+      "section": "深入解析",
+      "group": "文档处理与知识入库",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "12-shu-ju-zhi-li-hua-xiang-yu-ru-ku-zhi-liang-men-jin",
+      "title": "数据治理画像与入库质量门禁",
+      "file": "12-shu-ju-zhi-li-hua-xiang-yu-ru-ku-zhi-liang-men-jin.md",
+      "section": "深入解析",
+      "group": "文档处理与知识入库",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "13-zhi-shi-tu-pu-chou-qu-jian-suo-yu-su-yuan",
+      "title": "知识图谱：抽取、检索与溯源",
+      "file": "13-zhi-shi-tu-pu-chou-qu-jian-suo-yu-su-yuan.md",
+      "section": "深入解析",
+      "group": "文档处理与知识入库",
+      "level": "Advanced"
+    },
+    {
+      "slug": "14-hun-he-jian-suo-yu-duo-lu-rong-he-pai-xu",
+      "title": "混合检索与多路融合排序",
+      "file": "14-hun-he-jian-suo-yu-duo-lu-rong-he-pai-xu.md",
+      "section": "深入解析",
+      "group": "检索、重排与问答生成",
+      "level": "Advanced"
+    },
+    {
+      "slug": "15-zhong-pai-qi-ti-xi-yu-ltr-pai-xu-xue-xi",
+      "title": "重排器体系与 LTR 排序学习",
+      "file": "15-zhong-pai-qi-ti-xi-yu-ltr-pai-xu-xue-xi.md",
+      "section": "深入解析",
+      "group": "检索、重排与问答生成",
+      "level": "Advanced"
+    },
+    {
+      "slug": "16-rag-dui-hua-yin-qing-yu-liu-shi-shu-chu",
+      "title": "RAG 对话引擎与流式输出",
+      "file": "16-rag-dui-hua-yin-qing-yu-liu-shi-shu-chu.md",
+      "section": "深入解析",
+      "group": "检索、重排与问答生成",
+      "level": "Advanced"
+    },
+    {
+      "slug": "17-yin-yong-zheng-ju-yu-ke-jie-shi-xing-ji-zhi",
+      "title": "引用、证据与可解释性机制",
+      "file": "17-yin-yong-zheng-ju-yu-ke-jie-shi-xing-ji-zhi.md",
+      "section": "深入解析",
+      "group": "检索、重排与问答生成",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "18-ping-ce-ti-xi-zhi-biao-ti-ji-yu-ragas",
+      "title": "评测体系：指标、题集与 RAGAS",
+      "file": "18-ping-ce-ti-xi-zhi-biao-ti-ji-yu-ragas.md",
+      "section": "深入解析",
+      "group": "评测与持续优化",
+      "level": "Advanced"
+    },
+    {
+      "slug": "19-hui-gui-men-jin-yu-fa-bu-zhi-liang-qia-kou",
+      "title": "回归门禁与发布质量卡口",
+      "file": "19-hui-gui-men-jin-yu-fa-bu-zhi-liang-qia-kou.md",
+      "section": "深入解析",
+      "group": "评测与持续优化",
+      "level": "Advanced"
+    },
+    {
+      "slug": "20-fan-kui-bi-huan-yu-zai-xian-ping-ce",
+      "title": "反馈闭环与在线评测",
+      "file": "20-fan-kui-bi-huan-yu-zai-xian-ping-ce.md",
+      "section": "深入解析",
+      "group": "评测与持续优化",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "21-qian-duan-jia-gou-yu-he-xin-ye-mian-zu-zhi",
+      "title": "前端架构与核心页面组织",
+      "file": "21-qian-duan-jia-gou-yu-he-xin-ye-mian-zu-zhi.md",
+      "section": "深入解析",
+      "group": "前端工作台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "22-liu-shi-dui-hua-yu-qian-duan-zhuang-tai-guan-li",
+      "title": "流式对话与前端状态管理",
+      "file": "22-liu-shi-dui-hua-yu-qian-duan-zhuang-tai-guan-li.md",
+      "section": "深入解析",
+      "group": "前端工作台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-wen-dang-cha-kan-tu-pu-yu-zhi-li-ke-shi-hua",
+      "title": "文档查看、图谱与治理可视化",
+      "file": "23-wen-dang-cha-kan-tu-pu-yu-zhi-li-ke-shi-hua.md",
+      "section": "深入解析",
+      "group": "前端工作台",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "24-cun-chu-ceng-xiang-liang-ku-dui-xiang-cun-chu-yu-guan-xi-ku",
+      "title": "存储层：向量库、对象存储与关系库",
+      "file": "24-cun-chu-ceng-xiang-liang-ku-dui-xiang-cun-chu-yu-guan-xi-ku.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "25-ren-wu-dui-lie-yu-hou-tai-zuo-ye",
+      "title": "任务队列与后台作业",
+      "file": "25-ren-wu-dui-lie-yu-hou-tai-zuo-ye.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "26-ke-guan-ce-xing-zhi-biao-zhui-zong-yu-ri-zhi",
+      "title": "可观测性：指标、追踪与日志",
+      "file": "26-ke-guan-ce-xing-zhi-biao-zhui-zong-yu-ri-zhi.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "27-an-quan-jia-gu-jwt-pii-yu-xian-liu",
+      "title": "安全加固：JWT、PII 与限流",
+      "file": "27-an-quan-jia-gu-jwt-pii-yu-xian-liu.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "28-bu-shu-yun-wei-docker-compose-yu-helm",
+      "title": "部署运维：Docker Compose 与 Helm",
+      "file": "28-bu-shu-yun-wei-docker-compose-yu-helm.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Advanced"
+    },
+    {
+      "slug": "29-ci-cd-yu-ce-shi-ti-xi",
+      "title": "CI/CD 与测试体系",
+      "file": "29-ci-cd-yu-ce-shi-ti-xi.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "30-dify-ji-cheng-yu-wai-bu-sheng-tai-dui-jie",
+      "title": "Dify 集成与外部生态对接",
+      "file": "30-dify-ji-cheng-yu-wai-bu-sheng-tai-dui-jie.md",
+      "section": "深入解析",
+      "group": "基础设施与运维",
+      "level": "Intermediate"
+    }
+  ]
+}
