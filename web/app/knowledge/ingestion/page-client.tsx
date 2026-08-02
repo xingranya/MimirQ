@@ -47,6 +47,11 @@ import type {
 } from '@/types'
 import { cn, formatDate, formatFileSize } from '@/lib/utils'
 import { useDatasets } from '@/hooks/use-datasets'
+import { useTenantAccess } from '@/hooks/use-tenant-access'
+import {
+  TENANT_PERMISSIONS,
+  tenantAccessAllows,
+} from '@/lib/tenant-permissions'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { EChart } from '@/components/ui/echart'
@@ -140,6 +145,10 @@ import {
 import { buildSafeReportFilename, renderReportHtmlToJpeg } from './report-canvas'
 import { buildReportHtml, escapeHtml } from './report-html'
 import type { IngestionMode, SampleDisposition } from './types'
+import {
+  resolveExecutionStatusCounts,
+  resolveTaskQueueStatusLabel,
+} from './execution-monitor-access'
 
 const DATASET_ALL = '__all__'
 const EXECUTION_TASK_PAGE_SIZE = 5
@@ -207,6 +216,14 @@ export default function KnowledgeIngestionPageClient() {
 
   const selectedDatasetId = datasetScope === DATASET_ALL ? null : datasetScope
   const { datasets } = useDatasets()
+  const tenantAccessQuery = useTenantAccess()
+  const canReadObservability = tenantAccessAllows(
+    tenantAccessQuery.data,
+    TENANT_PERMISSIONS.OBSERVABILITY_READ
+  )
+  const observabilityScopeKey = canReadObservability
+    ? `${tenantAccessQuery.data?.tenant_id || 'tenant'}:${tenantAccessQuery.data?.account_id || 'account'}`
+    : 'restricted'
 
   const documentsQuery = useQuery({
     queryKey: ['knowledge-ingestion-documents', selectedDatasetId],
@@ -224,34 +241,31 @@ export default function KnowledgeIngestionPageClient() {
     refetchInterval: demoMode ? false : 25_000,
   })
 
-  const summaryQuery = useQuery<IngestionDashboardSummaryResponse | null>({
-    queryKey: ['knowledge-ingestion-summary', selectedDatasetId],
-    queryFn: async () => {
-      try {
-        return await observabilityApi.getIngestionDashboardSummary({
-          window_hours: 12,
-          bucket_minutes: 20,
-          dataset_id: selectedDatasetId ?? undefined,
-        })
-      } catch {
-        return null
-      }
-    },
+  const summaryQuery = useQuery<IngestionDashboardSummaryResponse>({
+    queryKey: [
+      'knowledge-ingestion-summary',
+      observabilityScopeKey,
+      selectedDatasetId,
+    ],
+    queryFn: () =>
+      observabilityApi.getIngestionDashboardSummary({
+        window_hours: 12,
+        bucket_minutes: 20,
+        dataset_id: selectedDatasetId ?? undefined,
+      }),
+    enabled: canReadObservability && !demoMode,
     staleTime: 10_000,
     refetchInterval: demoMode ? false : 25_000,
   })
 
   const taskQueueQuery =
-    useQuery<TaskQueueObservabilitySnapshotResponse | null>({
-      queryKey: ['knowledge-ingestion-task-queue'],
-      queryFn: async () => {
-        try {
-          return await observabilityApi.getTaskQueueSnapshot()
-        } catch {
-          return null
-        }
-      },
-      enabled: mode === 'execution-monitor' && !demoMode,
+    useQuery<TaskQueueObservabilitySnapshotResponse>({
+      queryKey: ['knowledge-ingestion-task-queue', observabilityScopeKey],
+      queryFn: () => observabilityApi.getTaskQueueSnapshot(),
+      enabled:
+        mode === 'execution-monitor' &&
+        !demoMode &&
+        canReadObservability,
       staleTime: 10_000,
       refetchInterval: demoMode ? false : 25_000,
     })
@@ -348,14 +362,27 @@ export default function KnowledgeIngestionPageClient() {
     [summaryQuery.data]
   )
   const taskQueueSnapshot = taskQueueQuery.data ?? null
-  const taskQueueStatusLabel = useMemo(() => {
-    if (demoMode) return 'Demo 运行态'
-    if (taskQueueQuery.isFetching && !taskQueueSnapshot) return '读取队列'
-    if (!taskQueueSnapshot) return '队列未知'
-    if (!taskQueueSnapshot.enabled) return '队列未启用'
-    if (!taskQueueSnapshot.broker_up) return 'Broker 异常'
-    return 'Broker 正常'
-  }, [demoMode, taskQueueQuery.isFetching, taskQueueSnapshot])
+  const taskQueueStatusLabel = useMemo(
+    () =>
+      resolveTaskQueueStatusLabel({
+        demoMode,
+        accessLoading: tenantAccessQuery.isLoading,
+        canReadObservability,
+        queryFetching: taskQueueQuery.isFetching,
+        queryError: taskQueueQuery.isError,
+        hasSnapshot: Boolean(taskQueueSnapshot),
+        queueEnabled: taskQueueSnapshot?.enabled,
+        brokerUp: taskQueueSnapshot?.broker_up,
+      }),
+    [
+      canReadObservability,
+      demoMode,
+      taskQueueQuery.isError,
+      taskQueueQuery.isFetching,
+      taskQueueSnapshot,
+      tenantAccessQuery.isLoading,
+    ]
+  )
   const taskQueueStatusTone = useMemo(() => {
     if (demoMode || !taskQueueSnapshot)
       return 'border-border/18 bg-muted/[0.08] text-foreground'
@@ -427,14 +454,12 @@ export default function KnowledgeIngestionPageClient() {
   }, [datasets, selectedDatasetId])
 
   const statusCounts = useMemo(
-    () => ({
-      completed: safeNumber(summary.by_status.completed),
-      processing: safeNumber(summary.by_status.processing),
-      pending: safeNumber(summary.by_status.pending),
-      failed: safeNumber(summary.by_status.failed),
-      quarantined: safeNumber(summary.by_status.quarantined),
-    }),
-    [summary.by_status]
+    () =>
+      resolveExecutionStatusCounts(
+        summaryQuery.data,
+        executionDocuments
+      ),
+    [executionDocuments, summaryQuery.data]
   )
 
   const summaryThroughputRows = useMemo(
@@ -2317,8 +2342,10 @@ export default function KnowledgeIngestionPageClient() {
         precheckOnly
         onUploadComplete={() => {
           documentsQuery.refetch()
-          summaryQuery.refetch()
-          taskQueueQuery.refetch()
+          if (canReadObservability) {
+            summaryQuery.refetch()
+            taskQueueQuery.refetch()
+          }
           precheckRunsQuery.refetch()
         }}
       />
