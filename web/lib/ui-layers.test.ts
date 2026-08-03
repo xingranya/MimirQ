@@ -10,8 +10,9 @@ describe('全局界面层级', () => {
       Number(className.replace('z-', ''))
     )
 
-    expect(values).toEqual([30, 40, 50, 60, 70, 80, 90, 100])
+    expect(values).toEqual([20, 30, 40, 50, 60, 70, 80, 90, 100])
     expect(new Set(values).size).toBe(values.length)
+    expect(UI_LAYER_CLASS.floatingAction).toBe('z-20')
     expect(UI_LAYER_CLASS.contextual).toBe('z-80')
     expect(UI_LAYER_CLASS.modal).toBe('z-70')
   })

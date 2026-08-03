@@ -75,6 +75,7 @@ import { cn, formatDate, formatFileSize, detachPromise } from '@/lib/utils'
 import { getParserLabel } from '@/lib/parser-options'
 import { getUserTagsFromDocument } from '@/lib/document-user-tags'
 import { getFileTypeMeta } from '@/components/knowledge/file-type'
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 
 type ViewMode = 'grid' | 'list'
 type DocSortKey = 'created_at' | 'filename' | 'file_size'
@@ -572,37 +573,33 @@ export function KnowledgeDocumentsPanel({
       <AnimatePresence>
         {selectedDocIds.length > 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.15 }}
             className={cn(
-              'fixed bottom-8 left-1/2 z-50 -translate-x-1/2 overflow-hidden rounded-[2.25rem] border border-border/50 bg-background/70 px-4 py-3 shadow-[0_30px_90px_-32px_rgba(15,23,42,0.88),0_18px_36px_-24px_rgba(15,23,42,0.55),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/58'
+              'fixed bottom-2 left-2 right-2 max-w-5xl overflow-hidden rounded-lg border border-border bg-background px-3 py-2 shadow-sm md:bottom-4 md:left-[15rem] md:right-4 md:mx-auto',
+              UI_LAYER_CLASS.floatingAction
             )}
           >
-            <div className="pointer-events-none absolute inset-0 bg-background/90" />
-            <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-card/30 dark:bg-card/10" />
-            <div className="pointer-events-none absolute -left-8 top-1/2 size-28 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
-            <div className="pointer-events-none absolute -right-6 top-2 size-24 rounded-full bg-foreground/5 blur-2xl" />
-
-            <div className="relative flex items-center gap-4">
-              <div className="flex items-center gap-3 pr-4 border-r border-border/40">
-                <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium font-mono tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex shrink-0 items-center gap-2 border-b border-border pb-2 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">
+                <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold tabular-nums text-primary">
                   {selectedDocIds.length}
                 </div>
-                <span className="text-[13px] font-medium text-foreground/90 whitespace-nowrap">
+                <span className="whitespace-nowrap text-sm font-medium text-foreground">
                   {t('selection.selectedCount', {
                     count: selectedDocIds.length,
                   })}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 pr-0.5">
+              <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-0.5 pr-0.5">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={toggleSelectAllVisible}
                 >
                   {allVisibleSelected
@@ -613,7 +610,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={() => setSelectedDocIds([])}
                 >
                   {t('actions.clearSelection')}
@@ -623,7 +620,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60 text-primary"
+                  className="h-11 rounded-md px-3 text-xs font-medium text-primary hover:bg-muted/60 sm:h-9"
                   onClick={() => detachPromise(runBatchReingest())}
                   disabled={
                     batchDeleting ||
@@ -644,7 +641,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={() => detachPromise(runBatchLifecycle('disable'))}
                   disabled={
                     batchDeleting ||
@@ -658,7 +655,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={() => detachPromise(runBatchLifecycle('enable'))}
                   disabled={
                     batchDeleting ||
@@ -672,7 +669,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={() => detachPromise(runBatchLifecycle('archive'))}
                   disabled={
                     batchDeleting ||
@@ -686,7 +683,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium hover:bg-muted/60"
+                  className="h-11 rounded-md px-3 text-xs font-medium hover:bg-muted/60 sm:h-9"
                   onClick={() => detachPromise(runBatchLifecycle('unarchive'))}
                   disabled={
                     batchDeleting ||
@@ -700,7 +697,7 @@ export function KnowledgeDocumentsPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-9 rounded-full px-4 text-xs font-medium bg-destructive/5 text-destructive hover:bg-destructive/15"
+                  className="h-11 rounded-md bg-destructive/5 px-3 text-xs font-medium text-destructive hover:bg-destructive/15 sm:h-9"
                   onClick={() => setBatchDeleteOpen(true)}
                   disabled={batchDeleting || batchLifecycleWorking}
                 >

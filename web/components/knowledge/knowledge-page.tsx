@@ -66,12 +66,14 @@ import { WorkbenchPanelDialog, WorkbenchScaffold } from '@/components/workbench'
 import { useConnectorRuns } from '@/hooks/use-connector-runs'
 import { useDatasets } from '@/hooks/use-datasets'
 import { useDocuments } from '@/hooks/use-documents'
+import { useIsMobile, useIsTablet } from '@/hooks/use-media-query'
 import { Link, useRouter } from '@/i18n/navigation'
 import { documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { buildChunkPreviewDocumentHref } from '@/lib/chunk-preview-links'
 import { cn, detachPromise, formatFileSize } from '@/lib/utils'
 import { useDocumentView } from '@/store/document-view'
+import { resolveKnowledgeDocumentGridColumns } from '@/components/knowledge/knowledge-layout'
 
 const DATASET_ALL = '__all__'
 const KNOWLEDGE_BACKGROUND_CLASS = KNOWLEDGE_OPS_BACKGROUND_CLASS
@@ -91,6 +93,8 @@ export default function KnowledgePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reduceMotion = useReducedMotion()
+  const isMobile = useIsMobile()
+  const isTablet = useIsTablet()
   const { openDocument } = useDocumentView()
 
   const initialQueryStateRef = useRef<KnowledgeQueryState | null>(null)
@@ -286,7 +290,7 @@ export default function KnowledgePage() {
   const [documentsScrollEl, setDocumentsScrollEl] =
     useState<HTMLDivElement | null>(null)
 
-  const docGridColumns = 3
+  const docGridColumns = resolveKnowledgeDocumentGridColumns(isMobile, isTablet)
   const docGridRowCount = Math.ceil(paginatedDocuments.length / docGridColumns)
   // eslint-disable-next-line react-hooks/incompatible-library
   const docsGridVirtualizer = useVirtualizer({

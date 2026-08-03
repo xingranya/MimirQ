@@ -2,6 +2,7 @@
  * 全局界面层级契约。业务组件不得自行使用超出此表的任意 z-index。
  */
 export const UI_LAYER_CLASS = {
+  floatingAction: 'z-20',
   documentPanel: 'z-30',
   navigationOverlay: 'z-40',
   navigation: 'z-50',
