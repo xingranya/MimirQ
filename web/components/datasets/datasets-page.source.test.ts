@@ -24,4 +24,32 @@ describe('datasets-page server pagination contract', () => {
     expect(src).not.toContain('datasetApi.listAll(datasetListParams)')
     expect(src).not.toContain('datasetApi.getIngestionStats(')
   })
+
+  it('uses a two-column catalog with on-demand filter and inspector sheets', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'datasets-page.tsx'), 'utf8')
+
+    expect(src).toContain('lg:grid-cols-[208px_minmax(0,1fr)]')
+    expect(src).not.toContain('xl:grid-cols-[208px_minmax(0,1.2fr)_284px]')
+    expect(src).toContain('<Sheet open={filtersOpen}')
+    expect(src).toContain('<Sheet open={inspectorOpen}')
+    expect(src).toContain('setInspectorOpen(true)')
+    expect(src).toContain('className="lg:hidden"')
+  })
+
+  it('uses the shared tooltip instead of a clipped hover-only capability hint', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'datasets-page.tsx'), 'utf8')
+
+    expect(src).toContain('<TooltipContent side="top"')
+    expect(src).not.toContain('group-hover:translate-y-0 group-hover:opacity-100')
+  })
+
+  it('keeps the catalog surface flat and within the shared visual scale', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'datasets-page.tsx'), 'utf8')
+
+    expect(src).not.toContain('backdrop-blur')
+    expect(src).not.toContain('rounded-[')
+    expect(src).not.toContain('rounded-xl')
+    expect(src).not.toContain('rounded-2xl')
+    expect(src).not.toContain('shadow-[')
+  })
 })
