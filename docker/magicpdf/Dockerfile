@@ -7,7 +7,11 @@
 # pin the base image to 2.6 and preinstall the matching torchvision wheel to
 # avoid pip re-resolving a newer CUDA stack at build time.
 
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
+ARG MAGIC_PDF_BASE_IMAGE=pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
+FROM ${MAGIC_PDF_BASE_IMAGE}
+
+# CPU 部署通过该参数安装 PyTorch CPU 轮子；CUDA 基础镜像留空即可复用内置 PyTorch。
+ARG MAGIC_PDF_TORCH_INDEX_URL=""
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -28,7 +32,11 @@ COPY requirements.txt ./requirements.txt
 
 RUN python -m pip install --upgrade pip setuptools wheel && \
     python -m pip install -r requirements.txt && \
-    python -m pip install torchvision==0.21.0 && \
+    if [ -n "${MAGIC_PDF_TORCH_INDEX_URL}" ]; then \
+      python -m pip install --index-url "${MAGIC_PDF_TORCH_INDEX_URL}" torch==2.6.0 torchvision==0.21.0; \
+    else \
+      python -m pip install torchvision==0.21.0; \
+    fi && \
     python -m pip install "magic-pdf[full]==1.3.12"
 
 COPY server.py ./server.py

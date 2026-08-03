@@ -35,6 +35,16 @@ MAGIC_PDF_KEEP_ARTIFACTS=false
 `torch 2.2~2.6`，并明确排除了 `2.5`。
 镜像安装的是 `magic-pdf[full]`，不是最小 core 包；否则 `doclayout_yolo` 路径会缺少
 `cv2` 等运行依赖。
+
+没有兼容 CUDA 12.4 的 GPU/驱动时，使用 CPU 镜像构建，避免下载和加载无用的 CUDA 运行时：
+
+```dotenv
+MAGIC_PDF_BASE_IMAGE=python:3.11-slim-bookworm
+MAGIC_PDF_TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+MAGIC_PDF_DEVICE_MODE=cpu
+```
+
+CPU 模式适合低并发和兜底解析，建议保持 `MAGIC_PDF_MAX_CONCURRENT_JOBS=1`。
 如果共享的 PDF-Extract-Kit cache 只有 `ch_PP-OCRv5_rec_infer.pth` 而没有
 `ch_PP-OCRv4_rec_server_doc_infer.pth`，服务会在启动/执行时把 MagicPDF 的
 `lang.ch` 资源映射自动切到现有 `v5` 识别模型。

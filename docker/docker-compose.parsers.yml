@@ -279,6 +279,9 @@ services:
     profiles: ["magicpdf"]
     build:
       context: ./magicpdf
+      args:
+        MAGIC_PDF_BASE_IMAGE: ${MAGIC_PDF_BASE_IMAGE:-pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime}
+        MAGIC_PDF_TORCH_INDEX_URL: ${MAGIC_PDF_TORCH_INDEX_URL:-}
     restart: unless-stopped
     hostname: mimirq-magicpdf
     deploy:
