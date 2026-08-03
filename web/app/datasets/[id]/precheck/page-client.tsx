@@ -7,11 +7,7 @@ import { toast } from 'sonner'
 import {
   AlertCircle,
   Archive,
-  ArrowLeft,
-  BarChart3,
-  ChevronDown,
   Clock3,
-  Cloud,
   Database,
   Download,
   FileDigit,
@@ -19,17 +15,16 @@ import {
   FileText,
   Folder,
   Hash,
-  Heart,
   History,
   Info,
   ListChecks,
   Loader2,
+  MoreHorizontal,
   Play,
   Settings2,
   Shield,
   Sparkles,
   StopCircle,
-  Table2,
   Timer,
   Wand2,
 } from 'lucide-react'
@@ -45,7 +40,7 @@ import {
 } from 'recharts'
 
 import { AppFrame } from '@/components/app-frame'
-import { PageScaffold } from '@/components/ui/page-scaffold'
+import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
 import { Panel } from '@/components/ui/panel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -57,13 +52,19 @@ import { Switch } from '@/components/ui/switch'
 import { StatCard, StatsGrid } from '@/components/ui/stats-card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SafeResponsiveChart } from '@/components/ui/safe-responsive-chart'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import { datasetApi, sseApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { reportClientError, reportClientWarning } from '@/lib/client-logging'
 import { queryKeys } from '@/lib/query-keys'
 import { cn, formatFileSize, formatDate, detachPromise } from '@/lib/utils'
-import { useRouter } from '@/i18n/navigation'
 
 import type {
   DatasetPrecheckFileOut,
@@ -189,7 +190,6 @@ export function shouldFallbackToPrecheckPolling(
 }
 
 export default function DatasetPrecheckPage() {
-  const router = useRouter()
   const params = useParams()
   const datasetId = asDatasetId((params as Record<string, unknown>)?.id)
 
@@ -528,7 +528,7 @@ export default function DatasetPrecheckPage() {
   const startScan = useCallback(async () => {
     if (!datasetId) return
     if (!scanConfig.root_path?.trim()) {
-      toast.error('请输入要扫描的文件夹路径（root_path）')
+      toast.error('请输入要扫描的文件夹路径')
       return
     }
     setScanRunning(true)
@@ -701,17 +701,11 @@ export default function DatasetPrecheckPage() {
   const latestRunProgress = selectedRun?.progress ?? 0
   const hasPrecheckRuns = runs.length > 0
   const showPrecheckEmptyState = !loading && !hasPrecheckRuns
-  const precheckHeroCard = 'precheckHeroCard relative overflow-hidden rounded-2xl border border-border/60 bg-[linear-gradient(135deg,hsl(var(--card)/0.98),hsl(var(--background)/0.9)_58%,hsl(var(--card)/0.76))] shadow-[0_18px_50px_rgba(15,23,42,0.08)] ring-1 ring-info/20 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_18%_12%,hsl(var(--info)/0.14),transparent_28%),linear-gradient(90deg,hsl(var(--info)/0.035)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--info)/0.035)_1px,transparent_1px)] before:bg-[length:auto,28px_28px,28px_28px] dark:border-border/60 dark:bg-card/95'
-  const precheckToolbarGroupClass = 'inline-flex flex-wrap items-center gap-1 rounded-2xl border border-border/60 bg-card/70 p-1 shadow-[0_10px_30px_rgba(15,23,42,0.055)] ring-1 ring-border/50 backdrop-blur dark:border-border/60 dark:bg-card/70 dark:ring-white/5'
-  const precheckToolbarButtonClass = 'h-8 gap-1.5 rounded-xl px-2.5 text-[12px] font-medium text-muted-foreground shadow-none hover:bg-card/95 hover:text-foreground hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground [&_svg]:size-3.5'
-  const precheckToolbarExportButtonClass = 'h-8 gap-1.5 rounded-xl border-border/60 bg-card/75 px-2.5 text-[12px] font-medium text-foreground/85 shadow-[0_8px_20px_rgba(15,23,42,0.045)] hover:bg-card hover:text-foreground dark:border-border/60 dark:bg-card/70 dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground [&_svg]:size-3.5'
-  const precheckToolbarPrimaryButtonClass = 'h-8 min-w-[96px] gap-1.5 rounded-xl bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--info)))] px-3 text-[12px] font-semibold text-primary-foreground shadow-[0_10px_24px_hsl(var(--info)/0.24)] hover:bg-[linear-gradient(90deg,hsl(var(--primary)/0.92),hsl(var(--info)/0.92))] [&_svg]:size-3.5'
   const runRootPath =
     readStringField(selectedRun?.config, 'root_path') ||
     readStringField(selectedRun?.artifacts, 'root_path') ||
     scanConfig.root_path ||
     '/uploads'
-  const runUpdatedAt = selectedRun?.updated_at || selectedRun?.created_at || summary?.generated_at || null
   const runTotalFiles =
     summary?.total_files ??
     readNumberField(selectedRun?.summary, 'total_files') ??
@@ -724,170 +718,101 @@ export default function DatasetPrecheckPage() {
 
   return (
     <AppFrame>
-      <PageScaffold
+      <DatasetDetailShell
+        activeSection="precheck"
+        datasetId={datasetId || ''}
+        datasetName={dataset?.name}
         title="预检扫描"
-        showHeader={false}
-        size="full"
-        density="system-dense"
-        bodyGutter="dense"
-        bodyClassName="h-full bg-[radial-gradient(circle_at_18%_0%,hsl(var(--info)/0.10),transparent_28%),linear-gradient(180deg,hsl(var(--background)/0.96),hsl(var(--surface-2)/0.68))] pb-3"
+        description="在正式入库前检查文件范围、质量、重复项与敏感信息。"
+        icon={FileSearch}
+        bodyClassName="h-full bg-background pb-3"
         bodyContainerClassName="h-full min-h-full"
-        top={
-          <div className={precheckHeroCard}>
-            <div className="absolute inset-y-4 left-3 w-1 rounded-full bg-[linear-gradient(180deg,hsl(var(--primary)),hsl(var(--info)/0.78),hsl(var(--primary)/0.36))]" />
-            <div className="relative flex flex-col gap-3 px-5 py-3.5 pl-8 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-info/30 bg-card/82 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_26px_hsl(var(--info)/0.14)] dark:bg-info/10">
-                  <FileSearch className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="truncate text-[22px] font-bold leading-none tracking-[-0.03em] text-foreground">预检扫描</h1>
-                    <Badge variant="outline" className="h-5 border-border bg-card/70 px-2 text-[10px] font-semibold leading-none text-muted-foreground">
-                      未入库
-                    </Badge>
-                    <Badge variant="soft" className="h-5 border-primary/20 bg-primary/10 px-2 font-mono text-[10px] leading-none text-primary">
-                      PRECHECK
-                    </Badge>
-                  </div>
-                  <div className="mt-1.5 text-[13px] leading-tight text-muted-foreground">
-                    <span className="font-semibold text-foreground">数据集：</span>
-                    <span className="font-medium text-foreground">{dataset?.name || datasetId || '--'}</span>
-                    <span> · 文件摸底 / 质量画像 / 不入库不切片</span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] leading-none text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Database className="size-3.5 text-muted-foreground/80" />
-                      <span>数据源</span>
-                      <span className="font-mono font-semibold text-foreground">LOCAL_SCAN_ENABLED</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Heart className="size-3.5 text-muted-foreground/80" />
-                      <span>模式</span>
-                      <span className="font-semibold text-foreground">仅生成质量画像</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Cloud className="size-3.5 text-muted-foreground/80" />
-                      <span>范围</span>
-                      <span className="font-semibold text-foreground">伪根目录 / {runRootPath.replace(/^\/+/, '') || 'uploads'}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock3 className="size-3.5 text-muted-foreground/80" />
-                      <span>最近更新</span>
-                      <span className="font-mono font-semibold text-foreground">{formatPrecheckTimestamp(runUpdatedAt)}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2 lg:self-end">
-                <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 text-[13px] font-medium text-success shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-                  <span className="size-2 rounded-full bg-success" />
-                  数据良好
-                </div>
-                {datasetId ? (
-                  <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}`)}>
-                    查看数据集
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        }
-        toolbar={
-          <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <div className={precheckToolbarGroupClass}>
-              <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push('/datasets')}>
-                <ArrowLeft className="size-3.5" />
-                返回
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="outline" className="h-9 rounded-md">
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                  更多操作
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-md">
+                <DropdownMenuItem onSelect={() => setAdvancedOpen(true)}>
+                  <Settings2 className="size-4" aria-hidden="true" />
+                  高级配置
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!selectedRun?.id}
+                  onSelect={() => detachPromise(openPolicy())}
+                >
+                  <Wand2 className="size-4" aria-hidden="true" />
+                  生成策略
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={isExporting || !selectedRun?.id || !summary}
+                  onSelect={() => detachPromise(exportJson())}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  导出 JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isExporting || !selectedRun?.id || !summary}
+                  onSelect={() => detachPromise(exportHtml())}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  导出 HTML
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {scanRunning && selectedRun?.id ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-md"
+                onClick={() => detachPromise(cancelScan())}
+              >
+                <StopCircle className="size-4" aria-hidden="true" />
+                取消扫描
               </Button>
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/health`)}>
-                  <Heart className="size-3.5" />
-                  健康
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/profile`)}>
-                  <BarChart3 className="size-3.5" />
-                  数据画像
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/ingestion`)}>
-                  <Settings2 className="size-3.5" />
-                  入库策略
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/tables`)}>
-                  <Table2 className="size-3.5" />
-                  表格 / TAG
-                </Button>
-              ) : null}
-              </div>
-              <div className={precheckToolbarGroupClass}>
-              <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => setAdvancedOpen(true)}>
-                <Settings2 className="size-3.5" />
-                高级
-              </Button>
-              <Button size="sm" variant="ghost" className={precheckToolbarButtonClass} onClick={() => detachPromise(openPolicy())} disabled={!selectedRun?.id}>
-                <Wand2 className="size-3.5" />
-                生成策略
-              </Button>
-              </div>
-              <div className="flex overflow-hidden rounded-xl border border-border/60 bg-card/75 shadow-[0_8px_20px_rgba(15,23,42,0.045)] dark:border-border/60 dark:bg-card/70">
-                <Button size="sm" variant="ghost" className={cn(precheckToolbarExportButtonClass, 'rounded-none border-0 shadow-none')} onClick={() => detachPromise(exportJson())} disabled={isExporting || !selectedRun?.id || !summary}>
-                  {isExporting ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Download className="size-3.5" />}
-                  导出
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8 rounded-none border-l border-border/60 px-2 text-muted-foreground hover:bg-card/95 hover:text-foreground dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground" onClick={() => detachPromise(exportHtml())} disabled={isExporting || !selectedRun?.id || !summary} aria-label="导出 HTML">
-                  <ChevronDown className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-1.5">
-              {scanRunning && selectedRun?.id ? (
-                <Button size="sm" variant="outline" className={precheckToolbarExportButtonClass} onClick={() => detachPromise(cancelScan())}>
-                  <StopCircle className="size-3.5" />
-                  取消
-                </Button>
-              ) : null}
-              <Button size="sm" className={precheckToolbarPrimaryButtonClass} onClick={() => detachPromise(startScan())} disabled={scanRunning}>
-                {scanRunning ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Play className="size-3.5" />}
-                启动
-              </Button>
-            </div>
-          </div>
+            ) : null}
+            <Button
+              size="sm"
+              className="h-9 rounded-md"
+              onClick={() => detachPromise(startScan())}
+              disabled={scanRunning}
+            >
+              {scanRunning ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Play className="size-4" aria-hidden="true" />
+              )}
+              {scanRunning ? '正在扫描' : '启动预检'}
+            </Button>
+          </>
         }
       >
         <div data-precheck-workbench="true" className="flex flex-col gap-3">
-          <div
-            className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_420px] min-h-0"
-            style={{ height: 790, minHeight: 560 }}
-          >
+          <div className="grid min-h-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
             <Panel
-              className="h-full overflow-hidden border-border/60 bg-[linear-gradient(180deg,hsl(var(--card)/0.98),hsl(var(--background)/0.92))] p-0 shadow-[0_16px_45px_rgba(15,23,42,0.07)] ring-1 ring-border/50 dark:border-border/60 dark:bg-card/95 dark:ring-white/5"
-              style={{ height: 790, minHeight: 560 }}
+              className="overflow-hidden rounded-md border-border bg-card p-0 shadow-none xl:min-h-[560px]"
             >
               <div className="space-y-3.5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-xl border border-info/30 bg-info/5 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:bg-info/10">
+                    <div className="flex size-9 items-center justify-center rounded-md bg-muted text-primary">
                       <ListChecks className="size-[18px]" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-[15px] font-semibold leading-none tracking-[-0.02em] text-foreground">扫描配置</h2>
-                        <Badge variant="outline" className="h-5 font-mono text-[10px] leading-none">
-                          {latestRunStatus ? String(latestRunStatus) : 'no run'}
+                        <h2 className="text-base font-semibold leading-none text-foreground">扫描配置</h2>
+                        <Badge variant="outline" className="h-6 rounded-md text-xs leading-none">
+                          {latestRunStatus ? runStatusLabel : '暂无运行'}
                         </Badge>
                       </div>
                       <button
                         type="button"
-                        className="mt-1 text-[11px] font-medium leading-none text-primary hover:underline"
+                        className="mt-1 text-xs font-medium leading-none text-primary hover:underline"
                         aria-expanded={configHelpOpen}
                         aria-controls="precheck-config-help"
                         onClick={() => setConfigHelpOpen((open) => !open)}
@@ -902,20 +827,20 @@ export default function DatasetPrecheckPage() {
                   <div
                     id="precheck-config-help"
                     role="note"
-                    className="rounded-xl border border-info/25 bg-info/[0.06] px-3 py-2 text-[11px] leading-5 text-muted-foreground"
+                    className="rounded-md border border-info/25 bg-info/5 px-3 py-2 text-sm leading-5 text-muted-foreground"
                   >
-                    root_path 必须是 API 或 Worker 可访问的目录；首次扫描建议限制最大文件数并开启 PDF 质量与文本抽样，确认结果后再启用 PII、Secrets 和增量复用。
+                    扫描目录必须可被 API 或 Worker 访问。首次扫描建议限制文件数量并开启 PDF 质量与文本抽样，确认结果后再启用个人信息、密钥线索和增量复用。
                   </div>
                 ) : null}
 
-                <div className="flex items-start gap-2 rounded-xl border border-info/30 bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--success)/0.05))] px-3 py-2 text-[11px] leading-4 text-info/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:bg-info/10">
+                <div className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-sm leading-5 text-muted-foreground">
                   <Info className="mt-0.5 size-3.5 shrink-0" />
-                  <span>当前数据源为 LOCAL_SCAN_ENABLED，允许远程根目录 / uploads，仅生成质量画像，不入库、不切片。</span>
+                  <span>当前使用本地目录扫描，可读取远程根目录或 /uploads；本操作只生成质量画像，不会入库或切片。</span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[245px_minmax(0,1fr)]">
                   <div className="space-y-1">
-                    <Label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">历史扫描</Label>
+                    <Label className="text-sm font-medium text-foreground">历史扫描</Label>
                     <Select
                       value={selectedRun?.id || ''}
                       onValueChange={(v) => {
@@ -925,30 +850,30 @@ export default function DatasetPrecheckPage() {
                     >
                       <SelectTrigger
                         id="precheck-run-history"
-                        className="h-9 w-full rounded-xl bg-card/78 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:bg-background/60"
+                        className="h-9 w-full rounded-md bg-background text-sm shadow-none"
                       >
-                        <SelectValue placeholder="选择 scan run" />
+                        <SelectValue placeholder="选择历史扫描" />
                       </SelectTrigger>
                       <SelectContent>
                         {(runs || []).map((r) => (
                           <SelectItem key={r.id} value={r.id}>
-                            {String(r.created_at || '').slice(0, 19) || r.id} · {String(r.status || '')} · {r.progress ?? 0}%
+                            {String(r.created_at || '').slice(0, 19) || r.id} · {formatRunStatus(r.status)} · {r.progress ?? 0}%
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="text-[11px] leading-none text-muted-foreground/65">复用以往配置快速启动</div>
+                    <div className="text-xs leading-4 text-muted-foreground">复用以往配置快速启动</div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">root_path（文件夹路径）</Label>
+                    <Label className="text-sm font-medium text-foreground">扫描目录</Label>
                     <Input
                       placeholder="例如：/data/docs 或 C:\\\\docs（需容器/进程可访问）"
                       value={scanConfig.root_path || ''}
                       onChange={(e) => setScanConfig((prev) => ({ ...prev, root_path: e.target.value }))}
-                      className="h-9 rounded-xl bg-card/78 font-mono text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:bg-background/60"
+                      className="h-9 rounded-md bg-background font-mono text-sm shadow-none"
                     />
-                    <div className="flex items-center gap-2 text-[11px] leading-none text-muted-foreground/65">
+                    <div className="flex items-center gap-2 text-xs leading-4 text-muted-foreground">
                       <span>当前路径：</span>
                       <span className="font-mono font-semibold text-primary">{runRootPath}</span>
                       <Folder className="size-3 text-primary" />
@@ -956,7 +881,7 @@ export default function DatasetPrecheckPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">最大文件数</Label>
+                    <Label className="text-sm font-medium text-foreground">最大文件数</Label>
                     <Input
                       placeholder="不限"
                       value={scanConfig.max_files ?? ''}
@@ -969,116 +894,116 @@ export default function DatasetPrecheckPage() {
                         const n = Number(raw)
                         setScanConfig((prev) => ({ ...prev, max_files: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null }))
                       }}
-                      className="h-9 rounded-xl bg-card/78 font-mono text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:bg-background/60"
+                      className="h-9 rounded-md bg-background font-mono text-sm shadow-none"
                     />
-                    <div className="text-[11px] leading-none text-muted-foreground/65">留空或 0 表示不限制</div>
+                    <div className="text-xs leading-4 text-muted-foreground">留空或 0 表示不限制</div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-3">
-                  <div className="rounded-2xl border border-info/20 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--info)/0.08))] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.86),0_8px_24px_rgba(15,23,42,0.035)]">
-                    <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 lg:grid-cols-3 lg:divide-x lg:divide-border">
+                  <section>
+                    <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       <FileDigit className="size-3.5" />
                       基础画像
                     </div>
                     <div className="divide-y divide-border/55">
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">PDF 质量</Label>
-                          <Badge variant="soft" className="text-[10px]">默认</Badge>
+                          <Label className="text-sm font-medium">PDF 质量</Label>
+                          <Badge variant="soft" className="rounded-md text-xs">默认</Badge>
                         </div>
                         <Switch checked={!!scanConfig.enable_pdf_quality} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_pdf_quality: !!v }))} />
                       </div>
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">文本抽样</Label>
-                          <Badge variant="soft" className="text-[10px]">推荐</Badge>
+                          <Label className="text-sm font-medium">文本抽样</Label>
+                          <Badge variant="soft" className="rounded-md text-xs">推荐</Badge>
                         </div>
                         <Switch checked={!!scanConfig.enable_text_extract} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_text_extract: !!v }))} />
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  <div className="rounded-2xl border border-warning/20 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--warning)/0.10))] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.86),0_8px_24px_rgba(15,23,42,0.035)] dark:from-card">
-                    <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <section className="lg:pl-4">
+                    <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       <Shield className="size-3.5" />
                       风险扫描
                     </div>
                     <div className="divide-y divide-border/55">
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">PII 检测</Label>
-                          <Badge variant="soft" className="text-[10px]">推荐</Badge>
+                          <Label className="text-sm font-medium">个人信息检测</Label>
+                          <Badge variant="soft" className="rounded-md text-xs">推荐</Badge>
                         </div>
                         <Switch checked={!!scanConfig.enable_pii} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_pii: !!v }))} />
                       </div>
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">Secrets 检测</Label>
-                          <Badge variant="soft" className="text-[10px]">推荐</Badge>
+                          <Label className="text-sm font-medium">密钥线索检测</Label>
+                          <Badge variant="soft" className="rounded-md text-xs">推荐</Badge>
                         </div>
                         <Switch checked={!!scanConfig.enable_secrets} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_secrets: !!v }))} />
                       </div>
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="min-w-0">
-                          <Label className="text-[13px] font-medium">脱敏路径</Label>
-                          <div className="truncate text-[11px] text-muted-foreground">导出报告时隐藏本机路径</div>
+                          <Label className="text-sm font-medium">脱敏路径</Label>
+                          <div className="truncate text-xs text-muted-foreground">导出报告时隐藏本机路径</div>
                         </div>
                         <Switch checked={!!scanConfig.redact_paths} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, redact_paths: !!v }))} />
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  <div className="rounded-2xl border border-success/20 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--success)/0.10))] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.86),0_8px_24px_rgba(15,23,42,0.035)] dark:from-card">
-                    <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <section className="lg:pl-4">
+                    <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       <Database className="size-3.5" />
                       复用策略
                     </div>
                     <div className="divide-y divide-border/55">
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">file_sha256</Label>
-                          <Badge variant="outline" className="text-[10px]">默认</Badge>
+                          <Label className="text-sm font-medium">文件哈希</Label>
+                          <Badge variant="outline" className="rounded-md text-xs">默认</Badge>
                         </div>
                         <Switch checked={!!scanConfig.compute_file_hash} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, compute_file_hash: !!v }))} />
                       </div>
                       <div className="flex min-h-9 items-center justify-between gap-3 py-1.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Label className="text-[13px] font-medium">增量复用</Label>
-                          <Badge variant="outline" className="text-[10px]">可选</Badge>
+                          <Label className="text-sm font-medium">增量复用</Label>
+                          <Badge variant="outline" className="rounded-md text-xs">可选</Badge>
                         </div>
                         <Switch checked={!!scanConfig.reuse_unchanged_files} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, reuse_unchanged_files: !!v }))} />
                       </div>
                     </div>
-                  </div>
+                  </section>
                 </div>
 
-                <div className="grid overflow-hidden rounded-xl border border-border/50 bg-card/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] sm:grid-cols-4 dark:bg-background/30">
+                <div className="grid border-t border-border sm:grid-cols-4 sm:divide-x sm:divide-border">
                   <div className="flex min-h-14 gap-2 border-b border-border/50 p-2.5 sm:border-b-0 sm:border-r">
                     <Archive className="mt-0.5 size-3.5 text-muted-foreground/70" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">预估样本量</div>
+                      <div className="text-xs font-medium text-muted-foreground">预估样本量</div>
                       <div className="mt-1 font-mono text-xs text-foreground/80">{scanConfig.sample_size || '--'}</div>
                     </div>
                   </div>
                   <div className="flex min-h-14 gap-2 border-b border-border/50 p-2.5 sm:border-b-0 sm:border-r">
                     <FileSearch className="mt-0.5 size-3.5 text-muted-foreground/70" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">扫描范围</div>
+                      <div className="text-xs font-medium text-muted-foreground">扫描范围</div>
                       <div className="mt-1 truncate font-mono text-xs text-foreground/80">根目录 / {runRootPath.replace(/^\/+/, '') || 'uploads'}</div>
                     </div>
                   </div>
                   <div className="flex min-h-14 gap-2 border-b border-border/50 p-2.5 sm:border-b-0 sm:border-r">
                     <FileText className="mt-0.5 size-3.5 text-muted-foreground/70" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">支持格式</div>
+                      <div className="text-xs font-medium text-muted-foreground">支持格式</div>
                       <div className="mt-1 text-xs text-foreground/80">PDF / DOCX / TXT / MD / 图片 等</div>
                     </div>
                   </div>
                   <div className="flex min-h-14 gap-2 p-2.5">
                     <Settings2 className="mt-0.5 size-3.5 text-muted-foreground/70" />
                     <div className="min-w-0">
-                      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">输出类型</div>
+                      <div className="text-xs font-medium text-muted-foreground">输出类型</div>
                       <div className="mt-1 text-xs text-foreground/80">质量画像报告（不入库）</div>
                     </div>
                   </div>
@@ -1087,16 +1012,13 @@ export default function DatasetPrecheckPage() {
             </Panel>
 
             <Panel
-              className="h-full overflow-hidden border-border/60 bg-[linear-gradient(180deg,hsl(var(--card)/0.96),hsl(var(--background)/0.9))] p-0 shadow-[0_16px_45px_rgba(15,23,42,0.065)] ring-1 ring-border/50 dark:border-border/60 dark:bg-card/95 dark:ring-white/5"
-              style={{ height: 790, minHeight: 560 }}
+              className="overflow-hidden rounded-md border-border bg-card p-0 shadow-none xl:min-h-[560px]"
             >
               <div className="flex items-center justify-between border-b border-border/50 px-4 py-3.5">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-foreground/85">RUN STATE</div>
-                </div>
+                <div className="text-sm font-semibold text-foreground">运行状态</div>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                   onClick={() => {
                     const trigger = globalThis.document.getElementById('precheck-run-history')
                     trigger?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -1111,40 +1033,40 @@ export default function DatasetPrecheckPage() {
 
               {!hasRunOutput && !scanRunning ? (
                 <div className="p-4">
-                  <div className="rounded-2xl border border-dashed border-info/30 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--info)/0.10),transparent_35%),linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--background)/0.94)_48%,hsl(var(--warning)/0.05))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
+                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-info/30 bg-card/82 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_8px_20px_hsl(var(--info)/0.12)] dark:bg-background/60">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-background text-primary">
                         <Clock3 className="size-4" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-[15px] font-semibold leading-none tracking-[-0.02em] text-foreground">等待扫描配置</div>
-                          <div className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-medium', getRunStatusTone(latestRunStatus))}>
+                          <div className="text-base font-semibold leading-none text-foreground">等待扫描配置</div>
+                          <div className={cn('rounded-md border px-2.5 py-0.5 text-xs font-medium', getRunStatusTone(latestRunStatus))}>
                             {runStatusLabel}
                           </div>
                         </div>
-                        <div className="mt-1.5 text-[11px] leading-4 text-muted-foreground/65">
-                          填写可访问的 root_path 后启动，扫描进度、样本和画像会在这里实时刷新。
+                        <div className="mt-1.5 text-sm leading-5 text-muted-foreground">
+                          填写可访问的扫描目录后启动，扫描进度、样本和画像会在这里实时刷新。
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-[12px]">
-                      <div className="rounded-xl border border-border/45 bg-card/60 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:bg-background/35">
-                        <div className="text-[11px] text-muted-foreground">当前批次</div>
+                    <div className="mt-4 grid grid-cols-1 divide-y divide-border border-y border-border text-xs sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                      <div className="px-2.5 py-2">
+                        <div className="text-xs text-muted-foreground">当前批次</div>
                         <div className="mt-1 font-mono text-foreground/80">{runBatchLabel}</div>
                       </div>
-                      <div className="rounded-xl border border-border/45 bg-card/60 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:bg-background/35">
-                        <div className="text-[11px] text-muted-foreground">预计产物</div>
+                      <div className="px-2.5 py-2">
+                        <div className="text-xs text-muted-foreground">预计产物</div>
                         <div className="mt-1 text-foreground/80">质量画像</div>
                       </div>
-                      <div className="rounded-xl border border-border/45 bg-card/60 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:bg-background/35">
-                        <div className="text-[11px] text-muted-foreground">不执行</div>
-                        <div className="mt-1 text-foreground/80">入库 / 切片 / KG</div>
+                      <div className="px-2.5 py-2">
+                        <div className="text-xs text-muted-foreground">不执行</div>
+                        <div className="mt-1 text-foreground/80">入库 / 切片 / 知识图谱</div>
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-[11px] text-warning/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+                    <div className="mt-3 flex items-center gap-2 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
                       <AlertCircle className="size-3.5 shrink-0" />
                       尚未运行扫描，以上信息将在执行后更新。
                     </div>
@@ -1158,7 +1080,7 @@ export default function DatasetPrecheckPage() {
                       状态
                     </div>
                     <div />
-                    <div className={cn('rounded-full border px-3 py-1 text-xs font-semibold', getRunStatusTone(latestRunStatus))}>
+                    <div className={cn('rounded-md border px-3 py-1 text-xs font-semibold', getRunStatusTone(latestRunStatus))}>
                       {runStatusLabel}
                     </div>
                   </div>
@@ -1169,7 +1091,7 @@ export default function DatasetPrecheckPage() {
                       进度
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--info)/0.68))] transition-all" style={{ width: `${runProgress}%` }} />
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${runProgress}%` }} />
                     </div>
                     <div className="font-mono text-xs text-muted-foreground">{runProgress}% · {runTotalFiles || 0} / {runTotalFiles || 0}</div>
                   </div>
@@ -1190,27 +1112,27 @@ export default function DatasetPrecheckPage() {
                     <div className="flex items-center gap-3">
                       <Timer className="size-3.5 text-muted-foreground" />
                       <div>
-                        <div className="text-[11px] text-muted-foreground">预计耗时</div>
+                        <div className="text-xs text-muted-foreground">预计耗时</div>
                         <div className="font-mono text-xs text-foreground/80">--</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 border-l border-border/60 pl-4">
                       <History className="size-3.5 text-muted-foreground" />
                       <div>
-                        <div className="text-[11px] text-muted-foreground">上次运行</div>
+                        <div className="text-xs text-muted-foreground">上次运行</div>
                         <div className="font-mono text-xs text-foreground/80">{selectedRun?.finished_at ? formatPrecheckTimestamp(selectedRun.finished_at) : '--'}</div>
                       </div>
                     </div>
                   </div>
 
                   <div className="border-b border-border/60 py-3.5">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">输出内容</div>
-                    <div className="mt-1 text-[11px] leading-4 text-foreground/60">格式分布、长度分布、扫描件占比、PII/Secrets 命中、代表样本、近重复候选等画像指标。</div>
+                    <div className="text-xs font-medium text-muted-foreground">输出内容</div>
+                    <div className="mt-1 text-sm leading-5 text-foreground/70">格式分布、长度分布、扫描件占比、个人信息与密钥线索命中、代表样本和近重复候选。</div>
                   </div>
 
                   <div className="py-3.5">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">结果条目</div>
-                    <div className="mt-1 font-mono text-xs text-foreground/70">{hasRunOutput ? `${runTotalFiles} files` : '--'}</div>
+                    <div className="text-xs font-medium text-muted-foreground">结果条目</div>
+                    <div className="mt-1 font-mono text-xs text-foreground/70">{hasRunOutput ? `${runTotalFiles} 个文件` : '--'}</div>
                   </div>
 
                   {selectedRun?.error_message ? (
@@ -1223,44 +1145,44 @@ export default function DatasetPrecheckPage() {
             </Panel>
           </div>
 
-          <Panel data-precheck-bottom-strip="true" className="overflow-hidden border-border/50 bg-card/45 p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-sm dark:border-border/40 dark:bg-card/35">
-            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-4 py-2.5 text-[11px] leading-none text-muted-foreground">
+          <Panel data-precheck-bottom-strip="true" className="overflow-hidden rounded-md border-border bg-muted/30 p-0 shadow-none">
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-4 py-2.5 text-xs leading-4 text-muted-foreground">
               <span className="inline-flex items-center gap-2 text-foreground/75">
                 <Clock3 className="size-3 text-primary" />
                 <span>等待第一次扫描</span>
-                <span className="font-mono text-[10px] text-muted-foreground">runs: {runs.length}</span>
+                <span className="font-mono text-xs text-muted-foreground">扫描次数：{runs.length}</span>
               </span>
               <span className="h-3.5 w-px bg-border/70" />
               <span>
-                下一步：<span className="text-foreground/75">填写 root_path 后启动</span>
+                下一步：<span className="text-foreground/75">填写扫描目录后启动</span>
               </span>
               <span>
-                会生成：<span className="text-foreground/75">格式 / PDF / PII / 样本</span>
+                会生成：<span className="text-foreground/75">格式 / PDF / 个人信息 / 样本</span>
               </span>
               <span>
-                不会执行：<span className="text-foreground/75">文档入库 / 切片 / 索引 / KG</span>
+                不会执行：<span className="text-foreground/75">文档入库 / 切片 / 索引 / 知识图谱</span>
               </span>
             </div>
           </Panel>
 
           <div hidden={showPrecheckEmptyState} className="space-y-6">
           <Panel className="p-5">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <div className="font-semibold">对比扫描结果（Diff）</div>
-                <div className="mt-1 text-[11px] leading-4 text-muted-foreground/65">用于复盘治理成效：格式分布、问题清单、扫描件占比等的变化</div>
+                <div className="font-semibold">对比扫描结果</div>
+                <div className="mt-1 text-sm leading-5 text-muted-foreground">对比格式分布、问题清单和扫描件占比的变化。</div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={diffBaseRunId} onValueChange={(v) => setDiffBaseRunId(v)}>
-                  <SelectTrigger className="w-[320px]">
-                    <SelectValue placeholder="选择 base scan run" />
+                  <SelectTrigger className="w-full rounded-md sm:w-[320px]">
+                    <SelectValue placeholder="选择对比扫描" />
                   </SelectTrigger>
                   <SelectContent>
                     {(runs || [])
                       .filter((r) => r.id !== selectedRun?.id)
                       .map((r) => (
                         <SelectItem key={`base-${r.id}`} value={r.id}>
-                          {String(r.created_at || '').slice(0, 19) || r.id} · {String(r.status || '')} · {r.progress ?? 0}%
+                          {String(r.created_at || '').slice(0, 19) || r.id} · {formatRunStatus(r.status)} · {r.progress ?? 0}%
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -1287,25 +1209,25 @@ export default function DatasetPrecheckPage() {
 
             {diffRes ? (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm">
-                  <div className="font-mono text-xs text-muted-foreground">total_files</div>
+                <div className="rounded-md border border-border bg-muted/10 p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">文件总数</div>
                   <div className="mt-1 font-mono text-lg">{diffRes.total_files.before} → {diffRes.total_files.after} (Δ {diffRes.total_files.delta})</div>
-                  <div className="mt-2 font-mono text-xs text-muted-foreground">pdf_scanned</div>
+                  <div className="mt-2 text-xs text-muted-foreground">扫描型 PDF</div>
                   <div className="mt-1 font-mono">{diffRes.pdf_scanned.before} → {diffRes.pdf_scanned.after} (Δ {diffRes.pdf_scanned.delta})</div>
-                  <div className="mt-2 font-mono text-xs text-muted-foreground">pdf_unknown</div>
+                  <div className="mt-2 text-xs text-muted-foreground">未识别 PDF</div>
                   <div className="mt-1 font-mono">{diffRes.pdf_unknown.before} → {diffRes.pdf_unknown.after} (Δ {diffRes.pdf_unknown.delta})</div>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
-                  <div className="px-3 py-2 text-sm font-medium bg-muted/40">Top Findings Δ</div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">主要问题变化</div>
                   <div className="max-h-[220px] overflow-auto">
-                    <table aria-label="预检 Top Findings 差异" className="w-full text-sm text-left">
+                    <table aria-label="预检主要问题差异" className="w-full text-left text-sm">
                       <thead className="bg-muted/20 text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 font-medium">key</th>
-                          <th className="px-3 py-2 font-medium">before</th>
-                          <th className="px-3 py-2 font-medium">after</th>
-                          <th className="px-3 py-2 font-medium">delta</th>
+                          <th className="px-3 py-2 font-medium">问题</th>
+                          <th className="px-3 py-2 font-medium">之前</th>
+                          <th className="px-3 py-2 font-medium">现在</th>
+                          <th className="px-3 py-2 font-medium">变化</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1335,7 +1257,7 @@ export default function DatasetPrecheckPage() {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 text-[11px] text-muted-foreground/65">未计算</div>
+              <div className="mt-4 text-sm text-muted-foreground">尚未计算对比结果</div>
             )}
           </Panel>
 
@@ -1353,8 +1275,8 @@ export default function DatasetPrecheckPage() {
             return '-';
         }
 })()} color="teal" />
-              <StatCard icon={Sparkles} label="P50 长度" value={summary?.length_percentiles?.p50 ?? (loading ? '…' : 0)} subValue="chars" color="blue" />
-              <StatCard icon={Sparkles} label="P90 长度" value={summary?.length_percentiles?.p90 ?? (loading ? '…' : 0)} subValue="chars" color="blue" />
+              <StatCard icon={Sparkles} label="P50 长度" value={summary?.length_percentiles?.p50 ?? (loading ? '…' : 0)} subValue="字符" color="blue" />
+              <StatCard icon={Sparkles} label="P90 长度" value={summary?.length_percentiles?.p90 ?? (loading ? '…' : 0)} subValue="字符" color="blue" />
               <StatCard icon={Sparkles} label="扫描 PDF" value={(() => {
     if (summary) {
         return `${summary.pdf_scan.scanned}/${summary.pdf_scan.scanned + summary.pdf_scan.not_scanned + summary.pdf_scan.unknown}`;
@@ -1373,7 +1295,7 @@ export default function DatasetPrecheckPage() {
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="font-semibold">格式分布</div>
-                <div className="text-xs text-muted-foreground font-mono">{summary?.generated_at ? `updated ${formatDate(summary.generated_at)}` : ''}</div>
+                <div className="font-mono text-xs text-muted-foreground">{summary?.generated_at ? `更新于 ${formatDate(summary.generated_at)}` : ''}</div>
               </div>
               <SafeResponsiveChart>
                   <PieChart>
@@ -1385,7 +1307,7 @@ export default function DatasetPrecheckPage() {
 
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-semibold">长度分布（chars）</div>
+                <div className="font-semibold">长度分布（字符）</div>
               </div>
               <SafeResponsiveChart>
                   <BarChart data={lengthHistogramData}>
@@ -1427,7 +1349,7 @@ export default function DatasetPrecheckPage() {
 
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-semibold">PII 命中（次数）</div>
+                <div className="font-semibold">个人信息命中（次数）</div>
               </div>
               {piiChartData.length ? (
                 <SafeResponsiveChart>
@@ -1440,13 +1362,13 @@ export default function DatasetPrecheckPage() {
                     </BarChart>
                   </SafeResponsiveChart>
               ) : (
-                <div className="h-[280px] flex items-center justify-center text-[11px] text-muted-foreground/60">暂无数据</div>
+                <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">暂无数据</div>
               )}
             </Panel>
 
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-semibold">Secrets/Token 命中（次数）</div>
+                <div className="font-semibold">密钥线索命中（次数）</div>
               </div>
               {secretsChartData.length ? (
                 <SafeResponsiveChart>
@@ -1459,16 +1381,16 @@ export default function DatasetPrecheckPage() {
                     </BarChart>
                   </SafeResponsiveChart>
               ) : (
-                <div className="h-[280px] flex items-center justify-center text-[11px] text-muted-foreground/60">暂无数据</div>
+                <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">暂无数据</div>
               )}
             </Panel>
           </div>
 
           <Panel className="p-5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="font-semibold">代表性样本（抽样）</div>
-                <div className="mt-1 text-[11px] leading-4 text-muted-foreground/65">用于售前/交付对齐范围：分层代表性 + 问题分桶样本（不会做删留决策）</div>
+                <div className="mt-1 text-sm leading-5 text-muted-foreground">用于确认数据范围，仅提供代表性与问题分组样本，不会自动删除文件。</div>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -1502,7 +1424,7 @@ export default function DatasetPrecheckPage() {
 
             {samplesRes ? (
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-md border border-border">
                   <div className="px-3 py-2 text-sm font-medium bg-muted/40">代表性样本（{samplesRes.representative?.length || 0}）</div>
                   <div className="max-h-[260px] overflow-auto">
                     <table aria-label="预检代表性样本" className="w-full text-sm text-left">
@@ -1526,14 +1448,14 @@ export default function DatasetPrecheckPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-md border border-border">
                   <div className="px-3 py-2 text-sm font-medium bg-muted/40">问题分桶样本</div>
                   <div className="max-h-[260px] overflow-auto">
                     <table aria-label="预检问题分桶样本" className="w-full text-sm text-left">
                       <thead className="bg-muted/20 text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 font-medium">bucket</th>
-                          <th className="px-3 py-2 font-medium">count</th>
+                          <th className="px-3 py-2 font-medium">问题分组</th>
+                          <th className="px-3 py-2 font-medium">数量</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1549,15 +1471,15 @@ export default function DatasetPrecheckPage() {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 text-[11px] text-muted-foreground/65">未加载</div>
+              <div className="mt-4 text-sm text-muted-foreground">尚未加载样本</div>
             )}
           </Panel>
 
           <Panel className="p-5">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="font-semibold">近重复候选（版本冲突）</div>
-                <div className="mt-1 text-[11px] leading-4 text-muted-foreground/65">基于抽样文本 SimHash；只输出待确认列表（不做删留决策）</div>
+                <div className="mt-1 text-sm leading-5 text-muted-foreground">基于抽样文本指纹生成待确认列表，不会自动删除文件。</div>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -1590,18 +1512,18 @@ export default function DatasetPrecheckPage() {
             </div>
 
             {nearDupRes ? (
-              <div className="mt-4 text-[11px] text-muted-foreground/65">
-                clusters={nearDupRes.clusters_returned} · pairs={nearDupRes.pairs_returned} · threshold={nearDupRes.threshold}
+              <div className="mt-4 text-sm text-muted-foreground">
+                重复组 {nearDupRes.clusters_returned} · 文件对 {nearDupRes.pairs_returned} · 阈值 {nearDupRes.threshold}
               </div>
             ) : (
-              <div className="mt-4 text-[11px] text-muted-foreground/65">未加载（需要在扫描时开启“近重复”）</div>
+              <div className="mt-4 text-sm text-muted-foreground">尚未加载，请先在扫描配置中开启“近重复候选”。</div>
             )}
           </Panel>
 
           <Panel className="p-5">
             <div className="flex items-center justify-between gap-4 mb-4">
               <div className="font-semibold">问题清单（可操作）</div>
-              <div className="text-[11px] text-muted-foreground/65">点击卡片查看文件列表（分页）</div>
+              <div className="text-sm text-muted-foreground">选择问题后查看文件列表</div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1610,7 +1532,7 @@ export default function DatasetPrecheckPage() {
                   key={f.key}
                   type="button"
                   className={cn(
-                    'text-left px-4 py-3 rounded-xl border border-border/60 bg-card/40 hover:bg-card/70 transition-colors',
+                    'rounded-md border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-muted',
                     'focus:outline-none focus:ring-2 focus:ring-primary/30'
                   )}
                   onClick={() => detachPromise(openFinding(f))}
@@ -1638,7 +1560,7 @@ export default function DatasetPrecheckPage() {
             }
           }}
         >
-          <DialogContent className="max-w-4xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-4xl rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                 {selectedFinding?.label || '清单'}
@@ -1663,10 +1585,10 @@ export default function DatasetPrecheckPage() {
     }
     else if (findingRes) {
             return (<div className="space-y-3">
-                  <div className="text-xs text-muted-foreground font-mono">
-                    showing {findingRes.items.length}/{findingRes.total}
+                  <div className="font-mono text-xs text-muted-foreground">
+                    已显示 {findingRes.items.length}/{findingRes.total}
                   </div>
-                  <div className="rounded-xl border border-border/60 overflow-hidden">
+                  <div className="overflow-hidden rounded-md border border-border">
                     <table aria-label="预检入库建议列表" className="w-full text-sm text-left">
                       <thead className="bg-muted/40 text-muted-foreground">
                         <tr>
@@ -1691,13 +1613,13 @@ export default function DatasetPrecheckPage() {
                             <td className="px-3 py-2 font-mono text-xs">
                               {d.file_type === 'pdf' ? ((() => {
                     if (d.pdf_scanned === true) {
-                        return 'scan';
+                        return '扫描型';
                     }
                     else if (d.pdf_scanned === false) {
-                            return 'text';
+                            return '文本型';
                         }
                         else {
-                            return 'unknown';
+                            return '未知';
                         }
                 })()) : ''}
                             </td>
@@ -1736,7 +1658,7 @@ export default function DatasetPrecheckPage() {
             if (!open) setFileDetail(null)
           }}
         >
-          <DialogContent className="max-w-4xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-4xl rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground">文件详情</DialogTitle>
               <DialogDescription className="text-muted-foreground">{fileDetail?.name || ''}</DialogDescription>
@@ -1744,49 +1666,49 @@ export default function DatasetPrecheckPage() {
 
             {fileDetail ? (
               <div className="space-y-3">
-                <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm">
-                  <div className="font-mono text-xs text-muted-foreground">meta</div>
+                <div className="rounded-md border border-border bg-muted/10 p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">文件信息</div>
                   <div className="mt-1 font-mono text-xs">
-                    type={fileDetail.file_type} · size={formatFileSize(fileDetail.file_size)} · chars={fileDetail.text_characters}{' '}
-                    {fileDetail.estimated_text ? '(estimated)' : ''}
+                    类型 {fileDetail.file_type} · 大小 {formatFileSize(fileDetail.file_size)} · 字符 {fileDetail.text_characters}{' '}
+                    {fileDetail.estimated_text ? '（估算）' : ''}
                   </div>
                   {fileDetail.error_message ? <div className="mt-2 text-xs text-destructive">{fileDetail.error_message}</div> : null}
                 </div>
 
                 {fileDetail.pdf_pages ? (
-                  <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm">
-                    <div className="font-mono text-xs text-muted-foreground">pdf_pages</div>
+                  <div className="rounded-md border border-border bg-muted/10 p-3 text-sm">
+                    <div className="text-xs text-muted-foreground">PDF 页面</div>
                     <div className="mt-1 font-mono text-xs">
-                      pages={fileDetail.pdf_pages.page_count} · sampled={fileDetail.pdf_pages.sampled_pages} · scanned={fileDetail.pdf_pages.scanned_pages} · text={fileDetail.pdf_pages.text_pages} · low_density={fileDetail.pdf_pages.low_density_pages} · unknown={fileDetail.pdf_pages.unknown_pages}
+                      总页数 {fileDetail.pdf_pages.page_count} · 已抽样 {fileDetail.pdf_pages.sampled_pages} · 扫描型 {fileDetail.pdf_pages.scanned_pages} · 文本型 {fileDetail.pdf_pages.text_pages} · 低密度 {fileDetail.pdf_pages.low_density_pages} · 未知 {fileDetail.pdf_pages.unknown_pages}
                     </div>
                   </div>
                 ) : null}
 
                 {fileDetail.spreadsheet ? (
-                  <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm">
-                    <div className="font-mono text-xs text-muted-foreground">spreadsheet</div>
+                  <div className="rounded-md border border-border bg-muted/10 p-3 text-sm">
+                    <div className="text-xs text-muted-foreground">表格信息</div>
                     <div className="mt-1 font-mono text-xs">
-                      rows={fileDetail.spreadsheet.row_count} · cols={fileDetail.spreadsheet.col_count || 0} · sheets={fileDetail.spreadsheet.sheet_count} · merged_ratio={fileDetail.spreadsheet.merged_cell_ratio}
-                      {(fileDetail.spreadsheet.estimated_rows || fileDetail.spreadsheet.estimated_cols) ? ' (estimated)' : ''}
+                      行 {fileDetail.spreadsheet.row_count} · 列 {fileDetail.spreadsheet.col_count || 0} · 工作表 {fileDetail.spreadsheet.sheet_count} · 合并单元格比例 {fileDetail.spreadsheet.merged_cell_ratio}
+                      {(fileDetail.spreadsheet.estimated_rows || fileDetail.spreadsheet.estimated_cols) ? '（估算）' : ''}
                     </div>
                   </div>
                 ) : null}
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
-                  <div className="px-3 py-2 text-sm font-medium bg-muted/40">findings</div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">发现的问题</div>
                   <div className="p-3 font-mono text-xs">{(fileDetail.findings || []).join(', ') || '-'}</div>
                 </div>
 
                 {(fileDetail.pii_samples || []).length ? (
-                  <div className="rounded-xl border border-border/60 overflow-hidden">
-                    <div className="px-3 py-2 text-sm font-medium bg-muted/40">PII samples</div>
+                  <div className="overflow-hidden rounded-md border border-border">
+                    <div className="bg-muted/40 px-3 py-2 text-sm font-medium">个人信息样本</div>
                     <pre className="p-3 text-xs overflow-auto max-h-[220px] bg-background font-mono">{JSON.stringify(fileDetail.pii_samples, null, 2)}</pre>
                   </div>
                 ) : null}
 
                 {(fileDetail.secrets_samples || []).length ? (
-                  <div className="rounded-xl border border-border/60 overflow-hidden">
-                    <div className="px-3 py-2 text-sm font-medium bg-muted/40">Secrets samples</div>
+                  <div className="overflow-hidden rounded-md border border-border">
+                    <div className="bg-muted/40 px-3 py-2 text-sm font-medium">密钥线索样本</div>
                     <pre className="p-3 text-xs overflow-auto max-h-[220px] bg-background font-mono">{JSON.stringify(fileDetail.secrets_samples, null, 2)}</pre>
                   </div>
                 ) : null}
@@ -1798,17 +1720,17 @@ export default function DatasetPrecheckPage() {
         </Dialog>
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="max-w-3xl border-border bg-background/95 p-4 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-3xl rounded-md border-border bg-background p-4 shadow-lg">
             <DialogHeader className="space-y-1.5">
-              <DialogTitle className="text-[15px] font-semibold text-foreground">预检扫描 · 高级配置</DialogTitle>
-              <DialogDescription className="rounded-lg border border-info/20 bg-info/5 px-2.5 py-1.5 text-[11px] leading-4 text-muted-foreground/70">
-                提示：<span className="font-mono">redact_paths</span> 会禁用 PII/Secrets 上下文样本；<span className="font-mono">reuse_unchanged_files</span> 仅在非脱敏且 root_path 相同时生效。
+              <DialogTitle className="text-base font-semibold text-foreground">预检扫描 · 高级配置</DialogTitle>
+              <DialogDescription className="rounded-md bg-muted px-3 py-2 text-sm leading-5 text-muted-foreground">
+                开启路径脱敏后不保存个人信息和密钥线索的上下文样本；增量复用仅在路径未脱敏且扫描目录相同时生效。
               </DialogDescription>
             </DialogHeader>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/75">PDF 抽样页数 <span className="font-mono text-muted-foreground/55">pdf_sample_pages</span></Label>
+                <Label className="text-sm font-medium text-foreground">PDF 抽样页数</Label>
                 <Input
                   placeholder="默认 3"
                   value={scanConfig.pdf_sample_pages ?? ''}
@@ -1820,7 +1742,7 @@ export default function DatasetPrecheckPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/75">文本抽样最大字节 <span className="font-mono text-muted-foreground/55">text_extract_max_bytes</span></Label>
+                <Label className="text-sm font-medium text-foreground">文本抽样最大字节</Label>
                 <Input
                   placeholder="默认 2000000"
                   value={scanConfig.text_extract_max_bytes ?? ''}
@@ -1835,18 +1757,18 @@ export default function DatasetPrecheckPage() {
 
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-card/45 px-2.5 py-2 dark:bg-card/40">
-                <Label className="text-[11px] font-medium text-foreground/75">近重复候选 <span className="font-mono text-muted-foreground/55">enable_near_dup</span></Label>
+                <Label className="text-sm font-medium text-foreground">近重复候选</Label>
                 <Switch checked={!!scanConfig.enable_near_dup} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_near_dup: !!v }))} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-card/45 px-2.5 py-2 dark:bg-card/40">
-                <Label className="text-[11px] font-medium text-foreground/75">抽样清单 <span className="font-mono text-muted-foreground/55">enable_sampling</span></Label>
+                <Label className="text-sm font-medium text-foreground">抽样清单</Label>
                 <Switch checked={!!scanConfig.enable_sampling} onCheckedChange={(v) => setScanConfig((p) => ({ ...p, enable_sampling: !!v }))} />
               </div>
             </div>
 
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/75">抽样数量 <span className="font-mono text-muted-foreground/55">sample_size</span></Label>
+                <Label className="text-sm font-medium text-foreground">抽样数量</Label>
                 <Input
                   placeholder="默认 60"
                   value={scanConfig.sample_size ?? ''}
@@ -1858,7 +1780,7 @@ export default function DatasetPrecheckPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/75">近重复阈值 <span className="font-mono text-muted-foreground/55">near_dup_hamming_threshold</span></Label>
+                <Label className="text-sm font-medium text-foreground">近重复阈值</Label>
                 <Input
                   placeholder="默认 5"
                   value={scanConfig.near_dup_hamming_threshold ?? ''}
@@ -1882,18 +1804,18 @@ export default function DatasetPrecheckPage() {
              }
            }}
         >
-          <DialogContent className="max-w-4xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-4xl rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                 预检 → 入库策略（建议）
                 {policyLoading ? (
                   <Badge variant="outline" className="font-mono text-xs">
-                    loading…
+                    生成中…
                   </Badge>
                 ) : null}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                把预检统计转成可导入的 ingestion policy（保守规则 + 待人工复核清单；表格默认启用 TAG 自动分流：大表→SQL，小表→RAG）
+                将预检统计转换为可导入的入库策略，并保留待人工复核清单。表格默认自动分流：大表进入 SQL，小表进入知识检索。
               </DialogDescription>
             </DialogHeader>
 
@@ -1906,18 +1828,18 @@ export default function DatasetPrecheckPage() {
     }
     else if (policyRes) {
             return (<div className="space-y-4">
-                {policyRes.notes?.length ? (<div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground space-y-1">
+                {policyRes.notes?.length ? (<div className="space-y-1 rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
                     {policyRes.notes.map((n) => (<div key={n}>- {n}</div>))}
                   </div>) : null}
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-md border border-border">
                   <div className="px-3 py-2 text-sm font-medium bg-muted/40">待人工复核</div>
                   <table aria-label="预检人工复核列表" className="w-full text-sm text-left">
                     <thead className="bg-muted/20 text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-2 font-medium">bucket</th>
-                        <th className="px-3 py-2 font-medium">total</th>
-                        <th className="px-3 py-2 font-medium">sample_names</th>
+                        <th className="px-3 py-2 font-medium">问题分组</th>
+                        <th className="px-3 py-2 font-medium">数量</th>
+                        <th className="px-3 py-2 font-medium">样本文件</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1930,15 +1852,15 @@ export default function DatasetPrecheckPage() {
                   </table>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
-                  <div className="px-3 py-2 text-sm font-medium bg-muted/40">Policy（JSON）</div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <div className="bg-muted/40 px-3 py-2 text-sm font-medium">策略 JSON</div>
                   <pre className="p-3 text-xs overflow-auto max-h-[280px] bg-background font-mono">{JSON.stringify(policyRes.policy, null, 2)}</pre>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Checkbox checked={policyApplyReplace} onCheckedChange={(v) => setPolicyApplyReplace(!!v)}/>
-                    <div className="text-sm text-muted-foreground">覆盖已有 ingestion_policy（replace=true）</div>
+                    <div className="text-sm text-muted-foreground">覆盖已有入库策略</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" className="gap-2" onClick={() => downloadJsonObject(policyRes.policy, `${String(dataset?.name || 'dataset').replaceAll(/[^a-zA-Z0-9_.-]+/g, '_').slice(0, 64)}.ingestion_policy.suggested.json`)}>
@@ -1959,7 +1881,7 @@ export default function DatasetPrecheckPage() {
 })()}
           </DialogContent>
         </Dialog>
-      </PageScaffold>
+      </DatasetDetailShell>
     </AppFrame>
   )
 }

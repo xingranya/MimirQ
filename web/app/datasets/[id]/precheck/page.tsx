@@ -9,7 +9,7 @@ const DatasetPrecheckPageClient = dynamic(() => import('./page-client'), {
     <PageLoading
       className="min-h-dvh bg-background"
       message="正在加载预检洞察..."
-      srMessage="Loading dataset precheck insights"
+      srMessage="正在加载数据集预检结果"
     />
   ),
 })
