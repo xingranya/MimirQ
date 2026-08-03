@@ -39,4 +39,18 @@ describe('数据治理正文安全门禁', () => {
     expect(panelSource).toContain('<UnsavedChangesDialog')
     expect(panelSource).toContain('discardAllGovernanceChanges()')
   })
+
+  it('文件搜索受控过滤且不会强制切换当前文档', () => {
+    expect(panelSource).toContain(
+      'filterGovernanceFiles(folderFiles, fileSearchQuery)'
+    )
+    expect(panelSource).toContain('value={fileSearchQuery}')
+    expect(panelSource).toContain(
+      'onChange={(event) => setFileSearchQuery(event.target.value)}'
+    )
+    expect(panelSource).toContain("t('sidebar.noSearchResults')")
+    expect(panelSource).toContain(
+      'selectedFileId && folderFiles.some((f) => f.id === selectedFileId)'
+    )
+  })
 })

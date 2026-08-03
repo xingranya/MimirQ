@@ -92,6 +92,7 @@ import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 import { deleteGovernanceFileFromBackend } from '@/lib/governance-file-delete'
+import { filterGovernanceFiles } from '@/lib/governance-file-search'
 import {
   GovernanceContentIncompleteError,
   saveGovernanceFileToBackend,
@@ -383,6 +384,7 @@ export function DataGovernancePanel() {
   const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'original'>(
     'preview'
   )
+  const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [previewFormat, setPreviewFormat] = useState<'rendered' | 'markdown'>(
     'rendered'
   )
@@ -742,7 +744,7 @@ export function DataGovernancePanel() {
     ? governanceStates[selectedFileId]
     : null
 
-  const visibleFiles = useMemo(() => {
+  const folderFiles = useMemo(() => {
     if (!activeFolderId || activeFolderId === ROOT_FOLDER_ID) return scopedFiles
 
     const childrenByParentId = new Map<string, string[]>()
@@ -768,6 +770,10 @@ export function DataGovernancePanel() {
       allowedFolderIds.has(f.folderId || ROOT_FOLDER_ID)
     )
   }, [scopedFiles, activeFolderId, libraryFolders])
+  const visibleFiles = useMemo(
+    () => filterGovernanceFiles(folderFiles, fileSearchQuery),
+    [fileSearchQuery, folderFiles]
+  )
 
   const readyChunkFiles = useMemo(
     () => visibleFiles.filter((file) => file.chunkStatus === 'ready'),
@@ -1004,18 +1010,18 @@ export function DataGovernancePanel() {
   useEffect(() => {
     if (!isLoaded) return
 
-    if (visibleFiles.length === 0) {
+    if (folderFiles.length === 0) {
       setSelectedFileId(null)
       return
     }
 
     const stillVisible =
-      selectedFileId && visibleFiles.some((f) => f.id === selectedFileId)
+      selectedFileId && folderFiles.some((f) => f.id === selectedFileId)
     if (!stillVisible) {
-      setSelectedFileId(visibleFiles[0].id)
-      initializeGovernanceState(visibleFiles[0])
+      setSelectedFileId(folderFiles[0].id)
+      initializeGovernanceState(folderFiles[0])
     }
-  }, [isLoaded, visibleFiles, selectedFileId, initializeGovernanceState])
+  }, [folderFiles, initializeGovernanceState, isLoaded, selectedFileId])
 
   // 拖放处理
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -2064,8 +2070,21 @@ export function DataGovernancePanel() {
                     <input
                       type="text"
                       placeholder={t('sidebar.searchPlaceholder')}
-                      className="w-full rounded-md border border-border bg-muted py-1.5 pl-9 pr-3 text-xs text-foreground/80 placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:border-primary/30 focus-ring transition-colors duration-200 motion-reduce:transition-none"
+                      value={fileSearchQuery}
+                      onChange={(event) => setFileSearchQuery(event.target.value)}
+                      className="w-full rounded-md border border-border bg-muted py-1.5 pl-9 pr-9 text-xs text-foreground/80 placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:border-primary/30 focus-ring transition-colors duration-200 motion-reduce:transition-none"
                     />
+                    {fileSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setFileSearchQuery('')}
+                        className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-ring-soft motion-reduce:transition-none"
+                        aria-label={t('sidebar.clearSearch')}
+                        title={t('sidebar.clearSearch')}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -2167,7 +2186,9 @@ export function DataGovernancePanel() {
                 <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-3 pb-3 space-y-2">
                   {visibleFiles.length === 0 ? (
                     <div className="text-xs text-muted-foreground text-center py-8">
-                      {t('sidebar.emptyDirectory')}
+                      {fileSearchQuery.trim()
+                        ? t('sidebar.noSearchResults')
+                        : t('sidebar.emptyDirectory')}
                     </div>
                   ) : (
                     visibleFiles.map((file) => {
