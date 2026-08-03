@@ -985,7 +985,7 @@ export function ProfileEditorDrawer({
                       <span>
                         <span className="font-semibold text-foreground">自定义正则规则</span>
                         <span className="mt-1 block text-[12px] text-muted-foreground">
-                          只有内置规则包不够时再加；服务端会做 ReDoS 风险校验与长度限制。
+                          内置规则无法处理固定噪声时再添加。系统会检查表达式安全性和长度。
                         </span>
                       </span>
                       <span className="rounded-full border border-border/55 bg-background/75 px-2 py-1 text-[11px] text-muted-foreground">
@@ -1009,10 +1009,10 @@ export function ProfileEditorDrawer({
                       {regexRules.length ? (
                         <div className="mt-4 space-y-3">
                         {regexRules.map((r, idx) => (
-                          <div key={[r.pattern || '', r.repl || '', String(r.flags ?? 0)].join('::')} className="rounded-xl border border-border bg-muted/30 p-3">
+                          <div key={`regex-rule-${idx}`} className="rounded-xl border border-border bg-muted/30 p-3">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               <div className="md:col-span-2 space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">匹配表达式 pattern</Label>
+                                <Label className="text-[12px] text-muted-foreground">匹配表达式</Label>
                                 <Input
                                   value={r.pattern || ''}
                                   onChange={(e) => updateRule(idx, { pattern: e.target.value })}
@@ -1025,7 +1025,7 @@ export function ProfileEditorDrawer({
                                 })()}
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">匹配选项 flags</Label>
+                                <Label className="text-[12px] text-muted-foreground">匹配选项</Label>
                                 <Input
                                   type="number"
                                   value={String(r.flags ?? 0)}
@@ -1034,7 +1034,7 @@ export function ProfileEditorDrawer({
                                 />
                               </div>
                               <div className="md:col-span-3 space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">替换内容 repl</Label>
+                                <Label className="text-[12px] text-muted-foreground">替换内容</Label>
                                 <Input
                                   value={r.repl || ''}
                                   onChange={(e) => updateRule(idx, { repl: e.target.value })}
