@@ -5,6 +5,7 @@ import type { GovernanceProfilePayload } from '@/types'
 import {
   buildGovernanceProfilePayload,
   governanceProfileDraftFingerprint,
+  parseGovernancePipelinePatchJson,
 } from './governance-profile-utils'
 
 describe('治理模板保存数据', () => {
@@ -80,5 +81,27 @@ describe('治理模板保存数据', () => {
         payload: { ...payload, input_formats: ['html'] },
       })
     ).not.toBe(baseline)
+  })
+
+  it('高级配置只接受 JSON 对象', () => {
+    expect(
+      parseGovernancePipelinePatchJson(
+        '{"governance_enabled":false,"governance_max_blank_lines":2}'
+      )
+    ).toEqual({
+      ok: true,
+      value: {
+        governance_enabled: false,
+        governance_max_blank_lines: 2,
+      },
+    })
+    expect(parseGovernancePipelinePatchJson('[]')).toEqual({
+      ok: false,
+      error: '高级配置必须是 JSON 对象',
+    })
+    expect(parseGovernancePipelinePatchJson('{')).toEqual({
+      ok: false,
+      error: 'JSON 格式不正确，请检查括号、逗号和引号',
+    })
   })
 })

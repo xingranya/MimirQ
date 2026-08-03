@@ -33,6 +33,7 @@ import {
   buildCleanPreviewRequestFromGovernanceProfile,
   buildGovernanceProfilePayload,
   governanceProfileDraftFingerprint,
+  parseGovernancePipelinePatchJson,
 } from '@/lib/governance-profile-utils'
 import { CleanPreviewRuleStatsPanel } from '@/components/governance-profiles/clean-preview-rule-stats-panel'
 
@@ -212,15 +213,6 @@ function applyPipelinePatchUpdate(
   setPipelinePatch((prev) => ({ ...prev, [key]: value }))
   setPatchJsonError(null)
   setPatchJsonDirty(false)
-}
-
-function safeParseJson<T>(text: string): { ok: true; value: T } | { ok: false; error: string } {
-  try {
-    const obj = JSON.parse(text)
-    return { ok: true, value: obj as T }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Invalid JSON' }
-  }
 }
 
 function pythonReFlagsToJs(flags: number): string {
@@ -543,7 +535,7 @@ export function ProfileEditorDrawer({
   }
 
   const applyPatchJson = () => {
-    const parsed = safeParseJson<DocumentPipelineOptions>(patchJson)
+    const parsed = parseGovernancePipelinePatchJson(patchJson)
     if (!parsed.ok) {
       setPatchJsonError(parsed.error)
       return
@@ -585,13 +577,32 @@ export function ProfileEditorDrawer({
       return
     }
 
+    let payloadToSave = payload
+    if (patchJsonDirty) {
+      const parsed = parseGovernancePipelinePatchJson(patchJson)
+      if (!parsed.ok) {
+        setPatchJsonError(parsed.error)
+        toast.error(`无法保存：${parsed.error}`)
+        return
+      }
+      setPatchJsonError(null)
+      setPatchJsonDirty(false)
+      setPipelinePatch(parsed.value)
+      payloadToSave = buildGovernanceProfilePayload(
+        isCreate ? seedCreate?.payload : loadedProfile?.payload,
+        inputFormats,
+        parsed.value,
+        regexRules
+      )
+    }
+
     setSaving(true)
     try {
       if (isCreate) {
         const payloadCreate: GovernanceProfileCreate = {
           name: trimmedName,
           description: description.trim() || undefined,
-          payload,
+          payload: payloadToSave,
         }
         const k = key.trim()
         if (k) payloadCreate.key = k
@@ -608,7 +619,7 @@ export function ProfileEditorDrawer({
         const updated = await pipelineApi.updateGovernanceProfile(ref, {
           name: trimmedName,
           description: description.trim() || '',
-          payload,
+          payload: payloadToSave,
         })
         toast.success('治理模板已保存')
         onSaved?.(updated)

@@ -1,4 +1,30 @@
-import type { CleanPreviewRequest, GovernanceProfileCreate, GovernanceProfileOut, GovernanceProfilePayload, RegexRuleModel } from '@/types'
+import type {
+  CleanPreviewRequest,
+  DocumentPipelineOptions,
+  GovernanceProfileCreate,
+  GovernanceProfileOut,
+  GovernanceProfilePayload,
+  RegexRuleModel,
+} from '@/types'
+
+export function parseGovernancePipelinePatchJson(
+  text: string
+):
+  | { ok: true; value: DocumentPipelineOptions }
+  | { ok: false; error: string } {
+  try {
+    const value: unknown = JSON.parse(text)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return { ok: false, error: '高级配置必须是 JSON 对象' }
+    }
+    return { ok: true, value: value as DocumentPipelineOptions }
+  } catch {
+    return {
+      ok: false,
+      error: 'JSON 格式不正确，请检查括号、逗号和引号',
+    }
+  }
+}
 
 export function buildGovernanceProfilePayload(
   sourcePayload: GovernanceProfilePayload | null | undefined,
