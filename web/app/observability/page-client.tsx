@@ -42,10 +42,19 @@ const WINDOW_PRESETS = [
 ]
 
 const SLOW_PRESETS = [
-    { label: '≥ 1s', value: 1 },
-    { label: '≥ 2s', value: 2 },
-    { label: '≥ 5s', value: 5 },
+    { label: '≥ 1 秒', value: 1 },
+    { label: '≥ 2 秒', value: 2 },
+    { label: '≥ 5 秒', value: 5 },
 ]
+
+const METRIC_VALUE_LABELS: Record<string, string> = {
+  bm25: '关键词检索',
+  dense: '向量检索',
+  hybrid: '混合检索',
+  keyword: '关键词命中',
+  sparse: '稀疏检索',
+  vector: '向量命中',
+}
 
 type AnalyticsChartPoint = {
   t: number
@@ -98,7 +107,34 @@ function fmtPercent(v?: number | null, digits = 1) {
 
 function fmtSec(v?: number | null, digits = 3) {
   if (v == null || !Number.isFinite(Number(v))) return '—'
-  return `${Number(v).toFixed(digits)}s`
+  return `${Number(v).toFixed(digits)} 秒`
+}
+
+function MetricBreakdown({
+  data,
+}: Readonly<{
+  data: Record<string, number> | null | undefined
+}>) {
+  const entries = Object.entries(data || {}).sort(
+    (left, right) => Number(right[1] || 0) - Number(left[1] || 0)
+  )
+
+  if (!entries.length) {
+    return <p className="text-xs text-muted-foreground">暂无数据</p>
+  }
+
+  return (
+    <dl className="divide-y divide-border text-xs">
+      {entries.map(([key, value]) => (
+        <div key={key} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+          <dt className="truncate text-muted-foreground" title={key}>
+            {METRIC_VALUE_LABELS[key] || key}
+          </dt>
+          <dd className="font-medium text-foreground tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
 }
 
 function shortHash(value: string, opts?: { head?: number; tail?: number }) {
@@ -157,7 +193,7 @@ export default function ObservabilityPage() {
 
   useEffect(() => {
     if (!analyticsQuery.error) return
-    toast.error(formatApiError(analyticsQuery.error, '加载 Query Analytics 失败'))
+    toast.error(formatApiError(analyticsQuery.error, '加载查询分析失败'))
   }, [analyticsQuery.error, analyticsQuery.errorUpdatedAt])
 
   const chartData = useMemo(() => {
@@ -243,14 +279,23 @@ export default function ObservabilityPage() {
     <AppFrame>
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <PageScaffold
-          title="监控面板"
-          description="检索 / 重排 / 引用的全链路指标（来自 metrics JSONL）"
+          title="检索监控"
+          description="查看检索、重排、引用和查询质量的运行情况。"
           icon={BarChart3}
           iconColor="text-info"
           size="7xl"
           actions={
-            <div className="flex items-center gap-2">
-              <div className="w-[140px]">
+            <Button asChild size="sm" variant="outline" className="h-9 rounded-md">
+              <Link href="/settings">监控设置</Link>
+            </Button>
+          }
+        >
+          <ObservabilityOpsPanel />
+
+          <div className="mb-4 flex flex-col gap-3 border-y border-border py-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">时间范围</div>
+              <div className="w-full sm:w-[140px]">
                 <Select
                   value={String(windowMinutes)}
                   onValueChange={(v) => {
@@ -258,7 +303,7 @@ export default function ObservabilityPage() {
                     setWindowMinutes(next)
                   }}
                 >
-                  <SelectTrigger className="h-9 rounded-xl">
+                  <SelectTrigger className="h-9 rounded-md" aria-label="选择时间范围">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -270,8 +315,11 @@ export default function ObservabilityPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {tab === 'query_analytics' ? (
-                <div className="w-[110px]">
+            </div>
+            {tab === 'query_analytics' ? (
+              <div className="space-y-1.5">
+                <div className="text-xs font-medium text-muted-foreground">慢查询标准</div>
+                <div className="w-full sm:w-[120px]">
                   <Select
                     value={String(slowThresholdSec)}
                     onValueChange={(v) => {
@@ -279,7 +327,7 @@ export default function ObservabilityPage() {
                       setSlowThresholdSec(next)
                     }}
                   >
-                    <SelectTrigger className="h-9 rounded-xl">
+                    <SelectTrigger className="h-9 rounded-md" aria-label="选择慢查询标准">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -291,38 +339,30 @@ export default function ObservabilityPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              ) : null}
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2 rounded-xl"
-                onClick={() => {
-                  if (tab === 'summary') summaryQuery.refetch()
-                  else analyticsQuery.refetch()
-                }}
-                disabled={loading}
-              >
-                <RefreshCw className={cn('size-4', loading && 'animate-spin motion-reduce:animate-none')} />
-                刷新
-              </Button>
-              <Link
-                href="/settings"
-                className="inline-flex h-9 items-center justify-center rounded-xl border border-input bg-background px-3 text-xs font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                去设置开启/配置
-              </Link>
-            </div>
-          }
-        >
-          <ObservabilityOpsPanel />
+              </div>
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 gap-2 rounded-md"
+              onClick={() => {
+                if (tab === 'summary') summaryQuery.refetch()
+                else analyticsQuery.refetch()
+              }}
+              disabled={loading}
+            >
+              <RefreshCw className={cn('size-4', loading && 'animate-spin motion-reduce:animate-none')} />
+              刷新数据
+            </Button>
+          </div>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
-            <TabsList className="rounded-xl bg-muted/40">
-              <TabsTrigger value="summary" className="rounded-lg text-xs">
-                Summary
+            <TabsList className="rounded-md bg-muted/40">
+              <TabsTrigger value="summary" className="rounded-sm text-xs">
+                运行概览
               </TabsTrigger>
-              <TabsTrigger value="query_analytics" className="rounded-lg text-xs">
-                Query Analytics
+              <TabsTrigger value="query_analytics" className="rounded-sm text-xs">
+                查询分析
               </TabsTrigger>
             </TabsList>
 
@@ -332,9 +372,9 @@ export default function ObservabilityPage() {
                   {!summary.enabled && (
                     <Alert className="mt-4">
                       <AlertTriangle className="size-4" />
-                      <AlertTitle>Metrics 日志未开启</AlertTitle>
+                      <AlertTitle>指标记录尚未开启</AlertTitle>
                       <AlertDescription>
-                        当前 ENABLE_METRICS_LOG=false。你仍可能看到少量历史数据，但建议到“设置 → 观测与调试”开启。
+                        当前可能只显示少量历史数据。请前往“设置 → 观测与调试”开启指标记录。
                       </AlertDescription>
                     </Alert>
                   )}
@@ -344,7 +384,7 @@ export default function ObservabilityPage() {
                       <AlertTriangle className="size-4" />
                       <AlertTitle>数据可能不完整</AlertTitle>
                       <AlertDescription>
-                        本次查询仅读取 metrics 文件尾部（max_bytes）。若窗口内数据量过大，请缩短时间窗口或调整后端 max_bytes。
+                        当前时间范围内的数据量较大，本页仅加载了最近一部分。可缩短时间范围后重试。
                       </AlertDescription>
                     </Alert>
                   )}
@@ -352,7 +392,7 @@ export default function ObservabilityPage() {
                   <StatsGrid className="mt-2">
                     <StatCard
                       icon={Zap}
-                      label="RAG Trace"
+                      label="检索请求"
                       value={summary.rag_trace_count}
                       subValue={`${summary.window_minutes} 分钟`}
                       color="sky"
@@ -360,15 +400,15 @@ export default function ObservabilityPage() {
                     <StatCard
                       icon={Timer}
                       label="检索平均耗时"
-                      value={summary.retrieval_avg_elapsed_sec == null ? '-' : `${summary.retrieval_avg_elapsed_sec.toFixed(3)}s`}
-                      subValue={summary.retrieval_p95_elapsed_sec == null ? undefined : `p95 ${summary.retrieval_p95_elapsed_sec.toFixed(3)}s`}
+                      value={summary.retrieval_avg_elapsed_sec == null ? '-' : `${summary.retrieval_avg_elapsed_sec.toFixed(3)} 秒`}
+                      subValue={summary.retrieval_p95_elapsed_sec == null ? undefined : `P95 ${summary.retrieval_p95_elapsed_sec.toFixed(3)} 秒`}
                       color="teal"
                     />
                     <StatCard
                       icon={Timer}
                       label="重排平均耗时"
-                      value={summary.rerank_avg_elapsed_sec == null ? '-' : `${summary.rerank_avg_elapsed_sec.toFixed(3)}s`}
-                      subValue={`${summary.reranker_api_count} 次 reranker_api`}
+                      value={summary.rerank_avg_elapsed_sec == null ? '-' : `${summary.rerank_avg_elapsed_sec.toFixed(3)} 秒`}
+                      subValue={`${summary.reranker_api_count} 次重排`}
                       color="amber"
                     />
                     <StatCard
@@ -383,7 +423,7 @@ export default function ObservabilityPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Panel padding="lg" className="min-h-[320px]">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm font-semibold text-foreground">请求量（rag_trace）</div>
+                        <div className="text-sm font-semibold text-foreground">检索请求量</div>
                         <div className="text-xs text-muted-foreground">按分钟聚合</div>
                       </div>
                       <SafeResponsiveChart className="h-[260px]" minHeight={260}>
@@ -424,18 +464,14 @@ export default function ObservabilityPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div>
                         <div className="text-sm font-semibold text-foreground mb-2">检索模式分布</div>
-                        <pre className="text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
-                          {JSON.stringify(summary.retrieval_mode_counts || {}, null, 2)}
-                        </pre>
+                        <MetricBreakdown data={summary.retrieval_mode_counts} />
                       </div>
                       <div>
                         <div className="text-sm font-semibold text-foreground mb-2">命中类型分布</div>
-                        <pre className="text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
-                          {JSON.stringify(summary.hit_type_counts || {}, null, 2)}
-                        </pre>
+                        <MetricBreakdown data={summary.hit_type_counts} />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-foreground mb-2">Top Errors</div>
+                        <div className="mb-2 text-sm font-semibold text-foreground">常见错误</div>
                         {topErrors.length ? (
                           <div className="space-y-2">
                             {topErrors.map(([k, v]) => (
@@ -459,7 +495,7 @@ export default function ObservabilityPage() {
                   <AlertTriangle className="size-4" />
                   <AlertTitle>无法加载监控数据</AlertTitle>
                   <AlertDescription>
-                    请确认你是 owner/admin，并且后端已更新到包含 /api/v1/observability 的版本。
+                    请确认当前账号有查看系统设置的权限，然后刷新重试。
                   </AlertDescription>
                 </Alert>
               )}
@@ -470,7 +506,7 @@ export default function ObservabilityPage() {
     if (loadingAnalytics && !analytics) {
         return (<div className="space-y-6">
                   <StatsGrid className="mt-2">
-                    {['stat-1', 'stat-2', 'stat-3', 'stat-4', 'stat-5'].map((key) => (<div key={key} className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+                    {['stat-1', 'stat-2', 'stat-3', 'stat-4', 'stat-5'].map((key) => (<div key={key} className="rounded-md border border-border bg-muted/20 px-4 py-3">
                         <Skeleton className="h-3 w-28"/>
                         <Skeleton className="mt-2 h-6 w-24"/>
                         <Skeleton className="mt-2 h-3 w-20"/>
@@ -491,8 +527,8 @@ export default function ObservabilityPage() {
     else if (analytics) {
             if (analytics.enabled) {
                 if (analytics.rag_trace_count <= 0) {
-                    return (<EmptyState title="暂无 Query Analytics 数据" description="提示：只有走到检索链路（rag_trace）时才会计入统计；可尝试先发起一次检索请求再刷新。" icon={TriangleAlert} iconClassName="text-info">
-                  <Button variant="outline" className="rounded-xl" onClick={() => analyticsQuery.refetch()} disabled={loadingAnalytics}>
+                    return (<EmptyState title="暂无查询分析数据" description="发起一次使用知识检索的对话后，再刷新本页查看统计。" icon={TriangleAlert} iconClassName="text-info">
+                  <Button variant="outline" className="rounded-md" onClick={() => analyticsQuery.refetch()} disabled={loadingAnalytics}>
                     <RefreshCw className={cn('size-4', loadingAnalytics && 'animate-spin motion-reduce:animate-none')}/>
                     刷新
                   </Button>
@@ -504,22 +540,22 @@ export default function ObservabilityPage() {
                       <AlertTriangle className="size-4"/>
                       <AlertTitle>数据可能不完整</AlertTitle>
                       <AlertDescription>
-                        本次查询仅读取 metrics 文件尾部（max_bytes）。若窗口内数据量过大，请缩短时间窗口或调整后端 max_bytes。
+                        当前时间范围内的数据量较大，本页仅加载了最近一部分。可缩短时间范围后重试。
                       </AlertDescription>
                     </Alert>) : null}
 
                   <StatsGrid className="mt-2">
-                    <StatCard icon={Zap} label="Requests" value={analytics.rag_trace_count} subValue={`${analytics.window_minutes} 分钟`} color="sky"/>
-                    <StatCard icon={Hash} label="Unique query_hash" value={analytics.unique_query_hashes} subValue="16-char stable hash" color="teal"/>
-                    <StatCard icon={SearchX} label="Zero-hit rate" value={fmtPercent(analytics.zero_hit_rate)} subValue={`${analytics.zero_hit_count} 次（citations=0）`} color="amber"/>
-                    <StatCard icon={Timer} label="Slow rate" value={fmtPercent(analytics.slow_rate)} subValue={`${analytics.slow_count} 次（≥ ${analytics.slow_threshold_sec}s）`} color="orange"/>
-                    <StatCard icon={Timer} label="Retrieval p95 / p99" value={`${fmtSec(analytics.retrieval_p95_elapsed_sec, 3)} · ${fmtSec(analytics.retrieval_p99_elapsed_sec, 3)}`} subValue={`p50 ${fmtSec(analytics.retrieval_p50_elapsed_sec, 3)}`} color="green"/>
+                    <StatCard icon={Zap} label="检索请求" value={analytics.rag_trace_count} subValue={`${analytics.window_minutes} 分钟`} color="sky"/>
+                    <StatCard icon={Hash} label="不同查询" value={analytics.unique_query_hashes} subValue="按查询指纹去重" color="teal"/>
+                    <StatCard icon={SearchX} label="零命中率" value={fmtPercent(analytics.zero_hit_rate)} subValue={`${analytics.zero_hit_count} 次未找到引用`} color="amber"/>
+                    <StatCard icon={Timer} label="慢查询率" value={fmtPercent(analytics.slow_rate)} subValue={`${analytics.slow_count} 次超过 ${analytics.slow_threshold_sec} 秒`} color="orange"/>
+                    <StatCard icon={Timer} label="检索耗时 P95 / P99" value={`${fmtSec(analytics.retrieval_p95_elapsed_sec, 3)} · ${fmtSec(analytics.retrieval_p99_elapsed_sec, 3)}`} subValue={`中位数 ${fmtSec(analytics.retrieval_p50_elapsed_sec, 3)}`} color="green"/>
                   </StatsGrid>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Panel padding="lg" className="min-h-[320px]">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm font-semibold text-foreground">Zero-hit / Slow（rate）</div>
+                        <div className="text-sm font-semibold text-foreground">零命中率与慢查询率</div>
                         <div className="text-xs text-muted-foreground">按分钟聚合</div>
                       </div>
                       <SafeResponsiveChart className="h-[260px]" minHeight={260}>
@@ -529,19 +565,19 @@ export default function ObservabilityPage() {
                           <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${Math.round(Number(v || 0) * 100)}%`} domain={[0, 1]}/>
                           <Tooltip formatter={(v: unknown, name: unknown) => {
                             const label = toTrimmedPrimitiveString(name)
-                            if (label === 'zero-hit rate' || label === 'slow rate')
+                            if (label === '零命中率' || label === '慢查询率')
                                 return [fmtPercent(Number(v), 2), label];
                             return [toTrimmedPrimitiveString(v), label];
                         }}/>
-                          <Line type="monotone" dataKey="zero_hit_rate" name="zero-hit rate" stroke="hsl(var(--warning))" strokeWidth={2} dot={false}/>
-                          <Line type="monotone" dataKey="slow_rate" name="slow rate" stroke="hsl(var(--info))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="zero_hit_rate" name="零命中率" stroke="hsl(var(--warning))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="slow_rate" name="慢查询率" stroke="hsl(var(--info))" strokeWidth={2} dot={false}/>
                         </LineChart>
                       </SafeResponsiveChart>
                     </Panel>
 
                     <Panel padding="lg" className="min-h-[320px]">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm font-semibold text-foreground">Requests / zero-hit / slow / errors（count）</div>
+                        <div className="text-sm font-semibold text-foreground">请求、零命中、慢查询与错误数量</div>
                         <div className="text-xs text-muted-foreground">按分钟聚合</div>
                       </div>
                       <SafeResponsiveChart className="h-[260px]" minHeight={260}>
@@ -550,10 +586,10 @@ export default function ObservabilityPage() {
                           <XAxis dataKey="time" tick={{ fontSize: 10 }}/>
                           <YAxis tick={{ fontSize: 10 }} allowDecimals={false}/>
                           <Tooltip />
-                          <Line type="monotone" dataKey="requests" name="requests" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={false}/>
-                          <Line type="monotone" dataKey="zero_hit" name="zero-hit" stroke="hsl(var(--warning))" strokeWidth={2} dot={false}/>
-                          <Line type="monotone" dataKey="slow" name="slow" stroke="hsl(var(--info))" strokeWidth={2} dot={false}/>
-                          <Line type="monotone" dataKey="errors" name="errors" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="requests" name="请求" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="zero_hit" name="零命中" stroke="hsl(var(--warning))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="slow" name="慢查询" stroke="hsl(var(--info))" strokeWidth={2} dot={false}/>
+                          <Line type="monotone" dataKey="errors" name="错误" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false}/>
                         </LineChart>
                       </SafeResponsiveChart>
                     </Panel>
@@ -562,10 +598,10 @@ export default function ObservabilityPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <Panel padding="lg" className="overflow-hidden">
                       <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="text-sm font-semibold text-foreground">Top Zero-hit query_hash</div>
-                        <div className="text-xs text-muted-foreground tabular-nums">top {topZeroHits.length}</div>
+                        <div className="text-sm font-semibold text-foreground">高频零命中查询</div>
+                        <div className="text-xs text-muted-foreground tabular-nums">{topZeroHits.length} 项</div>
                       </div>
-                      {topZeroHits.length ? (<div className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
+                      {topZeroHits.length ? (<div className="divide-y divide-border overflow-hidden rounded-md border border-border">
                           {topZeroHits.map((it) => (<div key={it.query_hash} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
                               <div className="min-w-0">
                                 <div className="font-mono text-muted-foreground truncate" title={it.query_hash}>
@@ -574,41 +610,41 @@ export default function ObservabilityPage() {
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <div className="tabular-nums text-muted-foreground">{it.count}</div>
-                                <Button size="icon" variant="ghost" className="size-8 rounded-lg" aria-label="复制 query_hash" onClick={() => detachPromise(copyText(it.query_hash, '已复制 query_hash'))}>
+                                <Button size="icon" variant="ghost" className="size-8 rounded-md" aria-label="复制查询指纹" title="复制查询指纹" onClick={() => detachPromise(copyText(it.query_hash, '查询指纹已复制'))}>
                                   <Copy className="size-4"/>
                                 </Button>
                               </div>
                             </div>))}
-                        </div>) : (<div className="text-xs text-muted-foreground">暂无 zero-hit（citations=0）记录</div>)}
+                        </div>) : (<div className="text-xs text-muted-foreground">暂无零命中记录</div>)}
                     </Panel>
 
                     <Panel padding="lg" className="overflow-hidden">
                       <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="text-sm font-semibold text-foreground">Top Slow query_hash</div>
-                        <div className="text-xs text-muted-foreground tabular-nums">top {topSlowQueries.length}</div>
+                        <div className="text-sm font-semibold text-foreground">高频慢查询</div>
+                        <div className="text-xs text-muted-foreground tabular-nums">{topSlowQueries.length} 项</div>
                       </div>
-                      {topSlowQueries.length ? (<div className="divide-y divide-border/60 rounded-xl border border-border/60 overflow-hidden">
+                      {topSlowQueries.length ? (<div className="divide-y divide-border overflow-hidden rounded-md border border-border">
                           {topSlowQueries.map((it) => (<div key={it.query_hash} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
                               <div className="min-w-0">
                                 <div className="font-mono text-muted-foreground truncate" title={it.query_hash}>
                                   {shortHash(it.query_hash, { head: 10, tail: 6 })}
                                 </div>
-                                <div className="mt-0.5 text-[11px] text-muted-foreground/80 tabular-nums">
-                                  max {it.max_elapsed_sec != null && Number.isFinite(Number(it.max_elapsed_sec)) ? `${Number(it.max_elapsed_sec).toFixed(3)}s` : '—'}
+                                <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                                  最长 {it.max_elapsed_sec != null && Number.isFinite(Number(it.max_elapsed_sec)) ? `${Number(it.max_elapsed_sec).toFixed(3)} 秒` : '—'}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <div className="tabular-nums text-muted-foreground">{it.count}</div>
-                                <Button size="icon" variant="ghost" className="size-8 rounded-lg" aria-label="复制 query_hash" onClick={() => detachPromise(copyText(it.query_hash, '已复制 query_hash'))}>
+                                <Button size="icon" variant="ghost" className="size-8 rounded-md" aria-label="复制查询指纹" title="复制查询指纹" onClick={() => detachPromise(copyText(it.query_hash, '查询指纹已复制'))}>
                                   <Copy className="size-4"/>
                                 </Button>
                               </div>
                             </div>))}
-                        </div>) : (<div className="text-xs text-muted-foreground">暂无 slow（≥ threshold）记录</div>)}
+                        </div>) : (<div className="text-xs text-muted-foreground">暂无慢查询记录</div>)}
                     </Panel>
 
                     <Panel padding="lg" variant="muted">
-                      <div className="text-sm font-semibold text-foreground mb-3">Top Error Kinds</div>
+                      <div className="mb-3 text-sm font-semibold text-foreground">常见错误类型</div>
                       {topErrorKinds.length ? (<div className="space-y-2">
                           {topErrorKinds.map(([k, v]) => (<div key={k} className="flex items-center justify-between gap-3 text-xs">
                               <span className="font-mono text-muted-foreground truncate" title={k}>
@@ -625,9 +661,9 @@ export default function ObservabilityPage() {
             else {
                 return (<Alert className="mt-4">
                   <AlertTriangle className="size-4"/>
-                  <AlertTitle>Metrics 日志未开启</AlertTitle>
+                  <AlertTitle>指标记录尚未开启</AlertTitle>
                   <AlertDescription>
-                    当前 ENABLE_METRICS_LOG=false。Query Analytics 只基于 rag_trace 指标聚合。
+                    开启指标记录后，系统才会统计查询命中率、慢查询和错误情况。
                   </AlertDescription>
                 </Alert>);
             }
@@ -635,9 +671,9 @@ export default function ObservabilityPage() {
         else {
             return (<Alert variant="destructive" className="mt-4">
                   <AlertTriangle className="size-4"/>
-                  <AlertTitle>无法加载 Query Analytics</AlertTitle>
+                  <AlertTitle>无法加载查询分析</AlertTitle>
                   <AlertDescription>
-                    请确认你是 owner/admin，并且后端已更新到包含 /api/v1/observability/rag-metrics/query-analytics 的版本。
+                    请确认当前账号有查看系统设置的权限，然后刷新重试。
                   </AlertDescription>
                 </Alert>);
         }
