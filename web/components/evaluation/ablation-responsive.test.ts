@@ -98,4 +98,22 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
     expect(source).not.toContain('shadow-')
   })
+
+  it('统计可信度保留双端布局并使用中文字段', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-statistics-panel.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('统计可信度')
+    expect(source).toContain('置信区间')
+    expect(source).toContain('等待逐项分数')
+    expect(source).toContain('md:hidden')
+    expect(source).toContain('overflow-x-auto')
+    expect(source).not.toContain('Bootstrap CI')
+    expect(source).not.toContain('p-value')
+    expect(source).not.toContain('待 per-case')
+    expect(source).not.toContain('rounded-lg')
+    expect(source).not.toContain('shadow-')
+  })
 })
