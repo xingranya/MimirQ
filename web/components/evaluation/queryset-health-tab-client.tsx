@@ -13,7 +13,6 @@ import {
   Timer,
   SearchX,
   ShieldAlert,
-  Scale,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -56,14 +55,19 @@ type QuerysetTrendRow = {
 const QUERYSET_DELTA_METRICS = [
   {
     key: 'hit_at_k_delta',
-    label: '命中率（Hit@K）',
+    label: '命中率',
     kind: 'percent',
     lowerIsBetter: false,
   },
-  { key: 'mrr_delta', label: 'MRR', kind: 'number', lowerIsBetter: false },
+  {
+    key: 'mrr_delta',
+    label: '平均倒数排名',
+    kind: 'number',
+    lowerIsBetter: false,
+  },
   {
     key: 'ndcg_at_k_delta',
-    label: 'NDCG@K',
+    label: '归一化增益',
     kind: 'number',
     lowerIsBetter: false,
   },
@@ -93,6 +97,62 @@ function isJsonObject(value: unknown): value is JsonObject {
 
 function querysetRunItem(value: unknown): QuerysetHealthRunItem {
   return isJsonObject(value) ? value : {}
+}
+
+const DEGRADATION_FLAG_LABELS: Readonly<Record<string, string>> = {
+  hit_at_k_drop: '命中率下降',
+  mrr_drop: '平均倒数排名下降',
+  ndcg_drop: '归一化增益下降',
+  p95_latency_regression: '响应延迟上升',
+  miss_rate_regression: '漏检率上升',
+  weak_hit_rate_regression: '弱命中率上升',
+}
+
+function degradationFlagLabel(value: unknown): string {
+  const key = String(value || '').trim()
+  return DEGRADATION_FLAG_LABELS[key] || '其他退化项'
+}
+
+function formatSnapshotTimestamp(value: unknown): string {
+  const raw = String(value || '').trim()
+  if (!raw) return '时间未知'
+  const timestamp = Date.parse(raw)
+  if (!Number.isFinite(timestamp)) return raw
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function runStatusMeta(status: unknown): {
+  label: string
+  className: string
+} {
+  const value = String(status || '')
+  if (value === 'degraded') {
+    return { label: '需要关注', className: 'text-destructive' }
+  }
+  if (value === 'healthy') {
+    return { label: '正常', className: 'text-success' }
+  }
+  return { label: '状态未知', className: 'text-muted-foreground' }
+}
+
+function querysetRunDisplay(item: QuerysetHealthRunItem) {
+  const metrics = isJsonObject(item.metrics) ? item.metrics : {}
+  const risk = isJsonObject(item.risk) ? item.risk : {}
+  return {
+    generatedAt: formatSnapshotTimestamp(item.generated_at),
+    status: runStatusMeta(item.status),
+    hitRate: fmtPercent(metrics.hit_at_k, 1),
+    mrr: fmtNum(metrics.mrr, 3),
+    ndcg: fmtNum(metrics.ndcg_at_k, 3),
+    latency: fmtMs(metrics.p95_latency_ms),
+    missRate: fmtPercent(risk.miss_rate, 1),
+  }
 }
 function formatTs(tsMs: number) {
   try {
@@ -180,12 +240,12 @@ function deltaState(value: unknown, lowerIsBetter: boolean) {
 function QuerysetChartEmptyState() {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <div className="rounded-2xl bg-card/80 px-4 py-3 text-center shadow-sm ring-1 ring-border/60 backdrop-blur-sm">
-        <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground/70">
-          <ChartLine className="h-4 w-4" aria-hidden="true" />
+      <div className="bg-card px-4 py-3 text-center">
+        <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <ChartLine className="size-4" aria-hidden="true" />
         </div>
-        <div className="text-[12px] font-semibold text-foreground">暂无数据</div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">
+        <div className="text-sm font-semibold text-foreground">暂无数据</div>
+        <div className="mt-1 text-xs text-muted-foreground">
           当前筛选条件下暂无趋势数据
         </div>
       </div>
@@ -228,7 +288,7 @@ export function QuerysetHealthTab({
     toast.error(
       formatApiError(
         runsQuery.error,
-        '加载检索集健康度历史失败（需要 owner/admin 权限）'
+        '加载检索健康记录失败，请确认当前账号具有管理权限'
       )
     )
   }, [runsQuery.error])
@@ -247,6 +307,7 @@ export function QuerysetHealthTab({
   }, [runsQuery.data])
 
   const runItems = (runs?.items || []).map(querysetRunItem)
+  const visibleRunItems = showAllRuns ? runItems : runItems.slice(0, 30)
   const latest = runItems[0]
   const latestMetrics = isJsonObject(latest?.metrics) ? latest.metrics : {}
   const latestRisk = isJsonObject(latest?.risk) ? latest.risk : {}
@@ -298,17 +359,15 @@ export function QuerysetHealthTab({
       row.weak_hit_rate != null
   )
   return (
-    <div className={cn('space-y-2.5', embedded ? '' : 'p-5')}>
-      {embedded ? (
-        null
-      ) : (
-        <div className="flex items-start justify-between gap-2.5">
+    <div className={cn('space-y-4', embedded ? '' : 'p-4 sm:p-5')}>
+      {embedded ? null : (
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
               检索集健康度
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              检索基准集健康度：趋势 + 差异 + 退化标记
+            <p className="mt-1 text-sm text-muted-foreground">
+              跟踪检索质量、响应速度和退化情况。
             </p>
           </div>
           <Button
@@ -329,24 +388,46 @@ export function QuerysetHealthTab({
         </div>
       )}
 
+      {runsQuery.error ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3"
+        >
+          <div>
+            <div className="text-sm font-semibold text-destructive">
+              无法加载健康记录
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              请确认当前账号具有管理权限，然后重试。
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-md"
+            onClick={() => runsQuery.refetch()}
+            disabled={loadingRuns}
+          >
+            重新加载
+          </Button>
+        </div>
+      ) : null}
+
       <Panel
-        variant="glass"
         padding="sm"
-        className="rounded-2xl border-border/60 bg-card shadow-sm"
+        className="border-border bg-card"
+        aria-busy={loadingRuns}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-foreground">
               最新快照
             </div>
             {latest?.generated_at ? (
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                生成时间={String(latest.generated_at)}
+              <div className="mt-1 text-xs text-muted-foreground">
+                生成于 {formatSnapshotTimestamp(latest.generated_at)}
               </div>
             ) : null}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            文件路径: <span className="font-mono">{runs?.path || '—'}</span>
           </div>
         </div>
 
@@ -355,21 +436,21 @@ export function QuerysetHealthTab({
             <StatCard
               dense
               icon={Target}
-              label="命中率 Hit@K"
+              label="命中率"
               value={fmtPercent(latestMetrics.hit_at_k, 1)}
               color="sky"
             />
             <StatCard
               dense
               icon={TrendingUp}
-              label="MRR"
+              label="平均倒数排名"
               value={fmtNum(latestMetrics.mrr, 3)}
               color="teal"
             />
             <StatCard
               dense
               icon={ChartLine}
-              label="NDCG@K"
+              label="归一化增益"
               value={fmtNum(latestMetrics.ndcg_at_k, 3)}
               color="teal"
             />
@@ -401,9 +482,9 @@ export function QuerysetHealthTab({
               {latestFlags.slice(0, 12).map((f) => (
                 <span
                   key={String(f)}
-                  className="text-[11px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20"
+                  className="rounded-md border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs text-destructive"
                 >
-                  {String(f)}
+                  {degradationFlagLabel(f)}
                 </span>
               ))}
             </div>
@@ -413,33 +494,30 @@ export function QuerysetHealthTab({
         </div>
       </Panel>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel
-          variant="glass"
           padding="sm"
-          className="rounded-2xl min-h-[205px] border-border/60 bg-card shadow-sm"
+          className="min-h-[220px] border-border bg-card"
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div className="text-sm font-semibold text-foreground">
               质量趋势
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span>Hit@K / MRR / NDCG</span>
-              <span className="inline-flex h-7 items-center rounded-lg border border-border px-2 text-[11px]">
-                近 7 天
-              </span>
+            <div className="text-xs text-muted-foreground">
+              命中率、平均倒数排名、归一化增益 · 近 7 天
             </div>
           </div>
           <div className="relative h-[145px]">
             <SafeResponsiveChart className="h-full" minHeight={145}>
               <LineChart data={chartDisplayData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} domain={[0, 1]} />
+                <XAxis dataKey="dateLabel" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} domain={[0, 1]} />
                 <Tooltip />
                 <Line
                   type="monotone"
                   dataKey="hit_at_k"
+                  name="命中率"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}
@@ -447,6 +525,7 @@ export function QuerysetHealthTab({
                 <Line
                   type="monotone"
                   dataKey="mrr"
+                  name="平均倒数排名"
                   stroke="hsl(var(--info))"
                   strokeWidth={2}
                   dot={false}
@@ -454,6 +533,7 @@ export function QuerysetHealthTab({
                 <Line
                   type="monotone"
                   dataKey="ndcg_at_k"
+                  name="归一化增益"
                   stroke="hsl(var(--success))"
                   strokeWidth={2}
                   dot={false}
@@ -465,31 +545,28 @@ export function QuerysetHealthTab({
         </Panel>
 
         <Panel
-          variant="glass"
           padding="sm"
-          className="rounded-2xl min-h-[205px] border-border/60 bg-card shadow-sm"
+          className="min-h-[220px] border-border bg-card"
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div className="text-sm font-semibold text-foreground">
               延迟与风险趋势
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span>P95 / 漏检 / 弱命中</span>
-              <span className="inline-flex h-7 items-center rounded-lg border border-border px-2 text-[11px]">
-                近 7 天
-              </span>
+            <div className="text-xs text-muted-foreground">
+              P95 延迟、漏检率、弱命中率 · 近 7 天
             </div>
           </div>
           <div className="relative h-[145px]">
             <SafeResponsiveChart className="h-full" minHeight={145}>
               <LineChart data={chartDisplayData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
+                <XAxis dataKey="dateLabel" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Line
                   type="monotone"
                   dataKey="p95_latency_ms"
+                  name="P95 延迟"
                   stroke="hsl(var(--warning))"
                   strokeWidth={2}
                   dot={false}
@@ -497,6 +574,7 @@ export function QuerysetHealthTab({
                 <Line
                   type="monotone"
                   dataKey="miss_rate"
+                  name="漏检率"
                   stroke="hsl(var(--destructive))"
                   strokeWidth={2}
                   dot={false}
@@ -504,6 +582,7 @@ export function QuerysetHealthTab({
                 <Line
                   type="monotone"
                   dataKey="weak_hit_rate"
+                  name="弱命中率"
                   stroke="hsl(var(--info))"
                   strokeWidth={2}
                   dot={false}
@@ -516,9 +595,8 @@ export function QuerysetHealthTab({
       </div>
 
       <Panel
-        variant="glass"
         padding="sm"
-        className="rounded-2xl border-border/60 bg-card shadow-sm"
+        className="border-border bg-card"
       >
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
           <div>
@@ -537,15 +615,15 @@ export function QuerysetHealthTab({
             <div className="mt-2 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
               <div className="space-y-1.5">
                 <div className="text-xs font-medium text-muted-foreground">
-                  基线快照
+                  基准快照
                 </div>
                 <Select
                   value={baselineTs}
                   onValueChange={setBaselineTs}
                   disabled={!runs?.items?.length}
                 >
-                  <SelectTrigger className="h-9 rounded-xl">
-                    <SelectValue placeholder="选择基线快照" />
+                  <SelectTrigger className="h-9 rounded-md">
+                    <SelectValue placeholder="选择基准快照" />
                   </SelectTrigger>
                   <SelectContent>
                     {runItems.map((it) => (
@@ -553,7 +631,7 @@ export function QuerysetHealthTab({
                         key={String(it.generated_at)}
                         value={String(it.generated_at)}
                       >
-                        {String(it.generated_at)}
+                        {formatSnapshotTimestamp(it.generated_at)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -568,7 +646,7 @@ export function QuerysetHealthTab({
                   onValueChange={setCurrentTs}
                   disabled={!runs?.items?.length}
                 >
-                  <SelectTrigger className="h-9 rounded-xl">
+                  <SelectTrigger className="h-9 rounded-md">
                     <SelectValue placeholder="选择当前快照" />
                   </SelectTrigger>
                   <SelectContent>
@@ -577,7 +655,7 @@ export function QuerysetHealthTab({
                         key={String(it.generated_at)}
                         value={String(it.generated_at)}
                       >
-                        {String(it.generated_at)}
+                        {formatSnapshotTimestamp(it.generated_at)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -585,15 +663,41 @@ export function QuerysetHealthTab({
               </div>
             </div>
 
+            {baselineTs && baselineTs === currentTs ? (
+              <div className="mt-3 text-xs text-warning">
+                请选择两个不同的快照进行比较。
+              </div>
+            ) : null}
+
+            {diffQuery.error ? (
+              <div
+                role="alert"
+                className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-destructive/30 py-2.5"
+              >
+                <span className="text-xs text-destructive">
+                  无法生成快照差异，请重试。
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-md"
+                  onClick={() => diffQuery.refetch()}
+                  disabled={loadingDiff}
+                >
+                  重新计算
+                </Button>
+              </div>
+            ) : null}
+
             {diffMetricDeltas && Object.keys(diffMetricDeltas).length ? (
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5 text-xs">
+              <div className="mt-3 divide-y divide-border border-y border-border text-xs">
                 {QUERYSET_DELTA_METRICS.map((metric) => {
                   const value = diffMetricDeltas[metric.key]
                   const state = deltaState(value, metric.lowerIsBetter)
                   return (
                     <div
                       key={metric.key}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2"
+                      className="flex items-center justify-between gap-3 py-2.5"
                     >
                       <span className="font-medium text-muted-foreground">
                         {metric.label}
@@ -604,7 +708,7 @@ export function QuerysetHealthTab({
                         </span>
                         <span
                           className={cn(
-                            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                            'rounded-md px-2 py-0.5 text-xs font-semibold',
                             state.className
                           )}
                         >
@@ -618,17 +722,14 @@ export function QuerysetHealthTab({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-              <Scale className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
+          <div className="border-t border-border pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+            <div>
               <div className="text-sm font-semibold text-foreground">
-                如何解读差异
+                指标说明
               </div>
-              <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                命中率、MRR、NDCG 为正表示提升；P95 延迟、漏检率、弱命中率为负表示改善。
-                仅对相同评测配置的快照进行可比对。
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                命中率、平均倒数排名和归一化增益上升表示改善；P95
+                延迟、漏检率和弱命中率下降表示改善。请只比较评测配置相同的快照。
               </div>
             </div>
           </div>
@@ -636,24 +737,23 @@ export function QuerysetHealthTab({
       </Panel>
 
       <Panel
-        variant="glass"
         padding="sm"
-        className="rounded-2xl border-border/60 bg-card shadow-sm"
+        className="border-border bg-card"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-foreground">
               最近运行
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              展示最近 {runs?.items?.length ?? 0} 条（按时间倒序）
+            <div className="mt-1 text-xs text-muted-foreground">
+              共 {runs?.items?.length ?? 0} 条，按时间倒序排列
             </div>
           </div>
           {runItems.length > 30 ? (
             <Button
               variant="outline"
               size="sm"
-              className="h-7 rounded-lg border-border px-2 text-[11px]"
+              className="h-8 rounded-md border-border px-2 text-xs"
               aria-expanded={showAllRuns}
               onClick={() => setShowAllRuns((showAll) => !showAll)}
             >
@@ -662,16 +762,75 @@ export function QuerysetHealthTab({
           ) : null}
         </div>
 
-        <div className="mt-2 max-h-[190px] overflow-auto">
-          <table aria-label="检索集健康度指标列表" className="w-full text-sm">
+        <div className="mt-3 divide-y divide-border border-y border-border md:hidden">
+          {visibleRunItems.length ? (
+            visibleRunItems.map((item) => {
+              const display = querysetRunDisplay(item)
+              return (
+                <article key={String(item.generated_at)} className="py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      {display.generatedAt}
+                    </span>
+                    <span className={cn('text-xs font-medium', display.status.className)}>
+                      {display.status.label}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                    <div>
+                      <dt className="text-muted-foreground">命中率</dt>
+                      <dd className="mt-1 font-medium tabular-nums text-foreground">
+                        {display.hitRate}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">平均倒数排名</dt>
+                      <dd className="mt-1 font-medium tabular-nums text-foreground">
+                        {display.mrr}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">归一化增益</dt>
+                      <dd className="mt-1 font-medium tabular-nums text-foreground">
+                        {display.ndcg}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">P95 延迟</dt>
+                      <dd className="mt-1 font-medium tabular-nums text-foreground">
+                        {display.latency}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">漏检率</dt>
+                      <dd className="mt-1 font-medium tabular-nums text-foreground">
+                        {display.missRate}
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+              )
+            })
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              暂无运行记录，完成评测后会显示在这里。
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 hidden max-h-[320px] overflow-auto md:block">
+          <table
+            aria-label="检索集健康度指标列表"
+            className="min-w-[720px] w-full text-sm"
+          >
             <thead>
               <tr className="border-b border-border/60 text-xs text-muted-foreground">
                 <th className="text-left py-2 pr-4">生成时间</th>
                 <th className="text-left py-2 pr-4">状态</th>
                 <th className="text-right py-2 pr-4">命中率</th>
-                <th className="text-right py-2 pr-4">MRR</th>
-                <th className="text-right py-2 pr-4">NDCG</th>
-                <th className="text-right py-2 pr-4">p95(ms)</th>
+                <th className="text-right py-2 pr-4">平均倒数排名</th>
+                <th className="text-right py-2 pr-4">归一化增益</th>
+                <th className="text-right py-2 pr-4">P95 延迟</th>
                 <th className="text-right py-2 pr-4">漏检率</th>
               </tr>
             </thead>
@@ -680,7 +839,7 @@ export function QuerysetHealthTab({
                 <tr>
                   <td colSpan={7} className="py-4 text-center">
                     <div className="mx-auto flex w-fit flex-col items-center text-muted-foreground">
-                      <div className="mb-1.5 flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-muted-foreground/70">
+                      <div className="mb-2 flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
                         <ShieldAlert className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div className="text-sm font-medium text-muted-foreground">
@@ -693,49 +852,38 @@ export function QuerysetHealthTab({
                   </td>
                 </tr>
               ) : (
-                (showAllRuns ? runItems : runItems.slice(0, 30)).map((it) => {
-                  const m = isJsonObject(it.metrics) ? it.metrics : {}
-                  const r = isJsonObject(it.risk) ? it.risk : {}
-                  const st = String(it?.status || 'unknown')
-                  const isDegraded = st === 'degraded'
-                  const stLabel =
-                    st === 'degraded'
-                      ? '退化'
-                      : st === 'healthy'
-                        ? '健康'
-                        : st === 'unknown'
-                          ? '未知'
-                          : st
+                visibleRunItems.map((item) => {
+                  const display = querysetRunDisplay(item)
                   return (
                     <tr
-                      key={String(it.generated_at)}
+                      key={String(item.generated_at)}
                       className="border-b border-border/40"
                     >
-                      <td className="py-1.5 pr-4 font-mono text-xs text-muted-foreground">
-                        {String(it.generated_at || '')}
+                      <td className="py-2 pr-4 text-xs text-muted-foreground">
+                        {display.generatedAt}
                       </td>
                       <td
                         className={cn(
-                          'py-1.5 pr-4 text-xs',
-                          isDegraded ? 'text-destructive' : 'text-success'
+                          'py-2 pr-4 text-xs font-medium',
+                          display.status.className
                         )}
                       >
-                        {stLabel}
+                        {display.status.label}
                       </td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">
-                        {fmtPercent(m.hit_at_k, 1)}
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {display.hitRate}
                       </td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">
-                        {fmtNum(m.mrr, 3)}
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {display.mrr}
                       </td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">
-                        {fmtNum(m.ndcg_at_k, 3)}
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {display.ndcg}
                       </td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">
-                        {fmtNum(m.p95_latency_ms, 1)}
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {display.latency}
                       </td>
-                      <td className="py-1.5 pr-4 text-right tabular-nums">
-                        {fmtPercent(r.miss_rate, 1)}
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {display.missRate}
                       </td>
                     </tr>
                   )
