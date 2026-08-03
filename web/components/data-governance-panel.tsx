@@ -63,6 +63,7 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useRouter } from '@/i18n/navigation'
 import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import {
   ROOT_FOLDER_ID,
   useParsedFiles,
@@ -652,17 +653,45 @@ export function DataGovernancePanel() {
   )
 
   // 侧边栏状态
-  const [sidebarWidth, setSidebarWidth] = useState(280)
+  const [sidebarWidth, setSidebarWidth] = useState(240)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   // 治理面板状态（右侧）
-  const [panelWidth, setPanelWidth] = useState(400)
+  const [panelWidth, setPanelWidth] = useState(336)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
   const [isPanelResizing, setIsPanelResizing] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const contentScrollRef = useRef<HTMLDivElement>(null)
+  const isCompactLayout = useMediaQuery('(max-width: 1279.98px)')
+  const wasCompactLayoutRef = useRef(false)
+
+  useEffect(() => {
+    if (isCompactLayout && !wasCompactLayoutRef.current) {
+      setIsSidebarCollapsed(true)
+      setIsPanelCollapsed(true)
+    } else if (!isCompactLayout && wasCompactLayoutRef.current) {
+      setIsSidebarCollapsed(false)
+      setIsPanelCollapsed(false)
+    }
+    wasCompactLayoutRef.current = isCompactLayout
+  }, [isCompactLayout])
+
+  const openFilePanel = useCallback(() => {
+    setIsPanelCollapsed(true)
+    setIsSidebarCollapsed(false)
+  }, [])
+
+  const openGovernancePanel = useCallback(() => {
+    setIsSidebarCollapsed(true)
+    setIsPanelCollapsed(false)
+  }, [])
+
+  const closeCompactPanels = useCallback(() => {
+    setIsSidebarCollapsed(true)
+    setIsPanelCollapsed(true)
+  }, [])
 
   // When switching the selected file, reset the main preview pane so it doesn't look"half scrolled".
   useEffect(() => {
@@ -674,14 +703,16 @@ export function DataGovernancePanel() {
   }, [selectedFileId])
 
   const startResizing = useCallback((e: React.MouseEvent) => {
+    if (isCompactLayout) return
     e.preventDefault()
     setIsResizing(true)
-  }, [])
+  }, [isCompactLayout])
 
   const startPanelResizing = useCallback((e: React.MouseEvent) => {
+    if (isCompactLayout) return
     e.preventDefault()
     setIsPanelResizing(true)
-  }, [])
+  }, [isCompactLayout])
 
   const stopResizing = useCallback(() => {
     setIsResizing(false)
@@ -1247,9 +1278,10 @@ export function DataGovernancePanel() {
       if (file) {
         setSelectedFileId(fileId)
         initializeGovernanceState(file)
+        if (isCompactLayout) setIsSidebarCollapsed(true)
       }
     },
-    [scopedFiles, initializeGovernanceState]
+    [initializeGovernanceState, isCompactLayout, scopedFiles]
   )
 
   // 手动编辑回调
@@ -2003,20 +2035,33 @@ export function DataGovernancePanel() {
             <aside
               ref={sidebarRef}
               className={cn(
-                'group/sidebar relative flex flex-col flex-shrink-0 bg-card border-r border-border z-10',
-                isSidebarCollapsed ? 'w-0 border-r-0' : ''
+                'group/sidebar absolute inset-y-0 left-0 z-40 flex flex-shrink-0 flex-col border-r border-border bg-card transition-[width,transform] duration-200 ease-out motion-reduce:transition-none xl:relative xl:z-10',
+                isSidebarCollapsed
+                  ? 'w-0 -translate-x-full border-r-0 xl:translate-x-0'
+                  : 'translate-x-0 shadow-lg xl:shadow-none'
               )}
-              style={{ width: isSidebarCollapsed ? 0 : sidebarWidth }}
+              style={{
+                width: isSidebarCollapsed
+                  ? 0
+                  : isCompactLayout
+                    ? 'min(88vw, 320px)'
+                    : sidebarWidth,
+              }}
             >
               {/* 折叠/展开按钮 */}
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'absolute -right-3 top-3 z-30 h-6 w-6 rounded-md border border-border bg-card text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground opacity-0 group-hover/sidebar:opacity-100',
-                  isSidebarCollapsed && 'opacity-100 -right-8 translate-x-2'
+                  'absolute right-2 top-3 z-30 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground xl:-right-3 xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/sidebar:opacity-100',
+                  isSidebarCollapsed &&
+                    'hidden xl:flex xl:-right-8 xl:translate-x-2 xl:opacity-100'
                 )}
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onClick={() =>
+                  isSidebarCollapsed
+                    ? openFilePanel()
+                    : setIsSidebarCollapsed(true)
+                }
                 title={
                   isSidebarCollapsed
                     ? t('sidebar.expand')
@@ -2423,7 +2468,7 @@ export function DataGovernancePanel() {
               <button
                 type="button"
                 className={cn(
-                  'absolute right-0 top-0 w-1 h-full cursor-col-resize z-20 border-0 bg-transparent p-0 transition-colors opacity-0 hover:opacity-100 hover:bg-primary/10 dark:hover:bg-primary/20 active:bg-primary/30',
+                  'absolute right-0 top-0 z-20 hidden h-full w-1 cursor-col-resize border-0 bg-transparent p-0 opacity-0 transition-colors hover:bg-primary/10 hover:opacity-100 active:bg-primary/30 dark:hover:bg-primary/20 xl:block',
                   isResizing && 'bg-primary opacity-100'
                 )}
                 aria-label={t('sidebar.adjustWidth')}
@@ -2431,14 +2476,50 @@ export function DataGovernancePanel() {
               />
             </aside>
 
+            {isCompactLayout &&
+            (!isSidebarCollapsed || !isPanelCollapsed) ? (
+              <button
+                type="button"
+                className="absolute inset-0 z-30 bg-black/25"
+                onClick={closeCompactPanels}
+                aria-label={t('layout.closePanels')}
+              />
+            ) : null}
+
             {/* 主内容区（中间 + 右侧面板） */}
-            <main className="flex-1 flex overflow-hidden min-h-0 relative">
+            <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden xl:flex-row">
               {selectedFile && governanceState ? (
                 <>
+                  <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-3 xl:hidden">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-md px-2.5"
+                      onClick={openFilePanel}
+                    >
+                      <FileText className="size-3.5" />
+                      {t('layout.files')}
+                    </Button>
+                    <span className="min-w-0 flex-1 truncate text-center text-xs font-medium text-muted-foreground">
+                      {selectedFile.filename}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-md px-2.5"
+                      onClick={openGovernancePanel}
+                    >
+                      <Wrench className="size-3.5" />
+                      {t('layout.tools')}
+                    </Button>
+                  </div>
+
                   {/* 中间预览画布 */}
                   <div className="flex-1 flex flex-col overflow-hidden relative z-0">
                     {/* 画布工具栏 */}
-                    <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border bg-card p-1 transition-colors duration-150 motion-reduce:transition-none">
+                    <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border bg-card p-1 transition-colors duration-150 motion-reduce:transition-none xl:top-4">
                       {/* Segmented view-mode control */}
                       <div className="flex items-center rounded-md bg-muted/60 p-0.5">
                         {(['preview', 'edit', 'original'] as const).map(
@@ -2497,7 +2578,7 @@ export function DataGovernancePanel() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsSidebarCollapsed(false)}
-                        className="absolute left-4 top-4 z-20 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none"
+                        className="absolute left-4 top-4 z-20 hidden h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none xl:inline-flex"
                         aria-label={t('sidebar.expand')}
                         title={t('sidebar.expand')}
                       >
@@ -2510,7 +2591,7 @@ export function DataGovernancePanel() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsPanelCollapsed(false)}
-                        className="absolute right-4 top-4 z-20 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none"
+                        className="absolute right-4 top-4 z-20 hidden h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-primary motion-reduce:transition-none xl:inline-flex"
                         aria-label={t('panel.expand')}
                         title={t('panel.expand')}
                       >
@@ -2571,10 +2652,18 @@ export function DataGovernancePanel() {
                   <div
                     ref={panelRef}
                     className={cn(
-                      'group/panel relative z-10 flex flex-shrink-0 flex-col border-l border-border bg-card transition-transform duration-200 ease-out motion-reduce:transition-none',
-                      isPanelCollapsed ? 'w-0 border-l-0 translate-x-full' : ''
+                      'group/panel absolute inset-y-0 right-0 z-40 flex flex-shrink-0 flex-col border-l border-border bg-card transition-[width,transform] duration-200 ease-out motion-reduce:transition-none xl:relative xl:z-10',
+                      isPanelCollapsed
+                        ? 'w-0 translate-x-full border-l-0 xl:translate-x-0'
+                        : 'translate-x-0 shadow-lg xl:shadow-none'
                     )}
-                    style={{ width: isPanelCollapsed ? 0 : panelWidth }}
+                    style={{
+                      width: isPanelCollapsed
+                        ? 0
+                        : isCompactLayout
+                          ? 'min(100%, 400px)'
+                          : panelWidth,
+                    }}
                   >
                     {/* Toolbox header — compact */}
                     <div className="flex-shrink-0 border-b border-border/60 bg-card">
@@ -2684,7 +2773,7 @@ export function DataGovernancePanel() {
                     <button
                       type="button"
                       className={cn(
-                        'absolute left-0 top-0 w-1 h-full cursor-col-resize z-20 border-0 bg-transparent p-0 transition-colors opacity-0 hover:opacity-100 hover:bg-primary/10 dark:hover:bg-primary/20 active:bg-primary/30',
+                        'absolute left-0 top-0 z-20 hidden h-full w-1 cursor-col-resize border-0 bg-transparent p-0 opacity-0 transition-colors hover:bg-primary/10 hover:opacity-100 active:bg-primary/30 dark:hover:bg-primary/20 xl:block',
                         isPanelResizing && 'bg-primary opacity-100'
                       )}
                       aria-label={t('panel.adjustWidth')}

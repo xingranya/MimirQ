@@ -53,4 +53,16 @@ describe('数据治理正文安全门禁', () => {
       'selectedFileId && folderFiles.some((f) => f.id === selectedFileId)'
     )
   })
+
+  it('窄屏使用互斥抽屉并关闭拖拽调宽', () => {
+    expect(panelSource).toContain(
+      "useMediaQuery('(max-width: 1279.98px)')"
+    )
+    expect(panelSource).toContain('setIsPanelCollapsed(true)')
+    expect(panelSource).toContain('setIsSidebarCollapsed(true)')
+    expect(panelSource).toContain("t('layout.closePanels')")
+    expect(panelSource).toContain('xl:flex-row')
+    expect(panelSource).toContain('xl:block')
+    expect(panelSource).toContain("'min(100%, 400px)'")
+  })
 })

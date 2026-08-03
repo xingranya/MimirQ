@@ -487,6 +487,11 @@ DataGovernancePanel: {
       needsAttention: '需关注',
       foldersHeader: '目录树',
     },
+    layout: {
+      files: '文件',
+      tools: '治理工具',
+      closePanels: '关闭面板',
+    },
     stats: {
       storage: '存储进度',
       avgScore: '平均分',
