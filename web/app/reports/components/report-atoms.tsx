@@ -46,10 +46,10 @@ export function DataPill({
   }[tone]
 
   return (
-    <div className="flex min-w-0 items-center gap-2.5 bg-card/88 px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.6)]">
+    <div className="flex min-w-0 items-center gap-2.5 bg-card px-3 py-2.5">
       <div
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-xl ring-1',
+          'flex size-8 shrink-0 items-center justify-center rounded-md',
           toneClass
         )}
       >
@@ -91,11 +91,11 @@ export function AuditMetricCard({
   }[tone]
 
   return (
-    <article className="min-w-0 bg-card/95 px-4 py-3.5">
+    <article className="min-w-0 border-b border-border bg-card px-4 py-3.5 md:border-r 2xl:border-b-0">
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-[0.85rem] ring-1',
+            'flex size-9 shrink-0 items-center justify-center rounded-md',
             toneClass
           )}
         >
@@ -144,19 +144,19 @@ export function ReportSignalRow({
   }[tone]
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/70 px-2.5 py-1.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.5)]">
-      <span className={cn('size-2 shrink-0 rounded-full', dotClass)} />
+    <div className="flex items-center gap-2 border-b border-border px-1 py-2 last:border-b-0">
+      <span className={cn('size-2 shrink-0 rounded-sm', dotClass)} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <div
-            className="truncate text-[0.75rem] font-medium text-foreground/85"
+            className="truncate text-xs font-medium text-foreground/85"
             title={label}
           >
             {label}
           </div>
           <div
             className={cn(
-              'shrink-0 text-[0.875rem] font-semibold tabular-nums',
+              'shrink-0 text-sm font-semibold tabular-nums',
               toneClass
             )}
           >
@@ -176,8 +176,8 @@ export function ReportInlineEmpty({
   description,
 }: Readonly<{ title: string; description: string }>) {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/40 px-3 py-3">
-      <div className="text-[0.8125rem] font-semibold tracking-[-0.01em] text-foreground/85">
+    <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-3">
+      <div className="text-sm font-semibold text-foreground/85">
         {title}
       </div>
       <div className={cn('mt-1 max-w-[32rem]', REPORT_SUBTEXT_CLASS)}>
@@ -204,59 +204,43 @@ export function CompactAuditFact({
     blue: {
       shell: 'border-info/20 bg-info/5',
       icon: 'bg-info/15 text-info ring-info/30',
-      rail: 'bg-info/100',
-      value:
-        'border-info/20 bg-card/80 text-info shadow-[0_1px_2px_hsl(var(--info)/0.08)]',
+      value: 'text-info',
     },
     green: {
       shell: 'border-success/20 bg-success/5',
       icon: 'bg-success/15 text-success ring-success/30',
-      rail: 'bg-success/100',
-      value:
-        'border-success/20 bg-card/80 text-success shadow-[0_1px_2px_rgba(5,150,105,0.08)]',
+      value: 'text-success',
     },
     amber: {
       shell: 'border-warning/20 bg-warning/5',
       icon: 'bg-warning/15 text-warning ring-warning/30',
-      rail: 'bg-warning/100',
-      value:
-        'border-warning/20 bg-card/85 text-warning shadow-[0_1px_2px_rgba(217,119,6,0.08)]',
+      value: 'text-warning',
     },
     rose: {
       shell: 'border-destructive/20 bg-destructive/5',
       icon: 'bg-destructive/15 text-destructive ring-destructive/30',
-      rail: 'bg-destructive/100',
-      value:
-        'border-destructive/20 bg-card/85 text-destructive shadow-[0_1px_2px_rgba(225,29,72,0.08)]',
+      value: 'text-destructive',
     },
     violet: {
       shell: 'border-accent/20 bg-accent/5',
       icon: 'bg-accent/15 text-accent ring-accent/30',
-      rail: 'bg-accent/100',
-      value:
-        'border-accent/20 bg-card/80 text-accent shadow-[0_1px_2px_rgba(124,58,237,0.08)]',
+      value: 'text-accent',
     },
     slate: {
       shell: 'border-border/60 bg-muted/40',
       icon: 'bg-muted text-muted-foreground ring-border',
-      rail: 'bg-border',
-      value:
-        'border-border bg-card/80 text-muted-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
+      value: 'text-muted-foreground',
     },
   }[tone]
 
   return (
     <div
       className={cn(
-        'relative min-w-0 overflow-hidden rounded-xl border px-2.5 py-2',
+        'min-w-0 overflow-hidden rounded-md border px-2.5 py-2',
         toneClass.shell
       )}
     >
-      <span
-        className={cn('absolute inset-y-2 left-0 w-1 rounded-r-full', toneClass.rail)}
-        aria-hidden="true"
-      />
-      <div className="flex min-w-0 items-center gap-2 pl-1">
+      <div className="flex min-w-0 items-center gap-2">
         <div
           className={cn(
             'flex size-7 shrink-0 items-center justify-center rounded-lg ring-1',
@@ -266,16 +250,16 @@ export function CompactAuditFact({
           <Icon className="size-3.5" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[0.75rem] font-semibold tracking-[-0.01em] text-foreground">
+          <div className="truncate text-xs font-semibold text-foreground">
             {label}
           </div>
-          <div className="mt-0.5 truncate text-[0.6875rem] leading-4 text-muted-foreground" title={sub}>
+          <div className="mt-0.5 truncate text-xs leading-4 text-muted-foreground" title={sub}>
             {sub}
           </div>
         </div>
         <div
           className={cn(
-            'inline-flex h-6 max-w-[46%] shrink-0 items-center justify-center truncate rounded-full border px-2 text-center text-[0.75rem] font-semibold tracking-[-0.01em] tabular-nums',
+            'inline-flex h-6 max-w-[46%] shrink-0 items-center justify-center truncate px-2 text-center text-xs font-semibold tabular-nums',
             toneClass.value
           )}
           title={value}
@@ -294,10 +278,10 @@ export function AuditMetricPlaceholder({
   return (
     <div className="rounded-lg border border-dashed border-border bg-background/65 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-[0.75rem] font-semibold tracking-[-0.01em] text-foreground/85">
+        <span className="truncate text-xs font-semibold text-foreground/85">
           {label}
         </span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[0.6875rem] font-medium text-muted-foreground">
+        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           待运行
         </span>
       </div>
@@ -324,9 +308,9 @@ export function ProgressRow({
       <div className="truncate text-muted-foreground" title={label}>
         {label}
       </div>
-      <div className="h-1.5 rounded-full bg-muted">
+      <div className="h-1.5 rounded-sm bg-muted">
         <div
-          className="h-full rounded-full bg-info/100"
+          className="h-full rounded-sm bg-primary"
           style={{ width: `${pct}%` }}
         />
       </div>

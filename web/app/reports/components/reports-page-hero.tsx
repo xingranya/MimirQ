@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  Clock3,
-  Database,
-  FileSearch,
-  ShieldCheck,
-} from 'lucide-react'
-
-import { KnowledgeOpsHero } from '@/components/ui/knowledge-ops-hero'
+import { Database, ShieldCheck } from 'lucide-react'
 
 import type {
   DatasetReport,
@@ -24,53 +17,35 @@ import { DataPill } from './report-atoms'
 export function ReportsHeaderPills({
   selectedDatasetName,
   datasetId,
-  totalDocs,
   isLoadingReport,
   report,
-  latestAuditTime,
   dataSourceLabel,
   dataSourceSub,
   dataProvenance,
 }: Readonly<{
   selectedDatasetName: string
   datasetId: string
-  totalDocs: number
   isLoadingReport: boolean
   report: DatasetReport | null
-  latestAuditTime: string
   dataSourceLabel: string
   dataSourceSub: string
   dataProvenance: DatasetReportDataProvenance | null
 }>) {
   return (
-    <div className="grid min-w-0 gap-px overflow-hidden rounded-2xl border border-info/25 bg-info/20 shadow-[0_16px_38px_-30px_rgba(14,116,144,0.5)] sm:grid-cols-2 xl:grid-cols-[1.35fr_0.86fr_0.9fr_0.88fr_1.15fr]">
+    <div className="grid min-w-0 gap-px overflow-hidden rounded-md border border-border bg-border md:grid-cols-3">
       <DataPill
         icon={Database}
         label="数据集"
         value={selectedDatasetName}
-        sub={datasetId ? `ID ${shortPipelineHash(datasetId)}` : '未选择'}
-        tone="blue"
-      />
-      <DataPill
-        icon={FileSearch}
-        label="文档"
-        value={`${totalDocs} 篇文档`}
-        sub="报告画像"
+        sub={datasetId ? `标识 ${shortPipelineHash(datasetId)}` : '未选择'}
         tone="blue"
       />
       <DataPill
         icon={ShieldCheck}
         label="状态"
         value={reportStatusLabel(isLoadingReport, report)}
-        sub={report ? '可导出 / 可审计' : '等待生成报告'}
+        sub={report ? '可导出、可审计' : '等待生成报告'}
         tone={reportStatusTone(isLoadingReport, report)}
-      />
-      <DataPill
-        icon={Clock3}
-        label="生成"
-        value={latestAuditTime}
-        sub={report ? '报告快照时间' : '暂无'}
-        tone="slate"
       />
       <DataPill
         icon={ShieldCheck}
@@ -86,45 +61,39 @@ export function ReportsHeaderPills({
 export function ReportsPageHero({
   selectedDatasetName,
   datasetId,
-  totalDocs,
   isLoadingReport,
   report,
-  latestAuditTime,
   dataSourceLabel,
   dataSourceSub,
   dataProvenance,
 }: Readonly<{
   selectedDatasetName: string
   datasetId: string
-  totalDocs: number
   isLoadingReport: boolean
   report: DatasetReport | null
-  latestAuditTime: string
   dataSourceLabel: string
   dataSourceSub: string
   dataProvenance: DatasetReportDataProvenance | null
 }>) {
   return (
-    <KnowledgeOpsHero
-      iconImage="report-export"
-      eyebrow="Report Ops"
-      badge="审计证据与导出中心"
-      title="数据报告"
-      description="汇总数据集画像、召回门禁与治理风险，形成可导出的审计快照。"
-      className="lg:flex-col lg:items-stretch 2xl:flex-row 2xl:items-start"
-      summary={
+    <header data-reports-header="true" className="border-b border-border pb-4">
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">数据报告</h1>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+          查看数据集处理质量、检索审计和风险明细，并按需要导出。
+        </p>
+      </div>
+      <div className="mt-4">
         <ReportsHeaderPills
           selectedDatasetName={selectedDatasetName}
           datasetId={datasetId}
-          totalDocs={totalDocs}
           isLoadingReport={isLoadingReport}
           report={report}
-          latestAuditTime={latestAuditTime}
           dataSourceLabel={dataSourceLabel}
           dataSourceSub={dataSourceSub}
           dataProvenance={dataProvenance}
         />
-      }
-    />
+      </div>
+    </header>
   )
 }

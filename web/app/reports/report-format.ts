@@ -64,13 +64,13 @@ export function reportDataSourceLabel(dataProvenance: DatasetReportDataProvenanc
   if (dataProvenance?.mocked === false && dataProvenance.source === 'database') {
     return '真实数据'
   }
-  if (dataProvenance?.source) return String(dataProvenance.source)
+  if (dataProvenance?.source) return '已连接数据源'
   return '等待数据源'
 }
 
 export function reportDataSourceSub(dataProvenance: DatasetReportDataProvenance | null | undefined): string {
-  if (dataProvenance?.mocked === false) return '数据库 / API 实时聚合'
-  return '未返回来源证明'
+  if (dataProvenance?.mocked === false) return '服务端实时汇总'
+  return '来源状态未返回'
 }
 
 export function reportPipelineFilterLabel(pipelineHash: string): string {
@@ -98,13 +98,13 @@ export function issueLevelClass(level: string): string {
 
 export function reportPreviewEmptyTitle(datasetId: string, isLoadingReport: boolean): string {
   if (!datasetId) return '请选择数据集'
-  if (isLoadingReport) return '报告加载中...'
+  if (isLoadingReport) return '报告加载中…'
   return '暂无预览'
 }
 
 export function reportPreviewEmptyDescription(datasetId: string, isLoadingReport: boolean): string {
   if (!datasetId) return '选择一个数据集后即可生成报告预览并导出。'
-  if (isLoadingReport) return '正在加载报告数据...'
+  if (isLoadingReport) return '正在加载报告数据…'
   return '点击“重新生成报告”拉取最新报告。'
 }
 
@@ -235,7 +235,7 @@ export function formatRetrievalAuditMetric(value: unknown): string {
     if (Math.abs(value) <= 1) return `${(value * 100).toFixed(1)}%`
     return trimFixedNumber(value.toFixed(3))
   }
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'boolean') return value ? '是' : '否'
   if (typeof value === 'string' && value.trim()) return value
   return '-'
 }
@@ -244,13 +244,13 @@ export function retrievalAuditMetricRows(
   retrievalAudit: RetrievalAudit | null | undefined
 ): RetrievalAuditMetricRow[] {
   const fields = [
-    ['hit_at_1', 'hit@1'],
-    ['hit_at_3', 'hit@3'],
-    ['expected_metadata_hit_rate', 'metadata hit'],
-    ['expected_metadata_recall', 'metadata recall'],
-    ['retrieval_effective_context_rate', 'effective context'],
-    ['retrieval_noise_rate', 'noise'],
-    ['kg_noise_rate', 'KG noise'],
+    ['hit_at_1', '首位命中率'],
+    ['hit_at_3', '前三位命中率'],
+    ['expected_metadata_hit_rate', '元数据命中率'],
+    ['expected_metadata_recall', '元数据召回率'],
+    ['retrieval_effective_context_rate', '有效上下文占比'],
+    ['retrieval_noise_rate', '检索噪声率'],
+    ['kg_noise_rate', '知识图谱噪声率'],
   ]
   const rows: RetrievalAuditMetricRow[] = []
   for (const gate of retrievalAudit?.gates || []) {
@@ -283,10 +283,10 @@ export function retrievalAuditFailureText(
     chunking: '切块',
     ranking: '排序',
     absence: '缺内容',
-    kg_noise: 'KG 噪声',
-    adapter: '适配器',
+    kg_noise: '知识图谱噪声',
+    adapter: '适配',
   }
-  return entries.map(([key, value]) => `${labels[key] || key} ${value}`).join(' / ')
+  return entries.map(([key, value]) => `${labels[key] || key} ${value}`).join('、')
 }
 
 export function retrievalAuditHashText(
@@ -302,9 +302,9 @@ export function retrievalAuditKgRecommendationText(
 ): string {
   const recommendation = retrievalAudit?.kg_recommendation || ''
   const labels: Record<string, string> = {
-    full_kg_assist: '可启用完整 KG',
+    full_kg_assist: '可启用完整知识图谱',
     query_expansion_only: '仅启用查询扩展',
-    boost_only: '仅启用 KG boost',
+    boost_only: '仅启用知识图谱加权',
     none: '保持关闭',
   }
   return labels[recommendation] || '待评估'

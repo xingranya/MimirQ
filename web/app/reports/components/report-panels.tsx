@@ -24,7 +24,6 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { EmptyState } from '@/components/ui/empty-state'
 import { SafeResponsiveChart } from '@/components/ui/safe-responsive-chart'
 import { cn, formatFileSize } from '@/lib/utils'
 
@@ -223,32 +222,27 @@ export function RetrievalAuditPanel({
 
   return (
     <div className={REPORT_PANEL_CLASS}>
-      <div className="mb-2 overflow-hidden rounded-xl border border-border/60 bg-[linear-gradient(120deg,hsl(var(--info)/0.08),hsl(var(--card))_54%,hsl(var(--accent)/0.06))] px-2.5 py-2">
+      <div className="mb-3 border-b border-border pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info ring-1 ring-info/20">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <FileSearch className="size-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className={REPORT_PANEL_TITLE_CLASS}>召回审计</div>
-                <span className="rounded-full border border-info/20 bg-info/10 px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-info">
-                  生产准入
-                </span>
-              </div>
+              <div className={REPORT_PANEL_TITLE_CLASS}>检索审计</div>
               <div className={cn('mt-0.5 truncate', REPORT_SUBTEXT_CLASS)}>
-                评测、元数据、KG 与压缩证据集中校验。
+                集中检查评测、元数据、知识图谱和引用证据。
               </div>
             </div>
           </div>
           <Badge
             variant="outline"
             className={cn(
-              'gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+              'gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold',
               statusToneClass
             )}
           >
-            <span className={cn('rounded-full p-0.5', statusIconClass)}>
+            <span className={cn('rounded-sm p-0.5', statusIconClass)}>
               <StatusIcon className="size-3" />
             </span>
             {status}
@@ -261,7 +255,7 @@ export function RetrievalAuditPanel({
           icon={AlertTriangle}
           label="失败归因"
           value={retrievalAuditFailureText(retrievalAudit)}
-          sub="范围 / 切块 / 排序 / KG"
+          sub="范围、切块、排序、知识图谱"
           tone={hasFailureCategories ? 'rose' : 'slate'}
         />
         <CompactAuditFact
@@ -273,9 +267,9 @@ export function RetrievalAuditPanel({
         />
         <CompactAuditFact
           icon={Layers}
-          label="KG 建议"
+          label="知识图谱建议"
           value={retrievalAuditKgRecommendationText(retrievalAudit)}
-          sub="KG 开关对比"
+          sub="知识图谱开关对比"
           tone={retrievalAudit?.kg_recommendation === 'full_kg_assist' ? 'green' : 'slate'}
         />
         <CompactAuditFact
@@ -289,10 +283,10 @@ export function RetrievalAuditPanel({
 
       <div className="mt-2 overflow-hidden rounded-lg border border-border/50">
         <div className="flex items-center justify-between gap-2 border-b border-border/50 bg-muted/45 px-2.5 py-1.5">
-          <div className="text-[0.75rem] font-semibold tracking-[-0.01em] text-foreground/85">
+          <div className="text-xs font-semibold text-foreground/85">
             门禁指标
           </div>
-          <div className="text-[0.6875rem] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             最新回归门禁
           </div>
         </div>
@@ -306,27 +300,27 @@ export function RetrievalAuditPanel({
           <span className="text-right">数值</span>
         </div>
         {metricRows.length === 0 ? (
-          <div className="border-t border-border/50 bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--muted)/0.4))] px-2.5 py-2">
+          <div className="border-t border-border/50 bg-muted/20 px-2.5 py-2">
             <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
               <AuditMetricPlaceholder
-                label="Hit@K"
+                label="命中率"
                 hint="召回命中门槛"
               />
               <AuditMetricPlaceholder
-                label="Metadata"
+                label="元数据"
                 hint="元数据命中/召回"
               />
               <AuditMetricPlaceholder
-                label="Context"
+                label="有效上下文"
                 hint="有效上下文占比"
               />
               <AuditMetricPlaceholder
-                label="Noise"
-                hint="噪声与 KG 噪声"
+                label="检索噪声"
+                hint="检索与知识图谱噪声"
               />
             </div>
             <div className={cn('mt-2 text-center', REPORT_SUBTEXT_CLASS)}>
-              运行 Golden / regression 后填充真实门禁数据。
+              完成回归评测后，这里会显示真实门禁数据。
             </div>
           </div>
         ) : (
@@ -363,7 +357,7 @@ export function FieldCoveragePanel({
     <div className={REPORT_PANEL_CLASS}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className={REPORT_PANEL_TITLE_CLASS}>字段覆盖分布</div>
-        <Badge variant="outline" className="rounded-full text-[11px]">
+        <Badge variant="outline" className="rounded-md text-xs">
           {fieldCoverageBadge}
         </Badge>
       </div>
@@ -393,7 +387,7 @@ export function TopDocumentPanel({
   return (
     <div className={REPORT_PANEL_CLASS}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <div className={REPORT_PANEL_TITLE_CLASS}>文档分布 Top</div>
+        <div className={REPORT_PANEL_TITLE_CLASS}>文档分布</div>
         <Button
           variant="link"
           className="h-auto p-0 text-[0.71875rem]"
@@ -403,7 +397,7 @@ export function TopDocumentPanel({
         </Button>
       </div>
       {topDocumentRows.length === 0 ? (
-        <EmptyState
+        <ReportInlineEmpty
           title="暂无分布数据"
           description="当前报告没有目录或文件类型分布。"
         />
@@ -421,9 +415,9 @@ export function TopDocumentPanel({
                 {row.name}
               </div>
               <div className="tabular-nums text-foreground/85">{row.value}</div>
-              <div className="h-1.5 rounded-full bg-muted">
+              <div className="h-1.5 rounded-sm bg-muted">
                 <div
-                  className="h-full rounded-full bg-info/100"
+                  className="h-full rounded-sm bg-primary"
                   style={{
                     width: `${Math.max(3, (safeNumber(row.value) / topDocumentMax) * 100)}%`,
                   }}
@@ -578,7 +572,7 @@ export function PipelineVersionsPanel({
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span
-                    className="size-2 rounded-full"
+                    className="size-2 rounded-sm"
                     style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }}
                   />
                   <span
@@ -605,7 +599,7 @@ export function IssueRowsPanel({ issueRows }: Readonly<{ issueRows: IssueRow[] }
     <div className={REPORT_PANEL_CLASS}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className={REPORT_PANEL_TITLE_CLASS}>风险命中记录</div>
-        <Badge variant="outline" className="rounded-full px-2 text-[11px]">
+        <Badge variant="outline" className="rounded-md px-2 text-xs">
           命中项
         </Badge>
       </div>
@@ -615,68 +609,94 @@ export function IssueRowsPanel({ issueRows }: Readonly<{ issueRows: IssueRow[] }
           description="当前报告没有失败任务或质量规则命中；后续出现异常会在这里列出。"
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/50">
-          <div
-            className={cn(
-            'grid grid-cols-[104px_64px_104px_1fr_56px] bg-muted/50 px-2.5 py-1.5',
-              REPORT_TABLE_HEADER_CLASS
-            )}
-          >
-            <span>来源/时间</span>
-            <span>级别</span>
-            <span>类型</span>
-            <span>描述</span>
-            <span className="text-right">命中数</span>
+        <>
+          <div className="space-y-2 md:hidden">
+            {issueRows.map((row) => (
+              <article
+                key={row.id}
+                className="rounded-md border border-border bg-card p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {row.type}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {row.time}
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 text-xs font-medium',
+                      issueLevelClass(row.level)
+                    )}
+                  >
+                    {row.level}
+                  </span>
+                </div>
+                <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
+                  {row.description}
+                </p>
+                <div className="mt-2 text-xs text-foreground">
+                  命中数：{row.target}
+                </div>
+              </article>
+            ))}
           </div>
-          {issueRows.map((row) => (
+          <div className="hidden overflow-auto rounded-md border border-border md:block">
             <div
-              key={row.id}
               className={cn(
-                'grid grid-cols-[104px_64px_104px_1fr_56px] items-center border-t border-border/50 px-2.5 py-2',
-                REPORT_TABLE_ROW_CLASS
+                'grid min-w-[640px] grid-cols-[104px_64px_104px_1fr_56px] bg-muted/50 px-2.5 py-1.5',
+                REPORT_TABLE_HEADER_CLASS
               )}
             >
-              <span className="truncate">{row.time}</span>
-              <span className={cn('font-medium', issueLevelClass(row.level))}>
-                {row.level}
-              </span>
-              <span className="truncate">{row.type}</span>
-              <span className="truncate" title={row.description}>
-                {row.description}
-              </span>
-              <span className="text-right tabular-nums">{row.target}</span>
+              <span>来源/时间</span>
+              <span>级别</span>
+              <span>类型</span>
+              <span>描述</span>
+              <span className="text-right">命中数</span>
             </div>
-          ))}
-        </div>
+            {issueRows.map((row) => (
+              <div
+                key={row.id}
+                className={cn(
+                  'grid min-w-[640px] grid-cols-[104px_64px_104px_1fr_56px] items-center border-t border-border/50 px-2.5 py-2',
+                  REPORT_TABLE_ROW_CLASS
+                )}
+              >
+                <span className="truncate">{row.time}</span>
+                <span className={cn('font-medium', issueLevelClass(row.level))}>
+                  {row.level}
+                </span>
+                <span className="truncate">{row.type}</span>
+                <span className="truncate" title={row.description}>
+                  {row.description}
+                </span>
+                <span className="text-right tabular-nums">{row.target}</span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
 }
 
 export function ReportSectionHeading({
-  index,
   title,
   description,
 }: Readonly<{
-  index: string
   title: string
   description: string
 }>) {
   return (
-    <div className="flex items-end gap-3 border-b border-border/60 pb-2.5">
-      <span className="pb-0.5 font-mono text-[11px] font-semibold tracking-[0.16em] text-info">
-        {index}
-      </span>
+    <div className="border-b border-border pb-2.5">
       <div className="min-w-0 flex-1">
-        <h2 className="text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground">
+        <h2 className="text-base font-semibold text-foreground">
           {title}
         </h2>
         <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{description}</p>
       </div>
-      <span
-        className="mb-1 hidden h-px w-20 bg-[linear-gradient(90deg,hsl(var(--info)/0.5),transparent)] sm:block"
-        aria-hidden="true"
-      />
     </div>
   )
 }

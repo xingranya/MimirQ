@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 
 import type {
@@ -59,6 +60,7 @@ export function ReportsResultSection({
   categoryBarData,
   versionTotal,
   issueRows,
+  onRetry,
 }: Readonly<{
   report: DatasetReport | null
   datasetId: string
@@ -94,6 +96,7 @@ export function ReportsResultSection({
   categoryBarData: CategoryMetricDatum[]
   versionTotal: number
   issueRows: IssueRow[]
+  onRetry: () => void
 }>) {
   if (!report) {
     if (reportErrorMessage && datasetId && !isLoadingReport) {
@@ -102,13 +105,19 @@ export function ReportsResultSection({
           icon={AlertTriangle}
           title="报告加载失败"
           description={reportErrorMessage}
-        />
+          className="rounded-md border-border bg-card"
+        >
+          <Button type="button" size="sm" className="rounded-md" onClick={onRetry}>
+            重新加载
+          </Button>
+        </EmptyState>
       )
     }
     return (
       <EmptyState
         title={reportPreviewEmptyTitle(datasetId, isLoadingReport)}
         description={reportPreviewEmptyDescription(datasetId, isLoadingReport)}
+        className="rounded-md border-border bg-card"
       />
     )
   }

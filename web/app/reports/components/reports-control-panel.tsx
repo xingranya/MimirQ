@@ -115,8 +115,8 @@ export function ReportsControlPanel({
   onRefresh: () => void
 }>) {
   return (
-    <section className="space-y-3 rounded-[1.2rem] border border-border/60 bg-card/88 p-3.5 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.35)] backdrop-blur">
-      <div className="grid gap-3 xl:grid-cols-[1.25fr_1.1fr_0.85fr_auto] xl:items-end">
+    <section className="space-y-3 border-y border-border py-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.25fr_1.1fr_0.85fr_auto] xl:items-end">
         <div className="space-y-1.5">
           <Label
             htmlFor="dataset-select"
@@ -130,7 +130,7 @@ export function ReportsControlPanel({
               className={REPORT_SELECT_TRIGGER_CLASS}
             >
               <SelectValue
-                placeholder={isLoadingDatasets ? '加载中...' : '请选择数据集'}
+                placeholder={isLoadingDatasets ? '加载中…' : '请选择数据集'}
               />
             </SelectTrigger>
             <SelectContent>
@@ -230,7 +230,7 @@ export function ReportsControlPanel({
           </Select>
         </div>
 
-        <div className="flex h-9 items-center gap-2 rounded-xl border border-border/60 bg-muted/40 px-3">
+        <div className="flex h-9 items-center gap-2 border-b border-border px-1">
           <Switch
             id="only-issues-switch"
             checked={showOnlyIssues}
@@ -246,7 +246,7 @@ export function ReportsControlPanel({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
-        <div className="flex h-9 items-center gap-2 rounded-xl bg-muted/45 px-3 ring-1 ring-inset ring-border/60">
+        <div className="flex h-9 items-center gap-2 border-b border-border px-1">
           <Switch
             id="redact-switch"
             checked={redact}
@@ -261,6 +261,15 @@ export function ReportsControlPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            className={REPORT_PRIMARY_ACTION_CLASS}
+            onClick={onRegenerateReport}
+            disabled={!datasetId || isLoadingReport}
+            aria-label={report ? '重新生成报告' : '生成报告'}
+          >
+            <LoadingButtonIcon loading={isLoadingReport} icon={PlayCircle} />
+            <span>{report ? '重新生成' : '生成报告'}</span>
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -284,16 +293,16 @@ export function ReportsControlPanel({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-64 rounded-2xl border-border/60 bg-popover/95 p-1.5 shadow-[0_24px_70px_-28px_rgba(15,23,42,0.38)] backdrop-blur-xl"
+              className="w-64 rounded-md border-border bg-popover p-1.5"
             >
-              <DropdownMenuLabel className="px-2.5 pb-1 pt-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/70">
+              <DropdownMenuLabel className="px-2.5 pb-1 pt-2 text-xs font-semibold text-muted-foreground">
                 基础与完整数据
               </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onSelect={onExportJson}
                   disabled={!datasetId || isExportingJson}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
                   aria-label="导出 JSON"
                 >
                   <LoadingButtonIcon loading={isExportingJson} icon={Download} />
@@ -302,7 +311,7 @@ export function ReportsControlPanel({
                 <DropdownMenuItem
                   onSelect={onExportCompleteJson}
                   disabled={!datasetId || !report}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
                   aria-label="导出完整 JSON"
                 >
                   <Archive className="size-3.5" />
@@ -311,43 +320,43 @@ export function ReportsControlPanel({
                 <DropdownMenuItem
                   onSelect={onExportChartsJson}
                   disabled={!datasetId || !report}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
-                  aria-label="导出 RAG 统计"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
+                  aria-label="导出检索统计"
                 >
                   <BarChart3 className="size-3.5" />
-                  <span>RAG 统计数据</span>
+                  <span>检索统计数据</span>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator className="my-1.5" />
-              <DropdownMenuLabel className="px-2.5 pb-1 pt-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/70">
+              <DropdownMenuLabel className="px-2.5 pb-1 pt-1 text-xs font-semibold text-muted-foreground">
                 审计与交付物
               </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onSelect={onExportRagAuditHtml}
                   disabled={!datasetId || isExportingRagAuditHtml}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
-                  aria-label="导出 RAG 审计报告"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
+                  aria-label="导出问答审计报告"
                 >
                   <LoadingButtonIcon
                     loading={isExportingRagAuditHtml}
                     icon={ShieldCheck}
                   />
-                  <span>RAG 审计报告</span>
+                  <span>问答审计报告</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={onExportBundleZip}
                   disabled={!datasetId || isExportingBundle}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
                   aria-label="导出数据包 ZIP"
                 >
                   <LoadingButtonIcon loading={isExportingBundle} icon={Archive} />
-                  <span>数据包 Bundle ZIP</span>
+                  <span>完整数据包（ZIP）</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={onExportHtml}
                   disabled={!datasetId || isExportingHtml}
-                  className="rounded-xl px-2.5 py-2 text-xs focus:bg-info/10 focus:text-info"
+                  className="rounded-md px-2.5 py-2 text-xs focus:bg-primary/10 focus:text-primary"
                   aria-label="导出 HTML"
                 >
                   <LoadingButtonIcon loading={isExportingHtml} icon={FileText} />
@@ -356,15 +365,6 @@ export function ReportsControlPanel({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            className={REPORT_PRIMARY_ACTION_CLASS}
-            onClick={onRegenerateReport}
-            disabled={!datasetId || isLoadingReport}
-            aria-label="重新生成报告"
-          >
-            <LoadingButtonIcon loading={isLoadingReport} icon={PlayCircle} />
-            <span>重新生成</span>
-          </Button>
           <Button
             variant="outline"
             className={REPORT_SECONDARY_ACTION_CLASS}

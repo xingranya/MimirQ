@@ -1,17 +1,17 @@
-// Source contract check only; this is not behavior coverage.
+// 这里只检查源码契约，不替代行为测试。
 import fs from 'node:fs'
 import path from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-describe('reports page bundle export', () => {
-  it('surfaces dataset report bundle zip export', () => {
-    // The bundle ZIP export handler wires the reportApi call in the page client.
+describe('报告页完整数据包导出', () => {
+  it('提供完整数据包导出入口', () => {
+    // 页面客户端负责调用报告导出接口。
     const pageClientSrc = fs.readFileSync(
       path.resolve(__dirname, 'page-client.tsx'),
       'utf8'
     )
-    // The export menu item (with its aria-label copy) lives in the control panel component.
+    // 控制面板负责展示导出入口和无障碍名称。
     const controlPanelSrc = fs.readFileSync(
       path.resolve(__dirname, 'components/reports-control-panel.tsx'),
       'utf8'

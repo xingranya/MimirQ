@@ -90,9 +90,8 @@ export function ReportsDashboard({
   return (
     <section className="space-y-4">
       <ReportSectionHeading
-        index="01"
         title="报告摘要"
-        description="先核对规模、处理结果与召回门禁，再进入质量细节。"
+        description="查看数据规模、处理结果和检索审计状态。"
       />
       <ReportMetricGrid
         totalDocs={totalDocs}
@@ -109,9 +108,8 @@ export function ReportsDashboard({
       <RetrievalAuditPanel retrievalAudit={retrievalAudit} />
 
       <ReportSectionHeading
-        index="02"
         title="数据质量"
-        description="从风险、字段覆盖、内容规模和治理痕迹四个维度检查当前快照。"
+        description="检查风险、字段覆盖、文档分布和内容健康。"
       />
       <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-[1.05fr_1.2fr_1.05fr_0.95fr]">
         <RiskMetricPanel
@@ -145,9 +143,8 @@ export function ReportsDashboard({
       </div>
 
       <ReportSectionHeading
-        index="03"
         title="结构与风险"
-        description="查看分类分布、处理版本与可追溯的风险命中记录。"
+        description="查看分类、处理版本和风险命中记录。"
       />
       <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-[1.2fr_0.9fr_1.4fr]">
         <CategoryChartPanel categoryBarData={categoryBarData} />

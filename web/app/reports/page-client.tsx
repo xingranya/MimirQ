@@ -200,7 +200,7 @@ export default function ReportsCenterPage() {
         getBlob: reportApi.exportDatasetRagAuditHtml,
         filenameStem: 'rag_audit',
         extension: 'html',
-        errorFallback: '导出 RAG Audit 报告失败',
+        errorFallback: '导出问答审计报告失败',
       })
     )
   }, [
@@ -651,7 +651,7 @@ export default function ReportsCenterPage() {
       <div className={KNOWLEDGE_OPS_BACKGROUND_CLASS}>
         <AnalysisPageShell
           title="数据报告与审计概览"
-          description="一键导出数据报告与审计结果，支持多种格式与指标视图，便于数据治理与合规审查。"
+          description="查看数据集处理质量、检索审计和风险明细，并按需要导出。"
           icon={FileText}
           iconColor="text-primary"
           badge="报告"
@@ -668,10 +668,8 @@ export default function ReportsCenterPage() {
             <ReportsPageHero
               selectedDatasetName={selectedDatasetName}
               datasetId={datasetId}
-              totalDocs={totalDocs}
               isLoadingReport={isLoadingReport}
               report={report}
-              latestAuditTime={latestAuditTime}
               dataSourceLabel={dataSourceLabel}
               dataSourceSub={dataSourceSub}
               dataProvenance={dataProvenance}
@@ -741,6 +739,7 @@ export default function ReportsCenterPage() {
               categoryBarData={categoryBarData}
               versionTotal={versionTotal}
               issueRows={issueRows}
+              onRetry={handleRefresh}
             />
           </div>
         </AnalysisPageShell>
