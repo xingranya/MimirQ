@@ -620,6 +620,7 @@ export function ProfileEditorDrawer({
           name: trimmedName,
           description: description.trim() || '',
           payload: payloadToSave,
+          expected_updated_at: loadedProfile?.updated_at || undefined,
         })
         toast.success('治理模板已保存')
         onSaved?.(updated)

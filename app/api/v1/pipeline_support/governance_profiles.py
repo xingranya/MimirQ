@@ -6,6 +6,7 @@ import-time snapshot). Submodules must not import ``app.api.v1.pipeline``.
 """
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -26,6 +27,23 @@ from app.services.governance_profiles import (
 )
 
 GOVERNANCE_PROFILE_NOT_FOUND_DETAIL = "Governance profile not found"
+
+
+def governance_profile_timestamps_match(
+    current: datetime | None,
+    expected: datetime | None,
+) -> bool:
+    if expected is None:
+        return True
+    if current is None:
+        return False
+
+    def as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    return as_utc(current) == as_utc(expected)
 
 
 def _profile_key_for_row(row: DBGovernanceProfile) -> str:

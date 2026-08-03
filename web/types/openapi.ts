@@ -13700,6 +13700,86 @@ export interface components {
             total_with_source_path: number;
             root: components["schemas"]["DocumentFolderNode"];
         };
+        /**
+         * DocumentGovernanceAnnotation
+         * @description 治理工作台保存的单条文本标注。
+         */
+        DocumentGovernanceAnnotation: {
+            /** Id */
+            id: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "entity" | "keyword" | "sensitive" | "custom";
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Start
+             * @default 0
+             */
+            start: number;
+            /**
+             * End
+             * @default 0
+             */
+            end: number;
+        };
+        /**
+         * DocumentGovernanceIssue
+         * @description 治理工作台保存的单条质量问题。
+         */
+        DocumentGovernanceIssue: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "error" | "warning" | "info";
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /** Position */
+            position?: {
+                [key: string]: number;
+            } | null;
+        };
+        /**
+         * DocumentGovernanceState
+         * @description 与治理正文一起原子保存的用户治理状态。
+         */
+        DocumentGovernanceState: {
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+            /** Annotations */
+            annotations?: components["schemas"]["DocumentGovernanceAnnotation"][];
+            /** Tags */
+            tags?: string[];
+            /** Category */
+            category?: string | null;
+            /**
+             * Quality Score
+             * @default 0
+             */
+            quality_score: number;
+            /** Issues */
+            issues?: components["schemas"]["DocumentGovernanceIssue"][];
+        };
         /** DocumentHealthCard */
         DocumentHealthCard: {
             /**
@@ -14019,58 +14099,6 @@ export interface components {
             max_chars: number;
         };
         /**
-         * DocumentGovernanceAnnotation
-         * @description 治理工作台保存的单条文本标注。
-         */
-        DocumentGovernanceAnnotation: {
-            /** Id */
-            id: string;
-            /** Text */
-            text?: string;
-            /** @enum {string} */
-            type: "entity" | "keyword" | "sensitive" | "custom";
-            /** Label */
-            label?: string;
-            /** Start */
-            start?: number;
-            /** End */
-            end?: number;
-        };
-        /**
-         * DocumentGovernanceIssue
-         * @description 治理工作台保存的单条质量问题。
-         */
-        DocumentGovernanceIssue: {
-            /** Id */
-            id: string;
-            /** @enum {string} */
-            type: "error" | "warning" | "info";
-            /** Message */
-            message?: string;
-            /** Position */
-            position?: {
-                [key: string]: number;
-            } | null;
-        };
-        /**
-         * DocumentGovernanceState
-         * @description 与治理正文一起原子保存的用户治理状态。
-         */
-        DocumentGovernanceState: {
-            /** @constant */
-            version?: 1;
-            /** Annotations */
-            annotations?: components["schemas"]["DocumentGovernanceAnnotation"][];
-            /** Tags */
-            tags?: string[];
-            /** Category */
-            category?: string | null;
-            /** Quality Score */
-            quality_score?: number;
-            /** Issues */
-            issues?: components["schemas"]["DocumentGovernanceIssue"][];
-        };
-        /**
          * DocumentParsedContentUpdateRequest
          * @description 治理工作台写回的解析内容草稿。
          */
@@ -14079,7 +14107,6 @@ export interface components {
             markdown_content: string;
             /** Original Markdown Content */
             original_markdown_content?: string | null;
-            /** Governance */
             governance?: components["schemas"]["DocumentGovernanceState"] | null;
         };
         /**
@@ -16633,6 +16660,11 @@ export interface components {
             /** Description */
             description?: string | null;
             payload?: components["schemas"]["GovernanceProfilePayload"] | null;
+            /**
+             * Expected Updated At
+             * @description 客户端加载模板时的更新时间，用于阻止并发覆盖。
+             */
+            expected_updated_at?: string | null;
         };
         /**
          * GovernanceRegexRule
@@ -19744,7 +19776,6 @@ export interface components {
             markdown_content: string;
             /** Original Markdown Content */
             original_markdown_content?: string | null;
-            /** Governance */
             governance?: components["schemas"]["DocumentGovernanceState"] | null;
         };
         /** ParsingElementBBox */

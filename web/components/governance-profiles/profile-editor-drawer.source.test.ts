@@ -31,4 +31,10 @@ describe('治理模板规则编辑器', () => {
     expect(drawerSource).toContain('payload: payloadToSave')
     expect(drawerSource).toContain('setPipelinePatch(parsed.value)')
   })
+
+  it('更新模板时提交加载版本用于冲突检测', () => {
+    expect(drawerSource).toContain(
+      'expected_updated_at: loadedProfile?.updated_at || undefined'
+    )
+  })
 })

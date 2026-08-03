@@ -101,6 +101,10 @@ class GovernanceProfileUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     payload: GovernanceProfilePayload | None = None
+    expected_updated_at: datetime | None = Field(
+        default=None,
+        description="客户端加载模板时的更新时间，用于阻止并发覆盖。",
+    )
 
 
 class GovernanceProfileImportResponse(BaseModel):

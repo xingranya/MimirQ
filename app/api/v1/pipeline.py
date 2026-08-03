@@ -113,6 +113,7 @@ from app.api.v1.pipeline_support.governance_profiles import (
     _resolve_custom_profile_row,
     _resolve_profile_ref,
     _upsert_governance_profile_import_record,
+    governance_profile_timestamps_match,
 )
 from app.api.v1.pipeline_support.ingestion_preview import (
     _effective_bool,
@@ -165,6 +166,7 @@ from app.services.governance_profiles import (
 from app.services.governance_profiles_resolver import resolve_governance_profile_ref_effective
 from app.services.ingestion_policy import export_policy_json, match_ingestion_rule, parse_ingestion_policy_from_metadata
 from app.services.pipeline_config import resolve_pipeline_effective
+from app.services.rbac_service import TenantPermissions, ensure_tenant_permission
 from app.types.pipeline import PipelineOptions
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
@@ -177,6 +179,16 @@ _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
 
 router = APIRouter(responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
 logger = get_logger(__name__)
+
+
+def _ensure_governance_profile_write(db: Session, tenant_id: UUID, account_id: str) -> None:
+    ensure_tenant_permission(
+        db,
+        tenant_id,
+        account_id,
+        TenantPermissions.SETTINGS_WRITE,
+        detail="No permission to manage governance profiles",
+    )
 
 _BUILTIN_GOVERNANCE_PROFILES = get_builtin_governance_profiles()
 _BUILTIN_GOVERNANCE_BY_KEY = {p.key: p for p in _BUILTIN_GOVERNANCE_PROFILES}
@@ -709,7 +721,7 @@ def create_governance_profile(
     account_id: Annotated[str, Depends(get_current_account_id)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    DatasetService.ensure_member(db, tenant_id, account_id)
+    _ensure_governance_profile_write(db, tenant_id, account_id)
 
     name = str(body.name or "").strip()
     if not name:
@@ -791,9 +803,15 @@ def update_governance_profile(
     account_id: Annotated[str, Depends(get_current_account_id)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    DatasetService.ensure_member(db, tenant_id, account_id)
+    _ensure_governance_profile_write(db, tenant_id, account_id)
 
     row = _resolve_custom_profile_row(db=db, tenant_id=tenant_id, profile_ref=profile_ref, builtin_by_key=_BUILTIN_GOVERNANCE_BY_KEY)
+    db.refresh(row, with_for_update=True)
+    if not governance_profile_timestamps_match(row.updated_at, body.expected_updated_at):
+        raise HTTPException(
+            status_code=409,
+            detail="治理模板已被其他用户修改，请刷新后重试",
+        )
 
     if body.name is not None:
         name = str(body.name or "").strip()
@@ -827,7 +845,7 @@ def delete_governance_profile(
     account_id: Annotated[str, Depends(get_current_account_id)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    DatasetService.ensure_member(db, tenant_id, account_id)
+    _ensure_governance_profile_write(db, tenant_id, account_id)
 
     row = _resolve_custom_profile_row(db=db, tenant_id=tenant_id, profile_ref=profile_ref, builtin_by_key=_BUILTIN_GOVERNANCE_BY_KEY)
 
@@ -852,7 +870,7 @@ async def import_governance_profiles(
     - Only declarative JSON is accepted (no executable code).
     - Strong validation on regex rules and option keys is applied server-side.
     """
-    DatasetService.ensure_member(db, tenant_id, account_id)
+    _ensure_governance_profile_write(db, tenant_id, account_id)
 
     raw_profiles = _raw_governance_profile_import_items(await _read_governance_profile_import_json(file))
     created = 0

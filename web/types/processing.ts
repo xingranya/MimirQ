@@ -514,6 +514,7 @@ export interface GovernanceProfileUpdate {
   name?: string
   description?: string
   payload?: GovernanceProfilePayload
+  expected_updated_at?: string | null
 }
 
 export interface GovernanceProfileImportResponse {
