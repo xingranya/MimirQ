@@ -62,4 +62,21 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
     expect(source).not.toContain('shadow-')
   })
+
+  it('分组差异移除嵌套卡片和内部术语', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-slice-diff-panel.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('分组评测')
+    expect(source).toContain('基准 {bucket.items_before} 个样本')
+    expect(source).toContain('divide-y divide-border')
+    expect(source).not.toContain('diff.slice_diffs')
+    expect(source).not.toContain('Slice-based eval')
+    expect(source).not.toContain('before {bucket.items_before}')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl|full)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+  })
 })

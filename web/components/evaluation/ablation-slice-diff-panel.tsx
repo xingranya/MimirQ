@@ -6,6 +6,12 @@ import { cn } from '@/lib/utils'
 import type { RagasRegressionRunDiffResponse, RegressionRunMetricDiff, RegressionRunSliceBucketDiff } from '@/types'
 
 const KEY_METRICS = ['retrieval_recall', 'retrieval_mrr', 'retrieval_ndcg_at_10', 'retrieval_hit_at_20']
+const METRIC_LABELS: Record<string, string> = {
+  retrieval_recall: '召回率',
+  retrieval_mrr: 'MRR',
+  retrieval_ndcg_at_10: 'NDCG@10',
+  retrieval_hit_at_20: '命中率@20',
+}
 
 function toNumber(value: unknown): number | null {
   const n = Number(value)
@@ -49,7 +55,7 @@ export function AblationSliceDiffPanel({
     .filter((entry) => entry.buckets.length)
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <section className="rounded-md border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -57,46 +63,50 @@ export function AblationSliceDiffPanel({
             切片差异
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            直接读取 diff.slice_diffs，按文件类型、目录、语言、pipeline 等切片看 retrieval_recall / MRR 的局部退化，避免聚合指标掩盖问题。
+            按文件类型、目录、语言和处理版本比较局部分数，避免总分掩盖具体问题。
           </p>
         </div>
-        <div className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-          Slice-based eval
-        </div>
+        <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+          分组评测
+        </span>
       </div>
 
       {sliceEntries.length ? (
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <div className="mt-3 divide-y divide-border border-y border-border">
           {sliceEntries.map((entry) => (
-            <div key={entry.dimension} className="rounded-2xl border border-border bg-muted/50 p-3">
+            <div key={entry.dimension} className="py-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="font-mono text-xs font-semibold text-foreground">{entry.dimension}</div>
                 {entry.truncated ? (
-                  <div className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning">已截断</div>
+                  <span className="rounded-md bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                    仅显示部分结果
+                  </span>
                 ) : null}
               </div>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 divide-y divide-border border-t border-border">
                 {entry.buckets.map((bucket) => {
                   const delta = bucket.primary.delta
                   return (
-                    <div key={bucket.key} className="rounded-xl border border-border bg-background px-3 py-2">
+                    <div key={bucket.key} className="py-3">
                       <div className="flex items-center justify-between gap-3 text-xs">
                         <div className="min-w-0">
                           <div className="truncate font-medium text-foreground">{bucket.key || '-'}</div>
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            before {bucket.items_before} · after {bucket.items_after}
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            基准 {bucket.items_before} 个样本 · 当前 {bucket.items_after} 个样本
                           </div>
                         </div>
                         <div className={cn('font-mono font-semibold', delta === null ? 'text-muted-foreground' : delta >= 0 ? 'text-success' : 'text-destructive')}>
                           {formatDelta(delta)}
                         </div>
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px] text-muted-foreground md:grid-cols-4">
+                      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground md:grid-cols-4">
                         {KEY_METRICS.map((metric) => {
                           const metricValue = metricDelta(bucket.metrics, metric)
                           return (
-                            <div key={metric} className="rounded-lg bg-muted/50 px-2 py-1">
-                              <div className="truncate">{metric}</div>
+                            <div key={metric}>
+                              <div className="truncate">
+                                {METRIC_LABELS[metric] || metric}
+                              </div>
                               <div className={cn('font-mono', metricValue === null ? 'text-muted-foreground/70' : metricValue >= 0 ? 'text-success' : 'text-destructive')}>
                                 {formatDelta(metricValue)}
                               </div>
@@ -112,8 +122,8 @@ export function AblationSliceDiffPanel({
           ))}
         </div>
       ) : (
-        <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 px-3 py-8 text-center text-xs text-muted-foreground">
-          暂无切片 diff。生成 base vs target diff 后，如果后端返回 slice_diffs，这里会显示局部退化切片。
+        <div className="mt-3 border-y border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
+          暂无分组对比结果。请先选择基准运行和目标运行生成对比。
         </div>
       )}
     </section>
