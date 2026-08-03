@@ -88,11 +88,12 @@ import {
 
 type TabType = 'conversation' | 'regression' | 'queryset_health'
 type ConversationEvidenceFilter = 'ready' | 'missing' | 'all'
+type ConversationWorkspaceView = 'setup' | 'results' | 'runs'
 
 const EMPTY_CONVERSATIONS: Conversation[] = []
 const EMPTY_RUNS: RagasRun[] = []
 const ADVANCED_DIAGNOSTIC_ITEM_CLASS =
-  'items-start rounded-lg px-2.5 py-2.5 data-[highlighted]:bg-info/5 data-[highlighted]:text-foreground focus:bg-info/5 focus:text-foreground'
+  'items-start rounded-md px-2.5 py-2.5 data-[highlighted]:bg-muted data-[highlighted]:text-foreground focus:bg-muted focus:text-foreground'
 
 const CONVERSATION_EVIDENCE_FILTERS: Array<{
   id: ConversationEvidenceFilter
@@ -336,22 +337,22 @@ function EvaluationConfigSection({
   return (
     <section
       className={cn(
-        'border-b border-border/60 px-3 py-2.5 last:border-b-0',
+        'border-b border-border px-3 py-3 last:border-b-0',
         className
       )}
     >
       <div className="flex items-start gap-2.5">
         {Icon ? (
-          <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md border border-info/30 bg-info/10 text-info">
+          <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-muted text-primary">
             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         ) : null}
         <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <div className="text-[13px] font-semibold text-foreground">
             {title}
           </div>
           {description ? (
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -370,11 +371,11 @@ function EvaluationInlineStat({
   value: ReactNode
 }>) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-info/20 bg-[linear-gradient(90deg,hsl(var(--card)),hsl(var(--info)/0.08))] px-3 py-1.5 shadow-sm backdrop-blur-sm">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-info/80">
+    <div className="inline-flex min-h-8 items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
-      <span className="font-mono text-[12px] font-bold tabular-nums text-foreground">
+      <span className="text-xs font-semibold tabular-nums text-foreground">
         {value}
       </span>
     </div>
@@ -401,10 +402,10 @@ function buildEvidenceReadinessState({
         : '这条会话不能计算忠实度'
   const description =
     tone === 'ready'
-      ? 'assistant 消息已写入 citations，Faithfulness 会基于这些证据判断答案是否忠于上下文。'
+      ? '助手回答已经包含引用证据，可以据此判断答案是否忠于上下文。'
       : tone === 'checking'
-      ? '正在读取会话消息，确认是否有可用于评测的 citations / retrieved contexts。'
-      : '这类历史会话可以阅读答案，但没有写入 citations / retrieved contexts；忠实度评测没有输入，不代表答案一定错。'
+        ? '正在读取会话消息，确认是否有可用于评测的引用证据。'
+        : '这条历史会话仍可阅读，但没有保存引用证据，因此无法计算忠实度；这不代表答案一定错误。'
 
   return {
     tone,
@@ -425,14 +426,14 @@ function EvaluationStageStat({
   helper: string
 }>) {
   return (
-    <div className="rounded-2xl border border-info/20 bg-[linear-gradient(135deg,hsl(var(--card)),hsl(var(--muted)/0.55),hsl(var(--info)/0.12))] px-3.5 py-3 shadow-sm backdrop-blur-sm">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="border-b border-border px-1 py-3 last:border-b-0">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1.5 text-[18px] font-bold leading-tight tabular-nums text-foreground">
+      <div className="mt-1 text-xl font-semibold leading-7 tabular-nums text-foreground">
         {value}
       </div>
-      <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{helper}</div>
+      <div className="mt-1 text-xs leading-5 text-muted-foreground">{helper}</div>
     </div>
   )
 }
@@ -473,41 +474,41 @@ function EvaluationResultsStage({
   })
   const readinessLabelClassName =
     readiness.tone === 'ready'
-      ? 'bg-[linear-gradient(90deg,hsl(var(--success)/0.18),hsl(var(--success)/0.10))] text-success'
+      ? 'bg-success/10 text-success'
       : readiness.tone === 'checking'
-        ? 'bg-[linear-gradient(90deg,hsl(var(--info)/0.18),hsl(var(--primary)/0.12))] text-info'
-        : 'bg-[linear-gradient(90deg,hsl(var(--warning)/0.18),hsl(var(--warning)/0.10))] text-warning'
+        ? 'bg-info/10 text-info'
+        : 'bg-warning/10 text-warning'
   const isDeterministicEvaluation =
     String(summary.mode || '') === 'deterministic_conversation'
   const deterministicReason = String(summary.ragas_skipped_reason || '')
   const deterministicDescription =
     deterministicReason === 'ragas_wall_timeout'
-      ? 'RAGAS 超时后已自动降级；当前分数由答案与 citations 证据的可核验一致性计算，不是 LLM Judge 分数。'
-      : '当前分数由答案与 citations 证据的可核验一致性计算，不是 LLM Judge 分数。'
+      ? '评测服务超时后已自动切换为证据校验；当前分数由答案与引用证据的一致性计算。'
+      : '当前分数由答案与引用证据的一致性计算。'
 
   return (
     <section
       className={cn(
-        'overflow-hidden rounded-[28px] border border-info/20 bg-card/85 shadow-lg backdrop-blur-sm',
+        'overflow-hidden rounded-lg border border-border bg-card',
         'flex flex-col',
         fillAvailableHeight && 'min-h-0 flex-1',
         className
       )}
     >
-      <div className="border-b border-info/20 bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--card)/0.96),hsl(var(--primary)/0.08))] px-4 py-4">
+      <div className="border-b border-border bg-muted/30 px-4 py-4">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex h-7 items-center rounded-full border border-info/30 bg-card/85 px-3 text-[11px] font-semibold text-info shadow-sm">
+          <span className="inline-flex h-7 items-center rounded-md border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground">
             运行详情
           </span>
           {statusBadge}
         </div>
         <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <div className="line-clamp-2 text-[18px] font-bold leading-tight text-foreground">
+            <div className="line-clamp-2 text-base font-semibold leading-6 text-foreground">
               {selectedRunTitle}
             </div>
-            <p className="mt-1.5 max-w-3xl text-[12.5px] leading-5 text-muted-foreground">
-              把忠实度可评估性、当前 run 状态和结果输出收进同一个结果舞台，避免同一条线索被拆成多个孤立块。
+            <p className="mt-1 max-w-3xl text-[13px] leading-5 text-muted-foreground">
+              查看当前会话的证据完整性、运行状态和评分结果。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -531,29 +532,29 @@ function EvaluationResultsStage({
           )}
         >
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               忠实度可评估性
             </div>
             <span
               className={cn(
-                'rounded-full px-3 py-1 text-[11px] font-bold shadow-sm',
+                'rounded-md px-2 py-1 text-xs font-semibold',
                 readinessLabelClassName
               )}
             >
               {readiness.label}
             </span>
           </div>
-          <div className="text-[17px] font-semibold text-foreground">
+          <div className="text-base font-semibold text-foreground">
             {readiness.title}
           </div>
-          <p className="max-w-3xl text-[12.5px] leading-5 text-muted-foreground">
+          <p className="max-w-3xl text-[13px] leading-5 text-muted-foreground">
             {readiness.description}
           </p>
           {isDeterministicEvaluation ? (
-            <div className="rounded-xl border border-info/25 bg-info/[0.10] px-3 py-2.5 text-[11.5px] leading-5 text-foreground">
+            <div className="rounded-md border border-info/25 bg-info/10 px-3 py-2.5 text-xs leading-5 text-foreground">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-info">评测方式</span>
-                <span className="rounded-full bg-card px-2.5 py-0.5 font-bold text-info shadow-sm ring-1 ring-info/25">
+                <span className="rounded-md border border-info/20 bg-card px-2 py-0.5 font-semibold text-info">
                   确定性证据校验
                 </span>
               </div>
@@ -563,64 +564,64 @@ function EvaluationResultsStage({
             </div>
           ) : null}
           {readiness.showMissingEvidenceFailure ? (
-            <p className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-[11.5px] font-semibold leading-5 text-warning">
-              当前 run 的失败原因是缺少证据，不是 RAGAS 算出低分。
+            <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium leading-5 text-warning">
+              当前任务因缺少引用证据而失败，并非评分过低。
             </p>
           ) : null}
 
           {!displayMetrics.length ? (
             <div
               className={cn(
-                'rounded-2xl border border-dashed border-info/30 bg-[linear-gradient(135deg,hsl(var(--muted)/0.55),hsl(var(--card)/0.96),hsl(var(--info)/0.12))] p-4',
+                'rounded-md border border-dashed border-border bg-muted/30 p-4',
                 fillAvailableHeight && 'flex flex-1 flex-col justify-between'
               )}
             >
-              <div className="text-[14px] font-semibold text-foreground">
+              <div className="text-sm font-semibold text-foreground">
                 {emptyRunState.title}
               </div>
-              <p className="mt-1.5 max-w-2xl text-[12px] leading-5 text-muted-foreground">
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
                 {emptyRunState.description}
               </p>
-              <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-                <div className="rounded-xl border border-info/20 bg-card/90 px-3 py-2.5 shadow-sm">
-                  <div className="text-[11px] font-bold text-info">
+              <ol className="mt-4 grid gap-3 border-t border-border pt-3 sm:grid-cols-3">
+                <li>
+                  <div className="text-xs font-semibold text-foreground">
                     1 选择会话来源
                   </div>
-                  <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
                     从已有会话或查询中选择
                   </div>
-                </div>
-                <div className="rounded-xl border border-info/20 bg-card/90 px-3 py-2.5 shadow-sm">
-                  <div className="text-[11px] font-bold text-info">
+                </li>
+                <li>
+                  <div className="text-xs font-semibold text-foreground">
                     2 配置评测参数
                   </div>
-                  <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
                     选择指标与过滤规则
                   </div>
-                </div>
-                <div className="rounded-xl border border-info/20 bg-card/90 px-3 py-2.5 shadow-sm">
-                  <div className="text-[11px] font-bold text-info">
+                </li>
+                <li>
+                  <div className="text-xs font-semibold text-foreground">
                     3 开始评测
                   </div>
-                  <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
                     流程完成后查看结果
                   </div>
-                </div>
-              </div>
+                </li>
+              </ol>
             </div>
           ) : null}
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="grid gap-0 border-t border-border sm:grid-cols-3 sm:divide-x sm:divide-border xl:grid-cols-1 xl:divide-x-0 xl:border-l xl:border-t-0 xl:pl-4">
           <EvaluationStageStat
             label="评测样本"
             value={formatCompactCount(summary.items)}
-            helper="当前 run 纳入统计的轮次数"
+            helper="当前任务纳入统计的轮次数"
           />
           <EvaluationStageStat
             label="令牌开销"
             value={formatCompactCount(summary.total_tokens)}
-            helper="本次运行累计的 token 消耗"
+            helper="本次运行累计的令牌消耗"
           />
           <EvaluationStageStat
             label="LLM 成本"
@@ -631,26 +632,26 @@ function EvaluationResultsStage({
       </div>
 
       {displayMetrics.length ? (
-        <div className="border-t border-info/20 bg-[linear-gradient(180deg,hsl(var(--muted)/0.34),hsl(var(--card)))] px-4 py-4">
+        <div className="border-t border-border px-4 py-4">
           <div className="mb-3 flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex items-center gap-2 text-[14px] font-bold text-foreground">
-              <BarChart3 className="h-4 w-4 text-info" aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              <BarChart3 className="h-4 w-4 text-primary" aria-hidden="true" />
               得分概览
             </div>
-            <span className="rounded-full border border-info/30 bg-card px-2.5 py-1 text-[10.5px] font-semibold text-info shadow-sm">
+            <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
               {displayMetrics.length} 项指标
             </span>
           </div>
-          <div className="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 2xl:grid-cols-3">
             {displayMetrics.map((metric) => (
               <div
                 key={metric.key}
-                className="rounded-2xl border border-info/20 bg-card/90 px-3.5 py-3 shadow-sm"
+                className="border-t border-border pt-3"
               >
-                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-info">
+                <div className="text-xs font-medium text-muted-foreground">
                   {metricLabel(metric.key)}
                 </div>
-                <div className="mt-1.5 text-[22px] font-bold leading-none tabular-nums text-foreground">
+                <div className="mt-1 text-xl font-semibold leading-7 tabular-nums text-foreground">
                   {metric.value.toFixed(3)}
                 </div>
               </div>
@@ -676,37 +677,32 @@ function EvaluationHeroEmptyState({
   return (
     <div
       className={cn(
-        'flex rounded-xl border border-dashed border-border bg-muted/40',
+        'flex rounded-md border border-dashed border-border bg-muted/30',
         compact
           ? 'min-h-[148px] flex-row items-center justify-start gap-3 px-3 py-2.5 text-left'
           : 'min-h-[188px] flex-col items-center justify-center px-6 py-8 text-center'
       )}
     >
-      {compact ? (
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-card text-primary shadow-[0_8px_20px_hsl(var(--primary)/0.10)]">
-          <BarChart3 className="h-4 w-4" aria-hidden="true" />
-        </span>
-      ) : (
-        <div className="relative mb-3 h-16 w-20">
-          <div className="absolute left-5 top-1 h-14 w-12 rounded-xl border border-primary/20 bg-card shadow-[0_10px_28px_hsl(var(--primary)/0.12)]" />
-          <div className="absolute left-8 top-0 h-4 w-6 rounded-md bg-primary/15 ring-1 ring-primary/30" />
-          <div className="absolute left-9 top-9 h-3 w-2 rounded-sm bg-primary/30" />
-          <div className="absolute left-12 top-7 h-5 w-2 rounded-sm bg-primary" />
-          <div className="absolute left-[60px] top-5 h-7 w-2 rounded-sm bg-primary" />
-        </div>
-      )}
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-md bg-muted text-primary',
+          compact ? 'h-10 w-10' : 'mb-3 h-12 w-12'
+        )}
+      >
+        <BarChart3 className="h-5 w-5" aria-hidden="true" />
+      </span>
       <div className={cn(compact && 'min-w-0')}>
         <div
           className={cn(
             'font-semibold text-foreground',
-            compact ? 'text-[13px]' : 'text-[14px]'
+            compact ? 'text-[13px]' : 'text-sm'
           )}
         >
           {title}
         </div>
         <p
           className={cn(
-            'max-w-xl text-[12px] text-muted-foreground',
+            'max-w-xl text-xs text-muted-foreground',
             compact ? 'mt-1 leading-4' : 'mt-2 leading-5'
           )}
         >
@@ -798,7 +794,7 @@ function EvaluationHeroCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-72 rounded-md border-border bg-popover p-1.5 shadow-lg"
+                className="w-72 rounded-md border-border bg-popover p-1.5"
               >
                 <DropdownMenuLabel className="px-2.5 py-2 text-xs font-medium text-foreground">
                   召回与向量诊断
@@ -810,10 +806,10 @@ function EvaluationHeroCard({
                   <Link href="/knowledge/similarity">
                     <Grid3X3 className="mt-0.5 h-4 w-4 shrink-0 text-info" />
                     <span className="min-w-0">
-                      <span className="block text-[13px] font-bold text-foreground">
-                        向量相似度诊断
-                      </span>
-                      <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                        <span className="block text-[13px] font-semibold text-foreground">
+                          向量相似度诊断
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                         用热力图检查问题、切片与数据集之间的语义重叠。
                       </span>
                     </span>
@@ -829,10 +825,10 @@ function EvaluationHeroCard({
                       <Link href="/evaluations/ablations">
                         <SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-info" />
                         <span className="min-w-0">
-                          <span className="block text-[13px] font-bold text-foreground">
+                          <span className="block text-[13px] font-semibold text-foreground">
                             检索调参对比
                           </span>
-                          <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                          <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                             对比检索配置、消融结果和参数影响。
                           </span>
                         </span>
@@ -881,12 +877,12 @@ function CollapsedWorkspaceRail({
   const ExpandIcon = side === 'left' ? ChevronRight : ChevronLeft
 
   return (
-    <aside className="hidden xl:flex min-h-0 flex-col items-center rounded-2xl border border-info/20 bg-card/80 px-2 py-3 shadow-lg backdrop-blur-sm">
+    <aside className="hidden min-h-0 flex-col items-center rounded-lg border border-border bg-card px-2 py-3 xl:flex">
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="h-9 w-9 rounded-xl border border-info/30 bg-info/5 text-info shadow-sm hover:bg-info/15"
+        className="h-9 w-9 rounded-md border border-border text-primary hover:bg-muted"
         onClick={onExpand}
         title={expandLabel}
         aria-label={expandLabel}
@@ -894,7 +890,7 @@ function CollapsedWorkspaceRail({
         <Icon className="h-4 w-4" aria-hidden="true" />
       </Button>
 
-      <div className="mt-3 text-center text-[10.5px] font-semibold leading-4 text-muted-foreground">
+      <div className="mt-3 text-center text-xs font-medium leading-4 text-muted-foreground">
         {title}
       </div>
 
@@ -902,12 +898,12 @@ function CollapsedWorkspaceRail({
         {badgeItems.map((item) => (
           <div
             key={item.label}
-            className="rounded-xl border border-info/20 bg-[linear-gradient(135deg,hsl(var(--card)),hsl(var(--info)/0.10))] px-1.5 py-2 text-center shadow-sm"
+            className="border-t border-border px-1 py-2 text-center"
           >
-            <div className="text-[11px] font-bold leading-none tabular-nums text-foreground">
+            <div className="text-xs font-semibold leading-none tabular-nums text-foreground">
               {item.value}
             </div>
-            <div className="mt-1 text-[9px] font-semibold leading-3 text-info">
+            <div className="mt-1 text-xs font-medium leading-4 text-muted-foreground">
               {item.label}
             </div>
           </div>
@@ -918,7 +914,7 @@ function CollapsedWorkspaceRail({
         type="button"
         variant="ghost"
         size="icon"
-        className="mt-auto h-8 w-8 rounded-full text-muted-foreground hover:bg-info/10 hover:text-info"
+        className="mt-auto h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         onClick={onExpand}
         title={expandLabel}
         aria-label={expandLabel}
@@ -955,12 +951,14 @@ function RunRecordCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full rounded-xl border bg-card/80 p-3 text-left shadow-sm backdrop-blur-sm transition-all duration-200 hover:shadow-md hover:scale-[1.02] focus-ring',
-        active ? 'border-info/40 bg-[linear-gradient(135deg,hsl(var(--info)/0.12),hsl(var(--primary)/0.10))] ring-2 ring-info/20 shadow-info/20' : 'border-info/20 hover:border-info/30'
+        'w-full rounded-md border bg-card p-3 text-left transition-colors focus-ring',
+        active
+          ? 'border-primary/40 bg-primary/5'
+          : 'border-border hover:border-primary/30 hover:bg-muted/30'
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 text-[13px] font-bold text-foreground">
+        <div className="min-w-0 text-[13px] font-semibold text-foreground">
           <div className="truncate">
             {shortConversationTitle(conversation, run.conversation_id)}
           </div>
@@ -973,7 +971,7 @@ function RunRecordCard({
           />
         </span>
       </div>
-      <div className="mt-2 space-y-1 text-[11px] leading-4 text-muted-foreground">
+      <div className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
         <div>运行时间：{formatDateTime(run.created_at)}</div>
         <div className="flex items-center gap-4">
           <span className="font-medium">轮次：{samples}</span>
@@ -984,23 +982,23 @@ function RunRecordCard({
         <div className="mt-2.5 flex items-center gap-2">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-info/10">
             <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-[width] duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-[11px] font-semibold tabular-nums text-info">
+          <span className="text-xs font-semibold tabular-nums text-primary">
             {progress}%
           </span>
         </div>
       )}
       {run.status === 'failed' && run.error_message ? (
-        <div className="mt-2 line-clamp-2 rounded-lg bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive">
+        <div className="mt-2 line-clamp-2 rounded-md bg-destructive/5 px-2 py-1 text-xs font-medium text-destructive">
           {missingEvidence
-            ? '缺少 citations / retrieved contexts，无法计算忠实度。'
+            ? '缺少引用证据，无法计算忠实度。'
             : `错误：${run.error_message}`}
         </div>
       ) : (
-        <div className="mt-2 text-right text-[10.5px] font-medium text-info">
+        <div className="mt-2 text-right text-xs font-medium text-muted-foreground">
           耗时：{formatRunDuration(run)}
         </div>
       )}
@@ -1014,15 +1012,15 @@ function ScoreDetailsCard({
   rows: ReturnType<typeof scoreRowsFor>
 }>) {
   return (
-    <section className="rounded-2xl border border-info/20 bg-card/80 shadow-md backdrop-blur-sm">
-      <div className="flex items-center gap-2.5 border-b border-info/20 bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.08))] px-4 py-3">
-        <div className="text-[14px] font-bold text-foreground">评分明细</div>
-        <Info className="h-4 w-4 text-info" aria-hidden="true" />
+    <section className="rounded-lg border border-border bg-card">
+      <div className="flex items-center gap-2.5 border-b border-border bg-muted/30 px-4 py-3">
+        <div className="text-sm font-semibold text-foreground">评分明细</div>
+        <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </div>
       {rows.length ? (
         <div className="overflow-auto">
-          <table className="w-full text-left text-[12.5px]">
-            <thead className="bg-[linear-gradient(90deg,hsl(var(--info)/0.10),hsl(var(--primary)/0.08))] text-foreground/85">
+          <table className="w-full min-w-[620px] text-left text-[13px]">
+            <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5 font-bold">指标</th>
                 <th className="px-4 py-2.5 font-bold">平均分</th>
@@ -1031,9 +1029,9 @@ function ScoreDetailsCard({
                 <th className="px-4 py-2.5 font-bold">通过率（≥0.8）</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-info/20">
+            <tbody className="divide-y divide-border">
               {rows.map((row) => (
-                <tr key={row.key} className="hover:bg-info/5 transition-colors">
+                <tr key={row.key} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-bold text-foreground">
                     {row.label}
                   </td>
@@ -1085,7 +1083,7 @@ function IterationDetailsCard({
     : items
 
   return (
-    <section className="rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <section className="rounded-lg border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <div className="text-[13px] font-semibold text-foreground">
@@ -1094,7 +1092,7 @@ function IterationDetailsCard({
           <Info className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden="true" />
         </div>
         <div className="flex items-center gap-2">
-          <label className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
+          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             仅看异常
             <Checkbox
               checked={onlyFailures}
@@ -1103,7 +1101,7 @@ function IterationDetailsCard({
           </label>
           <Button
             variant="outline"
-            className="h-7 rounded-lg border-border bg-card px-2.5 text-[12px]"
+            className="h-8 rounded-md border-border bg-card px-2.5 text-xs"
             disabled={!items.length}
             onClick={onExport}
           >
@@ -1115,7 +1113,7 @@ function IterationDetailsCard({
         <div className="max-h-[276px] overflow-auto">
           <table
             aria-label="逐轮评分明细"
-            className="w-full min-w-[760px] text-left text-[12px]"
+            className="w-full min-w-[760px] text-left text-xs"
           >
             <thead className="sticky top-0 z-10 bg-muted/50 text-muted-foreground">
               <tr>
@@ -1166,7 +1164,7 @@ function IterationDetailsCard({
                     <td className="px-3 py-1.5">
                       <span
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                          'rounded-md px-2 py-0.5 text-xs font-medium',
                           anomaly
                             ? 'bg-destructive/10 text-destructive'
                             : 'bg-success/10 text-success'
@@ -1239,6 +1237,8 @@ function EvaluationsPageContent() {
   const [isRunRecordsCollapsed, setIsRunRecordsCollapsed] = useState(false)
   const [setupRailCollapsed, setSetupRailCollapsed] = useState(false)
   const [runsRailCollapsed, setRunsRailCollapsed] = useState(false)
+  const [conversationWorkspaceView, setConversationWorkspaceView] =
+    useState<ConversationWorkspaceView>('results')
   const [conversationEvidenceFilter, setConversationEvidenceFilter] =
     useState<ConversationEvidenceFilter>('ready')
 
@@ -1413,6 +1413,7 @@ function EvaluationsPageContent() {
       })
       await runsQuery.refetch()
       setSelectedRunId(run.id)
+      setConversationWorkspaceView('results')
     } catch (e) {
       reportClientError('Failed to start evaluation', e)
       toast.error(formatApiError(e, '启动评测失败'))
@@ -1508,20 +1509,20 @@ function EvaluationsPageContent() {
           : '评测失败，暂无分数',
         description:
           (isMissingEvidenceFailure
-            ? '这条会话没有可评估的 citations / retrieved contexts。请用见外传媒知识库对话或 Dify HTTP 回写证据链后再评测。'
+            ? '这条会话没有可用于评测的引用证据。请先在知识库对话中完成一次带引用的问答，再重新评测。'
             : runErrorMessage) ||
-          '该运行失败，后端未生成 summary 分数；请检查会话是否带有 citations / retrieved contexts。',
+          '该任务没有生成评分结果，请检查会话是否包含引用证据后重试。',
       }
     }
     if (runStatus === 'pending' || runStatus === 'running') {
       return {
         title: '评测运行中',
-        description: '后端正在计算评分，完成后会自动刷新运行详情。',
+        description: '正在计算评分，完成后会自动刷新运行详情。',
       }
     }
     return {
       title: '暂无评分数据',
-      description: '这条 run 已返回，但后端尚未生成 summary 分数或逐轮 scores。',
+      description: '当前任务尚未生成汇总分数或逐轮明细。',
     }
   }, [isMissingEvidenceFailure, runErrorMessage, runStatus, selectedRunId])
   const scoreRows = useMemo(
@@ -1588,7 +1589,7 @@ function EvaluationsPageContent() {
       : runStatusCounts.failed
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden bg-[linear-gradient(135deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.07),hsl(var(--info)/0.10))]">
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
       <AnalysisPageShell
         title="评测中心"
         description="把实时会话评测、回归测试与检索集健康度放到同一个工作台里，减少来回切页。"
@@ -1615,32 +1616,56 @@ function EvaluationsPageContent() {
         bodyClassName="!pt-0 !pb-0"
         bodyContainerClassName="max-w-none"
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-4">
-          <section className="overflow-hidden rounded-2xl border border-info/20 bg-card/80 shadow-md backdrop-blur-sm">
-            <div className="flex items-center gap-3 bg-[linear-gradient(90deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] px-4 py-3">
-              <nav className="flex items-center gap-1 rounded-xl bg-card/65 p-1 shadow-sm backdrop-blur-sm">
-                {TAB_META.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      'relative inline-flex h-8 items-center gap-2 rounded-lg px-3.5 text-[12px] font-medium transition-all duration-200',
-                      isActiveTab(tab.id)
-                        ? 'bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] text-primary-foreground shadow-md shadow-info/20'
-                        : 'text-muted-foreground hover:bg-info/5 hover:text-info'
-                    )}
-                  >
-                    <tab.icon className="h-4 w-4" aria-hidden="true" />
-                    {tab.label}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </section>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
+          <nav
+            aria-label="评测类型"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border pb-2"
+          >
+            {TAB_META.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={isActiveTab(tab.id) ? 'page' : undefined}
+                className={cn(
+                  'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-medium transition-colors focus-ring',
+                  isActiveTab(tab.id)
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <tab.icon className="h-4 w-4" aria-hidden="true" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
           {activeTab === 'conversation' ? (
-            <div className={cn('grid min-h-[610px] gap-3', conversationDesktopGridClass)}>
+            <div className={cn('grid min-h-0 gap-3 xl:min-h-[610px]', conversationDesktopGridClass)}>
+              <div className="col-span-full grid grid-cols-3 gap-1 rounded-md border border-border bg-muted/30 p-1 xl:hidden">
+                {([
+                  { id: 'setup', label: '参数', icon: SlidersHorizontal },
+                  { id: 'results', label: '结果', icon: BarChart3 },
+                  { id: 'runs', label: '记录', icon: ListChecks },
+                ] as const).map((view) => (
+                  <button
+                    key={view.id}
+                    type="button"
+                    onClick={() => setConversationWorkspaceView(view.id)}
+                    aria-pressed={conversationWorkspaceView === view.id}
+                    className={cn(
+                      'inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium transition-colors focus-ring',
+                      conversationWorkspaceView === view.id
+                        ? 'bg-card text-primary'
+                        : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                    )}
+                  >
+                    <view.icon className="h-4 w-4" aria-hidden="true" />
+                    {view.label}
+                  </button>
+                ))}
+              </div>
+
               {setupRailCollapsed ? (
                 <CollapsedWorkspaceRail
                   title="参数栏"
@@ -1660,12 +1685,18 @@ function EvaluationsPageContent() {
                   onExpand={() => setSetupRailCollapsed(false)}
                   side="left"
                 />
-              ) : (
-                <aside className="flex min-h-0 max-h-[calc(100vh-246px)] flex-col rounded-2xl border border-info/20 bg-card/80 shadow-lg backdrop-blur-sm">
-                  <div className="flex items-center justify-between border-b border-info/20 bg-[linear-gradient(90deg,hsl(var(--info)/0.10),hsl(var(--primary)/0.08))] px-4 py-3">
-                    <div className="inline-flex items-center gap-2.5 text-[14px] font-bold text-foreground">
+              ) : null}
+              <aside
+                className={cn(
+                  'min-h-0 max-h-[calc(100dvh-220px)] flex-col overflow-hidden rounded-lg border border-border bg-card xl:max-h-[calc(100vh-246px)]',
+                  conversationWorkspaceView === 'setup' ? 'flex' : 'hidden',
+                  setupRailCollapsed ? 'xl:hidden' : 'xl:flex'
+                )}
+              >
+                  <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+                    <div className="inline-flex items-center gap-2.5 text-sm font-semibold text-foreground">
                       <SlidersHorizontal
-                        className="h-4.5 w-4.5 text-info"
+                        className="h-4 w-4 text-primary"
                         aria-hidden="true"
                       />
                       参数设置
@@ -1675,7 +1706,7 @@ function EvaluationsPageContent() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-7 rounded-lg px-2.5 text-[11px] font-semibold text-info hover:bg-info/10"
+                        className="h-8 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => {
                           setMetricKeys(['faithfulness', 'response_relevancy'])
                           setMaxTurns(20)
@@ -1689,7 +1720,7 @@ function EvaluationsPageContent() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="hidden h-7 w-7 rounded-lg text-muted-foreground hover:bg-info/10 hover:text-info xl:inline-flex"
+                        className="hidden h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground xl:inline-flex"
                         onClick={() => setSetupRailCollapsed(true)}
                         aria-label="收起参数栏"
                         title="收起参数栏"
@@ -1699,7 +1730,7 @@ function EvaluationsPageContent() {
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 divide-y divide-info/20 overflow-y-auto">
+                  <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
                     <EvaluationConfigSection
                       icon={Database}
                       title="对话来源"
@@ -1709,7 +1740,7 @@ function EvaluationsPageContent() {
                         value={scopedConversationId}
                         onValueChange={handleConversationChange}
                       >
-                        <SelectTrigger className="h-10 rounded-xl border-info/30 bg-card text-[13px] shadow-sm">
+                        <SelectTrigger className="h-10 rounded-md border-border bg-card text-[13px]">
                           <SelectValue placeholder="请选择会话或查询" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1748,7 +1779,7 @@ function EvaluationsPageContent() {
                                 </span>
                                 <span
                                   className={cn(
-                                    'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                                    'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
                                     !evidence?.isKnown
                                       ? 'bg-muted text-muted-foreground'
                                       : evidence.isEvaluable
@@ -1764,7 +1795,7 @@ function EvaluationsPageContent() {
                           })}
                         </SelectContent>
                       </Select>
-                      <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl border border-info/30 bg-[linear-gradient(135deg,hsl(var(--info)/0.10),hsl(var(--primary)/0.08))] p-1.5">
+                      <div className="mt-2.5 grid grid-cols-3 gap-1 rounded-md border border-border bg-muted/30 p-1">
                         {CONVERSATION_EVIDENCE_FILTERS.map((filter) => {
                           const count =
                             filter.id === 'ready'
@@ -1779,14 +1810,14 @@ function EvaluationsPageContent() {
                               type="button"
                               onClick={() => setConversationEvidenceFilter(filter.id)}
                               className={cn(
-                                'rounded-lg px-2 py-1.5 text-[11.5px] font-bold transition-all duration-200',
+                                'rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
                                 active
-                                  ? 'bg-card text-info shadow-md ring-1 ring-info/20'
+                                  ? 'bg-card text-primary'
                                   : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
                               )}
                             >
                               {filter.label}
-                              <span className="ml-1.5 font-mono tabular-nums">
+                              <span className="ml-1.5 tabular-nums">
                                 {count}
                               </span>
                             </button>
@@ -1835,9 +1866,9 @@ function EvaluationsPageContent() {
                         onMetricKeysChange={setMetricKeys}
                         scope="conversation"
                         className="space-y-1.5"
-                        itemClassName="rounded-lg border border-border bg-card px-2 py-1 shadow-sm"
-                        labelClassName="text-[11px]"
-                        hintClassName="text-[10px] leading-3"
+                        itemClassName="rounded-md border border-border bg-card px-2 py-1"
+                        labelClassName="text-xs"
+                        hintClassName="text-xs leading-4"
                       />
                     </EvaluationConfigSection>
 
@@ -1851,7 +1882,7 @@ function EvaluationsPageContent() {
                         <div className="space-y-1.5">
                           <Label
                             htmlFor="max-turns"
-                            className="text-[12px] font-medium text-muted-foreground"
+                            className="text-xs font-medium text-muted-foreground"
                           >
                             最近轮次
                           </Label>
@@ -1862,11 +1893,11 @@ function EvaluationsPageContent() {
                             max={200}
                             value={maxTurns}
                             onChange={(e) => setMaxTurns(Number(e.target.value))}
-                            className="h-9 rounded-lg border-border bg-card text-xs"
+                            className="h-9 rounded-md border-border bg-card text-xs"
                           />
                         </div>
 
-                        <label className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2 shadow-sm">
+                        <label className="flex items-start gap-2.5 rounded-md border border-border bg-card px-2.5 py-2">
                           <Checkbox
                             checked={skipEmptyContexts}
                             onCheckedChange={(value) =>
@@ -1874,10 +1905,10 @@ function EvaluationsPageContent() {
                             }
                           />
                           <span className="space-y-0.5">
-                            <span className="block text-[12px] font-medium text-foreground">
+                            <span className="block text-xs font-medium text-foreground">
                               跳过无引用轮次
                             </span>
-                            <span className="block text-[11px] leading-4 text-muted-foreground">
+                            <span className="block text-xs leading-4 text-muted-foreground">
                               减少空样本干扰，让结果更接近真实 RAG 场景。
                             </span>
                           </span>
@@ -1886,7 +1917,7 @@ function EvaluationsPageContent() {
                     </EvaluationConfigSection>
                   </div>
 
-                  <div className="shrink-0 border-t border-info/20 bg-[linear-gradient(90deg,hsl(var(--info)/0.06),hsl(var(--primary)/0.05))] p-3">
+                  <div className="shrink-0 border-t border-border bg-muted/30 p-3">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <EvaluationInlineStat
                         label="指标数"
@@ -1899,7 +1930,7 @@ function EvaluationsPageContent() {
                       />
                     </div>
                     <Button
-                      className="h-10 w-full rounded-full bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] text-[13px] font-bold text-primary-foreground shadow-lg shadow-info/20 transition-all duration-200 hover:bg-[linear-gradient(90deg,hsl(var(--info)/0.92),hsl(var(--primary)/0.92))] hover:shadow-xl hover:shadow-info/20"
+                      className="h-10 w-full rounded-md bg-primary text-[13px] font-semibold text-primary-foreground hover:bg-primary/90"
                       disabled={
                         isStarting ||
                         !scopedConversationId ||
@@ -1917,7 +1948,7 @@ function EvaluationsPageContent() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="mt-2 h-8 w-full rounded-full border-info/30 bg-card/80 text-[12px] font-semibold text-info shadow-sm backdrop-blur-sm hover:bg-info/[0.08]"
+                      className="mt-2 h-9 w-full rounded-md border-border bg-card text-xs font-medium text-foreground hover:bg-muted"
                       onClick={() => refreshEvaluationWorkspace()}
                     >
                       <RefreshCw
@@ -1930,9 +1961,14 @@ function EvaluationsPageContent() {
                     </Button>
                   </div>
                 </aside>
-              )}
 
-              <main className="flex min-h-0 min-w-0 flex-col gap-3">
+              <main
+                className={cn(
+                  'min-h-0 min-w-0 flex-col gap-3',
+                  conversationWorkspaceView === 'results' ? 'flex' : 'hidden',
+                  'xl:flex'
+                )}
+              >
                 <EvaluationResultsStage
                   selectedRunTitle={selectedRunTitle}
                   statusBadge={statusBadge}
@@ -1984,22 +2020,28 @@ function EvaluationsPageContent() {
                   onExpand={() => setRunsRailCollapsed(false)}
                   side="right"
                 />
-              ) : (
-                <aside className="flex max-h-[calc(100vh-246px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-info/20 bg-card/80 p-3 shadow-lg backdrop-blur-sm">
+              ) : null}
+              <aside
+                className={cn(
+                  'max-h-[calc(100dvh-220px)] min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card p-3 xl:max-h-[calc(100vh-246px)]',
+                  conversationWorkspaceView === 'runs' ? 'flex' : 'hidden',
+                  runsRailCollapsed ? 'xl:hidden' : 'xl:flex'
+                )}
+              >
                   <div className="mb-2.5 flex shrink-0 items-center justify-between gap-3">
                     <button
                       type="button"
-                      className="inline-flex min-w-0 items-center gap-2.5 text-left text-[14px] font-bold text-foreground focus-ring"
+                      className="inline-flex min-w-0 items-center gap-2.5 text-left text-sm font-semibold text-foreground focus-ring"
                       onClick={() => setIsRunRecordsCollapsed((value) => !value)}
                       aria-expanded={!isRunRecordsCollapsed}
                       aria-controls="ragas-run-records-list"
                     >
                       <ListChecks
-                        className="h-5 w-5 shrink-0 text-info"
+                        className="h-5 w-5 shrink-0 text-primary"
                         aria-hidden="true"
                       />
                       <span className="truncate">运行记录</span>
-                      <span className="rounded-full border border-info/30 bg-[linear-gradient(90deg,hsl(var(--info)/0.10),hsl(var(--primary)/0.08))] px-2 py-0.5 text-[11px] font-bold text-info">
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         {runs.length}
                       </span>
                       <ChevronDown
@@ -2013,7 +2055,7 @@ function EvaluationsPageContent() {
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
-                        className="h-8 shrink-0 px-2.5 text-[12px] font-semibold text-info hover:bg-info/10"
+                        className="h-8 shrink-0 px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={() => runsQuery.refetch()}
                       >
                         刷新
@@ -2022,7 +2064,7 @@ function EvaluationsPageContent() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="hidden h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:bg-info/10 hover:text-info xl:inline-flex"
+                        className="hidden h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground xl:inline-flex"
                         onClick={() => setRunsRailCollapsed(true)}
                         aria-label="收起运行记录侧栏"
                         title="收起运行记录侧栏"
@@ -2057,7 +2099,10 @@ function EvaluationsPageContent() {
                                     ) || null
                                   : null
                               }
-                              onClick={() => setSelectedRunId(run.id)}
+                              onClick={() => {
+                                setSelectedRunId(run.id)
+                                setConversationWorkspaceView('results')
+                              }}
                             />
                           ))}
                         </div>
@@ -2071,20 +2116,19 @@ function EvaluationsPageContent() {
                   </div>
 
                   {isRunRecordsCollapsed ? (
-                    <div className="rounded-xl border border-info/30 bg-[linear-gradient(135deg,hsl(var(--info)/0.08),hsl(var(--primary)/0.06))] px-3 py-2.5 text-[11px] font-medium text-muted-foreground">
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-xs font-medium text-muted-foreground">
                       已收起 {runs.length}{' '}
                       条运行记录，点击标题展开后在列表内上滑查看。
                     </div>
                   ) : null}
                 </aside>
-              )}
             </div>
           ) : activeTab === 'regression' ? (
-            <div className="flex h-[calc(100vh-255px)] min-h-[610px] flex-col overflow-hidden rounded-xl border border-border bg-card p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex h-[calc(100vh-255px)] min-h-[610px] flex-col overflow-hidden rounded-lg border border-border bg-card p-2.5">
               <RegressionTestTab embedded />
             </div>
           ) : (
-            <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="rounded-lg border border-border bg-card p-3">
               <QuerysetHealthTab embedded />
             </div>
           )}
