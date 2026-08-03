@@ -90,7 +90,7 @@ export function IngestionDetailDialog({
     staleTime: 3_000,
   })
 
-  // Default diff selection: active -> current (best-effort).
+  // 默认比较当前启用版本与最新版本，缺少版本时保持空选择。
   useEffect(() => {
     if (!versions) return
     const active = versions.active_pipeline_hash || versions.pipeline_hash || null
@@ -192,7 +192,7 @@ export function IngestionDetailDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="h-[100dvh] w-[min(820px,100vw)] max-w-[820px] overflow-hidden border-l border-border/60 bg-background/95 shadow-strong"
+        className="h-[100dvh] w-[min(820px,100vw)] max-w-[820px] overflow-hidden border-l border-border bg-background shadow-none"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>{doc?.filename || t("header.fallbackTitle")}</SheetTitle>
@@ -200,13 +200,13 @@ export function IngestionDetailDialog({
         </SheetHeader>
 
         <div className="flex h-full min-h-0 flex-col bg-background">
-          <div className="border-b border-border/60 bg-card px-6 py-5">
+          <div className="border-b border-border bg-card px-4 py-4 sm:px-6">
             <div className="flex items-start justify-between gap-3 pr-10">
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="text-xs font-medium text-muted-foreground">
                   {t('pipeline.title')}
                 </div>
-                <div className="mt-1 truncate text-lg font-bold text-foreground">
+                <div className="mt-1 truncate text-lg font-semibold text-foreground">
                   {doc?.filename || t("header.fallbackTitle")}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -235,10 +235,10 @@ export function IngestionDetailDialog({
 
           {isError && !isLoading && (
             <div className="flex-1 overflow-y-auto overscroll-contain p-6 no-scrollbar">
-              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive relative z-10">
+              <div className="relative z-10 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                 <div className="mb-2 flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-destructive" />
-                  <span className="font-bold">{t('errors.loadTitle')}</span>
+                  <span className="font-semibold">{t('errors.loadTitle')}</span>
                 </div>
                 <p>{t('errors.loadDescription')}</p>
                 <div className="mt-4">
@@ -258,19 +258,19 @@ export function IngestionDetailDialog({
           {!isLoading && doc && (
             <>
               <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar">
-                <div className="space-y-6 p-6">
+                <div className="space-y-4 p-4 sm:p-6">
 
-            {/* Pipeline Stage Card */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm p-6 relative overflow-hidden">
-              <div className="flex items-center justify-between gap-3 mb-6">
-                <div className="text-sm font-bold uppercase text-foreground">{t('pipeline.title')}</div>
-                <div className="rounded-md bg-muted px-2 py-1 text-xs font-mono tabular-nums text-muted-foreground">
+            {/* 入库阶段 */}
+            <div className="relative overflow-hidden rounded-md border border-border bg-card p-4">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-foreground">{t('pipeline.title')}</div>
+                <div className="rounded-md bg-muted px-2 py-1 text-xs tabular-nums text-muted-foreground">
                   {t('pipeline.progress')}: {doc.processing_progress ?? 0}%
                 </div>
               </div>
 
               <div className="relative z-10">
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-5 gap-2 sm:gap-4">
                   {stages.map((s, idx) => {
                     const isDone = doc.status === 'completed' ? true : idx < activeIndex
                     const isActive = doc.status !== 'completed' && idx === activeIndex
@@ -308,7 +308,7 @@ export function IngestionDetailDialog({
                         </div>
                         <div
                           className={cn(
-                            'text-[11px] font-semibold',
+                            'text-center text-xs font-medium',
                             isActive || isDone ? 'text-foreground' : 'text-muted-foreground'
                           )}
                         >
@@ -338,7 +338,7 @@ export function IngestionDetailDialog({
 
             {(doc.status === 'failed' || doc.status === 'quarantined') && doc.error_message && (
               <div className={cn(
-                "rounded-2xl border p-5 shadow-inner",
+                "rounded-md border p-4",
                 doc.status === 'quarantined' ? "border-warning/30 bg-warning/10" : "border-destructive/30 bg-destructive/10"
               )}>
                 <div className={cn(
@@ -349,7 +349,7 @@ export function IngestionDetailDialog({
                   {doc.status === 'quarantined' ? t('errors.quarantineReason') : t('errors.errorMessage')}
                 </div>
 	                <pre className={cn(
-	                  "whitespace-pre-wrap break-words rounded-xl bg-card border p-4 text-xs font-mono leading-relaxed shadow-sm",
+	                  "whitespace-pre-wrap break-words rounded-md border bg-card p-4 font-mono text-xs leading-relaxed",
 	                  doc.status === 'quarantined' ? "border-warning/20 text-warning" : "border-destructive/20 text-destructive"
 	                )}>
 	                  {doc.error_message}
@@ -357,27 +357,27 @@ export function IngestionDetailDialog({
               </div>
             )}
 
-            {/* Runtime Info - Ticket Style */}
-            <div className="rounded-2xl border border-border bg-muted/30 p-6">
+            {/* 运行信息 */}
+            <div className="rounded-md border border-border bg-muted/20 p-4">
               <div className="mb-4 text-sm font-semibold text-foreground">{t('runtime.title')}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-border bg-border md:grid-cols-2">
                 {runtime.map((item) => (
-                  <div key={item.k} className="bg-card rounded-xl border border-border p-3 shadow-sm hover:shadow-md transition-shadow duration-200 motion-reduce:transition-none">
-                    <div className="mb-1 text-[11px] font-semibold text-muted-foreground">{item.k}</div>
-                    <div className="break-words text-xs font-mono font-medium text-foreground">{item.v}</div>
+                  <div key={item.k} className="bg-card p-3">
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">{item.k}</div>
+                    <div className="break-words font-mono text-xs font-medium text-foreground">{item.v}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Pipeline Versions Diff */}
-            <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+            {/* 版本比较 */}
+            <div className="rounded-md border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-foreground">{t('versions.title')}</div>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="rounded-full"
+                  className="rounded-md"
                   disabled={versionsLoading}
                   onClick={() => refetchVersions()}
                 >
@@ -392,7 +392,7 @@ export function IngestionDetailDialog({
 
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                 <div className="space-y-1">
-                  <div className="text-[11px] font-semibold text-muted-foreground">{t('versions.fromLabel')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('versions.fromLabel')}</div>
                   <Select value={diffFrom || ''} onValueChange={(v) => setDiffFrom(v || null)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder={t('versions.selectVersion')} />
@@ -408,7 +408,7 @@ export function IngestionDetailDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[11px] font-semibold text-muted-foreground">{t('versions.toLabel')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('versions.toLabel')}</div>
                   <Select value={diffTo || ''} onValueChange={(v) => setDiffTo(v || null)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder={t('versions.selectVersion')} />
@@ -423,7 +423,7 @@ export function IngestionDetailDialog({
                   </Select>
                 </div>
 
-                <Button className="rounded-full" disabled={diffLoading || !diffFrom || !diffTo} onClick={handleDiff}>
+                <Button className="rounded-md" disabled={diffLoading || !diffFrom || !diffTo} onClick={handleDiff}>
                   {diffLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
                   {t('actions.compare')}
                 </Button>
@@ -442,15 +442,15 @@ export function IngestionDetailDialog({
                     { k: t('versions.metrics.added'), v: diff.added_chunks },
                     { k: t('versions.metrics.removed'), v: diff.removed_chunks },
                   ].map((x) => (
-                    <div key={x.k} className="rounded-xl border border-border bg-muted/20 p-3">
-                      <div className="text-[11px] font-semibold text-muted-foreground">{x.k}</div>
+                    <div key={x.k} className="rounded-md border border-border bg-muted/20 p-3">
+                      <div className="text-xs font-medium text-muted-foreground">{x.k}</div>
                       <div className="mt-1 text-sm font-mono font-bold text-foreground tabular-nums">{String(x.v)}</div>
                     </div>
                   ))}
 
                   {diff.changed_transforms?.length ? (
-                    <div className="md:col-span-5 rounded-xl border border-border bg-background p-3">
-                      <div className="text-[11px] font-semibold text-muted-foreground">{t('versions.metrics.changedTransforms')}</div>
+                    <div className="rounded-md border border-border bg-background p-3 md:col-span-5">
+                      <div className="text-xs font-medium text-muted-foreground">{t('versions.metrics.changedTransforms')}</div>
                       <div className="mt-2 text-xs font-mono text-foreground break-words">
                         {diff.changed_transforms.join(', ')}
                       </div>
@@ -458,7 +458,7 @@ export function IngestionDetailDialog({
                   ) : null}
                 </div>
               ) : (
-                <div className="mt-3 text-[11px] text-muted-foreground">
+                <div className="mt-3 text-xs text-muted-foreground">
                   {t('versions.diffHintPrefix')} <span className="font-mono">content_hash</span> {t('versions.diffHintSuffix')}
                 </div>
               )}
@@ -466,28 +466,28 @@ export function IngestionDetailDialog({
                 </div>
               </div>
 
-              <div className="border-t border-border/60 bg-card/95 px-6 py-4">
+              <div className="border-t border-border bg-card px-4 py-4 sm:px-6">
                 <div className="flex flex-col items-stretch justify-end gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                   <Button
                     variant="outline"
-                    className="rounded-full"
+                    className="rounded-md"
                     disabled={!doc || isActing}
                     onClick={() => doc && openDocument(doc.id)}
                   >
                     {t('actions.viewParsedContent')}
                   </Button>
                   {canCancel && (
-                    <Button variant="destructive" className="rounded-full" disabled={isActing} onClick={handleCancel}>
+                    <Button variant="destructive" className="rounded-md" disabled={isActing} onClick={handleCancel}>
                       {t('actions.cancelTask')}
                     </Button>
                   )}
                   {canRetry && (
-                    <Button className="rounded-full" disabled={isActing} onClick={() => handleRetry(false)}>
+                    <Button className="rounded-md" disabled={isActing} onClick={() => handleRetry(false)}>
                       {t("actions.retry")}
                     </Button>
                   )}
                   {canForceRetry && (
-                    <Button variant="outline" className="rounded-full hover:border-destructive/30 hover:text-destructive" disabled={isActing} onClick={() => handleRetry(true)}>
+                    <Button variant="outline" className="rounded-md hover:border-destructive/30 hover:text-destructive" disabled={isActing} onClick={() => handleRetry(true)}>
                       {t('actions.forceRetry')}
                     </Button>
                   )}

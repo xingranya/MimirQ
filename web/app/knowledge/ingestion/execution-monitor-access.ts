@@ -83,6 +83,6 @@ export function resolveTaskQueueStatusLabel({
   if (queryError) return '队列读取失败'
   if (!hasSnapshot) return '队列暂无数据'
   if (!queueEnabled) return '队列未启用'
-  if (!brokerUp) return 'Broker 异常'
-  return 'Broker 正常'
+  if (!brokerUp) return '任务队列异常'
+  return '任务队列正常'
 }

@@ -68,5 +68,21 @@ describe('执行监控权限降级', () => {
     expect(
       resolveTaskQueueStatusLabel({ ...base, queryError: true })
     ).toBe('队列读取失败')
+    expect(
+      resolveTaskQueueStatusLabel({
+        ...base,
+        hasSnapshot: true,
+        queueEnabled: true,
+        brokerUp: false,
+      })
+    ).toBe('任务队列异常')
+    expect(
+      resolveTaskQueueStatusLabel({
+        ...base,
+        hasSnapshot: true,
+        queueEnabled: true,
+        brokerUp: true,
+      })
+    ).toBe('任务队列正常')
   })
 })

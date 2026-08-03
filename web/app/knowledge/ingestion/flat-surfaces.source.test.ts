@@ -14,6 +14,14 @@ const executionMonitorSource = readFileSync(
   resolve(__dirname, 'page-client.tsx'),
   'utf8'
 )
+const executionMonitorLoadingSource = readFileSync(
+  resolve(__dirname, 'components/loading-wireframe.tsx'),
+  'utf8'
+)
+const ingestionDetailSource = readFileSync(
+  resolve(__dirname, '../../../components/ingestion/ingestion-detail-dialog.tsx'),
+  'utf8'
+)
 const governanceSource = readFileSync(
   resolve(__dirname, '../../../components/data-governance-panel.tsx'),
   'utf8'
@@ -88,5 +96,32 @@ describe('入库与数据治理扁平化视觉契约', () => {
     expect(executionMonitorSource).toContain('敏感数据策略')
     expect(executionMonitorSource).not.toContain('rounded-[28px]')
     expect(executionMonitorSource).not.toContain('Sensitive Data Policy')
+  })
+
+  it('执行监控在移动端保留范围选择并避免任务表裁切', () => {
+    expect(executionMonitorSource).toContain('aria-label="选择监控数据集"')
+    expect(executionMonitorSource).toContain(
+      'data-execution-monitor-workspace="true"'
+    )
+    expect(executionMonitorSource).toContain(
+      'overflow-x-auto rounded-md border border-border'
+    )
+    expect(executionMonitorSource).toContain('min-w-[860px]')
+    expect(executionMonitorSource).toContain(
+      "'absolute left-0 top-6 z-40 hidden h-9"
+    )
+    expect(executionMonitorSource).not.toContain(
+      'opacity-0 hover:opacity-100 focus-visible:opacity-100'
+    )
+  })
+
+  it('执行监控加载态与详情抽屉使用扁平表面', () => {
+    expect(executionMonitorLoadingSource).not.toContain('rounded-[')
+    expect(executionMonitorLoadingSource).not.toContain('rounded-full')
+    expect(ingestionDetailSource).not.toContain('rounded-2xl')
+    expect(ingestionDetailSource).not.toContain('rounded-xl')
+    expect(ingestionDetailSource).not.toContain('shadow-strong')
+    expect(ingestionDetailSource).not.toContain('shadow-inner')
+    expect(ingestionDetailSource).not.toContain('shadow-sm')
   })
 })

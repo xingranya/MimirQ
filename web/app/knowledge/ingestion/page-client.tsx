@@ -2367,17 +2367,13 @@ export default function KnowledgeIngestionPageClient() {
             aria-label="展开运行范围侧栏"
             onClick={() => setDesktopScopeCollapsed((previous) => !previous)}
             className={cn(
-              'absolute left-0 top-7 z-40 hidden h-16 w-8 items-center justify-center gap-1 rounded-r-[0.9rem] border border-border/35 bg-background/78 text-[8px] font-semibold uppercase tracking-[0.16em] text-muted-foreground opacity-0 hover:opacity-100 focus-visible:opacity-100 shadow-none backdrop-blur-xl transition-all duration-200 hover:border-info/25 hover:bg-background/94 hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/30',
+              'absolute left-0 top-6 z-40 hidden h-9 items-center justify-center rounded-r-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
               showDesktopAuditRailToggle && desktopScopeCollapsed
                 ? 'translate-x-0 pointer-events-auto lg:flex'
                 : 'pointer-events-none -translate-x-3 opacity-0 lg:hidden'
             )}
           >
-            <span
-              aria-hidden="true"
-              className="h-7 w-px rounded-full bg-info/35"
-            />
-            <span className="[writing-mode:vertical-rl]">范围</span>
+            运行范围
           </button>
 
           <aside
@@ -2389,36 +2385,37 @@ export default function KnowledgeIngestionPageClient() {
             )}
           >
             <div className="sticky top-4">
-              <div className="overflow-hidden rounded-[0.95rem] border border-border/38 bg-background/64 p-1.5 shadow-none backdrop-blur-xl">
-                <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
+              <div className="overflow-hidden rounded-md border border-border bg-card p-3">
+                <div className="flex items-center justify-between gap-2 pb-3">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[0.65rem] border border-border/45 bg-muted/20 text-muted-foreground">
-                      <Check className="h-3.5 w-3.5" />
+                    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
+                      <Check className="size-4" />
                     </span>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-semibold text-foreground">
+                      <div className="text-sm font-semibold text-foreground">
                         运行范围
                       </div>
-                      <div className="mt-0.5 truncate text-[8px] text-muted-foreground">
-                        轻量筛选数据集与线索
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        筛选数据集与线索
                       </div>
                     </div>
                   </div>
                   <button
                     type="button"
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/45 bg-background/60 text-muted-foreground transition-colors hover:border-info/25 hover:text-foreground"
+                    aria-label="收起运行范围侧栏"
+                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                     onClick={() => setDesktopScopeCollapsed(true)}
                   >
-                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <ChevronLeft className="size-4" />
                   </button>
                 </div>
 
-                <div className="mb-1.5 rounded-[0.68rem] border border-border/35 bg-background/45 p-1.5">
-                  <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                    <span className="text-[8px] font-medium text-muted-foreground">
+                <div className="mb-3 border-y border-border py-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
                       数据集
                     </span>
-                    <span className="font-mono text-[7px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {selectedDatasetId ? '单库' : '全部'}
                     </span>
                   </div>
@@ -2426,7 +2423,7 @@ export default function KnowledgeIngestionPageClient() {
                     value={datasetScope}
                     onValueChange={handleDatasetScopeChange}
                   >
-                    <SelectTrigger className="h-7 rounded-[0.6rem] border-border/45 bg-background/70 px-2 text-[9px] font-medium shadow-none">
+                    <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm shadow-none">
                       <SelectValue placeholder="全部项目" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2440,7 +2437,7 @@ export default function KnowledgeIngestionPageClient() {
                   </Select>
                 </div>
 
-                <div className="mb-1.5 grid grid-cols-2 gap-1">
+                <div className="mb-3 grid grid-cols-2 gap-2">
                   {([
                     ['pending', '待确认', auditRailCounts.pending],
                     ['manual', '人工处理', auditRailCounts.manual],
@@ -2452,7 +2449,7 @@ export default function KnowledgeIngestionPageClient() {
                       aria-pressed={auditDispositionFilter === value}
                       onClick={() => setAuditDispositionFilter(value)}
                       className={cn(
-                        'rounded-[0.56rem] border px-1.5 py-1 text-left text-[8px] transition-colors',
+                        'min-h-12 rounded-md border px-2 py-2 text-left text-xs transition-colors',
                         auditDispositionFilter === value
                           ? 'border-info/25 bg-info/10 text-info'
                           : 'border-border/35 bg-background/50 text-muted-foreground hover:text-foreground'
@@ -2467,7 +2464,7 @@ export default function KnowledgeIngestionPageClient() {
                     aria-pressed={auditDispositionFilter === 'all'}
                     onClick={() => setAuditDispositionFilter('all')}
                     className={cn(
-                      'rounded-[0.56rem] border px-1.5 py-1 text-left text-[8px] transition-colors',
+                      'min-h-12 rounded-md border px-2 py-2 text-left text-xs transition-colors',
                       auditDispositionFilter === 'all'
                         ? 'border-info/25 bg-info/10 text-info'
                         : 'border-border/35 bg-background/50 text-muted-foreground hover:text-foreground'
@@ -2478,7 +2475,7 @@ export default function KnowledgeIngestionPageClient() {
                   </button>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {visibleAuditSamples.map((document) => {
                         const kind = getDocumentKind(document.filename)
                         const disposition =
@@ -2512,7 +2509,7 @@ export default function KnowledgeIngestionPageClient() {
                               if (info.offset.x < -100)
                                 handleSampleDisposition(document.id, 'manual')
                             }}
-                            className="group relative overflow-hidden rounded-[0.74rem] border border-border/38 bg-background/62 px-1.5 py-1.5 shadow-none transition-colors hover:border-info/25 hover:bg-background/82"
+                            className="group relative overflow-hidden rounded-md border border-border bg-background p-2 transition-colors hover:border-primary/30 hover:bg-muted/20"
                           >
                             <div className="flex items-start gap-2">
                                 <input
@@ -2522,13 +2519,13 @@ export default function KnowledgeIngestionPageClient() {
                                   onChange={() =>
                                     handleSelectAudit(document.id)
                                   }
-                                  className="mt-1 h-2.5 w-2.5 rounded border-border/60 text-foreground"
+                                  className="mt-1 size-4 rounded border-border text-primary"
                                   type="checkbox"
                                   aria-label={`选择 ${document.filename}`}
                                 />
                                 <span
                                   className={cn(
-                                    'mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[0.65rem] border text-[7px] font-semibold uppercase',
+                                    'mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-xs font-semibold uppercase',
                                     getDocumentKindAccent(kind)
                                   )}
                                 >
@@ -2539,13 +2536,13 @@ export default function KnowledgeIngestionPageClient() {
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="min-w-0">
-                                      <div className="truncate text-[10.5px] font-semibold leading-4 text-foreground">
+                                      <div className="truncate text-sm font-semibold leading-5 text-foreground">
                                         {document.filename}
                                       </div>
                                     </div>
                                     <span
                                       className={cn(
-                                        'shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-medium',
+                                        'shrink-0 rounded-md border px-2 py-1 text-xs font-medium',
                                         statusPresentation.tone
                                       )}
                                     >
@@ -2553,7 +2550,7 @@ export default function KnowledgeIngestionPageClient() {
                                     </span>
                                   </div>
 
-                                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[8px] text-muted-foreground">
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                                     <span className="max-w-[6.5rem] truncate">
                                       {stageLabel}
                                     </span>
@@ -2569,7 +2566,7 @@ export default function KnowledgeIngestionPageClient() {
                                   </div>
 
                                   {document.error_message ? (
-                                    <div className="mt-1 line-clamp-1 rounded-[0.6rem] border border-destructive/15 bg-destructive/6 px-2 py-1 text-[8px] leading-3 text-destructive">
+                                    <div className="mt-2 line-clamp-2 rounded-md border border-destructive/20 bg-destructive/10 px-2 py-1.5 text-xs leading-4 text-destructive">
                                       {document.error_message}
                                     </div>
                                   ) : null}
@@ -2585,10 +2582,10 @@ export default function KnowledgeIngestionPageClient() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="mt-1.5 grid grid-cols-3 gap-1">
+                              <div className="mt-2 grid grid-cols-3 gap-2">
                                 <button
                                   type="button"
-                                  className="inline-flex h-5 items-center justify-center rounded-[0.45rem] border border-success/20 bg-success/8 px-1.5 text-[7.5px] font-medium text-success transition-colors hover:border-success/35 hover:bg-success/12"
+                                  className="inline-flex h-8 items-center justify-center rounded-md border border-success/20 bg-success/10 px-2 text-xs font-medium text-success transition-colors hover:border-success/35 hover:bg-success/15"
                                   onClick={() =>
                                     handleSampleDisposition(
                                       document.id,
@@ -2600,7 +2597,7 @@ export default function KnowledgeIngestionPageClient() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="inline-flex h-5 items-center justify-center rounded-[0.45rem] border border-warning/20 bg-warning/8 px-1.5 text-[7.5px] font-medium text-warning transition-colors hover:border-warning/35 hover:bg-warning/12"
+                                  className="inline-flex h-8 items-center justify-center rounded-md border border-warning/20 bg-warning/10 px-2 text-xs font-medium text-warning transition-colors hover:border-warning/35 hover:bg-warning/15"
                                   onClick={() =>
                                     handleSampleDisposition(
                                       document.id,
@@ -2612,7 +2609,7 @@ export default function KnowledgeIngestionPageClient() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="inline-flex h-5 items-center justify-center rounded-[0.45rem] border border-border/55 bg-background/70 px-1.5 text-[7.5px] font-medium text-foreground transition-colors hover:border-info/25 hover:text-info"
+                                  className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
                                   onClick={() =>
                                     handleOpenAuditSnapshot(document.id)
                                   }
@@ -2624,11 +2621,11 @@ export default function KnowledgeIngestionPageClient() {
                         )
                       })}
                   {visibleAuditSamples.length === 0 ? (
-                    <div className="rounded-[0.78rem] border border-dashed border-border/55 bg-background/48 px-3 py-4 text-center text-[10px] text-muted-foreground">
+                    <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
                       暂无可见资产
                     </div>
                   ) : null}
-                    <div className="flex items-center justify-between border-t border-border/45 px-1 pt-2 text-[9px] font-medium text-muted-foreground">
+                    <div className="flex items-center justify-between border-t border-border pt-3 text-xs font-medium text-muted-foreground">
                       <span>共 {visibleAuditSamples.length} 项线索</span>
                       {selectedReason ? (
                         <button
@@ -2707,7 +2704,7 @@ export default function KnowledgeIngestionPageClient() {
                                 </span>
                               ) : null}
                             </div>
-                            <p className="mt-1 max-w-[52rem] text-[13px] leading-5 text-muted-foreground">
+                            <p className="mt-1 max-w-[52rem] text-sm leading-5 text-muted-foreground">
                               {mode === 'sales-audit'
                                 ? '选择目标数据集后先做入库预检，确认目录、策略、重复与风险，再把文件写入知识库；入库完成后可切换执行监控查看队列和失败重试。'
                                 : '集中观察处理模式、吞吐、失败重试与运行态列表，快速判断入库链路是否健康。'}
@@ -2717,13 +2714,36 @@ export default function KnowledgeIngestionPageClient() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-end gap-1">
+                    <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
+                      {mode === 'execution-monitor' ? (
+                        <div className="w-full sm:w-56 lg:hidden">
+                          <Select
+                            value={datasetScope}
+                            onValueChange={handleDatasetScopeChange}
+                          >
+                            <SelectTrigger
+                              aria-label="选择监控数据集"
+                              className="h-9 w-full rounded-md border-border bg-background text-sm shadow-none"
+                            >
+                              <SelectValue placeholder="全部项目" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={DATASET_ALL}>全部项目</SelectItem>
+                              {datasets.map((dataset) => (
+                                <SelectItem key={dataset.id} value={dataset.id}>
+                                  {dataset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
                       <IngestionViewSwitch />
                       {demoMode ? (
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-8 rounded-md px-3 text-xs"
+                          className="h-9 rounded-md px-3 text-sm"
                           onClick={handleExitDemoMode}
                         >
                           退出演示
@@ -2734,7 +2754,7 @@ export default function KnowledgeIngestionPageClient() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-8 rounded-md px-3 text-xs"
+                            className="h-9 rounded-md px-3 text-sm"
                             onClick={handleUploadSampleAssessment}
                           >
                             <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
@@ -2742,7 +2762,7 @@ export default function KnowledgeIngestionPageClient() {
                           </Button>
                           <Button
                             type="button"
-                            className="h-8 rounded-md px-3 text-xs"
+                            className="h-9 rounded-md px-3 text-sm"
                             onClick={handleUploadFormalIngest}
                           >
                             <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
@@ -2751,7 +2771,7 @@ export default function KnowledgeIngestionPageClient() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-8 rounded-md px-3 text-xs"
+                            className="h-9 rounded-md px-3 text-sm"
                             onClick={() => handleExportSalesAuditReport()}
                           >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -2762,7 +2782,7 @@ export default function KnowledgeIngestionPageClient() {
                         <>
                           <Button
                             type="button"
-                            className="h-8 rounded-md px-3 text-xs"
+                            className="h-9 rounded-md px-3 text-sm"
                             onClick={handleDownloadReport}
                           >
                             <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -3274,38 +3294,33 @@ export default function KnowledgeIngestionPageClient() {
                     <div
                       title="入库预检报告"
                       className={cn(
-                        'relative overflow-hidden rounded-[1.45rem] border border-border/60 bg-background/86 p-3 shadow-[0_28px_72px_-46px_rgba(15,23,42,0.32)] md:p-3.5',
-                        demoMode &&
-                          'bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:28px_28px]'
+                        'overflow-hidden rounded-md border border-border bg-background p-3 md:p-4',
+                        demoMode && 'border-primary/25'
                       )}
                     >
                       <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-0 opacity-70"
-                        style={{
-                          background: 'radial-gradient(circle at 36% 24%, rgba(255,255,255,0.48), transparent 28%)',
-                        }}
-                      />
-                      <div className="relative z-10 space-y-3">
+                        data-execution-monitor-workspace="true"
+                        className="space-y-4"
+                      >
                         <div className="grid gap-2 xl:grid-cols-[0.72fr_1.28fr]">
-                          <section className="rounded-[1.05rem] border border-border/55 bg-background/90 p-2.5 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.18)]">
+                          <section className="rounded-md border border-border bg-card p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
-                                <span className="inline-flex size-6 items-center justify-center rounded-full border border-info/18 bg-info/8 text-info">
-                                  <Activity className="size-3.5" />
+                                <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                  <Activity className="size-4" />
                                 </span>
                                 <div>
-                                  <div className="text-[10px] font-semibold text-foreground">
+                                  <div className="text-sm font-semibold text-foreground">
                                     文件类型分布
                                   </div>
-                                  <div className="mt-0.5 text-[8px] text-muted-foreground">
+                                  <div className="mt-0.5 text-xs text-muted-foreground">
                                     {taskQueueSnapshot?.generated_at
                                       ? `快照 ${formatClockSecondsLabel(taskQueueSnapshot.generated_at)}`
                                       : '按文件格式统计'}
                                   </div>
                                 </div>
                               </div>
-                              <span className="rounded-full border border-border/45 bg-muted/20 px-2 py-0.5 font-mono text-[9px] text-foreground">
+                              <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground">
                                 {executionFileTypeDistributionTotal} 个
                               </span>
                             </div>
@@ -3315,10 +3330,10 @@ export default function KnowledgeIngestionPageClient() {
                                   option={executionFileTypeDistributionOption}
                                 />
                                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                  <div className="font-mono text-[15px] font-semibold text-foreground tabular-nums">
+                                  <div className="text-base font-semibold text-foreground tabular-nums">
                                     {executionFileTypeDistributionTotal}
                                   </div>
-                                  <div className="text-[7px] text-muted-foreground">
+                                  <div className="text-xs text-muted-foreground">
                                     文件
                                   </div>
                                 </div>
@@ -3328,7 +3343,7 @@ export default function KnowledgeIngestionPageClient() {
                                   executionFileTypeDistributionRows.map((item) => (
                                     <div
                                       key={item.label}
-                                      className="flex items-center justify-between gap-2 rounded-[0.65rem] border border-border/35 bg-muted/10 px-2 py-1"
+                                      className="flex min-h-8 items-center justify-between gap-2 rounded-md border border-border bg-background px-2 py-1"
                                     >
                                       <div className="flex min-w-0 items-center gap-1.5">
                                         <span
@@ -3337,17 +3352,17 @@ export default function KnowledgeIngestionPageClient() {
                                             item.tone
                                           )}
                                         />
-                                        <span className="truncate text-[8px] text-muted-foreground">
+                                        <span className="truncate text-xs text-muted-foreground">
                                           {item.label}
                                         </span>
                                       </div>
-                                      <span className="font-mono text-[9px] font-medium text-foreground tabular-nums">
+                                      <span className="text-xs font-medium text-foreground tabular-nums">
                                         {item.value}
                                       </span>
                                     </div>
                                   ))
                                 ) : (
-                                  <div className="rounded-[0.78rem] border border-dashed border-border/55 bg-muted/10 px-2 py-4 text-center text-[9px] text-muted-foreground">
+                                  <div className="rounded-md border border-dashed border-border px-2 py-4 text-center text-xs text-muted-foreground">
                                     暂无文件类型数据
                                   </div>
                                 )}
@@ -3355,18 +3370,18 @@ export default function KnowledgeIngestionPageClient() {
                             </div>
                           </section>
 
-                          <section className="rounded-[1.05rem] border border-border/55 bg-background/90 p-2.5 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.18)]">
+                          <section className="rounded-md border border-border bg-card p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex min-w-0 items-center gap-2">
-                                <div className="text-[10px] font-semibold text-foreground">
+                                <div className="text-sm font-semibold text-foreground">
                                   处理流水线
                                 </div>
-                                <span className="rounded-full border border-info/20 bg-info/10 px-2 py-0.5 text-[8px] font-medium text-info">
+                                <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                                   {executionPipelineState.estimateLabel}
                                 </span>
                               </div>
                               <div className="min-w-[9rem]">
-                                <div className="flex items-center justify-between gap-2 text-[8px] text-muted-foreground">
+                                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                                   <span>总体进度</span>
                                   <span className="font-mono text-foreground tabular-nums">
                                     {executionOverallProgress}%
@@ -3390,7 +3405,7 @@ export default function KnowledgeIngestionPageClient() {
                                   ) : null}
                                   <div
                                     className={cn(
-                                      'rounded-[0.82rem] border px-2 py-1.5',
+                                      'rounded-md border px-3 py-2',
                                       card.tone
                                     )}
                                   >
@@ -3401,10 +3416,10 @@ export default function KnowledgeIngestionPageClient() {
                                           card.statusTone
                                         )}
                                       />
-                                      <span className="text-[10px] font-medium text-foreground">
+                                      <span className="text-sm font-medium text-foreground">
                                         {card.label}
                                       </span>
-                                      <span className="ml-auto rounded-full border border-border/45 bg-card/80 px-1.5 py-0.5 text-[7.5px] text-muted-foreground">
+                                      <span className="ml-auto rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
                                         {card.statusLabel}
                                       </span>
                                     </div>
@@ -3412,10 +3427,10 @@ export default function KnowledgeIngestionPageClient() {
                                       {card.metrics.map(([label, value]) => (
                                         <span
                                           key={label}
-                                          className="inline-flex items-center gap-1 text-[8px] text-muted-foreground"
+                                          className="inline-flex items-center gap-1 text-xs text-muted-foreground"
                                         >
                                           <span>{label}</span>
-                                          <span className="font-mono text-[8.5px] font-medium text-foreground tabular-nums">
+                                          <span className="font-medium text-foreground tabular-nums">
                                             {value}
                                           </span>
                                         </span>
@@ -3434,7 +3449,7 @@ export default function KnowledgeIngestionPageClient() {
                                 </div>
                               ))}
                             </div>
-                            <div className="mt-2 flex items-center justify-end text-[8px] text-muted-foreground">
+                            <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground">
                               已处理{' '}
                               <span className="ml-1 font-mono text-foreground tabular-nums">
                                 {executionProcessedTotal}
@@ -3444,26 +3459,26 @@ export default function KnowledgeIngestionPageClient() {
                           </section>
                         </div>
 
-                        <section className="overflow-hidden rounded-[1.05rem] border border-border/55 bg-card/92 p-2.5 shadow-sm">
+                        <section className="overflow-hidden rounded-md border border-border bg-card p-4">
                           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="inline-flex size-6 items-center justify-center rounded-full border border-info/20 bg-info/10 text-info">
-                                <Activity className="size-3.5" />
+                              <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                <Activity className="size-4" />
                               </span>
                               <div>
-                                <div className="text-[10px] font-semibold text-foreground">
+                                <div className="text-sm font-semibold text-foreground">
                                   运行信息汇聚
                                 </div>
-                                <div className="mt-0.5 text-[8px] text-muted-foreground text-pretty">
+                                <div className="mt-0.5 text-xs text-muted-foreground text-pretty">
                                   范围、模式、吞吐与质量读数
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[8px] text-muted-foreground">
-                              <span className="rounded-full border border-border/55 bg-background/80 px-2 py-0.5 tabular-nums">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span className="rounded-md border border-border bg-background px-2 py-1 tabular-nums">
                                 已处理 {executionProcessedTotal} / {executionDocuments.length}
                               </span>
-                              <span className="rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-success tabular-nums">
+                              <span className="rounded-md border border-success/20 bg-success/10 px-2 py-1 text-success tabular-nums">
                                 成功率 {executionSuccessRate}%
                               </span>
                             </div>
@@ -3475,19 +3490,19 @@ export default function KnowledgeIngestionPageClient() {
                               return (
                                 <div
                                   key={item.label}
-                                  className="rounded-[0.82rem] border border-border/45 bg-background/82 px-2 py-1.5"
+                                  className="rounded-md border border-border bg-background px-3 py-2"
                                 >
                                   <div className="flex items-center justify-between gap-1.5">
                                     <div className="min-w-0">
-                                      <div className="truncate text-[8px] text-muted-foreground">
+                                      <div className="truncate text-xs text-muted-foreground">
                                         {item.label}
                                       </div>
                                       <div className="mt-0.5 flex items-baseline gap-1">
-                                        <span className="truncate font-mono text-[12px] font-semibold text-foreground tabular-nums">
+                                        <span className="truncate text-sm font-semibold text-foreground tabular-nums">
                                           {item.value}
                                         </span>
                                         {item.suffix ? (
-                                          <span className="text-[7.5px] text-muted-foreground">
+                                          <span className="text-xs text-muted-foreground">
                                             {item.suffix}
                                           </span>
                                         ) : null}
@@ -3500,7 +3515,7 @@ export default function KnowledgeIngestionPageClient() {
                                       )}
                                     />
                                   </div>
-                                  <div className="mt-1 truncate text-[7.5px] text-muted-foreground">
+                                  <div className="mt-1 truncate text-xs text-muted-foreground">
                                     {item.detail}
                                   </div>
                                 </div>
@@ -3509,61 +3524,61 @@ export default function KnowledgeIngestionPageClient() {
                           </div>
                         </section>
 
-                        <section className="rounded-[1.3rem] border border-border/55 bg-background/92 p-3 shadow-sm">
+                        <section className="rounded-md border border-border bg-card p-4">
                           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="inline-flex size-7 items-center justify-center rounded-full border border-info/20 bg-info/10 text-info">
-                                <FileSearch className="size-3.5" />
+                              <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                <FileSearch className="size-4" />
                               </span>
                               <div>
-                                <div className="text-[11px] font-semibold text-foreground">
+                                <div className="text-sm font-semibold text-foreground">
                                   批次数据画像
                                 </div>
-                                <div className="mt-0.5 text-[9px] text-muted-foreground text-pretty">
+                                <div className="mt-0.5 text-xs text-muted-foreground text-pretty">
                                   按 3/1000 抽代表样本，已出现的文件类型每类至少覆盖 1 个
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
-                              <span className="rounded-full border border-border/55 bg-muted/25 px-2 py-1 text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="rounded-md border border-border bg-muted px-2 py-1 text-muted-foreground">
                                 {executionBatchAnalysis.sourceLabel}
                               </span>
-                              <span className="rounded-full border border-info/20 bg-info/10 px-2 py-1 font-medium text-info">
+                              <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 font-medium text-primary">
                                 难度 {executionBatchAnalysis.complexity}
                               </span>
-                              <span className="rounded-full border border-warning/20 bg-warning/10 px-2 py-1 font-medium text-warning">
+                              <span className="rounded-md border border-warning/20 bg-warning/10 px-2 py-1 font-medium text-warning">
                                 {executionBatchAnalysis.pricingMode}
                               </span>
                             </div>
                           </div>
                           <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_210px]">
-                            <div className="h-[15rem] rounded-[1rem] border border-border/45 bg-card/86 p-2">
+                            <div className="h-[15rem] rounded-md border border-border bg-background p-2">
                               <EChart option={batchProfileBarOption} />
                             </div>
                             <div className="grid gap-2">
-                              <div className="rounded-[1rem] border border-border/45 bg-muted/18 px-3 py-2.5">
-                                <div className="text-[8px] text-muted-foreground">
+                              <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5">
+                                <div className="text-xs text-muted-foreground">
                                   预检样本
                                 </div>
-                                <div className="mt-1 text-[18px] font-semibold text-foreground tabular-nums">
+                                <div className="mt-1 text-xl font-semibold text-foreground tabular-nums">
                                   {executionBatchAnalysis.sampleTarget || '--'} 个
                                 </div>
-                                <div className="mt-1 text-[8px] text-muted-foreground">
+                                <div className="mt-1 text-xs text-muted-foreground">
                                   {executionBatchAnalysis.sampleTargetDetail}
                                 </div>
                               </div>
-                              <div className="rounded-[1rem] border border-border/45 bg-muted/18 px-3 py-2.5">
-                                <div className="text-[8px] text-muted-foreground">
+                              <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5">
+                                <div className="text-xs text-muted-foreground">
                                   批次体量
                                 </div>
-                                <div className="mt-1 font-mono text-[13px] font-semibold text-foreground tabular-nums">
+                                <div className="mt-1 text-sm font-semibold text-foreground tabular-nums">
                                   {executionBatchAnalysis.totalSizeLabel}
                                 </div>
-                                <div className="mt-1 text-[8px] text-muted-foreground">
+                                <div className="mt-1 text-xs text-muted-foreground">
                                   {executionBatchAnalysis.samplePoolLabel}
                                 </div>
                               </div>
-                              <div className="rounded-[1rem] border border-border/45 bg-muted/18 px-3 py-2.5 text-[8px] leading-3.5 text-muted-foreground text-pretty">
+                              <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground text-pretty">
                                 {executionBatchAnalysis.imageProxyNote}
                               </div>
                             </div>
@@ -3571,12 +3586,12 @@ export default function KnowledgeIngestionPageClient() {
                         </section>
 
                         <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-[1.1fr_0.9fr_0.9fr]">
-                          <section className="rounded-[1.2rem] border border-border/60 bg-background/90 p-3 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.16)]">
+                          <section className="rounded-md border border-border bg-card p-4">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="text-[11px] font-medium text-foreground">
+                              <div className="text-sm font-semibold text-foreground">
                                 处理吞吐趋势
                               </div>
-                              <span className="rounded-full border border-border/60 px-2 py-0.5 text-[9px] text-muted-foreground">
+                              <span className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
                                 {throughputTrendWindowLabel}
                               </span>
                             </div>
@@ -3585,9 +3600,9 @@ export default function KnowledgeIngestionPageClient() {
                             </div>
                           </section>
 
-                          <section className="rounded-[1.2rem] border border-border/60 bg-background/90 p-3 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.16)]">
+                          <section className="rounded-md border border-border bg-card p-4">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="text-[11px] font-medium text-foreground">
+                              <div className="text-sm font-semibold text-foreground">
                                 成本雷达
                               </div>
                               <Radar className="h-4 w-4 text-accent" />
@@ -3597,12 +3612,12 @@ export default function KnowledgeIngestionPageClient() {
                             </div>
                           </section>
 
-                          <section className="rounded-[1.2rem] border border-border/60 bg-background/90 p-3 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.16)] xl:col-span-2 2xl:col-span-1">
+                          <section className="rounded-md border border-border bg-card p-4 xl:col-span-2 2xl:col-span-1">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="text-[11px] font-medium text-foreground">
+                              <div className="text-sm font-semibold text-foreground">
                                 运行日志（最近）
                               </div>
-                              <span className="text-[9px] text-muted-foreground">
+                              <span className="text-xs text-muted-foreground">
                                 {recentQueueOutcomes.length
                                   ? '来自任务队列'
                                   : '来自文档状态'}
@@ -3612,7 +3627,7 @@ export default function KnowledgeIngestionPageClient() {
                               {executionRecentLogs.map((log) => (
                                 <div
                                   key={log.id}
-                                  className="flex items-start gap-2.5 rounded-[0.9rem] border border-border/50 bg-background/78 px-2.5 py-2"
+                                  className="flex items-start gap-2.5 rounded-md border border-border bg-background px-3 py-2"
                                 >
                                   <span
                                     className={cn(
@@ -3621,13 +3636,13 @@ export default function KnowledgeIngestionPageClient() {
                                     )}
                                   />
                                   <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                       <span className="font-mono">
                                         {log.time}
                                       </span>
                                       <span>{log.stage}</span>
                                     </div>
-                                    <div className="mt-0.5 truncate text-[10px] text-foreground">
+                                    <div className="mt-0.5 truncate text-sm text-foreground">
                                       {log.detail}
                                     </div>
                                   </div>
@@ -3637,17 +3652,17 @@ export default function KnowledgeIngestionPageClient() {
                           </section>
                         </div>
 
-                        <section className="rounded-[1.2rem] border border-border/60 bg-background/90 p-3 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.16)]">
+                        <section className="rounded-md border border-border bg-card p-4">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-[11px] font-medium text-foreground">
+                            <div className="text-sm font-semibold text-foreground">
                               任务列表
                             </div>
-                            <div className="text-[9px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               {executionTaskRows.length} 个任务
                             </div>
                           </div>
-                          <div className="mt-3 overflow-hidden rounded-[1rem] border border-border/50">
-                            <table className="w-full text-left text-[9px]">
+                          <div className="mt-3 overflow-x-auto rounded-md border border-border">
+                            <table className="w-full min-w-[860px] text-left text-xs">
                               <thead className="bg-muted/20 text-muted-foreground">
                                 <tr>
                                   <th className="px-3 py-2 font-medium">
@@ -3680,18 +3695,18 @@ export default function KnowledgeIngestionPageClient() {
                                 {showExecutionMonitorEmptyShell ? (
                                   <tr className="border-t border-border/40">
                                     <td colSpan={8} className="px-3 py-8">
-                                      <div className="mx-auto flex max-w-xl flex-col items-center rounded-[1rem] border border-dashed border-border/65 bg-background/74 px-4 py-5 text-center">
-                                        <div className="text-[11px] font-semibold text-foreground">
+                                      <div className="mx-auto flex max-w-xl flex-col items-center rounded-md border border-dashed border-border bg-background px-4 py-6 text-center">
+                                        <div className="text-sm font-semibold text-foreground">
                                           当前范围暂无执行任务
                                         </div>
-                                        <div className="mt-1 max-w-md text-[9px] leading-4 text-muted-foreground">
+                                        <div className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
                                           这个监控范围可以直接打开，但当前知识库还没有解析任务。可以切到入库操作提交解析，或查看全部项目的运行态。
                                         </div>
                                         <div className="mt-3 flex flex-wrap justify-center gap-2">
                                           <Button
                                             type="button"
                                             size="sm"
-                                            className="h-7 rounded-lg px-2 text-[9px]"
+                                            className="h-9 rounded-md px-3 text-sm"
                                             onClick={handleOpenIngestionOperation}
                                           >
                                             去入库操作
@@ -3701,7 +3716,7 @@ export default function KnowledgeIngestionPageClient() {
                                               type="button"
                                               variant="outline"
                                               size="sm"
-                                              className="h-7 rounded-lg px-2 text-[9px]"
+                                              className="h-9 rounded-md px-3 text-sm"
                                               onClick={() =>
                                                 handleDatasetScopeChange(
                                                   DATASET_ALL
@@ -3762,7 +3777,7 @@ export default function KnowledgeIngestionPageClient() {
                                         </td>
                                         <td className="px-3 py-2 text-muted-foreground">
                                           {String(
-                                            document.current_stage || 'Parser'
+                                            document.current_stage || '解析'
                                           )}
                                         </td>
                                         <td
@@ -3783,7 +3798,7 @@ export default function KnowledgeIngestionPageClient() {
                                                 }}
                                               />
                                             </div>
-                                            <span className="font-mono text-[8px] text-foreground">
+                                            <span className="text-xs text-foreground">
                                               {progress}%
                                             </span>
                                           </div>
@@ -3794,7 +3809,7 @@ export default function KnowledgeIngestionPageClient() {
                                         <td className="px-3 py-2">
                                           <button
                                             type="button"
-                                            className="text-[9px] font-medium text-info transition-colors hover:text-info"
+                                            className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
                                             onClick={() =>
                                               handleOpenAuditSnapshot(
                                                 document.id
@@ -3811,7 +3826,7 @@ export default function KnowledgeIngestionPageClient() {
                               </tbody>
                             </table>
                           </div>
-                          <div className="mt-2.5 flex flex-col gap-2 border-t border-border/45 pt-2.5 text-[9px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                          <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                             <span className="font-mono tabular-nums">
                               共 {executionTaskRows.length} 条
                             </span>
@@ -3820,7 +3835,7 @@ export default function KnowledgeIngestionPageClient() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 rounded-lg px-2 text-[9px]"
+                                className="h-9 rounded-md px-3 text-sm"
                                 disabled={executionTaskPage <= 1}
                                 onClick={() =>
                                   setExecutionTaskPage((page) =>
@@ -3831,7 +3846,7 @@ export default function KnowledgeIngestionPageClient() {
                                 <ChevronLeft className="mr-1 h-3 w-3" />
                                 上一页
                               </Button>
-                              <span className="min-w-[4.5rem] rounded-lg border border-border/50 bg-background/70 px-2 py-1 text-center font-mono tabular-nums text-foreground">
+                              <span className="min-w-[6rem] rounded-md border border-border bg-background px-3 py-2 text-center tabular-nums text-foreground">
                                 第 {executionTaskPage} /{' '}
                                 {executionTaskPageCount} 页
                               </span>
@@ -3839,7 +3854,7 @@ export default function KnowledgeIngestionPageClient() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 rounded-lg px-2 text-[9px]"
+                                className="h-9 rounded-md px-3 text-sm"
                                 disabled={
                                   executionTaskPage >= executionTaskPageCount
                                 }
