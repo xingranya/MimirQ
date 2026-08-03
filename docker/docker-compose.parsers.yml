@@ -302,6 +302,7 @@ services:
       MAGIC_PDF_PIPELINE_TIMEOUT_SEC: ${MAGIC_PDF_PIPELINE_TIMEOUT_SEC:-600}
       MAGIC_PDF_CLI: ${MAGIC_PDF_CLI:-magic-pdf}
       MAGIC_PDF_MODELS_DIR: ${MAGIC_PDF_MODELS_DIR:-/opt/mimirq-model-cache}
+      MAGIC_PDF_LAYOUTREADER_MODELS_DIR: ${MAGIC_PDF_LAYOUTREADER_MODELS_DIR:-/home/appuser/.cache/huggingface/hub/models--hantian--layoutreader/snapshots}
       MAGIC_PDF_DEVICE_MODE: ${MAGIC_PDF_DEVICE_MODE:-cuda}
       MAGIC_PDF_FORMULA_ENABLED: ${MAGIC_PDF_FORMULA_ENABLED:-false}
       MAGIC_PDF_ARTIFACT_ROOT: ${MAGIC_PDF_ARTIFACT_ROOT:-/var/lib/mimirq/magicpdf-artifacts}

@@ -39,6 +39,10 @@ _PIPELINE_TIMEOUT_SEC = max(30, _get_int_env("MAGIC_PDF_PIPELINE_TIMEOUT_SEC", 6
 _ARTIFACT_ROOT = Path(os.environ.get("MAGIC_PDF_ARTIFACT_ROOT") or "/var/lib/mimirq/magicpdf-artifacts")
 _CLI = (os.environ.get("MAGIC_PDF_CLI") or "magic-pdf").strip() or "magic-pdf"
 _MODELS_DIR = (os.environ.get("MAGIC_PDF_MODELS_DIR") or "/opt/mimirq-model-cache").strip()
+_LAYOUTREADER_MODELS_DIR = (
+    os.environ.get("MAGIC_PDF_LAYOUTREADER_MODELS_DIR")
+    or "/home/appuser/.cache/huggingface/hub/models--hantian--layoutreader/snapshots"
+).strip()
 _DEFAULT_DEVICE_MODE = (os.environ.get("MAGIC_PDF_DEVICE_MODE") or "cuda").strip().lower() or "cuda"
 _FORMULA_ENABLED = _get_bool_env("MAGIC_PDF_FORMULA_ENABLED", False)
 _semaphore = asyncio.Semaphore(_MAX_CONCURRENT_JOBS)
@@ -46,6 +50,8 @@ _semaphore = asyncio.Semaphore(_MAX_CONCURRENT_JOBS)
 _IMAGE_MD_RE = re.compile(r"!\[[^\]]*\]\(\s*[^)\s]+?\s*\)\s*")
 _IMAGE_HTML_RE = re.compile(r"<img[^>]*?>", flags=re.IGNORECASE)
 _PDF_EXTRACT_KIT_MODEL_DIR = "models--opendatalab--PDF-Extract-Kit-1.0"
+_LAYOUTREADER_MODEL_DIR = "models--hantian--layoutreader"
+_LAYOUTREADER_WEIGHT_FILES = ("model.safetensors", "pytorch_model.bin")
 _CH_DOC_DET_MODEL = "ch_PP-OCRv3_det_infer.pth"
 _CH_COMPAT_DET_MODELS = ("Multilingual_PP-OCRv3_det_infer.pth", "ch_PP-OCRv5_det_infer.pth")
 _CH_DOC_REC_MODEL = "ch_PP-OCRv4_rec_server_doc_infer.pth"
@@ -149,6 +155,42 @@ def _resolve_models_dir(configured: str) -> Path:
     raise RuntimeError(f"MagicPDF models not found under {configured}. Expected files: {expected}")
 
 
+def _has_layoutreader_models(models_dir: Path) -> bool:
+    try:
+        return (models_dir / "config.json").is_file() and any(
+            (models_dir / filename).is_file() for filename in _LAYOUTREADER_WEIGHT_FILES
+        )
+    except PermissionError:
+        return False
+
+
+def _resolve_layoutreader_models_dir(configured: str) -> Path:
+    root = Path(configured).expanduser()
+    if _has_layoutreader_models(root):
+        return root
+
+    candidates = [
+        root,
+        root / "huggingface" / "hub" / _LAYOUTREADER_MODEL_DIR / "snapshots",
+        root / "hub" / _LAYOUTREADER_MODEL_DIR / "snapshots",
+        root / _LAYOUTREADER_MODEL_DIR / "snapshots",
+    ]
+    for candidate in candidates:
+        if not candidate.is_dir():
+            continue
+        snapshots = sorted(
+            (path for path in candidate.glob("*") if path.is_dir()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for snapshot in snapshots:
+            if _has_layoutreader_models(snapshot):
+                return snapshot
+
+    expected = "config.json and one of: " + ", ".join(_LAYOUTREADER_WEIGHT_FILES)
+    raise RuntimeError(f"MagicPDF layoutreader model not found under {configured}. Expected {expected}")
+
+
 def _models_config_path() -> Path:
     from magic_pdf.model.sub_modules.ocr.paddleocr2pytorch import pytorch_paddle
 
@@ -197,6 +239,7 @@ def _ensure_ch_doc_model_compat(models_dir: Path) -> None:
 def _tools_config(run_root: Path, *, device_mode: str) -> Path:
     cfg_path = run_root / "magic-pdf.json"
     model_dir = _resolve_models_dir(_MODELS_DIR)
+    layoutreader_models_dir = _resolve_layoutreader_models_dir(_LAYOUTREADER_MODELS_DIR)
     _ensure_ch_doc_model_compat(model_dir)
     cfg = {
         "bucket_info": {"[default]": ["", "", ""]},
@@ -206,6 +249,7 @@ def _tools_config(run_root: Path, *, device_mode: str) -> Path:
         },
         "device-mode": device_mode if device_mode in {"cpu", "cuda"} else "cpu",
         "models-dir": str(model_dir),
+        "layoutreader-model-dir": str(layoutreader_models_dir),
         "layout-config": {"model": "doclayout_yolo"},
         "formula-config": {"enable": _FORMULA_ENABLED},
         "table-config": {"enable": False},
@@ -320,19 +364,33 @@ def health() -> dict:
     cli = shutil.which(_CLI)
     models_dir = ""
     models_ok = False
+    layoutreader_models_dir = ""
+    layoutreader_models_ok = False
     cuda_available = _cuda_available()
     try:
         models_dir = str(_resolve_models_dir(_MODELS_DIR))
         models_ok = True
     except RuntimeError:
         models_dir = _MODELS_DIR
+    try:
+        layoutreader_models_dir = str(_resolve_layoutreader_models_dir(_LAYOUTREADER_MODELS_DIR))
+        layoutreader_models_ok = True
+    except RuntimeError:
+        layoutreader_models_dir = _LAYOUTREADER_MODELS_DIR
     return {
-        "ok": bool(cli and models_ok and (_DEFAULT_DEVICE_MODE != "cuda" or cuda_available)),
+        "ok": bool(
+            cli
+            and models_ok
+            and layoutreader_models_ok
+            and (_DEFAULT_DEVICE_MODE != "cuda" or cuda_available)
+        ),
         "cli": cli or "",
         "max_concurrent_jobs": _MAX_CONCURRENT_JOBS,
         "artifact_root": str(_ARTIFACT_ROOT),
         "models_dir": models_dir,
         "models_ok": models_ok,
+        "layoutreader_models_dir": layoutreader_models_dir,
+        "layoutreader_models_ok": layoutreader_models_ok,
         "default_device_mode": _DEFAULT_DEVICE_MODE,
         "cuda_available": cuda_available,
     }

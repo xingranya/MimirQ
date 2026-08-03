@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -61,3 +62,36 @@ def test_chinese_ocr_config_uses_available_compatible_models(tmp_path: Path, mon
         "rec": "ch_PP-OCRv5_rec_infer.pth",
         "dict": "ppocrv5_dict.txt",
     }
+
+
+def test_layoutreader_resolver_accepts_huggingface_snapshot(tmp_path: Path) -> None:
+    snapshot = (
+        tmp_path
+        / "huggingface"
+        / "hub"
+        / "models--hantian--layoutreader"
+        / "snapshots"
+        / "revision"
+    )
+    _touch_model(snapshot, "config.json")
+    _touch_model(snapshot, "model.safetensors")
+
+    assert server._resolve_layoutreader_models_dir(str(tmp_path)) == snapshot
+
+
+def test_tools_config_uses_local_layoutreader_model(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+    pdf_models_dir = tmp_path / "pdf-models"
+    layoutreader_models_dir = tmp_path / "layoutreader"
+    monkeypatch.setattr(server, "_resolve_models_dir", lambda _configured: pdf_models_dir)
+    monkeypatch.setattr(
+        server,
+        "_resolve_layoutreader_models_dir",
+        lambda _configured: layoutreader_models_dir,
+    )
+    monkeypatch.setattr(server, "_ensure_ch_doc_model_compat", lambda _models_dir: None)
+
+    config_path = server._tools_config(tmp_path, device_mode="cpu")
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    assert config["models-dir"] == str(pdf_models_dir)
+    assert config["layoutreader-model-dir"] == str(layoutreader_models_dir)
