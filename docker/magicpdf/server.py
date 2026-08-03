@@ -46,14 +46,21 @@ _semaphore = asyncio.Semaphore(_MAX_CONCURRENT_JOBS)
 _IMAGE_MD_RE = re.compile(r"!\[[^\]]*\]\(\s*[^)\s]+?\s*\)\s*")
 _IMAGE_HTML_RE = re.compile(r"<img[^>]*?>", flags=re.IGNORECASE)
 _PDF_EXTRACT_KIT_MODEL_DIR = "models--opendatalab--PDF-Extract-Kit-1.0"
-_REQUIRED_MODEL_FILES = (
-    "Layout/YOLO/doclayout_yolo_docstructbench_imgsz1280_2501.pt",
-    "OCR/paddleocr_torch/ch_PP-OCRv3_det_infer.pth",
-    "OCR/paddleocr_torch/ch_PP-OCRv5_rec_infer.pth",
-)
+_CH_DOC_DET_MODEL = "ch_PP-OCRv3_det_infer.pth"
+_CH_COMPAT_DET_MODELS = ("Multilingual_PP-OCRv3_det_infer.pth", "ch_PP-OCRv5_det_infer.pth")
 _CH_DOC_REC_MODEL = "ch_PP-OCRv4_rec_server_doc_infer.pth"
 _CH_COMPAT_REC_MODEL = "ch_PP-OCRv5_rec_infer.pth"
 _CH_COMPAT_DICT = "ppocrv5_dict.txt"
+_REQUIRED_MODEL_FILES = (
+    "Layout/YOLO/doclayout_yolo_docstructbench_imgsz1280_2501.pt",
+    f"OCR/paddleocr_torch/{_CH_DOC_DET_MODEL}",
+    "OCR/paddleocr_torch/ch_PP-OCRv5_rec_infer.pth",
+)
+_REQUIRED_MODEL_ALTERNATIVES = {
+    f"OCR/paddleocr_torch/{_CH_DOC_DET_MODEL}": tuple(
+        f"OCR/paddleocr_torch/{name}" for name in _CH_COMPAT_DET_MODELS
+    ),
+}
 
 
 async def _read_upload(file: UploadFile) -> bytes:
@@ -103,7 +110,11 @@ def _cuda_available() -> bool:
 
 def _has_required_models(models_dir: Path) -> bool:
     try:
-        return all((models_dir / rel).exists() for rel in _REQUIRED_MODEL_FILES)
+        return all(
+            (models_dir / rel).exists()
+            or any((models_dir / alternative).exists() for alternative in _REQUIRED_MODEL_ALTERNATIVES.get(rel, ()))
+            for rel in _REQUIRED_MODEL_FILES
+        )
     except PermissionError:
         return False
 
@@ -145,9 +156,16 @@ def _models_config_path() -> Path:
 
 def _ensure_ch_doc_model_compat(models_dir: Path) -> None:
     ocr_dir = models_dir / "OCR" / "paddleocr_torch"
+    expected_det = ocr_dir / _CH_DOC_DET_MODEL
+    compat_det = next(
+        (candidate for name in _CH_COMPAT_DET_MODELS if (candidate := ocr_dir / name).exists()),
+        None,
+    )
     expected_rec = ocr_dir / _CH_DOC_REC_MODEL
     compat_rec = ocr_dir / _CH_COMPAT_REC_MODEL
-    if expected_rec.exists() or not compat_rec.exists():
+    needs_det_compat = not expected_det.exists() and compat_det is not None
+    needs_rec_compat = not expected_rec.exists() and compat_rec.exists()
+    if not needs_det_compat and not needs_rec_compat:
         return
 
     cfg_path = _models_config_path()
@@ -158,10 +176,13 @@ def _ensure_ch_doc_model_compat(models_dir: Path) -> None:
         return
 
     changed = False
-    if ch_cfg.get("rec") != _CH_COMPAT_REC_MODEL:
+    if needs_det_compat and compat_det is not None and ch_cfg.get("det") != compat_det.name:
+        ch_cfg["det"] = compat_det.name
+        changed = True
+    if needs_rec_compat and ch_cfg.get("rec") != _CH_COMPAT_REC_MODEL:
         ch_cfg["rec"] = _CH_COMPAT_REC_MODEL
         changed = True
-    if ch_cfg.get("dict") != _CH_COMPAT_DICT:
+    if needs_rec_compat and ch_cfg.get("dict") != _CH_COMPAT_DICT:
         ch_cfg["dict"] = _CH_COMPAT_DICT
         changed = True
     if changed:

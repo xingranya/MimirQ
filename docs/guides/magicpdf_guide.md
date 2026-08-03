@@ -74,8 +74,10 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.parsers.yml
 MagicPDF 1.3.x 本地 CPU 解析至少需要模型目录中存在：
 
 - `Layout/YOLO/doclayout_yolo_docstructbench_imgsz1280_2501.pt`
-- `OCR/paddleocr_torch/ch_PP-OCRv3_det_infer.pth`
+- OCR 检测权重：优先 `OCR/paddleocr_torch/ch_PP-OCRv3_det_infer.pth`；当前官方快照也兼容 `Multilingual_PP-OCRv3_det_infer.pth` 或 `ch_PP-OCRv5_det_infer.pth`
 - `OCR/paddleocr_torch/ch_PP-OCRv5_rec_infer.pth`
+
+服务启动时会优先使用同代的 `Multilingual_PP-OCRv3_det_infer.pth` 兼容旧版中文检测配置；仅有 v5 检测权重时再使用 v5。
 
 4. 重启后端
 
