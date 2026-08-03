@@ -4,7 +4,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.api.schemas.document import DocumentParsedContentUpdateRequest
+from app.api.schemas.document import (
+    DocumentGovernanceState,
+    DocumentParsedContentUpdateRequest,
+)
 from app.api.v1 import document_content
 from app.models.document import Document as DBDocument
 from app.models.document import DocumentParsedContent
@@ -84,6 +87,11 @@ def test_update_document_parsed_content_persists_governance_draft(
         document_id=document_id,
         payload=DocumentParsedContentUpdateRequest(
             markdown_content="治理后\x00内容",
+            governance=DocumentGovernanceState(
+                tags=["已审核"],
+                category="合同",
+                quality_score=92,
+            ),
         ),
         tenant_id=tenant_id,
         account_id="account-1",
@@ -100,6 +108,9 @@ def test_update_document_parsed_content_persists_governance_draft(
         "truncated": False,
     }
     assert document.doc_metadata.get("governance_content_edited_at")
+    assert document.doc_metadata["user"]["governance"]["tags"] == ["已审核"]
+    assert document.doc_metadata["user"]["governance"]["category"] == "合同"
+    assert document.doc_metadata["user"]["governance"]["quality_score"] == 92
     assert db.commits == 1
 
 

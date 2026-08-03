@@ -2,6 +2,7 @@ import type { Document } from '@/types'
 import { z } from 'zod'
 
 import { API_LONG_TIMEOUT_MS } from '@/lib/env'
+import type { PersistedGovernanceDocumentState } from '@/lib/governance-document-state'
 import {
   apiClient,
   openapiRequest,
@@ -120,6 +121,7 @@ export interface ParsingContentResponse {
 export interface ParsingContentUpdateRequest {
   markdown_content: string
   original_markdown_content?: string | null
+  governance?: PersistedGovernanceDocumentState | null
 }
 
 const parsingContentStatsSchema = z.looseObject({

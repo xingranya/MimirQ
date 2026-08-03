@@ -943,11 +943,82 @@ class DocumentParsedContentResponse(BaseModel):
     max_chars: int = Field(default=200_000, ge=0, le=2_000_000)
 
 
+class DocumentGovernanceAnnotation(BaseModel):
+    """治理工作台保存的单条文本标注。"""
+
+    id: str = Field(..., min_length=1, max_length=160)
+    text: str = Field(default="", max_length=2_000)
+    type: Literal["entity", "keyword", "sensitive", "custom"]
+    label: str = Field(default="", max_length=200)
+    start: int = Field(default=0, ge=0)
+    end: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.end < self.start:
+            raise ValueError("标注结束位置不能小于开始位置")
+        return self
+
+
+class DocumentGovernanceIssue(BaseModel):
+    """治理工作台保存的单条质量问题。"""
+
+    id: str = Field(..., min_length=1, max_length=160)
+    type: Literal["error", "warning", "info"]
+    message: str = Field(default="", max_length=2_000)
+    position: dict[str, int] | None = None
+
+    @field_validator("position")
+    @classmethod
+    def validate_position(cls, value):  # noqa: ANN001
+        if value is None:
+            return None
+        start = max(0, int(value.get("start", 0)))
+        end = max(0, int(value.get("end", start)))
+        if end < start:
+            raise ValueError("问题结束位置不能小于开始位置")
+        return {"start": start, "end": end}
+
+
+class DocumentGovernanceState(BaseModel):
+    """与治理正文一起原子保存的用户治理状态。"""
+
+    version: Literal[1] = 1
+    annotations: list[DocumentGovernanceAnnotation] = Field(
+        default_factory=list,
+        max_length=500,
+    )
+    tags: list[str] = Field(default_factory=list, max_length=100)
+    category: str | None = Field(default=None, max_length=500)
+    quality_score: float = Field(default=0, ge=0, le=100)
+    issues: list[DocumentGovernanceIssue] = Field(
+        default_factory=list,
+        max_length=500,
+    )
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, value):  # noqa: ANN001
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw_tag in value or []:
+            tag = str(raw_tag or "").strip()
+            if not tag or len(tag) > 100:
+                continue
+            key = tag.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(tag)
+        return normalized
+
+
 class DocumentParsedContentUpdateRequest(BaseModel):
     """治理工作台写回的解析内容草稿。"""
 
     markdown_content: str
     original_markdown_content: str | None = None
+    governance: DocumentGovernanceState | None = None
 
 
 class ManualChunkCreate(BaseModel):

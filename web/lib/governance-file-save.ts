@@ -1,8 +1,10 @@
 import type { GovernanceFileSource } from './governance-file-delete'
+import type { PersistedGovernanceDocumentState } from './governance-document-state'
 
 export type GovernanceContentUpdate = {
   markdown_content: string
   original_markdown_content?: string | null
+  governance?: PersistedGovernanceDocumentState | null
 }
 
 type GovernanceFileSaveDependencies = {

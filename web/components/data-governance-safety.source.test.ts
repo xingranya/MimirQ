@@ -21,4 +21,11 @@ describe('数据治理正文安全门禁', () => {
     expect(panelSource).toContain('selectedReadyContainsTruncatedContent')
     expect(panelSource).toContain("t('toasts.truncatedContentReadOnly')")
   })
+
+  it('正文和治理状态通过同一个写回请求保存', () => {
+    expect(panelSource).toContain('readGovernanceDocumentState(meta)')
+    expect(panelSource).toContain('serializeGovernanceDocumentState(state)')
+    expect(panelSource).toContain('governance: state')
+    expect(panelSource).toContain('savedGovernanceState')
+  })
 })

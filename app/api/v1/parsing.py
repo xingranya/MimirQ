@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_account_id
 from app.api.dependencies.tenant import get_tenant_id
-from app.api.schemas.document import DocumentDetail, DocumentList
+from app.api.schemas.document import DocumentDetail, DocumentGovernanceState, DocumentList
 from app.api.utils.upload import save_upload_file
 from app.core.config import settings
 from app.core.database import get_db
@@ -59,6 +59,7 @@ from app.parsing.utils.cli import resolve_cli_command
 from app.parsing.utils.document_elements import normalize_document_elements
 from app.rag.core.logging import get_logger
 from app.services.dataset_service import DatasetService
+from app.services.document_governance_state import apply_document_governance_state
 from app.services.parsing_extract_service import extract_parsing_fields
 from app.storage.object.runtime import (
     document_object_storage_enabled,
@@ -127,6 +128,7 @@ class ParsingContentResponse(BaseModel):
 class ParsingContentUpdateRequest(BaseModel):
     markdown_content: str = Field(default="")
     original_markdown_content: str | None = None
+    governance: DocumentGovernanceState | None = None
 
 
 class ParsingExtractFieldSpec(BaseModel):
@@ -1613,6 +1615,7 @@ def update_parsing_content(
     next_meta["workspace"] = "parsing"
     next_meta["edited"] = True
     doc.doc_metadata = _sanitize_storage_value(next_meta)
+    apply_document_governance_state(doc, payload.governance)
 
     db.commit()
     db.refresh(doc)

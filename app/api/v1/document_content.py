@@ -28,6 +28,7 @@ from app.services.document_access_service import (
     assert_document_acl_readable,
     assert_document_writable_for_lifecycle,
 )
+from app.services.document_governance_state import apply_document_governance_state
 from app.services.path_safety import resolve_under_base
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
@@ -279,6 +280,7 @@ def update_document_parsed_content(
     document_meta["governance_content_edited_at"] = datetime.now(UTC).isoformat()
     document_meta.pop("ingest_checkpoint", None)
     document.doc_metadata = document_meta
+    apply_document_governance_state(document, payload.governance)
 
     db.commit()
     db.refresh(document)

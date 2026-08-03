@@ -99,6 +99,14 @@ import {
   reconcileGovernanceFiles,
   type GovernanceRemoteSource,
 } from '@/lib/governance-document-sync'
+import {
+  cloneGovernanceDocumentState,
+  createEmptyGovernanceDocumentState,
+  governanceDocumentStateFingerprint,
+  readGovernanceDocumentState,
+  serializeGovernanceDocumentState,
+  type GovernanceDocumentState,
+} from '@/lib/governance-document-state'
 
 const GOVERNANCE_TAB_CONFIGS = [
   { id: 'quality', icon: ScanLine },
@@ -280,6 +288,7 @@ function mapKnowledgeDocumentToGovernanceFile(
     datasetName: datasetId ? datasetNameById.get(datasetId) || datasetId : null,
     source: 'knowledge_base',
     sourcePath: typeof meta?.source_path === 'string' ? meta.source_path : null,
+    governanceState: readGovernanceDocumentState(meta) ?? undefined,
     status: mapBackendStatusToGovernanceStatus(doc.status),
     error: doc.error_message || undefined,
   }
@@ -320,34 +329,34 @@ function mapParsingDocumentToGovernanceFile(
     datasetId: targetDataset.datasetId,
     datasetName: targetDataset.datasetName,
     source: 'parsing_workspace',
+    governanceState: readGovernanceDocumentState(meta) ?? undefined,
     status: mapBackendStatusToGovernanceStatus(doc.status),
     error: doc.error_message || undefined,
   }
 }
 
 // 文件治理状态
-interface FileGovernanceState {
+interface FileGovernanceState extends GovernanceDocumentState {
   id: string
   originalContent: string
   cleanedContent: string
-  annotations: Array<{
-    id: string
-    text: string
-    type: 'entity' | 'keyword' | 'sensitive' | 'custom'
-    label: string
-    start: number
-    end: number
-  }>
-  tags: string[]
-  category: string | null
-  qualityScore: number
-  issues: Array<{
-    id: string
-    type: 'error' | 'warning' | 'info'
-    message: string
-    position?: { start: number; end: number }
-  }>
+  savedContent: string
+  savedGovernanceState: GovernanceDocumentState
   isModified: boolean
+}
+
+function applyGovernanceStatePatch(
+  current: FileGovernanceState,
+  patch: Partial<GovernanceDocumentState> & { cleanedContent?: string }
+): FileGovernanceState {
+  const next = { ...current, ...patch }
+  return {
+    ...next,
+    isModified:
+      next.cleanedContent !== next.savedContent ||
+      governanceDocumentStateFingerprint(next) !==
+        governanceDocumentStateFingerprint(next.savedGovernanceState),
+  }
 }
 
 export function DataGovernancePanel() {
@@ -765,18 +774,20 @@ export function DataGovernancePanel() {
 
   // 初始化文件治理状态
   const initializeGovernanceState = useCallback(
-    (file: {
-      id: string
-      markdownContent: string
-      originalMarkdownContent?: string
-    }) => {
+    (file: Pick<
+      ParsedFileData,
+      'id' | 'markdownContent' | 'originalMarkdownContent' | 'governanceState'
+    >) => {
       const originalContent =
         file.originalMarkdownContent ?? file.markdownContent
       const cleanedContent = file.markdownContent
+      const persistedGovernance = cloneGovernanceDocumentState(
+        file.governanceState || createEmptyGovernanceDocumentState()
+      )
       setGovernanceStates((prev) => {
         const existing = prev[file.id]
         if (existing) {
-          // If we initialized with empty content (e.g., after refresh), backfill once content is loaded.
+          // 刷新后可能先建立空状态，正文返回时只补齐一次。
           const hasAnyExistingContent = Boolean(
             (existing.originalContent || '').trim() ||
             (existing.cleanedContent || '').trim()
@@ -791,7 +802,9 @@ export function DataGovernancePanel() {
               ...existing,
               originalContent,
               cleanedContent,
-              isModified: cleanedContent !== originalContent,
+              savedContent: cleanedContent,
+              savedGovernanceState: cloneGovernanceDocumentState(existing),
+              isModified: false,
             },
           }
         }
@@ -801,12 +814,10 @@ export function DataGovernancePanel() {
             id: file.id,
             originalContent,
             cleanedContent,
-            annotations: [],
-            tags: [],
-            category: null,
-            qualityScore: 0,
-            issues: [],
-            isModified: cleanedContent !== originalContent,
+            savedContent: cleanedContent,
+            savedGovernanceState: cloneGovernanceDocumentState(persistedGovernance),
+            ...persistedGovernance,
+            isModified: false,
           },
         }
       })
@@ -857,6 +868,7 @@ export function DataGovernancePanel() {
             id,
             markdownContent: nextMarkdown,
             originalMarkdownContent: nextOriginal,
+            governanceState: file.governanceState,
           })
           return
         }
@@ -892,6 +904,7 @@ export function DataGovernancePanel() {
           id,
           markdownContent: nextMarkdown,
           originalMarkdownContent: nextOriginal,
+          governanceState: file.governanceState,
         })
       } catch (error) {
         reportClientWarning('Failed to load governance document content', error)
@@ -1194,11 +1207,9 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => ({
         ...prev,
-        [selectedFileId]: {
-          ...prev[selectedFileId],
+        [selectedFileId]: applyGovernanceStatePatch(prev[selectedFileId], {
           cleanedContent: newContent,
-          isModified: true, // 手动修改也视为已修改
-        },
+        }),
       }))
     },
     [selectedFileId]
@@ -1210,11 +1221,10 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => ({
         ...prev,
-        [selectedFileId]: {
-          ...prev[selectedFileId],
+        [selectedFileId]: applyGovernanceStatePatch(prev[selectedFileId], {
           qualityScore: result.score,
           issues: result.issues,
-        },
+        }),
       }))
     },
     [selectedFileId]
@@ -1226,11 +1236,9 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => ({
         ...prev,
-        [selectedFileId]: {
-          ...prev[selectedFileId],
+        [selectedFileId]: applyGovernanceStatePatch(prev[selectedFileId], {
           cleanedContent,
-          isModified: cleanedContent !== prev[selectedFileId].originalContent,
-        },
+        }),
       }))
     },
     [selectedFileId]
@@ -1242,11 +1250,9 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => ({
         ...prev,
-        [selectedFileId]: {
-          ...prev[selectedFileId],
+        [selectedFileId]: applyGovernanceStatePatch(prev[selectedFileId], {
           annotations,
-          isModified: true,
-        },
+        }),
       }))
     },
     [selectedFileId]
@@ -1262,11 +1268,9 @@ export function DataGovernancePanel() {
         )
         return {
           ...prev,
-          [selectedFileId]: {
-            ...current,
+          [selectedFileId]: applyGovernanceStatePatch(current, {
             tags: mergedTags,
-            isModified: true,
-          },
+          }),
         }
       })
     },
@@ -1279,12 +1283,10 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => ({
         ...prev,
-        [selectedFileId]: {
-          ...prev[selectedFileId],
+        [selectedFileId]: applyGovernanceStatePatch(prev[selectedFileId], {
           category,
           tags,
-          isModified: true,
-        },
+        }),
       }))
     },
     [selectedFileId]
@@ -1297,12 +1299,8 @@ export function DataGovernancePanel() {
       ...prev,
       [selectedFileId]: {
         ...governanceState,
-        cleanedContent: governanceState.originalContent,
-        annotations: [],
-        tags: [],
-        category: null,
-        qualityScore: 0,
-        issues: [],
+        cleanedContent: governanceState.savedContent,
+        ...cloneGovernanceDocumentState(governanceState.savedGovernanceState),
         isModified: false,
       },
     }))
@@ -1338,25 +1336,45 @@ export function DataGovernancePanel() {
           state.cleanedContent !== f.markdownContent
         const shouldSetOriginal =
           Boolean(state) && typeof f.originalMarkdownContent !== 'string'
+        const shouldPersistGovernance = Boolean(state?.isModified)
 
         if (
           truncatedContentFileIds.has(f.id) &&
-          (shouldUpdateMarkdown || shouldSetOriginal || Boolean(nextChunkStatus))
+          (
+            shouldUpdateMarkdown ||
+            shouldSetOriginal ||
+            shouldPersistGovernance ||
+            Boolean(nextChunkStatus)
+          )
         ) {
           throw new GovernanceContentIncompleteError()
         }
 
-        if (shouldUpdateMarkdown || shouldSetOriginal || nextChunkStatus) {
+        if (
+          shouldUpdateMarkdown ||
+          shouldSetOriginal ||
+          shouldPersistGovernance ||
+          nextChunkStatus
+        ) {
           const nextMarkdownContent = shouldUpdateMarkdown
             ? state?.cleanedContent || ''
             : f.markdownContent
-          if (shouldUpdateMarkdown || shouldSetOriginal) {
+          const governanceSnapshot = state
+            ? cloneGovernanceDocumentState(state)
+            : null
+          const governanceFingerprint = state
+            ? governanceDocumentStateFingerprint(state)
+            : null
+          if (shouldUpdateMarkdown || shouldSetOriginal || shouldPersistGovernance) {
             await saveGovernanceFileToBackend(
               f.id,
               f.source,
               {
                 markdown_content: nextMarkdownContent,
                 original_markdown_content: originalMarkdownContent,
+                governance: state
+                  ? serializeGovernanceDocumentState(state)
+                  : undefined,
               },
               {
                 updateKnowledgeDocument: documentApi.updateParsedContent,
@@ -1371,8 +1389,34 @@ export function DataGovernancePanel() {
               ? { markdownContent: state?.cleanedContent }
               : {}),
             ...(shouldSetOriginal ? { originalMarkdownContent } : {}),
+            ...(governanceSnapshot
+              ? { governanceState: governanceSnapshot }
+              : {}),
             ...(nextChunkStatus ? { chunkStatus: nextChunkStatus } : {}),
           })
+
+          if (state && governanceSnapshot && governanceFingerprint) {
+            setGovernanceStates((previous) => {
+              const current = previous[f.id]
+              if (
+                !current ||
+                current.cleanedContent !== nextMarkdownContent ||
+                governanceDocumentStateFingerprint(current) !==
+                  governanceFingerprint
+              ) {
+                return previous
+              }
+              return {
+                ...previous,
+                [f.id]: {
+                  ...current,
+                  savedContent: current.cleanedContent,
+                  savedGovernanceState: cloneGovernanceDocumentState(current),
+                  isModified: false,
+                },
+              }
+            })
+          }
         }
       }
     },

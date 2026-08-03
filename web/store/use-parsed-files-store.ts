@@ -14,6 +14,7 @@ import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
 import { generateRequestId } from '@/lib/request-id'
 import { detachPromise } from '@/lib/utils'
 import type { ParsingElement } from '@/lib/api/parsing'
+import type { GovernanceDocumentState } from '@/lib/governance-document-state'
 
 
 export const ROOT_FOLDER_ID = 'root'
@@ -45,6 +46,7 @@ export interface ParsedFileData {
   sourcePath?: string | null
   governanceStatus?: 'draft' | 'ready' | 'submitted'
   chunkStatus?: 'draft' | 'ready' | 'submitted'
+  governanceState?: GovernanceDocumentState
   /**
    * UI status for the document library.
    * Note: we don't persist the original File object, only metadata + parsed markdown.
