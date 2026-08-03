@@ -46,4 +46,20 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
     expect(source).not.toContain('shadow-')
   })
+
+  it('参数影响使用分隔列表和稳定比例条', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-parameter-impact-panel.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('divide-y divide-border')
+    expect(source).toContain('参数影响排序')
+    expect(source).toContain('同一参数至少需要两个取值')
+    expect(source).not.toContain('rag_params / ablation_variant')
+    expect(source).not.toContain('Sobol')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl|full)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+  })
 })
