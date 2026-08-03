@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Download,
   Eye,
+  FileText,
   Layers,
   LayoutList,
   Play,
@@ -500,8 +501,7 @@ export default function QuarantineQueuePage() {
     () => Math.max(1, Math.ceil(filtered.length / QUARANTINE_PAGE_SIZE)),
     [filtered.length]
   )
-  // Clamp during render instead of via an effect: when filters shrink the
-  // result set, safePage stays in range without an extra render pass.
+  // 筛选结果缩小时直接约束当前页，避免额外触发一次渲染。
   const safePage = Math.min(page, totalPages)
   const paginated = useMemo(
     () =>
@@ -578,7 +578,7 @@ export default function QuarantineQueuePage() {
   const handleRetry = useCallback(
     async (doc: Document) => {
       if (demoMode) {
-        toast.success('Demo 模式仅用于预览布局，不执行真实重试')
+        toast.success('演示模式不会执行真实重试')
         return
       }
       setActing({ id: doc.id, action: 'retry' })
@@ -599,7 +599,7 @@ export default function QuarantineQueuePage() {
   const handleRelease = useCallback(
     async (doc: Document) => {
       if (demoMode) {
-        toast.success('Demo 模式仅用于预览布局，不执行真实放行')
+        toast.success('演示模式不会执行真实放行')
         return
       }
       setActing({ id: doc.id, action: 'release' })
@@ -627,7 +627,7 @@ export default function QuarantineQueuePage() {
   const handleDelete = useCallback(
     async (doc: Document) => {
       if (demoMode) {
-        toast.success('Demo 模式仅用于预览布局，不执行真实删除')
+        toast.success('演示模式不会执行真实删除')
         return
       }
       setActing({ id: doc.id, action: 'delete' })
@@ -651,7 +651,7 @@ export default function QuarantineQueuePage() {
   const handleMarkReviewedOnly = useCallback(
     async (doc: Document) => {
       if (demoMode) {
-        toast.success('Demo 模式仅用于预览布局，不写入真实审核状态')
+        toast.success('演示模式不会写入审核状态')
         return
       }
       setActing({ id: doc.id, action: 'review' })
@@ -683,7 +683,7 @@ export default function QuarantineQueuePage() {
     async (opts: { retryAfterSave: boolean }) => {
       if (!tuneTarget) return
       if (demoMode) {
-        toast.success('Demo 模式仅用于预览布局，不写入真实规则配置')
+        toast.success('演示模式不会保存规则配置')
         setTuneOpen(false)
         return
       }
@@ -781,7 +781,6 @@ export default function QuarantineQueuePage() {
           icon={ShieldAlert}
           showHeader={false}
           size="full"
-          // max-w-[1520px]
           topClassName="relative z-10 w-full max-w-none px-4 pt-4 pb-2.5 md:px-5 lg:px-6"
           top={
           <div className="space-y-2.5">
@@ -801,8 +800,8 @@ export default function QuarantineQueuePage() {
                     <h1 className="text-xl font-semibold leading-7 text-foreground">
                       <span>隔离审核中心</span>
                     </h1>
-                    <p className="text-[13px] leading-5 text-muted-foreground/85">
-                      集中复核隔离样本，支持原文预览、规则调参与回放。
+                    <p className="text-sm leading-5 text-muted-foreground">
+                      复核处理异常的文档，并决定放行、重试或删除。
                     </p>
                   </div>
                 </div>
@@ -852,7 +851,7 @@ export default function QuarantineQueuePage() {
                       onClick={handleExitDemoMode}
                     >
                       <Play className="size-4 fill-current" />
-                      退出 Demo
+                      退出演示
                     </Button>
                   ) : null}
                   <Button
@@ -861,7 +860,7 @@ export default function QuarantineQueuePage() {
                     className="h-8 gap-2 px-3 text-xs"
                     onClick={() => {
                       if (demoMode) {
-                        toast.success('Demo 数据已刷新')
+                        toast.success('演示数据已刷新')
                         return
                       }
                       detachPromise(refreshQueue({ notify: true }))
@@ -879,7 +878,7 @@ export default function QuarantineQueuePage() {
                   </Button>
 
                   <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       自动刷新
                     </span>
                     <Switch
@@ -893,11 +892,11 @@ export default function QuarantineQueuePage() {
             </div>
 
             {queueErrorMessage ? (
-              <div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+              <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <div className="min-w-0">
                   <div className="font-medium">隔离队列同步异常</div>
-                  <div className="mt-0.5 break-words text-[11px] opacity-85">
+                  <div className="mt-0.5 break-words text-xs opacity-85">
                     {queueErrorMessage}
                   </div>
                 </div>
@@ -907,7 +906,7 @@ export default function QuarantineQueuePage() {
             {lastQueueSync ? (
               <div
                 className={cn(
-                  'flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-[11px]',
+                  'flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs',
                   lastQueueSync.type === 'success'
                     ? 'border-success/20 bg-success/10 text-success'
                     : 'border-destructive/20 bg-destructive/10 text-destructive'
@@ -922,36 +921,36 @@ export default function QuarantineQueuePage() {
                   {lastQueueSync.type === 'success' ? '上次同步成功' : '上次同步异常'}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{lastQueueSync.message}</span>
-                <span className="font-mono text-[10px] opacity-70">
+                <span className="font-mono text-xs opacity-70">
                   {formatDate(lastQueueSync.at)}
                 </span>
               </div>
             ) : null}
 
-            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-px overflow-hidden rounded-md border border-border bg-border grid-cols-2 xl:grid-cols-4">
               <SummaryStatCard
                 label="总隔离记录"
                 value={stats.total}
-                hint="较昨日 0"
+                hint="当前队列总量"
                 icon={LayoutList}
                 tone="neutral"
               />
               <SummaryStatCard
                 label="待审核"
                 value={stats.unreviewed}
-                hint="较昨日 0"
+                hint="尚未完成人工复核"
                 icon={AlertCircle}
                 tone="warning"
               />
               <SummaryStatCard
                 label="已解决"
                 value={stats.reviewed}
-                hint="较昨日 0"
+                hint="已完成人工处理"
                 icon={CheckCircle2}
                 tone="success"
               />
               <SummaryStatCard
-                label="规则集中率"
+                label="高风险记录"
                 value={stats.highRisk}
                 hint={
                   stats.total
@@ -969,7 +968,7 @@ export default function QuarantineQueuePage() {
         <div className="space-y-4">
           <div
             aria-label="审计主画布"
-            className="overflow-hidden rounded-[1.2rem] border border-border/60 bg-background/94 shadow-[0_20px_48px_-40px_rgba(15,23,42,0.18)] backdrop-blur-sm"
+            className="overflow-hidden rounded-md border border-border bg-background"
           >
             <div className="border-b border-border/60 px-4.5 py-3.5">
               <div className="flex flex-col gap-2.5 xl:flex-row xl:items-start xl:justify-between">
@@ -978,12 +977,12 @@ export default function QuarantineQueuePage() {
                     <div className="text-[0.98rem] font-semibold text-foreground">
                       异常隔离审查表
                     </div>
-                    <span className="rounded-full border border-border/60 bg-muted/35 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                    <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
                       {listSummary || '当前空队列'}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
-                    治理规则命中统计与待裁决样本分布，支持按条件筛选后快速复核。
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                    按条件筛选异常文档，并逐条完成复核。
                   </p>
 
                   {hasActiveFilters ? (
@@ -991,7 +990,7 @@ export default function QuarantineQueuePage() {
                       {reviewState === 'all' ? null : (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
                           {reviewState === 'pending' ? '仅待审核' : '仅已处理'}
                         </Badge>
@@ -999,57 +998,57 @@ export default function QuarantineQueuePage() {
                       {selectedReason === 'all' ? null : (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          原因: {reasonLabel(selectedReason)}
+                          原因：{reasonLabel(selectedReason)}
                         </Badge>
                       )}
                       {selectedDataset === 'all' ? null : (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          数据集: {datasetLabelById[selectedDataset] || selectedDataset}
+                          数据集：{datasetLabelById[selectedDataset] || selectedDataset}
                         </Badge>
                       )}
                       {selectedSource === 'all' ? null : (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          来源: {selectedSource}
+                          来源：{selectedSource}
                         </Badge>
                       )}
                       {selectedSeverity === 'all' ? null : (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          疑似度: {selectedSeverity}
+                          风险：{selectedSeverity}
                         </Badge>
                       )}
                       {search.trim() ? (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          搜索: {search.trim()}
+                          搜索：{search.trim()}
                         </Badge>
                       ) : null}
                       {dateFrom ? (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          开始: {dateFrom}
+                          开始：{dateFrom}
                         </Badge>
                       ) : null}
                       {dateTo ? (
                         <Badge
                           variant="secondary"
-                          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          className="rounded-md px-2.5 py-1 text-xs font-medium"
                         >
-                          结束: {dateTo}
+                          结束：{dateTo}
                         </Badge>
                       ) : null}
                     </div>
@@ -1060,9 +1059,9 @@ export default function QuarantineQueuePage() {
                   <SearchInput
                     value={search}
                     onValueChange={setSearch}
-                    placeholder="搜索文件名 / ID / 规则 / 原因"
+                    placeholder="搜索文件名、编号、规则或原因"
                     containerClassName="w-full"
-                    inputClassName="h-9 rounded-xl border-border/60 bg-background text-[11px] shadow-none"
+                    inputClassName="h-9 rounded-md border-border bg-background text-sm shadow-none"
                   />
                 </div>
               </div>
@@ -1078,7 +1077,7 @@ export default function QuarantineQueuePage() {
                         setReviewState(value as ReviewState)
                       }
                     >
-                      <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none">
+                      <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none">
                         <SelectValue placeholder="处理状态" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1094,7 +1093,7 @@ export default function QuarantineQueuePage() {
                       value={selectedReason}
                       onValueChange={setSelectedReason}
                     >
-                      <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none">
+                      <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none">
                         <SelectValue placeholder="隔离原因" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1113,7 +1112,7 @@ export default function QuarantineQueuePage() {
                       value={selectedSource}
                       onValueChange={setSelectedSource}
                     >
-                      <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none">
+                      <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none">
                         <SelectValue placeholder="来源" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1132,11 +1131,11 @@ export default function QuarantineQueuePage() {
                       value={selectedSeverity}
                       onValueChange={setSelectedSeverity}
                     >
-                      <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none">
-                        <SelectValue placeholder="疑似度" />
+                      <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none">
+                        <SelectValue placeholder="风险等级" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">全部疑似度</SelectItem>
+                        <SelectItem value="all">全部风险</SelectItem>
                         <SelectItem value="高">高</SelectItem>
                         <SelectItem value="中">中</SelectItem>
                         <SelectItem value="低">低</SelectItem>
@@ -1149,7 +1148,7 @@ export default function QuarantineQueuePage() {
                       value={selectedDataset}
                       onValueChange={handleDatasetScopeChange}
                     >
-                      <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none">
+                      <SelectTrigger className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none">
                         <SelectValue placeholder="数据集" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1175,13 +1174,12 @@ export default function QuarantineQueuePage() {
                   <div className="min-w-0">
                     <div className="relative">
                       <Input
-                        type="text"
-                        inputMode="numeric"
+                        type="date"
                         placeholder="起始日期"
-                        aria-label="起始日期，格式 YYYY-MM-DD"
+                        aria-label="起始日期"
                         value={dateFrom}
                         onChange={(event) => setDateFrom(event.target.value)}
-                        className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none placeholder:text-muted-foreground"
+                        className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none placeholder:text-muted-foreground"
                       />
                     </div>
                   </div>
@@ -1189,13 +1187,12 @@ export default function QuarantineQueuePage() {
                   <div className="min-w-0">
                     <div className="relative">
                       <Input
-                        type="text"
-                        inputMode="numeric"
+                        type="date"
                         placeholder="结束日期"
-                        aria-label="结束日期，格式 YYYY-MM-DD"
+                        aria-label="结束日期"
                         value={dateTo}
                         onChange={(event) => setDateTo(event.target.value)}
-                        className="h-9 rounded-xl border-border/60 bg-background px-3 text-[11px] font-normal shadow-none placeholder:text-muted-foreground"
+                        className="h-9 rounded-md border-border bg-background px-3 text-sm font-normal shadow-none placeholder:text-muted-foreground"
                       />
                     </div>
                   </div>
@@ -1206,7 +1203,7 @@ export default function QuarantineQueuePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 rounded-xl border-border/60 bg-background px-3.5 text-[11px] font-medium"
+                    className="h-9 rounded-md border-border bg-background px-3.5 text-xs font-medium"
                     onClick={resetFilters}
                   >
                     <RotateCcw className="size-3.5" />
@@ -1216,7 +1213,7 @@ export default function QuarantineQueuePage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 rounded-xl border-info/25 bg-info/[0.06] px-3.5 text-[11px] font-medium text-info shadow-[0_12px_24px_-22px_hsl(var(--info)/0.5)] hover:border-info/40 hover:bg-info/[0.12] hover:text-info"
+                    className="h-9 rounded-md border-info/25 bg-info/[0.06] px-3.5 text-xs font-medium text-info hover:border-info/40 hover:bg-info/[0.12] hover:text-info"
                     onClick={() => detachPromise(refreshQueue({ notify: true }))}
                   >
                     <RefreshCw
@@ -1234,9 +1231,8 @@ export default function QuarantineQueuePage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed text-left border-collapse">
+              <table className="w-full min-w-[960px] table-fixed border-collapse text-left">
                 <colgroup>
-                  <col className="w-10" />
                   <col className="w-[22%]" />
                   <col className="w-[24%]" />
                   <col className="w-[11%]" />
@@ -1246,20 +1242,13 @@ export default function QuarantineQueuePage() {
                   <col className="w-[12%]" />
                   <col className="w-[8%]" />
                 </colgroup>
-                <thead className="border-b border-border/60 bg-muted/40 text-[11px] font-medium text-muted-foreground">
+                <thead className="border-b border-border bg-muted text-xs font-medium text-muted-foreground">
                   <tr>
-                    <th className="w-10 px-5 py-2.5">
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-border/60"
-                        aria-label="全选隔离记录"
-                      />
-                    </th>
-                    <th className="px-4 py-2.5 font-medium">文件 / ID</th>
-                    <th className="px-4 py-2.5 font-medium">命中规则 / 原因</th>
+                    <th className="px-4 py-2.5 font-medium">文件</th>
+                    <th className="px-4 py-2.5 font-medium">隔离原因</th>
                     <th className="px-4 py-2.5 font-medium">状态</th>
                     <th className="px-4 py-2.5 font-medium">来源</th>
-                    <th className="px-4 py-2.5 font-medium">疑似度</th>
+                    <th className="px-4 py-2.5 font-medium">风险</th>
                     <th className="px-4 py-2.5 font-medium text-right">大小</th>
                     <th className="px-4 py-2.5 font-medium text-right">
                       同步时间
@@ -1270,7 +1259,7 @@ export default function QuarantineQueuePage() {
                 <tbody className="divide-y divide-border/40">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-5 py-0">
+                      <td colSpan={8} className="px-5 py-0">
                         <QuarantineEmptyState
                           hasActiveFilters={hasActiveFilters}
                           autoRefresh={autoRefresh}
@@ -1293,13 +1282,6 @@ export default function QuarantineQueuePage() {
                               'bg-primary/5 hover:bg-primary/5'
                           )}
                         >
-                          <td className="px-5 py-2.5">
-                            <input
-                              type="checkbox"
-                              className="h-3.5 w-3.5 rounded border-border/60"
-                              aria-label={`选择 ${doc.filename}`}
-                            />
-                          </td>
                           <td className="px-4 py-2.5">
                             <button
                               type="button"
@@ -1309,17 +1291,17 @@ export default function QuarantineQueuePage() {
                                 setReviewDrawerOpen(true)
                               }}
                             >
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] border border-primary/10 bg-primary/8 text-primary">
+                              <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/10 bg-primary/10 text-primary">
                                 <FileKindGlyph
                                   kind={getDocumentKind(doc.filename)}
                                   className="h-4 w-4"
                                 />
                               </div>
                               <div className="min-w-0">
-                                <span className="block truncate text-[12px] font-medium text-foreground transition-colors group-hover:text-primary">
+                                <span className="block truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                                   {doc.filename}
                                 </span>
-                                <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground/70">
+                                <span className="mt-0.5 block font-mono text-xs text-muted-foreground">
                                   {doc.id.slice(0, 8)}
                                 </span>
                               </div>
@@ -1330,7 +1312,7 @@ export default function QuarantineQueuePage() {
                               {reasons.map((reason) => (
                                 <span
                                   key={reason}
-                                  className="rounded-full border border-warning/15 bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning"
+                                  className="rounded-md border border-warning/15 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning"
                                 >
                                   {reasonLabel(reason)}
                                 </span>
@@ -1349,14 +1331,14 @@ export default function QuarantineQueuePage() {
                               }
                             />
                           </td>
-                          <td className="px-4 py-2.5 text-[11px] font-medium text-muted-foreground">
+                          <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
                             {getQuarantineSource(doc)}
                           </td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-2">
                               <span
                                 className={cn(
-                                  'min-w-[1rem] text-[11px] font-medium',
+                                  'min-w-[1rem] text-xs font-medium',
                                   getSeverityClassName(severity)
                                 )}
                               >
@@ -1375,20 +1357,20 @@ export default function QuarantineQueuePage() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right font-mono text-[10px] tabular-nums text-muted-foreground/85">
+                          <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-muted-foreground">
                             {formatFileSize(doc.file_size)}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-mono text-[9px] text-muted-foreground/70">
+                          <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">
                             {formatDate(doc.updated_at)}
                           </td>
                           <td className="px-4 py-2.5">
-                            <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 aria-label="查看隔离详情"
                                 title="查看隔离详情"
-                                className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-muted"
+                                className="size-8 rounded-md text-muted-foreground hover:bg-muted"
                                 onClick={() => {
                                   setSelectedId(doc.id)
                                   setReviewDrawerOpen(true)
@@ -1401,10 +1383,10 @@ export default function QuarantineQueuePage() {
                                 variant="ghost"
                                 aria-label="打开原文"
                                 title="打开原文"
-                                className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-muted"
+                                className="size-8 rounded-md text-muted-foreground hover:bg-muted"
                                 onClick={() => openDocument(doc.id)}
                               >
-                                <Download className="h-4 w-4" />
+                                <FileText className="h-4 w-4" />
                               </Button>
                             </div>
                           </td>
@@ -1416,7 +1398,7 @@ export default function QuarantineQueuePage() {
               </table>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-border/60 px-5 py-2.5 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 border-t border-border px-5 py-2.5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <div>共 {filtered.length} 条记录</div>
               <div className="flex flex-wrap items-center gap-3">
                 <div>
@@ -1431,7 +1413,8 @@ export default function QuarantineQueuePage() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background text-foreground disabled:opacity-40"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground disabled:opacity-40"
+                      aria-label="上一页"
                       disabled={safePage <= 1}
                       onClick={() => setPage(Math.max(1, safePage - 1))}
                     >
@@ -1447,7 +1430,7 @@ export default function QuarantineQueuePage() {
                             type="button"
                             onClick={() => setPage(pageNumber)}
                             className={cn(
-                              'inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] font-medium tabular-nums',
+                              'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-medium tabular-nums',
                               safePage === pageNumber
                                 ? 'bg-primary text-primary-foreground'
                                 : 'text-muted-foreground hover:text-foreground'
@@ -1459,14 +1442,14 @@ export default function QuarantineQueuePage() {
                       }
                     )}
                     {totalPages > 5 ? (
-                      <span className="px-1 text-[11px]">…</span>
+                      <span className="px-1 text-xs">...</span>
                     ) : null}
                     {totalPages > 5 ? (
                       <button
                         type="button"
                         onClick={() => setPage(totalPages)}
                         className={cn(
-                          'inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] font-medium tabular-nums',
+                          'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-medium tabular-nums',
                           safePage === totalPages
                             ? 'bg-primary text-primary-foreground'
                             : 'text-muted-foreground hover:text-foreground'
@@ -1477,7 +1460,8 @@ export default function QuarantineQueuePage() {
                     ) : null}
                     <button
                       type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background text-foreground disabled:opacity-40"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground disabled:opacity-40"
+                      aria-label="下一页"
                       disabled={safePage >= totalPages}
                       onClick={() =>
                         setPage(Math.min(totalPages, safePage + 1))
@@ -1485,8 +1469,8 @@ export default function QuarantineQueuePage() {
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
-                    <span className="ml-2 rounded-full border border-border/60 px-2.5 py-1 text-[12px]">
-                      {QUARANTINE_PAGE_SIZE} 条/页
+                    <span className="ml-2 rounded-md border border-border px-2.5 py-1 text-xs">
+                      每页 {QUARANTINE_PAGE_SIZE} 条
                     </span>
                   </div>
                 ) : null}
@@ -1496,7 +1480,7 @@ export default function QuarantineQueuePage() {
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr_1fr_1.05fr] xl:items-stretch">
             <DonutSummaryCard
-              title="规则命中分布 TOP5"
+              title="规则命中前 5 项"
               items={reasonTopItems}
               colors={[
                 'hsl(var(--primary))',
@@ -1507,7 +1491,7 @@ export default function QuarantineQueuePage() {
               ]}
             />
             <DonutSummaryCard
-              title="疑似度分布"
+              title="风险等级分布"
               items={severityItems}
               colors={['#ef4444', '#f59e0b', '#34d399']}
             />
@@ -1522,14 +1506,14 @@ export default function QuarantineQueuePage() {
               ]}
             />
 
-            <div className="flex h-full flex-col rounded-[1.2rem] border border-border/60 bg-background/92 p-4 shadow-[0_20px_48px_-40px_rgba(15,23,42,0.2)] backdrop-blur-sm">
-              <div className="text-[0.95rem] font-medium text-foreground">
+            <div className="flex h-full flex-col rounded-md border border-border bg-card p-4">
+              <div className="text-sm font-semibold text-foreground">
                 快捷操作
               </div>
               <div className="mt-3.5 grid flex-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-2">
                 <QuickActionCard
-                  title="批量审核"
-                  description="选择多条待审样本后进行批量处置"
+                  title="开始审核"
+                  description="打开当前列表中的第一条待审记录"
                   icon={ShieldCheck}
                   onClick={handleOpenFirstForReview}
                 />
@@ -1540,14 +1524,14 @@ export default function QuarantineQueuePage() {
                   onClick={handleExportFiltered}
                 />
                 <QuickActionCard
-                  title="规则管理"
-                  description="查看并快速调整当前规则阈值"
+                  title="调整规则"
+                  description="调整当前记录的处理规则"
                   icon={Settings2}
                   onClick={handleOpenRuleManager}
                 />
                 <QuickActionCard
                   title="回放记录"
-                  description="查看最近样本的明细和回放信息"
+                  description="查看当前记录的任务明细"
                   icon={Layers}
                   onClick={handleOpenReplayLog}
                 />
@@ -1589,16 +1573,15 @@ export default function QuarantineQueuePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="size-5 text-warning" />
-              调参回放
+              调整处理规则
             </DialogTitle>
             <DialogDescription>
-              仅修改该文档的 pipeline
-              overrides（`metadata.pipeline`），用于快速回放重试；不会影响其他文档。
+              仅修改当前文档的处理规则，不会影响其他文档。
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
-            <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <div className="rounded-md border border-border bg-muted/40 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm font-medium text-foreground">
@@ -1613,7 +1596,7 @@ export default function QuarantineQueuePage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="rounded-xl"
+                    className="rounded-md"
                     onClick={() =>
                       setTunePatch((p) => ({
                         ...p,
@@ -1628,7 +1611,7 @@ export default function QuarantineQueuePage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="rounded-xl"
+                    className="rounded-md"
                     onClick={() => {
                       if (!tuneTarget) return
                       const current = extractTuningOverrides(tuneTarget)
@@ -1643,13 +1626,11 @@ export default function QuarantineQueuePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-3 rounded-xl border border-border bg-card/60 p-4">
+              <div className="space-y-3 rounded-md border border-border bg-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">大纲过滤</div>
-                    <div className="text-xs text-muted-foreground">
-                      outline_only
-                    </div>
+                    <div className="text-xs text-muted-foreground">过滤只有标题、缺少正文的内容</div>
                   </div>
                   <Switch
                     checked={Boolean(tunePatch.governance_drop_outline_only)}
@@ -1685,7 +1666,7 @@ export default function QuarantineQueuePage() {
                             val,
                         }))
                       }}
-                      className="h-9 rounded-lg"
+                      className="h-9 rounded-md"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1711,19 +1692,17 @@ export default function QuarantineQueuePage() {
                             val,
                         }))
                       }}
-                      className="h-9 rounded-lg"
+                      className="h-9 rounded-md"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-border bg-card/60 p-4">
+              <div className="space-y-3 rounded-md border border-border bg-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">低密度过滤</div>
-                    <div className="text-xs text-muted-foreground">
-                      low_density
-                    </div>
+                    <div className="text-xs text-muted-foreground">过滤有效文字过少的内容</div>
                   </div>
                   <Switch
                     checked={Boolean(tunePatch.governance_drop_low_density)}
@@ -1758,19 +1737,17 @@ export default function QuarantineQueuePage() {
                         governance_drop_low_density_threshold: val,
                       }))
                     }}
-                    className="h-9 rounded-lg"
+                    className="h-9 rounded-md"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-border bg-card/60 p-4">
+            <div className="space-y-3 rounded-md border border-border bg-card p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium">隔离策略</div>
-                  <div className="text-xs text-muted-foreground">
-                    quarantine_on_drop
-                  </div>
+                  <div className="text-xs text-muted-foreground">决定质量过滤后的文档去向</div>
                 </div>
                 <Switch
                   checked={Boolean(tunePatch.governance_quarantine_on_drop)}
@@ -1784,8 +1761,7 @@ export default function QuarantineQueuePage() {
                 />
               </div>
               <div className="text-xs text-muted-foreground">
-                开启后：触发质量过滤时标记为 quarantined（而非
-                failed），便于人工复核。
+                开启后，触发质量过滤的文档会进入隔离区；关闭后会记为处理失败。
               </div>
             </div>
           </div>
@@ -1794,7 +1770,7 @@ export default function QuarantineQueuePage() {
             <Button
               type="button"
               variant="outline"
-              className="rounded-xl"
+              className="rounded-md"
               onClick={() => setTuneOpen(false)}
               disabled={acting?.action === 'tune'}
             >
@@ -1803,7 +1779,7 @@ export default function QuarantineQueuePage() {
             <Button
               type="button"
               variant="outline"
-              className="rounded-xl"
+              className="rounded-md"
               onClick={() => saveTune({ retryAfterSave: false })}
               disabled={acting?.action === 'tune'}
             >
@@ -1820,7 +1796,7 @@ export default function QuarantineQueuePage() {
             <Button
               type="button"
               variant="warning"
-              className="rounded-xl"
+              className="rounded-md"
               onClick={() => saveTune({ retryAfterSave: true })}
               disabled={acting?.action === 'tune'}
             >
