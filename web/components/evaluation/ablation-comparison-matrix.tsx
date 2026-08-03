@@ -5,8 +5,19 @@ import { GitCompareArrows } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RegressionRun } from '@/types'
 
+const METRIC_LABELS: Record<string, string> = {
+  retrieval_mrr: 'MRR',
+  retrieval_ndcg: 'NDCG',
+  retrieval_recall: '召回率',
+  recall_at_k: '召回率',
+  precision_at_k: '准确率',
+  hit_rate: '命中率',
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 function metricValue(run: RegressionRun, key: string): number | null {
@@ -19,23 +30,34 @@ function metricValue(run: RegressionRun, key: string): number | null {
     asRecord(summary.aggregate_metrics)[key],
   ]
   for (const item of candidates) {
-    const n = Number(item)
-    if (Number.isFinite(n)) return n
+    const value = Number(item)
+    if (Number.isFinite(value)) return value
   }
   return null
 }
 
 function latency(run: RegressionRun): number | null {
   const summary = asRecord(run.summary)
-  const candidates = [summary.latency_ms, summary.elapsed_ms, summary.duration_ms, summary.elapsed_sec]
+  const candidates = [
+    summary.latency_ms,
+    summary.elapsed_ms,
+    summary.duration_ms,
+    summary.elapsed_sec,
+  ]
   for (const item of candidates) {
-    const n = Number(item)
-    if (Number.isFinite(n)) return String(item).includes('.') && n < 1000 ? n * 1000 : n
+    const value = Number(item)
+    if (Number.isFinite(value)) {
+      return String(item).includes('.') && value < 1000 ? value * 1000 : value
+    }
   }
   return null
 }
 
-function isPareto(run: RegressionRun, runs: RegressionRun[], metricKey: string): boolean {
+function isPareto(
+  run: RegressionRun,
+  runs: RegressionRun[],
+  metricKey: string
+): boolean {
   const ownMetric = metricValue(run, metricKey)
   const ownLatency = latency(run)
   if (ownMetric === null || ownLatency === null) return false
@@ -44,12 +66,20 @@ function isPareto(run: RegressionRun, runs: RegressionRun[], metricKey: string):
     const otherMetric = metricValue(other, metricKey)
     const otherLatency = latency(other)
     if (otherMetric === null || otherLatency === null) return false
-    return otherMetric >= ownMetric && otherLatency <= ownLatency && (otherMetric > ownMetric || otherLatency < ownLatency)
+    return (
+      otherMetric >= ownMetric &&
+      otherLatency <= ownLatency &&
+      (otherMetric > ownMetric || otherLatency < ownLatency)
+    )
   })
 }
 
 function shortId(value: string): string {
   return value ? `${value.slice(0, 8)}…` : '-'
+}
+
+function metricLabel(key: string): string {
+  return METRIC_LABELS[key] || key.replaceAll('_', ' ')
 }
 
 export function AblationComparisonMatrix({
@@ -61,77 +91,109 @@ export function AblationComparisonMatrix({
   baseRunId: string
   metricKeys: string[]
 }>) {
-  const completed = runs.filter((run) => String(run.status || '') === 'completed').slice(0, 8)
-  const base = completed.find((run) => run.id === baseRunId) ?? completed[0] ?? null
+  const completed = runs
+    .filter((run) => String(run.status || '') === 'completed')
+    .slice(0, 8)
+  const base =
+    completed.find((run) => run.id === baseRunId) ?? completed[0] ?? null
   const primaryMetric = metricKeys[0] || 'retrieval_mrr'
+  const preferredCount = completed.filter((run) =>
+    isPareto(run, completed, primaryMetric)
+  ).length
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-md border border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <GitCompareArrows className="size-4 text-accent" />
-            N×M 多 Run 对比矩阵
+            <GitCompareArrows className="size-4 text-primary" />
+            多次运行对比
           </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            行是 run，列是 metric；单元格显示 value 与相对 base 的 delta。右侧标记 Pareto 候选：更高主指标、更低 latency。
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
+            比较各项指标、相对基准的变化和运行延迟。
           </p>
         </div>
-        <div className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-right">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-accent">Pareto</div>
-          <div className="text-sm font-semibold text-accent">
-            {completed.filter((run) => isPareto(run, completed, primaryMetric)).length || '-'}
-          </div>
-        </div>
+        <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+          优选候选 {preferredCount || 0} 个
+        </span>
       </div>
 
-      <div className="mt-3 overflow-auto rounded-xl border border-border">
-        <div
-          className="grid min-w-[720px] bg-muted/50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground"
-          style={{ gridTemplateColumns: `140px repeat(${metricKeys.length}, minmax(110px, 1fr)) 110px` }}
-        >
-          <div className="px-3 py-2">Run</div>
-          {metricKeys.map((metric) => (
-            <div key={metric} className="px-3 py-2 text-right">{metric}</div>
-          ))}
-          <div className="px-3 py-2 text-right">latency</div>
-        </div>
-        {completed.length ? completed.map((run) => {
-          const pareto = isPareto(run, completed, primaryMetric)
-          return (
-            <div
-              key={run.id}
-              className="grid min-w-[720px] border-t border-border/50 text-xs"
-              style={{ gridTemplateColumns: `140px repeat(${metricKeys.length}, minmax(110px, 1fr)) 110px` }}
-            >
-              <div className={cn('px-3 py-2 font-mono', pareto ? 'text-accent' : 'text-foreground')}>
-                {shortId(run.id)} {pareto ? '•' : ''}
-              </div>
-              {metricKeys.map((metric) => {
-                const value = metricValue(run, metric)
-                const baseValue = base ? metricValue(base, metric) : null
-                const delta = value !== null && baseValue !== null ? value - baseValue : null
-                const heat = value === null ? 0 : Math.max(0.08, Math.min(0.32, value))
-                return (
-                  <div
-                    key={`${run.id}-${metric}`}
-                    className="px-3 py-2 text-right font-mono"
-                    style={{ backgroundColor: `hsl(var(--info) / ${heat})` }}
-                  >
-                    <span className="text-foreground">{value === null ? '-' : value.toFixed(4)}</span>
-                    <span className={cn('ml-1 text-[10px]', delta && delta > 0 ? 'text-success' : delta && delta < 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                      {delta === null ? '' : delta >= 0 ? `+${delta.toFixed(3)}` : delta.toFixed(3)}
+      {completed.length ? (
+        <div className="divide-y divide-border">
+          {completed.map((run) => {
+            const preferred = isPareto(run, completed, primaryMetric)
+            const runLatency = latency(run)
+            return (
+              <div key={run.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-medium text-foreground">
+                      运行 {shortId(run.id)}
                     </span>
+                    {run.id === base?.id ? (
+                      <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        基准
+                      </span>
+                    ) : null}
+                    {preferred ? (
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        优选候选
+                      </span>
+                    ) : null}
                   </div>
-                )
-              })}
-              <div className="px-3 py-2 text-right font-mono text-muted-foreground">{latency(run) === null ? '-' : `${Math.round(latency(run) || 0)}ms`}</div>
-            </div>
-          )
-        }) : (
-          <div className="px-3 py-8 text-center text-xs text-muted-foreground">暂无 completed runs，刷新排行榜或先创建消融实验。</div>
-        )}
-      </div>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    延迟{' '}
+                    {runLatency === null ? '-' : `${Math.round(runLatency)} ms`}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid gap-x-4 gap-y-3 border-t border-border pt-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {metricKeys.map((metric) => {
+                    const value = metricValue(run, metric)
+                    const baseValue = base ? metricValue(base, metric) : null
+                    const delta =
+                      value !== null && baseValue !== null
+                        ? value - baseValue
+                        : null
+                    return (
+                      <div
+                        key={`${run.id}-${metric}`}
+                        className="flex items-end justify-between gap-3"
+                      >
+                        <span className="min-w-0 truncate text-xs text-muted-foreground">
+                          {metricLabel(metric)}
+                        </span>
+                        <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
+                          {value === null ? '-' : value.toFixed(4)}
+                          {delta === null ? null : (
+                            <span
+                              className={cn(
+                                'ml-2',
+                                delta > 0
+                                  ? 'text-success'
+                                  : delta < 0
+                                    ? 'text-destructive'
+                                    : 'text-muted-foreground'
+                              )}
+                            >
+                              {delta >= 0 ? '+' : ''}
+                              {delta.toFixed(3)}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+          暂无已完成的运行，请先创建消融实验。
+        </div>
+      )}
     </section>
   )
 }

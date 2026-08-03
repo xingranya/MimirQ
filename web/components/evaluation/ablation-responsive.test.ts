@@ -14,4 +14,20 @@ describe('消融分析响应式布局', () => {
     expect(source).toMatch(/min-w-\[6[28]0px\]/)
     expect(source).not.toContain('mt-3 overflow-hidden')
   })
+
+  it('运行对比在窄屏使用可折行列表', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-comparison-matrix.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('sm:grid-cols-2 xl:grid-cols-3')
+    expect(source).toContain('多次运行对比')
+    expect(source).toContain('优选候选')
+    expect(source).not.toContain('min-w-[720px]')
+    expect(source).not.toContain('overflow-auto')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl|full)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+  })
 })
