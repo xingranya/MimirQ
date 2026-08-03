@@ -40,6 +40,7 @@ import {
   KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
 } from '@/components/ui/knowledge-ops-hero'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,7 @@ import { PipelineRail, WorkbenchScaffold } from '@/components/workbench'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useRouter } from '@/i18n/navigation'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import {
   ROOT_FOLDER_ID,
   useParsedFiles,
@@ -389,6 +391,9 @@ export function DataGovernancePanel() {
   const [deleteFileOpen, setDeleteFileOpen] = useState(false)
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
   const [savingGovernance, setSavingGovernance] = useState(false)
+  const [pendingDatasetScope, setPendingDatasetScope] = useState<
+    string | null | undefined
+  >(undefined)
   const [deleteFileTarget, setDeleteFileTarget] = useState<{
     id: string
     filename: string
@@ -570,9 +575,28 @@ export function DataGovernancePanel() {
     )
   }, [documentSyncQuery.data, isLoaded, selectedDatasetId, setParsedFiles])
 
-  const handleDatasetScopeChange = useCallback(
-    (value: string) => {
-      const nextDatasetId = value === ALL_DATASETS_VALUE ? null : value
+  const cancelUploadAndParse = useCallback(() => {
+    uploadAbortRef.current?.abort()
+    uploadAbortRef.current = null
+    setUploading(false)
+    toast.info(t('toasts.uploadCancelled'))
+  }, [t])
+
+  // 文件治理状态
+  const [governanceStates, setGovernanceStates] = useState<
+    Record<string, FileGovernanceState>
+  >({})
+  const hasUnsavedGovernanceChanges = useMemo(
+    () => Object.values(governanceStates).some((state) => state.isModified),
+    [governanceStates]
+  )
+  const navigate = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: hasUnsavedGovernanceChanges,
+    onNavigate: navigate,
+  })
+  const applyDatasetScopeChange = useCallback(
+    (nextDatasetId: string | null) => {
       setSelectedDatasetId(nextDatasetId)
       setSelectedFileId(null)
       setActiveFolderId(ROOT_FOLDER_ID)
@@ -585,18 +609,39 @@ export function DataGovernancePanel() {
     },
     [router, searchParams, setActiveFolderId]
   )
-
-  const cancelUploadAndParse = useCallback(() => {
-    uploadAbortRef.current?.abort()
-    uploadAbortRef.current = null
-    setUploading(false)
-    toast.info(t('toasts.uploadCancelled'))
-  }, [t])
-
-  // 文件治理状态
-  const [governanceStates, setGovernanceStates] = useState<
-    Record<string, FileGovernanceState>
-  >({})
+  const handleDatasetScopeChange = useCallback(
+    (value: string) => {
+      const nextDatasetId = value === ALL_DATASETS_VALUE ? null : value
+      if (nextDatasetId === selectedDatasetId) return
+      if (hasUnsavedGovernanceChanges) {
+        setPendingDatasetScope(nextDatasetId)
+        return
+      }
+      applyDatasetScopeChange(nextDatasetId)
+    },
+    [
+      applyDatasetScopeChange,
+      hasUnsavedGovernanceChanges,
+      selectedDatasetId,
+    ]
+  )
+  const discardAllGovernanceChanges = useCallback(() => {
+    setGovernanceStates((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([fileId, state]) => [
+          fileId,
+          state.isModified
+            ? {
+                ...state,
+                cleanedContent: state.savedContent,
+                ...cloneGovernanceDocumentState(state.savedGovernanceState),
+                isModified: false,
+              }
+            : state,
+        ])
+      )
+    )
+  }, [])
   const [truncatedContentFileIds, setTruncatedContentFileIds] = useState<Set<string>>(
     () => new Set()
   )
@@ -2681,6 +2726,29 @@ export function DataGovernancePanel() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <UnsavedChangesDialog
+            open={
+              navigationGuard.navigationPending ||
+              pendingDatasetScope !== undefined
+            }
+            onOpenChange={(open) => {
+              if (open) return
+              setPendingDatasetScope(undefined)
+              navigationGuard.cancelNavigation()
+            }}
+            onDiscard={() => {
+              discardAllGovernanceChanges()
+              if (pendingDatasetScope !== undefined) {
+                const nextDatasetId = pendingDatasetScope
+                setPendingDatasetScope(undefined)
+                applyDatasetScopeChange(nextDatasetId)
+                return
+              }
+              navigationGuard.confirmNavigation()
+            }}
+            title="放弃未保存的治理修改？"
+            description="当前文档的治理结果尚未保存。继续后，这些修改将丢失。"
+          />
         </div>
       }
     />

@@ -18,6 +18,20 @@ export function buildGovernanceProfilePayload(
   }
 }
 
+export function governanceProfileDraftFingerprint(draft: {
+  name: string
+  key: string
+  description: string
+  payload: GovernanceProfilePayload
+}): string {
+  return JSON.stringify({
+    name: draft.name.trim(),
+    key: draft.key.trim(),
+    description: draft.description.trim(),
+    payload: draft.payload,
+  })
+}
+
 type BuildCleanPreviewOptions = {
   includeDiff?: boolean
   diffMaxLines?: number

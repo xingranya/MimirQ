@@ -32,4 +32,11 @@ describe('数据治理正文安全门禁', () => {
   it('切换文档时重新建立治理工具实例', () => {
     expect(panelSource).toContain('key={`${selectedFileId}:${activeTab}`}')
   })
+
+  it('离开页面或切换数据集前确认未保存修改', () => {
+    expect(panelSource).toContain('enabled: hasUnsavedGovernanceChanges')
+    expect(panelSource).toContain('setPendingDatasetScope(nextDatasetId)')
+    expect(panelSource).toContain('<UnsavedChangesDialog')
+    expect(panelSource).toContain('discardAllGovernanceChanges()')
+  })
 })

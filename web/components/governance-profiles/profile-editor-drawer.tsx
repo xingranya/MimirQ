@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useState } from 'react'
 import { Braces, FileText, Loader2, Play, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from '@/i18n/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -13,6 +14,8 @@ import { Panel } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import { governanceApi, pipelineApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { reportClientWarning } from '@/lib/client-logging'
@@ -29,6 +32,7 @@ import type {
 import {
   buildCleanPreviewRequestFromGovernanceProfile,
   buildGovernanceProfilePayload,
+  governanceProfileDraftFingerprint,
 } from '@/lib/governance-profile-utils'
 import { CleanPreviewRuleStatsPanel } from '@/components/governance-profiles/clean-preview-rule-stats-panel'
 
@@ -274,6 +278,7 @@ export function ProfileEditorDrawer({
 }: Readonly<Props>) {
   const isReadOnly = mode === 'view'
   const isCreate = mode === 'create'
+  const router = useRouter()
 
   const [activeTab, setActiveTab] = useState<'edit' | 'test'>('edit')
   const [loadingProfile, setLoadingProfile] = useState(false)
@@ -292,6 +297,8 @@ export function ProfileEditorDrawer({
   const [patchJson, setPatchJson] = useState('')
   const [patchJsonError, setPatchJsonError] = useState<string | null>(null)
   const [patchJsonDirty, setPatchJsonDirty] = useState(false)
+  const [savedDraftFingerprint, setSavedDraftFingerprint] = useState('')
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
   // Sandbox test state.
   const [testInputFormat, setTestInputFormat] = useState<'markdown' | 'html'>('markdown')
@@ -310,6 +317,26 @@ export function ProfileEditorDrawer({
       ),
     [inputFormats, isCreate, loadedProfile, pipelinePatch, regexRules, seedCreate]
   )
+  const currentDraftFingerprint = useMemo(
+    () =>
+      governanceProfileDraftFingerprint({
+        name,
+        key,
+        description,
+        payload,
+      }),
+    [description, key, name, payload]
+  )
+  const hasUnsavedChanges =
+    open &&
+    !isReadOnly &&
+    Boolean(savedDraftFingerprint) &&
+    (patchJsonDirty || currentDraftFingerprint !== savedDraftFingerprint)
+  const navigate = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: hasUnsavedChanges,
+    onNavigate: navigate,
+  })
 
   const selectedRulePacks = useMemo(
     () => (Array.isArray(pipelinePatch?.governance_rule_packs) ? pipelinePatch.governance_rule_packs : []),
@@ -327,12 +354,34 @@ export function ProfileEditorDrawer({
     setPatchJson(JSON.stringify(defaultPayload().pipeline_patch, null, 2))
     setPatchJsonError(null)
     setPatchJsonDirty(false)
+    setSavedDraftFingerprint('')
+    setDiscardConfirmOpen(false)
     setActiveTab('edit')
     setTestResp(null)
     setTestInput('# Sample\n\nfoo')
     setTestInputFormat('markdown')
     setTestHtmlXPath('')
   }, [])
+
+  const closeDrawer = useCallback(() => {
+    resetDraft()
+    onOpenChange(false)
+  }, [onOpenChange, resetDraft])
+
+  const handleDrawerOpenChange = useCallback(
+    (next: boolean) => {
+      if (next) {
+        onOpenChange(true)
+        return
+      }
+      if (hasUnsavedChanges) {
+        setDiscardConfirmOpen(true)
+        return
+      }
+      closeDrawer()
+    },
+    [closeDrawer, hasUnsavedChanges, onOpenChange]
+  )
 
   // Load profile when opening (edit/view).
   useEffect(() => {
@@ -351,6 +400,22 @@ export function ProfileEditorDrawer({
       setPatchJson(JSON.stringify(p.pipeline_patch, null, 2))
       setPatchJsonError(null)
       setPatchJsonDirty(false)
+      setSavedDraftFingerprint(
+        governanceProfileDraftFingerprint({
+          name: seeded ? String(seeded.name || '') : '',
+          key:
+            seeded && typeof seeded.key === 'string'
+              ? String(seeded.key || '')
+              : '',
+          description: seeded ? String(seeded.description || '') : '',
+          payload: buildGovernanceProfilePayload(
+            p,
+            p.input_formats,
+            p.pipeline_patch,
+            p.regex_rules
+          ),
+        })
+      )
       setActiveTab('edit')
       setTestResp(null)
       return
@@ -375,6 +440,19 @@ export function ProfileEditorDrawer({
         setPatchJson(JSON.stringify(prof.payload?.pipeline_patch ?? {}, null, 2))
         setPatchJsonError(null)
         setPatchJsonDirty(false)
+        setSavedDraftFingerprint(
+          governanceProfileDraftFingerprint({
+            name: String(prof.name || ''),
+            key: String(prof.key || ''),
+            description: String(prof.description || ''),
+            payload: buildGovernanceProfilePayload(
+              prof.payload,
+              prof.payload?.input_formats || ['markdown'],
+              prof.payload?.pipeline_patch ?? {},
+              prof.payload?.regex_rules ?? []
+            ),
+          })
+        )
         setActiveTab('edit')
         setTestResp(null)
       } catch (err: unknown) {
@@ -520,7 +598,7 @@ export function ProfileEditorDrawer({
         const created = await pipelineApi.createGovernanceProfile(payloadCreate)
         toast.success('治理模板已创建')
         onCreated?.(created)
-        onOpenChange(false)
+        closeDrawer()
       } else {
         const ref = (profileRef || '').trim()
         if (!ref) {
@@ -534,7 +612,7 @@ export function ProfileEditorDrawer({
         })
         toast.success('治理模板已保存')
         onSaved?.(updated)
-        onOpenChange(false)
+        closeDrawer()
       }
     } catch (err: unknown) {
       toast.error(formatApiError(err, '保存失败'))
@@ -565,13 +643,8 @@ export function ProfileEditorDrawer({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next)
-        if (!next) resetDraft()
-      }}
-    >
+    <>
+      <Dialog open={open} onOpenChange={handleDrawerOpenChange}>
       <DialogContent
         className={cn(
           // Drawer layout: right-aligned, full height.
@@ -1153,6 +1226,27 @@ export function ProfileEditorDrawer({
           )}
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      <UnsavedChangesDialog
+        open={discardConfirmOpen || navigationGuard.navigationPending}
+        onOpenChange={(next) => {
+          if (next) return
+          setDiscardConfirmOpen(false)
+          navigationGuard.cancelNavigation()
+        }}
+        onDiscard={() => {
+          setDiscardConfirmOpen(false)
+          if (navigationGuard.navigationPending) {
+            resetDraft()
+            onOpenChange(false)
+            navigationGuard.confirmNavigation()
+            return
+          }
+          closeDrawer()
+        }}
+        title="放弃未保存的模板修改？"
+        description="治理模板尚未保存。继续后，本次修改将丢失。"
+      />
+    </>
   )
 }

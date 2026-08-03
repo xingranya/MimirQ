@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { GovernanceProfilePayload } from '@/types'
 
-import { buildGovernanceProfilePayload } from './governance-profile-utils'
+import {
+  buildGovernanceProfilePayload,
+  governanceProfileDraftFingerprint,
+} from './governance-profile-utils'
 
 describe('治理模板保存数据', () => {
   it('编辑模板时保留继承关系和处理脚本', () => {
@@ -50,5 +53,32 @@ describe('治理模板保存数据', () => {
       regex_rules: [],
       processing_scripts: [],
     })
+  })
+
+  it('模板草稿指纹忽略首尾空格并识别配置修改', () => {
+    const payload = buildGovernanceProfilePayload(null, [], {}, [])
+    const baseline = governanceProfileDraftFingerprint({
+      name: '基础模板',
+      key: 'base',
+      description: '清理 PDF',
+      payload,
+    })
+
+    expect(
+      governanceProfileDraftFingerprint({
+        name: ' 基础模板 ',
+        key: 'base ',
+        description: ' 清理 PDF ',
+        payload,
+      })
+    ).toBe(baseline)
+    expect(
+      governanceProfileDraftFingerprint({
+        name: '基础模板',
+        key: 'base',
+        description: '清理 PDF',
+        payload: { ...payload, input_formats: ['html'] },
+      })
+    ).not.toBe(baseline)
   })
 })

@@ -15,4 +15,11 @@ describe('治理模板规则编辑器', () => {
       "key={[r.pattern || '', r.repl || '', String(r.flags ?? 0)].join('::')}"
     )
   })
+
+  it('关闭抽屉或离开页面前确认未保存修改', () => {
+    expect(drawerSource).toContain('governanceProfileDraftFingerprint({')
+    expect(drawerSource).toContain('enabled: hasUnsavedChanges')
+    expect(drawerSource).toContain('setDiscardConfirmOpen(true)')
+    expect(drawerSource).toContain('<UnsavedChangesDialog')
+  })
 })
