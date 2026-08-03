@@ -58,7 +58,6 @@ import { cn, detachPromise } from '@/lib/utils'
 import type {
   GovernanceCommonLineCandidate,
   GovernanceCommonLinesLearnResponse,
-  GovernanceProfileCreate,
   GovernanceProfileSummary,
   GovernanceProcessingScript,
   RegexRuleModel,
@@ -74,7 +73,7 @@ function buildLineRegexRule(sample: string): RegexRuleModel | null {
   const tokens = raw.split(/\s+/).filter(Boolean)
   if (!tokens.length) return null
   const body = tokens.map(escapeRegex).join(String.raw`\s+`)
-  // (?m): line anchors, (?i): case-insensitive to tolerate casing changes from different parsers.
+  // 使用多行和忽略大小写模式，兼容不同解析器产生的大小写差异。
   const pattern = String.raw`(?mi)^\s*${body}\s*$`
   return { pattern, repl: '', flags: 0 }
 }
@@ -96,28 +95,6 @@ const emptyWorkflowSteps = [
     description: '勾选需要保留的规则,一键写入治理配置。',
   },
 ]
-
-const DEFAULT_COMMON_LINES_PROFILE_KEY = 'common-lines-default'
-
-const DEFAULT_COMMON_LINES_PROFILE: GovernanceProfileCreate = {
-  key: DEFAULT_COMMON_LINES_PROFILE_KEY,
-  name: '重复内容治理默认配置',
-  description: '用于承接重复内容治理生成的页眉、页脚、导航和免责声明清洗规则。',
-  payload: {
-    version: '1',
-    extends: null,
-    input_formats: ['markdown'],
-    pipeline_patch: {
-      governance_enabled: true,
-      governance_remove_toc_lines: true,
-      governance_remove_noise_lines: true,
-      governance_unwrap_lines: true,
-      governance_remove_common_lines: true,
-      governance_max_blank_lines: 1,
-    },
-    regex_rules: [],
-  },
-}
 
 const SCRIPT_UPLOAD_ACCEPT = '.js,.ts,.py,.rs'
 const MAX_PROCESSING_SCRIPT_CHARS = 200_000
@@ -143,23 +120,7 @@ async function listWritableCommonLineProfiles(): Promise<
   const profResp = await pipelineApi.listGovernanceProfiles(
     COMMON_LINES_PROFILE_PARAMS
   )
-  let profs = (profResp.items || []).filter((p) => !p.is_system)
-  if (!profs.length) {
-    try {
-      const created = await pipelineApi.createGovernanceProfile(
-        DEFAULT_COMMON_LINES_PROFILE
-      )
-      profs = [created]
-    } catch (caughtCreateErr: unknown) {
-      const createErr = caughtCreateErr as { response?: { status?: number } }
-      if (createErr?.response?.status !== 409) throw caughtCreateErr
-      const retryResp = await pipelineApi.listGovernanceProfiles(
-        COMMON_LINES_PROFILE_PARAMS
-      )
-      profs = (retryResp.items || []).filter((p) => !p.is_system)
-    }
-  }
-  return profs
+  return (profResp.items || []).filter((profile) => !profile.is_system)
 }
 
 export function GovernanceCommonLinesPage() {
