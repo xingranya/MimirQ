@@ -30,4 +30,20 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
     expect(source).not.toContain('shadow-')
   })
+
+  it('批量参数组合把技术字段收进高级说明', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-grid-panel.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('批量参数组合')
+    expect(source).toContain('查看支持的参数字段')
+    expect(source).toContain('创建 {variants.length} 个评测任务')
+    expect(source).not.toContain('笛卡尔网格批量')
+    expect(source).not.toContain('批量创建 Runs')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl|full)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+  })
 })

@@ -75,10 +75,14 @@ function parseGrid(value: string): { grid: GridSpec; variants: GridVariant[]; er
   try {
     parsed = JSON.parse(value)
   } catch {
-    return { grid: {}, variants: [], error: 'Grid JSON 无法解析' }
+    return { grid: {}, variants: [], error: '参数组合 JSON 格式有误' }
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { grid: {}, variants: [], error: 'Grid 必须是对象，例如 {"top_k":[10,20]}' }
+    return {
+      grid: {},
+      variants: [],
+      error: '参数组合必须是对象，例如 {"top_k":[10,20]}',
+    }
   }
 
   const parsedRecord = parsed as Record<string, unknown>
@@ -139,41 +143,50 @@ export function AblationGridPanel({
       setCompleted(variants.length)
       await onBatchComplete?.()
     } catch (err) {
-      setBatchError(err instanceof Error ? err.message : '批量创建 runs 失败')
+      setBatchError(err instanceof Error ? err.message : '批量创建评测任务失败')
     } finally {
       setRunning(false)
     }
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-md border border-border bg-card p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Grid3X3 className="size-4 text-info" />
-            笛卡尔网格批量
+            <Grid3X3 className="size-4 text-primary" />
+            批量参数组合
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            用 JSON 定义参数数组，前端按组合顺序创建 regression runs；默认上限 {MAX_GRID_COMBINATIONS} 个，避免跑爆配额。
-          </p>
-          <p className="mt-1 text-[11px] leading-5 text-muted-foreground/70">
-            支持字段：{GRID_PARAM_KEYS.join(' / ')}
+            用 JSON 定义参数数组，系统会按组合顺序创建评测任务。一次最多{' '}
+            {MAX_GRID_COMBINATIONS} 组。
           </p>
         </div>
-        <div className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-right">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">组合数</div>
-          <div className={cn('font-mono text-lg font-semibold', tooMany ? 'text-destructive' : 'text-foreground')}>
-            {variants.length}
-          </div>
-        </div>
+        <span
+          className={cn(
+            'shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium tabular-nums',
+            tooMany ? 'text-destructive' : 'text-muted-foreground'
+          )}
+        >
+          {variants.length} 组组合
+        </span>
       </div>
 
       <Textarea
         value={gridText}
         onChange={(event) => setGridText(event.target.value)}
         spellCheck={false}
-        className="mt-3 min-h-36 rounded-xl border-border bg-background font-mono text-xs text-foreground"
+        className="mt-3 min-h-36 rounded-md border-border bg-background font-mono text-xs text-foreground"
       />
+
+      <details className="mt-3 rounded-md border border-border bg-background">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground">
+          查看支持的参数字段
+        </summary>
+        <div className="border-t border-border px-3 py-2 font-mono text-xs leading-5 text-muted-foreground">
+          {GRID_PARAM_KEYS.join(' / ')}
+        </div>
+      </details>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <div className="min-h-5 text-xs text-muted-foreground">
@@ -195,14 +208,27 @@ export function AblationGridPanel({
               {disabledReason}
             </span>
           ) : running ? (
-            <span>正在提交批量任务 {completed}/{variants.length} runs…</span>
+            <span>
+              正在创建评测任务 {completed}/{variants.length}
+            </span>
           ) : (
-            <span>预览前 {Math.min(variants.length, 3)} 组：{variants.slice(0, 3).map((item) => JSON.stringify(item)).join(' / ')}</span>
+            <span>
+              前 {Math.min(variants.length, 3)} 组预览：
+              {variants
+                .slice(0, 3)
+                .map((item) => JSON.stringify(item))
+                .join(' / ')}
+            </span>
           )}
         </div>
-        <Button type="button" disabled={!canRun} onClick={() => void runBatch()} className="gap-2 rounded-xl">
+        <Button
+          type="button"
+          disabled={!canRun}
+          onClick={() => void runBatch()}
+          className="h-9 rounded-md"
+        >
           <PlayCircle className="size-4" />
-          批量创建 Runs
+          创建 {variants.length} 个评测任务
         </Button>
       </div>
     </section>
