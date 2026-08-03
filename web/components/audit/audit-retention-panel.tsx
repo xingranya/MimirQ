@@ -55,11 +55,11 @@ const FILTER_LABELS: Record<string, string> = {
   until: '结束时间',
 }
 const AUDIT_RETENTION_PANEL_CLASS =
-  'mt-3 overflow-hidden rounded-[1.1rem] border border-border/60 bg-card/84 shadow-[0_10px_28px_hsl(var(--primary)/0.045)]'
+  'overflow-hidden rounded-md border border-border bg-card'
 const AUDIT_RETENTION_HEADER_CLASS =
-  'flex flex-col gap-3 border-b border-border/50 bg-[linear-gradient(90deg,hsl(var(--card)/0.9),hsl(var(--primary)/0.04),hsl(var(--card)/0.9))] px-4 py-3 lg:flex-row lg:items-center lg:justify-between'
+  'flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-center lg:justify-between'
 const AUDIT_RETENTION_PILL_CLASS =
-  'rounded-full border border-border/60 bg-background/72 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground'
+  'rounded-md border border-border bg-muted px-2.5 py-1 text-xs text-muted-foreground'
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -195,15 +195,15 @@ export function AuditRetentionPanel({
     <div className={AUDIT_RETENTION_PANEL_CLASS}>
       <div className={AUDIT_RETENTION_HEADER_CLASS}>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-            <Settings2 className="size-4" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+            <Settings2 className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+            <div className="text-sm font-semibold text-foreground">
               {t('title')}
             </div>
-            <p className="mt-1 max-w-[720px] text-[11px] font-medium leading-4 text-muted-foreground">
-              保留策略清旧日志；当前筛选只清上方筛选命中的日志。默认预演，不会直接删除。
+            <p className="mt-1 max-w-[720px] text-sm leading-5 text-muted-foreground">
+              可按保留期限或当前筛选范围清理日志。默认只预演，不会直接删除。
             </p>
           </div>
         </div>
@@ -211,7 +211,7 @@ export function AuditRetentionPanel({
           <span className={AUDIT_RETENTION_PILL_CLASS}>
             当前结果 {typeof total === 'number' ? total : '-'} 条
           </span>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+          <span className="rounded-md border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
             筛选 {filterCount} 项
           </span>
         </div>
@@ -219,7 +219,7 @@ export function AuditRetentionPanel({
 
       <div className="grid gap-3 px-4 py-3 lg:grid-cols-[1.05fr_0.9fr_1.2fr]">
         <ControlBlock label="清理范围">
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/35 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/35 p-1">
             <SegmentButton
               active={purgeScope === 'retention'}
               label="保留策略"
@@ -234,7 +234,7 @@ export function AuditRetentionPanel({
         </ControlBlock>
 
         <ControlBlock label="执行模式">
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/35 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/35 p-1">
             <SegmentButton
               active={dryRun}
               label="预演"
@@ -262,7 +262,7 @@ export function AuditRetentionPanel({
       </div>
 
       <div className="grid gap-3 border-t border-border/50 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_auto] lg:items-end">
-        <div className="rounded-xl border border-border/60 bg-muted/32 px-3 py-2 text-[11px] font-medium leading-5 text-muted-foreground">
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm leading-5 text-muted-foreground">
           {purgeScope === 'retention' ? (
             <>
               <span className="font-semibold text-foreground">保留策略：</span>
@@ -299,7 +299,7 @@ export function AuditRetentionPanel({
           <Button
             size="sm"
             variant="outline"
-            className="h-9 gap-2 rounded-full border-primary/20 bg-primary/10 px-3 text-[11px] font-semibold text-primary hover:bg-primary/15 hover:text-primary"
+            className="h-9 gap-2 rounded-md border-primary/20 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15 hover:text-primary"
             disabled={Boolean(busy)}
             onClick={() => detachPromise(exportLogs())}
           >
@@ -337,11 +337,11 @@ export function AuditRetentionPanel({
       </div>
 
       {purgeScope === 'filtered' && hasFilterScope && (
-        <div className="mx-4 mb-3 flex flex-wrap gap-1.5 rounded-xl border border-primary/20 bg-primary/[0.07] p-2">
+        <div className="mx-4 mb-3 flex flex-wrap gap-1.5 rounded-md border border-primary/20 bg-primary/[0.07] p-2">
           {filterEntries.map(([key, value]) => (
             <span
               key={key}
-              className="rounded-full border border-primary/20 bg-card/80 px-2 py-1 font-mono text-[10px] font-semibold text-primary"
+              className="rounded-md border border-primary/20 bg-card px-2 py-1 font-mono text-xs font-medium text-primary"
             >
               {FILTER_LABELS[key] || key}: {String(value)}
             </span>
@@ -350,8 +350,8 @@ export function AuditRetentionPanel({
       )}
 
       {!canManageAudit && (
-        <div className="mx-4 mb-3 rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-[11px] font-medium text-warning">
-          清理需要 audit.manage 权限；当前权限可查看和导出审计日志。
+        <div className="mx-4 mb-3 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
+          当前账号只能查看和导出日志，不能执行清理。
         </div>
       )}
 
@@ -366,7 +366,7 @@ function ControlBlock({
 }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div className="space-y-1.5">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
       {children}
@@ -390,13 +390,13 @@ function SegmentButton({
       type="button"
       aria-pressed={active}
       className={cn(
-        'h-8 rounded-lg px-3 text-[11px] font-semibold transition-colors',
+        'h-8 rounded-md px-3 text-xs font-medium transition-colors',
         active &&
           tone === 'primary' &&
-          'bg-primary text-primary-foreground shadow-sm shadow-[0_10px_22px_hsl(var(--primary)/0.16)]',
+          'bg-primary text-primary-foreground',
         active &&
           tone === 'danger' &&
-          'bg-destructive text-destructive-foreground shadow-sm shadow-[0_10px_22px_hsl(var(--destructive)/0.16)]',
+          'bg-destructive text-destructive-foreground',
         !active &&
           'bg-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground'
       )}
@@ -420,7 +420,7 @@ function NumberField({
 }>) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <Label className="text-xs font-medium text-muted-foreground">
         {label}
       </Label>
       <Input
@@ -429,7 +429,7 @@ function NumberField({
         onChange={(event) =>
           onChange(Number.parseInt(event.target.value || '0', 10) || value)
         }
-        className="h-9 rounded-xl border-border/60 bg-background/72 text-xs font-semibold disabled:bg-muted disabled:text-muted-foreground"
+        className="h-9 rounded-md border-border bg-background text-sm font-medium disabled:bg-muted disabled:text-muted-foreground"
         inputMode="numeric"
       />
     </div>
@@ -451,7 +451,7 @@ function PurgeButton({
     <Button
       size="sm"
       variant="outline"
-      className="h-9 gap-2 rounded-full border-destructive/20 bg-destructive/10 px-3 text-[11px] font-semibold text-destructive hover:bg-destructive/15 hover:text-destructive disabled:bg-muted disabled:text-muted-foreground"
+      className="h-9 gap-2 rounded-md border-destructive/20 bg-destructive/10 px-3 text-xs font-medium text-destructive hover:bg-destructive/15 hover:text-destructive disabled:bg-muted disabled:text-muted-foreground"
       disabled={disabled}
       onClick={onClick}
     >
@@ -481,7 +481,7 @@ function Toggle({
         onCheckedChange={onCheckedChange}
         className={checked ? 'bg-primary' : 'bg-muted'}
       />
-      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
     </label>
   )
 }
@@ -496,7 +496,7 @@ function AuditResultStrip({ result }: Readonly<{ result: OperationResult }>) {
     )
     return (
       <ResultShell result={result}>
-        导出文件 {bytes.toLocaleString()} Bytes · {gzip ? 'gzip 传输' : 'NDJSON'}
+        导出文件 {bytes.toLocaleString()} 字节 · {gzip ? '已压缩' : '未压缩'}
       </ResultShell>
     )
   }
@@ -524,7 +524,7 @@ function ResultShell({
   children,
 }: Readonly<{ result: OperationResult; children: React.ReactNode }>) {
   return (
-    <div className="mx-4 mb-4 rounded-xl border border-success/20 bg-success/10 px-3 py-2 text-[11px] text-success">
+    <div className="mx-4 mb-4 rounded-md border border-success/20 bg-success/10 px-3 py-2 text-xs text-success">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold">
           <ShieldCheck className="size-3.5" />
@@ -533,10 +533,10 @@ function ResultShell({
         <div className="font-semibold">{children}</div>
       </div>
       <details className="mt-2">
-        <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.12em] text-success/70 hover:text-success">
-          原始 JSON
+        <summary className="cursor-pointer text-xs font-medium text-success/80 hover:text-success">
+          查看原始结果
         </summary>
-        <pre className="mt-2 max-h-44 overflow-auto rounded-lg bg-background/70 p-2 text-[10px] leading-relaxed text-foreground">
+        <pre className="mt-2 max-h-44 overflow-auto rounded-md bg-background/70 p-2 text-xs leading-relaxed text-foreground">
           {JSON.stringify(result.payload, null, 2)}
         </pre>
       </details>

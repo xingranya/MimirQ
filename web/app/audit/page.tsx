@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Copy,
   FilterX,
-  ScrollText,
   ChevronDown,
   ChevronUp,
   Filter,
@@ -46,23 +45,19 @@ import {
 } from '@/lib/tenant-permissions'
 import type { AuditLogItem, AuditLogListResponse } from '@/types'
 import { cn } from '@/lib/utils'
-import { EmptyState } from '@/components/ui/empty-state'
 import { AuditRetentionPanel } from '@/components/audit/audit-retention-panel'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 
-// --- Constants ---
-
 const FIELD_LABEL =
-  'mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground'
-const AUDIT_SURFACE_CLASS =
-  'border-border/60 bg-background/74 text-foreground'
-const AUDIT_PANEL_CLASS = `rounded-[1.15rem] ${AUDIT_SURFACE_CLASS} bg-card/86 shadow-[0_10px_28px_hsl(var(--primary)/0.045)]`
+  'mb-1.5 block text-xs font-medium text-muted-foreground'
+const AUDIT_PANEL_CLASS =
+  'rounded-md border border-border bg-card text-foreground'
 const AUDIT_TABLE_HEAD_CLASS =
-  'border-b border-border/50 bg-muted/38 text-left backdrop-blur'
+  'border-b border-border bg-muted text-left'
 const AUDIT_TABLE_HEADER_CLASS =
-  'px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground'
+  'whitespace-nowrap px-4 py-3 text-xs font-medium text-muted-foreground'
 const AUDIT_MUTED_CHIP_CLASS =
-  'inline-flex items-center rounded-full border border-border/60 bg-muted/45 px-2.5 py-1 text-[11px] font-medium text-muted-foreground'
+  'inline-flex items-center rounded-md border border-border bg-muted px-2.5 py-1 text-xs text-muted-foreground'
 const FILTER_ALL_VALUE = '__all__'
 const FILTER_EMPTY_VALUE_PREFIX = '__empty__'
 const AUDIT_FILTER_OPTION_PAGE_SIZE = 200
@@ -242,8 +237,6 @@ function formatAuditDateTime(value: string) {
   }
 }
 
-// --- Helper Components ---
-
 const HUD_TONE_CLASSES = {
   slate: 'bg-muted/55 text-muted-foreground border-border/60',
   green: 'bg-success/10 text-success border-success/20',
@@ -265,22 +258,22 @@ function HUDTile({
   const toneClasses = HUD_TONE_CLASSES[tone] || HUD_TONE_CLASSES.slate
 
   return (
-    <div className="flex items-center gap-3 rounded-[1rem] border border-border/60 bg-card/88 px-4 py-3 shadow-[0_1px_0_hsl(var(--primary)/0.04)] transition-colors hover:border-primary/18 hover:bg-card">
+    <div className="flex min-h-[72px] items-center gap-3 bg-card px-4 py-3">
       <div
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-xl border',
+          'flex size-8 shrink-0 items-center justify-center rounded-md border',
           toneClasses
         )}
       >
-        <Icon className="size-4" />
+        <Icon className="size-4" aria-hidden="true" />
       </div>
       <div className="min-w-0">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <p className="mb-1 text-xs text-muted-foreground">
           {label}
         </p>
-        <h4 className="font-mono text-[18px] font-semibold leading-none tracking-[-0.04em] text-foreground">
+        <p className="truncate text-base font-semibold leading-5 text-foreground tabular-nums">
           {value}
-        </h4>
+        </p>
       </div>
     </div>
   )
@@ -300,7 +293,7 @@ function PresetButton({
       variant="outline"
       size="sm"
       className={cn(
-        'h-7 rounded-full px-3 text-[11px] font-semibold shadow-none transition-all',
+        'h-8 rounded-md px-3 text-xs font-medium shadow-none transition-colors',
         active
           ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
           : 'border-primary/20 bg-primary/[0.06] text-muted-foreground hover:border-primary/30 hover:bg-primary/10 hover:text-primary'
@@ -351,11 +344,11 @@ function BoundFilterSelect({
         <SelectTrigger
           id={id}
           aria-label={label}
-          className="h-9 rounded-xl border-border/60 bg-background/72 text-left text-xs font-medium text-foreground shadow-none hover:border-primary/30 hover:bg-card focus-visible:ring-primary/20"
+          className="h-9 rounded-md border-border bg-background text-left text-sm font-medium text-foreground shadow-none hover:border-primary/30 focus-visible:ring-primary/20"
         >
           <span className="truncate">{currentLabel}</span>
         </SelectTrigger>
-        <SelectContent className="max-h-72 rounded-xl border-border/60 bg-card text-foreground shadow-lg">
+        <SelectContent className="max-h-72 rounded-md border-border bg-card text-foreground">
           <SelectItem value={FILTER_ALL_VALUE} className="text-xs font-medium">
             {allLabel}
           </SelectItem>
@@ -370,7 +363,7 @@ function BoundFilterSelect({
                   {compactOption(formatOption ? formatOption(option) : option)}
                 </span>
                 {formatOption && formatOption(option) !== option && (
-                  <span className="truncate font-mono text-[10px] font-normal text-muted-foreground">
+                  <span className="truncate font-mono text-xs font-normal text-muted-foreground">
                     {compactOption(option, 56)}
                   </span>
                 )}
@@ -383,7 +376,7 @@ function BoundFilterSelect({
               disabled
               className="text-xs text-muted-foreground"
             >
-              {loading ? '正在加载后端选项' : '暂无后端选项'}
+              {loading ? '正在加载选项' : '暂无可选项'}
             </SelectItem>
           )}
         </SelectContent>
@@ -391,8 +384,6 @@ function BoundFilterSelect({
     </div>
   )
 }
-
-// --- Main Component ---
 
 export default function AuditLogsPage() {
   return (
@@ -414,7 +405,7 @@ function AuditLogsPageContent() {
   const [filters, setFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS)
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(true)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deletingScope, setDeletingScope] = useState<string | null>(null)
   const tenantAccess = useTenantAccess()
@@ -660,41 +651,40 @@ function AuditLogsPageContent() {
         icon={ShieldCheck}
         iconColor="text-primary"
         size="full"
-        bodyClassName="bg-transparent"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             <Button
               variant="outline"
               size="sm"
-              className="h-8 gap-2 rounded-full border-border/60 bg-card/86 px-3 text-[11px] font-semibold shadow-sm hover:bg-primary/10 hover:text-primary"
+              className="h-9 flex-1 gap-2 rounded-md px-3 text-xs font-medium sm:flex-none"
               onClick={() => {
                 logsQuery.refetch()
                 filterOptionsQuery.refetch()
               }}
             >
               <RefreshCw
-                className={cn('size-3.5', loading && 'animate-spin')}
+                className={cn('size-4', loading && 'animate-spin motion-reduce:animate-none')}
+                aria-hidden="true"
               />
               {t('actions.refresh')}
             </Button>
             <Button
               variant="outline"
-              size="icon"
-              className="size-8 rounded-full border-border/60 bg-card/86 shadow-sm hover:bg-primary/10 hover:text-primary"
-              aria-label="清空审计筛选"
+              size="sm"
+              className="h-9 flex-1 gap-2 rounded-md px-3 text-xs font-medium sm:flex-none"
               onClick={() => {
                 setFilters({ ...EMPTY_AUDIT_FILTERS })
                 setSkip(0)
               }}
             >
-              <FilterX className="size-4" />
+              <FilterX className="size-4" aria-hidden="true" />
+              清除筛选
             </Button>
           </div>
         }
       >
-        <div className="flex flex-col gap-4 pb-12">
-          {/* Top HUD Cards */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-col gap-6 pb-8">
+          <section aria-label="审计日志概览" className="grid overflow-hidden rounded-md border border-border bg-border gap-px grid-cols-2 lg:grid-cols-4">
             <HUDTile
               icon={FileJson}
               label={t('strip.total')}
@@ -725,13 +715,12 @@ function AuditLogsPageContent() {
               }
               tone={loading ? 'slate' : 'green'}
             />
-          </div>
+          </section>
 
-          {/* Filter Console */}
           <div className={cn(AUDIT_PANEL_CLASS, 'p-4')}>
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-xs font-medium text-muted-foreground">
                   {t('presets.quick')}
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -748,7 +737,7 @@ function AuditLogsPageContent() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1.5 self-start rounded-full px-2.5 text-[11px] font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary lg:self-auto"
+                className="h-8 gap-1.5 self-start rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary lg:self-auto"
                 onClick={() => setShowAdvanced(!showAdvanced)}
               >
                 {showAdvanced ? t('filters.more') : '更多筛选'}
@@ -816,7 +805,7 @@ function AuditLogsPageContent() {
                       type="datetime-local"
                       value={filters.since}
                       onChange={(e) => setFilterValue('since', e.target.value)}
-                      className="h-9 rounded-xl border-border/60 bg-background/72 text-[10px]"
+                      className="h-9 rounded-md border-border bg-background text-xs"
                     />
                   </div>
                   <div className="space-y-1">
@@ -825,41 +814,41 @@ function AuditLogsPageContent() {
                       type="datetime-local"
                       value={filters.until}
                       onChange={(e) => setFilterValue('until', e.target.value)}
-                      className="h-9 rounded-xl border-border/60 bg-background/72 text-[10px]"
+                      className="h-9 rounded-md border-border bg-background text-xs"
                     />
                   </div>
                 </div>
               </div>
             )}
 
-            <AuditRetentionPanel
-              filters={auditOperationFilters}
-              activeFilterCount={activeFilterCount}
-              total={total}
-              onAfterPurge={() => {
-                logsQuery.refetch()
-                filterOptionsQuery.refetch()
-              }}
-            />
           </div>
 
-          {/* Table Canvas */}
+          <AuditRetentionPanel
+            filters={auditOperationFilters}
+            activeFilterCount={activeFilterCount}
+            total={total}
+            onAfterPurge={() => {
+              logsQuery.refetch()
+              filterOptionsQuery.refetch()
+            }}
+          />
+
           <div className={cn(AUDIT_PANEL_CLASS, 'overflow-hidden')}>
-            <div className="flex flex-col gap-3 border-b border-border/50 bg-card/82 px-5 py-3.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+                <h2 className="text-base font-semibold text-foreground">
                   审计事件
                 </h2>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  按后端审计日志展示时间、操作者、事件名称与资源；展开单行可查看租户、请求 ID 与完整明细。
+                <p className="mt-1 text-sm text-muted-foreground">
+                  查看事件时间、操作者和关联资源；展开单行可查看完整明细。
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   {(
                     [
-                      ['destructive', '删除/清理'],
-                      ['warning', '隔离/失败'],
-                      ['success', '创建/恢复'],
-                      ['accent', '导出/快照'],
+                      ['destructive', '删除或清理'],
+                      ['warning', '隔离或失败'],
+                      ['success', '创建或恢复'],
+                      ['accent', '导出或快照'],
                       ['neutral', '其他'],
                     ] as const
                   ).map(([toneKey, label]) => (
@@ -890,7 +879,7 @@ function AuditLogsPageContent() {
                       variant="outline"
                       size="sm"
                       disabled={!canManageAudit || Boolean(deletingScope)}
-                      className="h-8 gap-1.5 rounded-full border-destructive/20 bg-destructive/10 px-3 text-[11px] font-semibold text-destructive shadow-none hover:bg-destructive/15 hover:text-destructive"
+                      className="h-8 gap-1.5 rounded-md border-destructive/20 bg-destructive/10 px-3 text-xs font-medium text-destructive shadow-none hover:bg-destructive/15 hover:text-destructive"
                     >
                       <Trash2 className="size-3.5" />
                       删除已选 {selectedIds.length}
@@ -903,7 +892,7 @@ function AuditLogsPageContent() {
               </div>
             </div>
             <div className="max-h-[640px] overflow-auto">
-              <table className="w-full border-collapse">
+              <table className="w-full min-w-[960px] border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className={AUDIT_TABLE_HEAD_CLASS}>
                     <th className="w-10 px-4 py-3">
@@ -958,12 +947,13 @@ function AuditLogsPageContent() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="py-20">
-                          <EmptyState
-                            icon={ScrollText}
-                            title={t('emptyState.title')}
-                            description={t('emptyState.description')}
-                          />
+                        <td colSpan={6} className="px-4 py-12 text-center">
+                          <p className="text-sm font-medium text-foreground">
+                            {t('emptyState.title')}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {t('emptyState.description')}
+                          </p>
                         </td>
                       </tr>
                     )
@@ -971,7 +961,7 @@ function AuditLogsPageContent() {
                     <tr>
                       <td
                         colSpan={6}
-                        className="p-12 text-center text-xs text-muted-foreground font-medium"
+                        className="p-12 text-center text-sm font-medium text-muted-foreground"
                       >
                         {loading ? (
                           <RefreshCw className="size-5 animate-spin mx-auto mb-2" />
@@ -984,8 +974,8 @@ function AuditLogsPageContent() {
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-col gap-3 border-t border-border/50 bg-muted/30 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+            <div className="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span>共 {total} 条</span>
                 <span className="text-muted-foreground/45">/</span>
                 <span>每页</span>
@@ -993,10 +983,10 @@ function AuditLogsPageContent() {
                   value={String(limit)}
                   onValueChange={handlePageSizeChange}
                 >
-                  <SelectTrigger className="h-8 w-[88px] rounded-full border-border/60 bg-card text-[12px] font-semibold text-foreground shadow-none">
+                  <SelectTrigger className="h-8 w-[88px] rounded-md border-border bg-card text-xs font-medium text-foreground shadow-none">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-border/60 bg-card">
+                  <SelectContent className="rounded-md border-border bg-card">
                     {AUDIT_PAGE_SIZE_OPTIONS.map((size) => (
                       <SelectItem
                         key={size}
@@ -1009,23 +999,23 @@ function AuditLogsPageContent() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex items-center justify-between gap-2 sm:justify-end">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1 rounded-full border-border/60 bg-card px-3 text-[11px] font-semibold shadow-none hover:bg-primary/10 hover:text-primary"
+                  className="h-8 gap-1 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none hover:bg-primary/10 hover:text-primary"
                   onClick={() => setSkip(Math.max(0, skip - limit))}
                   disabled={skip <= 0}
                 >
                   <ChevronLeft className="size-3.5" /> 上一页
                 </Button>
-                <span className="min-w-[88px] rounded-full border border-border/60 bg-card px-3 py-1.5 text-center text-[12px] font-semibold text-foreground">
+                <span className="min-w-[88px] rounded-md border border-border bg-card px-3 py-1.5 text-center text-xs font-medium text-foreground">
                   第 {displayPage} / {totalPages} 页
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1 rounded-full border-border/60 bg-card px-3 text-[11px] font-semibold shadow-none hover:bg-primary/10 hover:text-primary"
+                  className="h-8 gap-1 rounded-md border-border bg-card px-3 text-xs font-medium shadow-none hover:bg-primary/10 hover:text-primary"
                   onClick={() =>
                     setSkip(
                       Math.min(
@@ -1042,19 +1032,18 @@ function AuditLogsPageContent() {
             </div>
           </div>
 
-          {/* Detailed Response Collapsible */}
-          <details className="group rounded-[1.15rem] border border-border/60 bg-card/74 px-4 py-3 shadow-[0_1px_0_hsl(var(--primary)/0.04)]">
+          <details className="group rounded-md border border-border bg-card px-4 py-3">
             <summary className="flex cursor-pointer list-none items-center justify-between text-muted-foreground transition-colors hover:text-foreground">
               <div className="flex items-center gap-3">
                 <FileJson className="size-4" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
-                  排障材料 (原始响应)
+                <span className="text-xs font-medium">
+                  查看原始审计数据
                 </span>
               </div>
               <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
             </summary>
             <div className="mt-3">
-              <pre className="max-h-[300px] overflow-auto rounded-2xl border border-border/60 bg-foreground p-4 font-mono text-[11px] text-background/85 shadow-strong custom-scrollbar">
+              <pre className="max-h-[300px] overflow-auto rounded-md bg-foreground p-4 font-mono text-xs text-background/85 custom-scrollbar">
                 {JSON.stringify(resp, null, 2)}
               </pre>
             </div>
@@ -1122,24 +1111,24 @@ function AuditRow({
           />
         </td>
         <td className="whitespace-nowrap px-4 py-3" onClick={onToggle}>
-          <span className="font-mono text-[12px] font-semibold text-foreground">
+          <span className="font-mono text-xs font-semibold text-foreground">
             {timestamp.date}
           </span>{' '}
-          <span className="font-mono text-[11px] font-medium text-muted-foreground">
+          <span className="font-mono text-xs text-muted-foreground">
             {timestamp.time}
           </span>
         </td>
         <td className="px-4 py-3" onClick={onToggle}>
           <div className="flex items-center gap-2">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/55 text-[10px] font-semibold uppercase text-muted-foreground">
-              {log.actor_id?.slice(0, 2) || '??'}
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-medium text-muted-foreground">
+              {log.actor_id?.slice(0, 2) || '系统'}
             </div>
             <div className="min-w-0">
-              <div className="max-w-[180px] truncate font-mono text-[12px] font-medium text-foreground">
-                {log.actor_id || 'system'}
+              <div className="max-w-[180px] truncate font-mono text-xs font-medium text-foreground">
+                {log.actor_id || '系统'}
               </div>
               {log.ip && (
-                <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                <div className="mt-0.5 font-mono text-xs text-muted-foreground">
                   {log.ip}
                 </div>
               )}
@@ -1156,22 +1145,22 @@ function AuditRow({
                   AUDIT_ACTION_TONE_DOT_CLASSES[tone]
                 )}
               />
-              <span className="truncate text-[13px] font-semibold text-foreground">
+              <span className="truncate text-sm font-medium text-foreground">
                 {actionLabel}
               </span>
             </div>
-            <div className="mt-1 truncate pl-3.5 font-mono text-[10px] text-muted-foreground">
+            <div className="mt-1 truncate pl-3.5 font-mono text-xs text-muted-foreground">
               {log.action}
             </div>
           </div>
         </td>
         <td className="px-4 py-3" onClick={onToggle}>
           <div className="max-w-[240px]">
-            <div className="truncate text-[12px] font-semibold text-foreground">
+            <div className="truncate text-xs font-medium text-foreground">
               {log.resource_type ? resourceTypeLabel : '未绑定资源'}
             </div>
             {log.resource_id && (
-              <div className="mt-0.5 truncate font-mono text-[10px] font-medium text-muted-foreground">
+              <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                 {log.resource_id}
               </div>
             )}
@@ -1184,7 +1173,7 @@ function AuditRow({
               size="icon"
               aria-label={expanded ? '收起详情' : '展开详情'}
               title={expanded ? '收起详情' : '展开详情'}
-              className="size-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              className="size-8 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary"
               onClick={onToggle}
             >
               <ChevronDown
@@ -1197,9 +1186,9 @@ function AuditRow({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="复制审计明细 JSON"
-              title="复制 JSON"
-              className="size-7 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              aria-label="复制审计明细"
+              title="复制明细"
+              className="size-8 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary"
               onClick={() => onCopy(JSON.stringify(log.details, null, 2))}
             >
               <FileJson className="size-3.5" />
@@ -1218,7 +1207,7 @@ function AuditRow({
                 disabled={!canDelete || deleting}
                 aria-label="删除这条审计日志"
                 title="删除"
-                className="size-7 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                className="size-8 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 {deleting ? (
                   <RefreshCw className="size-3.5 animate-spin" />
@@ -1233,14 +1222,14 @@ function AuditRow({
       {expanded && (
         <tr className="bg-primary/[0.025]">
           <td colSpan={6} className="px-4 pb-5 pt-1">
-            <div className="rounded-xl border border-primary/15 bg-card p-4 shadow-inner">
+            <div className="rounded-md border border-primary/15 bg-card p-4">
               <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border/40 pb-3">
                 {detailFields.map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex min-w-0 max-w-full items-center gap-1.5 text-[11px]"
+                    className="flex min-w-0 max-w-full items-center gap-1.5 text-xs"
                   >
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    <span className="shrink-0 text-xs font-medium text-muted-foreground">
                       {key}
                     </span>
                     <button
@@ -1257,14 +1246,14 @@ function AuditRow({
                   variant="ghost"
                   size="icon"
                   className="ml-auto size-6 shrink-0"
-                  aria-label="复制审计日志 JSON"
-                  title="复制 JSON"
+                  aria-label="复制审计日志明细"
+                  title="复制明细"
                   onClick={() => onCopy(JSON.stringify(log.details, null, 2))}
                 >
                   <Copy className="size-3" />
                 </Button>
               </div>
-              <pre className="max-h-[300px] overflow-auto font-mono text-[11px] leading-relaxed text-foreground custom-scrollbar">
+              <pre className="max-h-[300px] overflow-auto font-mono text-xs leading-relaxed text-foreground custom-scrollbar">
                 {JSON.stringify(log.details, null, 2)}
               </pre>
             </div>
