@@ -51,4 +51,14 @@ describe('全局界面层级', () => {
     expect(tooltipSource).toContain('<TooltipPrimitive.Portal>')
     expect(tooltipSource).toContain('</TooltipPrimitive.Portal>')
   })
+
+  it('要求 Popover 在窄屏内保留安全边距', () => {
+    const popoverSource = readFileSync(
+      resolve(__dirname, '../components/ui/popover.tsx'),
+      'utf8'
+    )
+
+    expect(popoverSource).toContain('collisionPadding = 8')
+    expect(popoverSource).toContain('max-w-[calc(100vw-1rem)]')
+  })
 })
