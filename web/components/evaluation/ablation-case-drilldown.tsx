@@ -5,8 +5,10 @@ import { FileDown, SearchCode } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { evaluationApi } from '@/lib/api/evaluation'
+import { formatApiError } from '@/lib/api-errors'
 import { cn } from '@/lib/utils'
 import type { RegressionItem, RegressionRunCaseDiff, RegressionRunDetail } from '@/types'
+import { toast } from 'sonner'
 
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
@@ -83,6 +85,8 @@ export function AblationCaseDrilldown({
       ])
       setBaseDetail(base)
       setTargetDetail(target)
+    } catch (error: unknown) {
+      toast.error(formatApiError(error, '加载案例明细失败'))
     } finally {
       setLoading(false)
     }
@@ -124,20 +128,20 @@ export function AblationCaseDrilldown({
   }, [baseDetail, caseDiffs, metricKeys, targetDetail])
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-md border border-border bg-card p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <SearchCode className="size-4 text-destructive" />
-            Per-case 失败钻取
+            <SearchCode className="size-4 text-primary" />
+            逐条案例下钻
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            拉取 base/target 的 case 级结果，对齐 case_id 后标注改善、退化和无变化。聚合指标看方向，case diff 才能解释原因。
+            比较基准运行和目标运行中的每条问题，定位具体改善或退化的案例。
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={loading || !baseRunId || !targetRunId || baseRunId === targetRunId} onClick={() => void loadDetails()}>
-            加载 Cases
+            {loading ? '正在加载' : '加载案例明细'}
           </Button>
           <Button type="button" variant="outline" disabled={!rows.length} onClick={() => downloadCsv(rows)} className="gap-2">
             <FileDown className="size-4" />
@@ -146,20 +150,21 @@ export function AblationCaseDrilldown({
         </div>
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+      <div className="mt-3 overflow-x-auto border-y border-border">
         <div className="hidden min-w-[620px] grid-cols-[minmax(180px,1fr)_82px_82px_82px_88px] bg-muted/50 px-3 py-2 text-xs text-muted-foreground md:grid">
-          <div>case_id / question</div>
-          <div className="text-right">Base</div>
-          <div className="text-right">Target</div>
-          <div className="text-right">Delta</div>
+          <div>案例 ID / 问题</div>
+          <div className="text-right">基准分</div>
+          <div className="text-right">目标分</div>
+          <div className="text-right">变化</div>
           <div className="text-right">标签</div>
         </div>
         {rows.length ? rows.map((row) => (
           <button
             key={row.case_id}
             type="button"
-            className="block w-full min-w-0 border-t border-border/50 text-left md:min-w-[620px]"
+            className="block w-full min-w-0 border-t border-border/50 text-left transition-colors hover:bg-muted/25 md:min-w-[620px]"
             onClick={() => setExpandedCaseId((prev) => (prev === row.case_id ? '' : row.case_id))}
+            aria-expanded={expandedCaseId === row.case_id}
           >
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-3 py-3 text-sm md:hidden">
               <div className="col-span-2 min-w-0">
@@ -167,15 +172,15 @@ export function AblationCaseDrilldown({
                 <div className="truncate text-foreground">{row.question}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Base</div>
+                <div className="text-xs text-muted-foreground">基准分</div>
                 <div className="font-mono text-muted-foreground">{row.base_score === null ? '-' : row.base_score.toFixed(3)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Target</div>
+                <div className="text-xs text-muted-foreground">目标分</div>
                 <div className="font-mono text-muted-foreground">{row.target_score === null ? '-' : row.target_score.toFixed(3)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Delta</div>
+                <div className="text-xs text-muted-foreground">变化</div>
                 <div className={cn('font-mono', row.delta && row.delta > 0 ? 'text-success' : row.delta && row.delta < 0 ? 'text-destructive' : 'text-muted-foreground')}>
                   {row.delta === null ? '-' : row.delta >= 0 ? `+${row.delta.toFixed(3)}` : row.delta.toFixed(3)}
                 </div>
@@ -187,7 +192,7 @@ export function AblationCaseDrilldown({
             </div>
             <div className="hidden min-w-[620px] grid-cols-[minmax(180px,1fr)_82px_82px_82px_88px] px-3 py-2 text-xs md:grid">
               <div className="min-w-0">
-                <div className="font-mono text-[11px] text-muted-foreground">{row.case_id.slice(0, 8)}…</div>
+                <div className="font-mono text-xs text-muted-foreground">{row.case_id.slice(0, 8)}…</div>
                 <div className="truncate text-foreground">{row.question}</div>
               </div>
               <div className="text-right font-mono text-muted-foreground">{row.base_score === null ? '-' : row.base_score.toFixed(3)}</div>
@@ -198,22 +203,32 @@ export function AblationCaseDrilldown({
               <div className="text-right text-foreground/85">{row.label}</div>
             </div>
             {expandedCaseId === row.case_id ? (
-              <div className="grid min-w-0 gap-2 border-t border-border/50 bg-muted/50 px-3 py-3 text-xs md:min-w-[620px] md:grid-cols-2">
+              <div className="grid min-w-0 gap-3 border-t border-border bg-muted/30 px-3 py-3 text-xs md:min-w-[620px] md:grid-cols-2">
                 <div>
-                  <div className="mb-1 font-medium text-foreground/85">Base answer</div>
-                  <div className="line-clamp-5 rounded-lg bg-background p-2 text-muted-foreground">
-                    {row.base_response || (row.metric_diffs.length ? row.metric_diffs.map((item) => `${item.key}: ${primitiveText(item.before)} -> ${primitiveText(item.after)}`).join(' / ') : '-')}
+                  <div className="mb-1 font-medium text-foreground/85">基准回答</div>
+                  <div className="line-clamp-5 border-t border-border pt-2 text-muted-foreground">
+                    {row.base_response ||
+                      (row.metric_diffs.length
+                        ? row.metric_diffs
+                            .map(
+                              (item) =>
+                                `${item.key}：从 ${primitiveText(item.before)} 到 ${primitiveText(item.after)}`
+                            )
+                            .join(' / ')
+                        : '-')}
                   </div>
                 </div>
                 <div>
-                  <div className="mb-1 font-medium text-foreground/85">Target answer</div>
-                  <div className="line-clamp-5 rounded-lg bg-background p-2 text-muted-foreground">{row.target_response || '-'}</div>
+                  <div className="mb-1 font-medium text-foreground/85">目标回答</div>
+                  <div className="line-clamp-5 border-t border-border pt-2 text-muted-foreground">{row.target_response || '-'}</div>
                 </div>
               </div>
             ) : null}
           </button>
         )) : (
-          <div className="px-3 py-8 text-center text-xs text-muted-foreground">选择 base/target 后加载 case 明细。</div>
+          <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+            选择基准运行和目标运行后加载案例明细。
+          </div>
         )}
       </div>
     </section>

@@ -116,4 +116,22 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toContain('rounded-lg')
     expect(source).not.toContain('shadow-')
   })
+
+  it('案例下钻提供错误反馈和中文详情', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-case-drilldown.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain("toast.error(formatApiError(error, '加载案例明细失败'))")
+    expect(source).toContain('逐条案例下钻')
+    expect(source).toContain('基准回答')
+    expect(source).toContain('目标回答')
+    expect(source).toContain('aria-expanded=')
+    expect(source).not.toContain('Per-case 失败钻取')
+    expect(source).not.toContain('Base answer')
+    expect(source).not.toContain('Target answer')
+    expect(source).not.toContain('rounded-lg')
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+  })
 })
