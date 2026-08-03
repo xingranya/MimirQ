@@ -21,17 +21,6 @@ import { queryKeys } from '@/lib/query-keys'
 import { cn, detachPromise } from '@/lib/utils'
 import type { TenantQuotaSummary } from '@/types'
 
-const TENANT_QUOTA_PANEL_CLASS =
-  'overflow-hidden rounded-[1.15rem] border border-border/60 bg-card/86 shadow-[0_10px_28px_hsl(var(--primary)/0.045)]'
-const QUOTA_CARD_CLASS =
-  'rounded-[1rem] border border-border/60 bg-background/72 px-3 py-2.5 shadow-[0_1px_0_hsl(var(--primary)/0.04)] transition-colors hover:border-primary/18 hover:bg-card/90'
-const QUOTA_DISABLED_TONE =
-  'border-border/60 bg-muted/55 text-muted-foreground'
-const QUOTA_ENABLED_TONE =
-  'border-success/20 bg-success/10 text-success'
-const QUOTA_EXCEEDED_TONE =
-  'border-destructive/20 bg-destructive/10 text-destructive'
-
 const DISABLED_DOCUMENT_QUOTA: TenantQuotaSummary['documents'] = {
   enabled: false,
   limit: 0,
@@ -76,22 +65,22 @@ function prettyJson(value: unknown) {
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text)
-    toast.success('已复制')
+    toast.success('原始数据已复制')
   } catch {
-    toast.error('复制失败')
+    toast.error('复制失败，请重试')
   }
 }
 
 function formatNumber(value: number | null | undefined) {
   if (value == null || !Number.isFinite(Number(value))) return '0'
-  return Number(value).toLocaleString()
+  return Number(value).toLocaleString('zh-CN')
 }
 
 function formatBytes(value: number | null | undefined) {
-  const n = Number(value || 0)
-  if (!Number.isFinite(n) || n <= 0) return '0 B'
+  const numberValue = Number(value || 0)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let size = n
+  let size = numberValue
   let index = 0
   while (size >= 1024 && index < units.length - 1) {
     size /= 1024
@@ -100,32 +89,39 @@ function formatBytes(value: number | null | undefined) {
   return `${size >= 10 || index === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[index]}`
 }
 
-function disabledQuotaText(label = '后端未启用该配额') {
-  return {
-    primary: '',
-    secondary: label,
-  }
+function disabledQuotaText(label = '此项配额尚未启用') {
+  return { primary: '未启用', secondary: label }
 }
 
-function getQuotaTone(enabled: boolean, exceeded: boolean): string {
-  if (exceeded) return QUOTA_EXCEEDED_TONE
-  if (enabled) return QUOTA_ENABLED_TONE
-  return QUOTA_DISABLED_TONE
-}
-
-function getQuotaStatusLabel(enabled: boolean, exceeded: boolean): string {
-  if (exceeded) return '已超额'
+function getQuotaStatusLabel(enabled: boolean, exceeded: boolean) {
+  if (exceeded) return '超出上限'
   if (enabled) return '已启用'
   return '未启用'
 }
 
-function getQuotaProgressClass(enabled: boolean, exceeded: boolean): string {
-  if (exceeded) return 'bg-destructive'
-  if (enabled) return 'bg-success'
-  return 'bg-muted-foreground/45'
+function getQuotaTone(enabled: boolean, exceeded: boolean) {
+  if (exceeded) return 'border-destructive/25 bg-destructive/10 text-destructive'
+  if (enabled) return 'border-success/25 bg-success/10 text-success'
+  return 'border-border bg-muted text-muted-foreground'
 }
 
-type QuotaCardProps = {
+function getQuotaProgressClass(enabled: boolean, exceeded: boolean) {
+  if (exceeded) return 'bg-destructive'
+  if (enabled) return 'bg-success'
+  return 'bg-muted-foreground/40'
+}
+
+function formatQuotaScopes(scopes: string[] | null | undefined) {
+  const labels: Record<string, string> = {
+    chat: '对话',
+    retrieval: '检索',
+    ingestion: '知识入库',
+  }
+  const values = (scopes || []).map((scope) => labels[scope] || scope)
+  return values.length ? values.join('、') : '全部请求'
+}
+
+type QuotaSummaryItemProps = {
   icon: ComponentType<{ className?: string }>
   title: string
   enabled: boolean
@@ -135,7 +131,7 @@ type QuotaCardProps = {
   progress?: number
 }
 
-function QuotaCard({
+function QuotaSummaryItem({
   icon: Icon,
   title,
   enabled,
@@ -143,54 +139,27 @@ function QuotaCard({
   primary,
   secondary,
   progress = 0,
-}: Readonly<QuotaCardProps>) {
-  const tone = getQuotaTone(enabled, exceeded)
-
+}: Readonly<QuotaSummaryItemProps>) {
   return (
-    <div className={QUOTA_CARD_CLASS}>
+    <div className="min-w-0 bg-card p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg border', tone)}>
-            <Icon className="size-3.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-foreground">
-              {title}
-            </p>
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-              {secondary}
-            </p>
-          </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <h3 className="truncate text-sm font-medium text-foreground">{title}</h3>
         </div>
-        <span
-          className={cn(
-            'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-            tone
-          )}
-        >
+        <span className={cn('shrink-0 rounded-md border px-1.5 py-0.5 text-xs', getQuotaTone(enabled, exceeded))}>
           {getQuotaStatusLabel(enabled, exceeded)}
         </span>
       </div>
-      <div className="mt-2 flex min-h-5 items-end justify-between gap-3">
-        {enabled ? (
-          <p className="text-[15px] font-semibold tabular-nums text-foreground">
-            {primary}
-          </p>
-        ) : (
-          <p className="text-[10px] font-medium text-muted-foreground">
-            等待后端开启
-          </p>
-        )}
-        <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/55">
-          租户
-        </p>
-      </div>
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+      <p className="mt-3 truncate text-base font-semibold text-foreground tabular-nums">
+        {primary}
+      </p>
+      <p className="mt-1 truncate text-xs text-muted-foreground" title={secondary}>
+        {secondary}
+      </p>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-sm bg-muted" aria-hidden="true">
         <div
-          className={cn(
-            'h-full rounded-full',
-            getQuotaProgressClass(enabled, exceeded)
-          )}
+          className={cn('h-full rounded-sm', getQuotaProgressClass(enabled, exceeded))}
           style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
         />
       </div>
@@ -210,179 +179,140 @@ export function TenantQuotaPanel() {
   const embeddingQuota = payload?.embedding_chars ?? DISABLED_EMBEDDING_QUOTA
   const qpsQuota = payload?.qps ?? DISABLED_QPS_QUOTA
   const json = useMemo(() => prettyJson(payload), [payload])
-  const lines = useMemo(() => json.split('\n'), [json])
   const documentQuotaText = documentsQuota.enabled
     ? {
         primary: `${formatNumber(documentsQuota.used)} / ${formatNumber(documentsQuota.limit)}`,
-        secondary: `剩余 ${formatNumber(documentsQuota.remaining)} 个文档`,
+        secondary: `还可使用 ${formatNumber(documentsQuota.remaining)} 个文档`,
       }
     : disabledQuotaText()
   const storageQuotaText = storageQuota.enabled
     ? {
         primary: `${formatBytes(storageQuota.used_bytes)} / ${formatBytes(storageQuota.limit_bytes)}`,
-        secondary: `剩余 ${formatBytes(storageQuota.remaining_bytes)}`,
+        secondary: `还可使用 ${formatBytes(storageQuota.remaining_bytes)}`,
       }
     : disabledQuotaText()
   const embeddingQuotaText = embeddingQuota.enabled
     ? {
         primary: `${formatNumber(embeddingQuota.used_chars)} / ${formatNumber(embeddingQuota.limit_chars)}`,
-        secondary: `${embeddingQuota.window_hours}h 窗口 · ${embeddingQuota.mode}`,
+        secondary: `${formatNumber(embeddingQuota.window_hours)} 小时统计窗口`,
       }
-    : disabledQuotaText('后端未启用字符配额')
+    : disabledQuotaText('向量化字符配额尚未启用')
   const qpsQuotaText = qpsQuota.enabled
     ? {
-        primary: `${formatNumber(qpsQuota.rps)} rps`,
-        secondary: `burst ${formatNumber(qpsQuota.burst)} · ${qpsQuota.scopes?.join(' / ') || 'chat / retrieval'}`,
+        primary: `每秒 ${formatNumber(qpsQuota.rps)} 次`,
+        secondary: `峰值 ${formatNumber(qpsQuota.burst)} 次，适用于${formatQuotaScopes(qpsQuota.scopes)}`,
       }
-    : disabledQuotaText('后端未启用租户限流')
+    : disabledQuotaText('请求频率限制尚未启用')
 
   async function refreshQuota() {
     const result = await quotaQuery.refetch()
     if (result.error) {
-      toast.error(formatApiError(result.error, '加载租户配额失败'))
+      toast.error(formatApiError(result.error, '配额数据加载失败，请稍后重试'))
       return
     }
-    if (result.data) {
-      toast.success('租户配额总览已刷新')
-    }
+    if (result.data) toast.success('配额数据已更新')
   }
 
   return (
-    <Panel
-      padding="none"
-      className={TENANT_QUOTA_PANEL_CLASS}
-    >
-      <div className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+    <Panel padding="none" className="overflow-hidden rounded-md border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-foreground">
-              租户级配额状态
-            </h2>
-            <span className="rounded-full border border-border/60 bg-muted/45 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-              quota
-            </span>
-          </div>
-          <p className="mt-1 max-w-3xl text-[11px] leading-4 text-muted-foreground">
-            由后端配额配置控制，当前按租户生效，不按数据集或用户拆分。
+          <h2 className="text-base font-semibold text-foreground">租户配额</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            配额对当前租户生效，不会单独分配给数据集或成员。
           </p>
         </div>
         <Button
           size="sm"
           variant="outline"
-          className="h-8 gap-2 rounded-full border-border/60 bg-background/72 px-3 text-[11px] font-semibold text-foreground shadow-sm hover:bg-primary/10 hover:text-primary"
+          className="h-9 w-full gap-2 rounded-md sm:w-auto"
           disabled={quotaQuery.isFetching}
           onClick={() => detachPromise(refreshQuota())}
         >
           {quotaQuery.isFetching ? (
-            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
           ) : (
-            <RefreshCw className="size-3.5" />
+            <RefreshCw className="size-4" aria-hidden="true" />
           )}
-          同步
+          刷新配额
         </Button>
       </div>
 
-      <div className="border-t border-border/50 px-5 pb-4 pt-3.5">
-        {payload ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <QuotaCard
-              icon={FileText}
-              title="文档数配额"
-              enabled={documentsQuota.enabled}
-              exceeded={documentsQuota.exceeded}
-              primary={documentQuotaText.primary}
-              secondary={documentQuotaText.secondary}
-              progress={
-                documentsQuota.enabled
-                  ? (documentsQuota.used / Math.max(1, documentsQuota.limit)) * 100
-                  : 0
-              }
-            />
-            <QuotaCard
-              icon={Database}
-              title="存储配额"
-              enabled={storageQuota.enabled}
-              exceeded={storageQuota.exceeded}
-              primary={storageQuotaText.primary}
-              secondary={storageQuotaText.secondary}
-              progress={
-                storageQuota.enabled
-                  ? (storageQuota.used_bytes / Math.max(1, storageQuota.limit_bytes)) * 100
-                  : 0
-              }
-            />
-            <QuotaCard
-              icon={TextCursorInput}
-              title="Embedding 字符"
-              enabled={embeddingQuota.enabled}
-              exceeded={embeddingQuota.exceeded}
-              primary={embeddingQuotaText.primary}
-              secondary={embeddingQuotaText.secondary}
-              progress={
-                embeddingQuota.enabled
-                  ? (embeddingQuota.used_chars /
-                      Math.max(1, embeddingQuota.limit_chars)) *
-                    100
-                  : 0
-              }
-            />
-            <QuotaCard
-              icon={Gauge}
-              title="QPS 限流"
-              enabled={qpsQuota.enabled}
-              primary={qpsQuotaText.primary}
-              secondary={qpsQuotaText.secondary}
-              progress={qpsQuota.enabled ? 100 : 0}
-            />
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border/60 bg-muted/35 px-4 py-5 text-center text-[12px] text-muted-foreground">
-            {quotaQuery.isFetching
-              ? '正在读取租户配额...'
-              : '暂无配额数据，点击刷新重新读取。'}
-          </div>
-        )}
+      {quotaQuery.error ? (
+        <div role="alert" className="border-b border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {formatApiError(quotaQuery.error, '配额数据加载失败，请稍后重试')}
+        </div>
+      ) : null}
 
-        <details className="mt-3 overflow-hidden rounded-xl border border-border/60 bg-muted/30">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted/55 [&::-webkit-details-marker]:hidden">
-            <span>查看原始响应</span>
-            <span className="text-[10px] font-medium text-muted-foreground">
-              JSON
-            </span>
+      {payload ? (
+        <div className="grid gap-px bg-border md:grid-cols-2 xl:grid-cols-4">
+          <QuotaSummaryItem
+            icon={FileText}
+            title="文档数量"
+            enabled={documentsQuota.enabled}
+            exceeded={documentsQuota.exceeded}
+            primary={documentQuotaText.primary}
+            secondary={documentQuotaText.secondary}
+            progress={documentsQuota.enabled ? (documentsQuota.used / Math.max(1, documentsQuota.limit)) * 100 : 0}
+          />
+          <QuotaSummaryItem
+            icon={Database}
+            title="存储空间"
+            enabled={storageQuota.enabled}
+            exceeded={storageQuota.exceeded}
+            primary={storageQuotaText.primary}
+            secondary={storageQuotaText.secondary}
+            progress={storageQuota.enabled ? (storageQuota.used_bytes / Math.max(1, storageQuota.limit_bytes)) * 100 : 0}
+          />
+          <QuotaSummaryItem
+            icon={TextCursorInput}
+            title="向量化字符"
+            enabled={embeddingQuota.enabled}
+            exceeded={embeddingQuota.exceeded}
+            primary={embeddingQuotaText.primary}
+            secondary={embeddingQuotaText.secondary}
+            progress={embeddingQuota.enabled ? (embeddingQuota.used_chars / Math.max(1, embeddingQuota.limit_chars)) * 100 : 0}
+          />
+          <QuotaSummaryItem
+            icon={Gauge}
+            title="请求频率"
+            enabled={qpsQuota.enabled}
+            primary={qpsQuotaText.primary}
+            secondary={qpsQuotaText.secondary}
+            progress={qpsQuota.enabled ? 100 : 0}
+          />
+        </div>
+      ) : (
+        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+          {quotaQuery.isFetching
+            ? '正在读取配额数据...'
+            : '暂时没有配额数据，请刷新后重试。'}
+        </div>
+      )}
+
+      {payload ? (
+        <details className="border-t border-border">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50">
+            查看接口原始数据
           </summary>
-          <div className="relative border-t border-border/60">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-3 top-3 z-10 size-8 rounded-lg border border-border/60 bg-card text-muted-foreground shadow-sm hover:bg-muted/45"
-            onClick={() => detachPromise(copyText(json))}
-            aria-label="复制租户配额 JSON"
-          >
-            <Copy className="size-4" />
-          </Button>
-          <pre className="max-h-[200px] overflow-auto py-3 pr-12 text-[12px] leading-6">
-            {lines.map((line, index) => (
-              <div
-                key={`${index}-${line}`}
-                className="grid grid-cols-[44px_1fr]"
+          <div className="border-t border-border bg-muted/30">
+            <div className="flex justify-end border-b border-border p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-2 rounded-md"
+                onClick={() => detachPromise(copyText(json))}
               >
-                <span className="select-none border-r border-border/60 pr-3 text-right font-mono text-muted-foreground">
-                  {index + 1}
-                </span>
-                <code
-                  className={cn(
-                    'pl-4 font-mono text-foreground',
-                    line.includes('"message"') && 'text-primary'
-                  )}
-                >
-                  {line || ' '}
-                </code>
-              </div>
-            ))}
-          </pre>
+                <Copy className="size-4" aria-hidden="true" />
+                复制 JSON
+              </Button>
+            </div>
+            <pre className="max-h-[240px] overflow-auto p-4 text-xs leading-5 text-foreground">
+              <code>{json}</code>
+            </pre>
           </div>
         </details>
-      </div>
+      ) : null}
     </Panel>
   )
 }
