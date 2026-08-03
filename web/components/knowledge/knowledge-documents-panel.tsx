@@ -5,6 +5,8 @@ import type { Dataset, Document } from '@/types'
 import {
   Activity,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Database,
   Eye,
   Filter,
@@ -241,23 +243,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-const contextualRevealClassName = [
-  'opacity-100',
-  '[@media(hover:hover)_and_(pointer:fine)]:opacity-0',
-  '[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100',
-  '[@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100',
-].join(' ')
-
-/*
- * Source markers retained for legacy source tests while the live layout moves
- * to a flatter IDE-style surface.
- * radial-gradient(circle_at_14%_0%
- * bg-[linear-gradient(90deg,transparent,hsl(var(--primary)/0.42),transparent)]
- * rounded-[14px] border border-border/50 bg-[linear-gradient(180deg,hsl(var(--card)/0.90),hsl(var(--surface-2)/0.52))] px-2.5 py-2
- * border-b border-border/50 bg-[linear-gradient(180deg,hsl(var(--card)/0.70),hsl(var(--surface-2)/0.34))] px-3 py-2.5
- * group relative flex h-full flex-col rounded-2xl overflow-hidden transition-all duration-300 motion-reduce:transition-none border-border/50 bg-card/40 backdrop-blur-sm
- */
-
 export function KnowledgeDocumentsPanel({
   isLoading,
   documents,
@@ -318,7 +303,6 @@ export function KnowledgeDocumentsPanel({
   // t("row.parseQualityLow", {
   // t("table.columns.dataset")
   // source_path
-  // const controlsClassName = embedded ? 'border-b border-border/60 bg-background/65 px-4 py-3 backdrop-blur-sm' : 'mb-4'
   const [activeDrawerDoc, setActiveDrawerDoc] = useState<Document | null>(null)
   const [singleDeleteDoc, setSingleDeleteDoc] = useState<Document | null>(null)
   const [singleDeleteWorking, setSingleDeleteWorking] = useState(false)
@@ -429,21 +413,19 @@ export function KnowledgeDocumentsPanel({
   const isDatasetEmpty = documents.length === 0
   const showEmptyState = visibleDocumentsCount === 0
   const compactEmptyInventory = embedded && showEmptyState
-  const iconShellClassName =
-    'relative overflow-hidden shadow-[inset_0_1px_0_hsl(var(--card)/0.72),0_10px_20px_-18px_hsl(var(--foreground)/0.18)] backdrop-blur-[6px]'
   const inventoryStatCardClassName =
-    'group relative overflow-hidden rounded-none border-0 border-l border-border/45 bg-transparent px-3 py-1.5 shadow-none transition-colors hover:bg-muted/40 dark:border-border/60 dark:bg-transparent dark:hover:bg-muted/10'
+    'border-l border-border px-3 py-1.5 first:border-l-0'
   const checkboxCellClassName =
-    'flex size-7 items-center justify-center rounded-[10px] border border-border/55 bg-card/72 shadow-[inset_0_1px_0_hsl(var(--card)/0.82),0_8px_16px_-14px_hsl(var(--primary)/0.28)] dark:border-border/65 dark:bg-background/66'
+    'flex size-7 items-center justify-center rounded-md border border-border bg-background'
   const checkboxInputClassName =
-    'size-4 cursor-pointer rounded-[5px] border-border/70 bg-background text-primary shadow-sm focus-ring dark:border-border/70 dark:bg-background'
+    'size-4 cursor-pointer rounded border-border bg-background text-primary focus-ring'
   const inventoryToolbar = (
     <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <SearchInput
         value={docFilter}
         onValueChange={setDocFilter}
         containerClassName="min-w-0 w-full xl:max-w-[480px]"
-        inputClassName="h-8 rounded-xl border-border/55 bg-background/82 pr-4 text-[12px] shadow-none dark:border-border/65 dark:bg-background/68"
+        inputClassName="h-9 rounded-lg border-border bg-background pr-4 text-sm shadow-none"
         placeholder={
           showDatasetColumn
             ? '搜索文件名 / 文档 ID / 数据集'
@@ -456,7 +438,7 @@ export function KnowledgeDocumentsPanel({
           value={sortKey}
           onValueChange={(value) => setSortKey(value as DocSortKey)}
         >
-          <SelectTrigger className="h-8 min-w-[138px] rounded-xl border-border/55 bg-background/82 text-[11px] font-medium shadow-none dark:border-border/65 dark:bg-background/68">
+          <SelectTrigger className="h-9 min-w-[138px] rounded-lg border-border bg-background text-sm shadow-none">
             <SelectValue placeholder={t('table.columns.name')} />
           </SelectTrigger>
           <SelectContent>
@@ -470,7 +452,7 @@ export function KnowledgeDocumentsPanel({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 min-w-[72px] justify-center rounded-xl border-border/55 bg-background/82 px-3 text-[11px] font-medium shadow-none hover:border-primary/25 dark:border-border/65 dark:bg-background/68"
+          className="h-9 min-w-[72px] justify-center rounded-lg border-border bg-background px-3 text-sm shadow-none"
           onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
         >
           {sortDir === 'asc' ? '升序' : '降序'}
@@ -481,7 +463,7 @@ export function KnowledgeDocumentsPanel({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 min-w-[88px] justify-center rounded-xl border border-border/55 bg-background/72 px-3 text-[11px] font-medium hover:bg-card/90 dark:border-border/65 dark:bg-background/58"
+            className="h-9 min-w-[88px] justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted/50"
             onClick={onClearFilters}
           >
             <RotateCcw className="mr-2 size-3.5" />
@@ -493,7 +475,7 @@ export function KnowledgeDocumentsPanel({
           type="button"
           variant={opsOpen ? 'default' : 'outline'}
           size="sm"
-          className="h-8 min-w-[90px] justify-center rounded-xl px-3 text-[11px] font-medium"
+          className="h-9 min-w-[90px] justify-center rounded-lg px-3 text-sm font-medium"
           aria-expanded={opsOpen}
           onClick={() => setOpsOpen((open) => !open)}
         >
@@ -745,12 +727,12 @@ export function KnowledgeDocumentsPanel({
         open={Boolean(activeDrawerDoc)}
         onOpenChange={handleDrawerOpenChange}
       >
-        <DialogContent className="left-auto right-0 top-0 flex h-dvh w-[min(540px,100vw)] max-w-[540px] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-l border-border/55 bg-[linear-gradient(180deg,hsl(var(--background)/0.98),hsl(var(--surface-2)/0.92))] p-0 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
-          <DialogHeader className="border-b border-border/50 px-4 py-3 text-left">
-            <DialogTitle className="text-[14px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+        <DialogContent className="left-auto right-0 top-0 flex h-dvh w-[min(540px,100vw)] max-w-[540px] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-l border-border bg-background p-0 shadow-none">
+          <DialogHeader className="border-b border-border px-4 py-3 pr-14 text-left">
+            <DialogTitle className="text-base font-semibold leading-none text-foreground">
               文档审查视图
             </DialogTitle>
-            <DialogDescription className="mt-1 text-[11px] leading-5 text-muted-foreground/76">
+            <DialogDescription className="mt-1 text-sm leading-5 text-muted-foreground">
               管理切片、检索与健康细节，不挤占主表格宽度。
             </DialogDescription>
           </DialogHeader>
@@ -766,14 +748,14 @@ export function KnowledgeDocumentsPanel({
       <Sheet open={opsOpen} onOpenChange={setOpsOpen}>
         <SheetContent
           side="right"
-          className="flex h-dvh w-[min(640px,calc(100vw-16px))] flex-col overflow-hidden border-l border-border/55 bg-[linear-gradient(180deg,hsl(var(--background)/0.98),hsl(var(--surface-2)/0.92))] p-0 shadow-[0_24px_70px_rgba(15,23,42,0.16)] sm:max-w-[640px]"
-          overlayClassName="bg-black/10 backdrop-blur-[1px] dark:bg-black/25"
+          className="flex h-dvh w-[min(640px,calc(100vw-16px))] flex-col overflow-hidden border-l border-border bg-background p-0 shadow-none sm:max-w-[640px]"
+          overlayClassName="bg-black/30"
         >
-          <SheetHeader className="shrink-0 border-b border-border/50 px-4 py-3 text-left">
-            <SheetTitle className="text-[14px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+          <SheetHeader className="shrink-0 border-b border-border px-4 py-3 pr-14 text-left">
+            <SheetTitle className="text-base font-semibold leading-none text-foreground">
               运维工具
             </SheetTitle>
-            <SheetDescription className="mt-1 text-[11px] leading-5 text-muted-foreground/76">
+            <SheetDescription className="mt-1 text-sm leading-5 text-muted-foreground">
               当前知识库和勾选文档的统计、解析内容、重复文件、生命周期和批量移动操作。
             </SheetDescription>
           </SheetHeader>
@@ -794,80 +776,60 @@ export function KnowledgeDocumentsPanel({
           embedded ? 'h-full' : 'min-h-[560px]'
         )}
       >
-        <div className="relative overflow-hidden border-b border-border/45 bg-background px-4 pb-2.5 pt-3.5 dark:border-border/60 dark:bg-background">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--primary)/0.42),transparent)]" />
-          <div className="pointer-events-none absolute right-8 top-4 h-20 w-40 rounded-full bg-info/10 blur-3xl" />
-          <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="border-b border-border bg-background px-4 py-3">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 space-y-1.5">
-              <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground/76">
-                <div
-                  className={cn(
-                    'flex size-6 items-center justify-center rounded-lg border border-border/50 bg-card/64 text-primary/80 dark:border-border/65 dark:bg-muted/30',
-                    iconShellClassName
-                  )}
-                >
-                  <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.3),transparent_52%)] opacity-80" />
+              <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div className="flex size-7 items-center justify-center rounded-md border border-border bg-muted/40 text-primary">
                   <Database className="size-3.5" />
                 </div>
                 文档资产
               </div>
-              <div className="text-[20px] font-semibold leading-tight tracking-[-0.015em] text-foreground">
+              <div className="text-xl font-semibold leading-tight text-foreground">
                 {selectedDatasetLabel || '全部知识库文档总览'}
               </div>
-              <div className="max-w-3xl text-[12px] leading-5 text-muted-foreground/74">
+              <div className="max-w-3xl text-sm leading-5 text-muted-foreground">
                 集中查看文档资产、状态分布、分块体量与健康卡入口，支持直接在当前面板完成搜索和排序。
               </div>
             </div>
 
-            <div className="grid gap-0 border-l border-border/45 sm:grid-cols-3 xl:min-w-[330px]">
+            <div className="grid grid-cols-3 rounded-lg border border-border xl:min-w-[330px]">
               <motion.div
-                whileHover={{ y: -1, scale: 1.003 }}
-                whileTap={{ scale: 0.992 }}
-                transition={{ type: 'spring', stiffness: 340, damping: 24 }}
                 className={inventoryStatCardClassName}
               >
-                <span className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,hsl(var(--primary)/0.16),hsl(var(--info)/0.46),hsl(var(--primary)/0.10))]" />
-                <div className="text-[10px] font-medium leading-none text-muted-foreground/68">
+                <div className="text-xs font-medium leading-none text-muted-foreground">
                   当前可见
                 </div>
-                <div className="mt-1 font-mono text-[14px] tabular-nums text-foreground transition-transform duration-200 group-hover:scale-[1.02]">
+                <div className="mt-1 text-sm font-semibold tabular-nums text-foreground">
                   {visibleDocumentsCount}
                 </div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground/72">
+                <div className="mt-0.5 text-xs text-muted-foreground">
                   当前列表结果
                 </div>
               </motion.div>
               <motion.div
-                whileHover={{ y: -1, scale: 1.003 }}
-                whileTap={{ scale: 0.992 }}
-                transition={{ type: 'spring', stiffness: 340, damping: 24 }}
                 className={inventoryStatCardClassName}
               >
-                <span className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,hsl(var(--primary)/0.10),hsl(var(--info)/0.42),hsl(var(--primary)/0.12))]" />
-                <div className="text-[10px] font-medium leading-none text-muted-foreground/68">
+                <div className="text-xs font-medium leading-none text-muted-foreground">
                   已选择
                 </div>
-                <div className="mt-1 font-mono text-[14px] tabular-nums text-foreground transition-transform duration-200 group-hover:scale-[1.02]">
+                <div className="mt-1 text-sm font-semibold tabular-nums text-foreground">
                   {selectedDocIds.length}
                 </div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground/72">
+                <div className="mt-0.5 text-xs text-muted-foreground">
                   批量操作范围
                 </div>
               </motion.div>
               <motion.div
-                whileHover={{ y: -1, scale: 1.003 }}
-                whileTap={{ scale: 0.992 }}
-                transition={{ type: 'spring', stiffness: 340, damping: 24 }}
                 className={inventoryStatCardClassName}
               >
-                <span className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,hsl(var(--primary)/0.10),hsl(var(--success)/0.34),hsl(var(--info)/0.18))]" />
-                <div className="text-[10px] font-medium leading-none text-muted-foreground/68">
+                <div className="text-xs font-medium leading-none text-muted-foreground">
                   展示模式
                 </div>
-                <div className="mt-1 text-[11px] font-medium text-foreground/88">
+                <div className="mt-1 text-sm font-semibold text-foreground">
                   {viewMode === 'list' ? '列表模式' : '网格模式'}
                 </div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground/72">
+                <div className="mt-0.5 text-xs text-muted-foreground">
                   {showDatasetColumn ? '跨数据集视图' : '单数据集视图'}
                 </div>
               </motion.div>
@@ -923,134 +885,94 @@ export function KnowledgeDocumentsPanel({
                 >
                   <div
                     data-knowledge-empty-shelf="true"
-                    className="relative flex min-h-[clamp(220px,30vh,320px)] w-full flex-1 overflow-hidden rounded-[20px] border border-dashed border-info/18 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--info)/0.12),transparent_44%)]"
+                    className="flex min-h-[clamp(220px,30vh,320px)] w-full flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-background px-4 py-8 text-center"
                   >
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(hsl(var(--info)/0.055)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--info)/0.055)_1px,transparent_1px)] bg-[size:34px_34px]" />
-                    <div className="pointer-events-none absolute -left-12 top-16 size-44 rounded-full bg-info/10 blur-3xl" />
-                    <div className="pointer-events-none absolute -right-10 bottom-8 size-52 rounded-full bg-info/10 blur-3xl" />
-                    <div className="absolute right-4 top-4 z-10">
+                    <div className="mb-3 flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-primary">
+                      {isDatasetEmpty ? (
+                        <Database className="size-5" />
+                      ) : (
+                        <Filter className="size-5" />
+                      )}
+                    </div>
+                    <h3 className="text-base font-semibold text-foreground">
+                      {emptyTitle}
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">
+                      {emptyDescription}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-9 rounded-full border-info/15 bg-background/82 px-3 text-[11px] font-medium text-foreground/82 shadow-[0_12px_28px_-22px_hsl(var(--primary)/0.55)] backdrop-blur-md hover:border-info/25 hover:bg-background"
                             aria-label="查看入库指引"
                           >
                             入库指引
-                            <ChevronDown className="ml-1.5 size-3.5 text-muted-foreground/65" />
+                            <ChevronDown className="ml-1.5 size-3.5 text-muted-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          sideOffset={10}
-                          className="w-[330px] rounded-[18px] border-border/60 bg-card/95 p-2 shadow-[0_24px_64px_-34px_hsl(var(--foreground)/0.28)] backdrop-blur-xl dark:border-border/70 dark:bg-background/95"
+                          sideOffset={8}
+                          className="w-[min(330px,calc(100vw-16px))] p-2"
                         >
-                          <div className="rounded-[14px] border border-border/60 bg-muted/30 px-3 py-2.5 dark:border-border/70 dark:bg-muted/20">
-                            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-info/70">
-                              Empty Shelf Guide
-                            </div>
-                            <div className="mt-1 text-[12px] font-medium text-foreground">
-                              空数据集下一步
-                            </div>
-                          </div>
-                          <div className="mt-2 space-y-1.5">
-                            <div className="rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-muted/40 dark:hover:bg-muted/30">
-                              <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+                          <div className="space-y-1">
+                            <div className="rounded-md px-3 py-2 text-left">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                 <Database className="size-4 text-info" />
                                 导入路径
                               </div>
-                              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/74">
+                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                 从右上角「导入/新增」上传文件、批量 URL
                                 或连接器任务，文档会自动绑定当前数据集。
                               </p>
                             </div>
-                            <div className="rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-muted/40 dark:hover:bg-muted/30">
-                              <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+                            <div className="rounded-md px-3 py-2 text-left">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                 <Filter className="size-4 text-info" />
                                 筛选路径
                               </div>
-                              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/74">
+                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                 当前左侧范围会影响列表结果；如果误选生命周期或状态，可以先清空筛选。
                               </p>
                             </div>
-                            <div className="rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-muted/40 dark:hover:bg-muted/30">
-                              <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+                            <div className="rounded-md px-3 py-2 text-left">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                 <Layers className="size-4 text-info" />
                                 质量路径
                               </div>
-                              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/74">
+                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                 文档入库后可在这里查看切片数量、解析状态、健康卡和后续检索测试入口。
                               </p>
                             </div>
                           </div>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                    <div className="relative mx-auto flex h-full max-w-5xl flex-col items-center justify-center px-4 py-8 text-center">
-                      <div className="relative mb-3 flex h-[72px] w-24 items-end justify-center">
-                        <div className="absolute bottom-0 h-12 w-20 rounded-[20px] border border-info/20 bg-background/80 shadow-[0_20px_44px_-34px_hsl(var(--primary)/0.7)]" />
-                        <div className="absolute bottom-3.5 h-10 w-[68px] rounded-[15px] border border-info/20 bg-info/10" />
-                        <div className="absolute bottom-5 flex size-11 items-center justify-center rounded-[17px] border border-info/20 bg-background text-info shadow-[0_15px_26px_-20px_hsl(var(--primary)/0.6)]">
-                          {isDatasetEmpty ? (
-                            <Database className="size-5" />
-                          ) : (
-                            <Filter className="size-5" />
-                          )}
-                        </div>
-                        <span className="absolute left-4 top-2 size-1.5 rounded-full bg-info/50" />
-                        <span className="absolute right-3 top-7 size-1.5 rounded-full bg-info/50" />
-                      </div>
+                      {isDatasetEmpty ? null : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={onClearFilters}
+                        >
+                          <RotateCcw className="mr-2 size-3.5" />
+                          清空所有筛选
+                        </Button>
+                      )}
 
-                      <div className="inline-flex items-center rounded-full border border-info/15 bg-background/78 px-3 py-1 text-[10px] font-medium text-info/72 dark:text-info/78">
-                        文档货架
-                      </div>
-                      <h3 className="mt-2.5 text-[21px] font-semibold text-foreground">
-                        {emptyTitle}
-                      </h3>
-                      <p className="mt-1.5 max-w-2xl text-[13px] leading-5 text-muted-foreground/78">
-                        {emptyDescription}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                        {isDatasetEmpty ? null : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-10 rounded-[14px] border-border/70 bg-background px-4"
-                            onClick={onClearFilters}
-                          >
-                            <RotateCcw className="mr-2 size-3.5" />
-                            清空所有筛选
-                          </Button>
-                        )}
-
-                        {selectedDatasetId && onSwitchToAllDatasets ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-10 rounded-[14px] px-4 text-[12px] font-medium"
-                            onClick={onSwitchToAllDatasets}
-                          >
-                            回到全部数据集
-                          </Button>
-                        ) : null}
-
-                        {!selectedDatasetId && hasActiveFilters ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-10 rounded-[14px] px-4 text-[12px] font-medium"
-                            onClick={onSwitchToAllDatasets}
-                          >
-                            回到全部数据集
-                          </Button>
-                        ) : null}
-                      </div>
+                      {(selectedDatasetId || hasActiveFilters) && onSwitchToAllDatasets ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={onSwitchToAllDatasets}
+                        >
+                          回到全部数据集
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1110,10 +1032,10 @@ export function KnowledgeDocumentsPanel({
             return (
               <>
                 {/* className="group hover:bg-muted/20 transition-colors" */}
-                <div className="min-w-full">
+                <div className="min-w-full overflow-x-auto">
                     <table
                       aria-label={t('table.ariaLabel')}
-                      className="w-full table-fixed text-left text-sm"
+                      className="w-full min-w-[920px] table-fixed text-left text-sm"
                     >
                       <colgroup>
                         <col className="w-9" />
@@ -1129,7 +1051,7 @@ export function KnowledgeDocumentsPanel({
                         <col className="w-[8.5rem]" />
                       </colgroup>
                       {/* sticky top-0 z-10 bg-card/92 px-3 py-2 font-medium dark:bg-background/90 */}
-                      <thead className="border-b border-border/50 bg-background text-[11px] text-muted-foreground/74 dark:border-border/60 dark:bg-background">
+                      <thead className="border-b border-border bg-background text-xs text-muted-foreground">
                         <tr>
                           <th
                             colSpan={tableColumnCount}
@@ -1249,14 +1171,12 @@ export function KnowledgeDocumentsPanel({
                                       <div className="flex min-w-0 items-center gap-3">
                                         <div
                                           className={cn(
-                                            'flex size-8 shrink-0 items-center justify-center rounded-[10px] border transition-transform duration-150 group-hover/row:scale-[1.03]',
-                                            iconShellClassName,
+                                            'flex size-8 shrink-0 items-center justify-center rounded-md border',
                                             fileType.bg,
                                             fileType.border,
                                             fileType.color
                                           )}
                                         >
-                                          <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),transparent_52%)] opacity-75" />
                                           <TypeIcon className="size-4.5" />
                                         </div>
                                         <div className="min-w-0 flex-1">
@@ -1266,7 +1186,7 @@ export function KnowledgeDocumentsPanel({
                                           >
                                             {doc.filename}
                                           </div>
-                                          <div className="max-w-[360px] truncate font-mono text-[10px] text-muted-foreground/48 xl:max-w-[440px]">
+                                          <div className="max-w-[360px] truncate font-mono text-xs text-muted-foreground xl:max-w-[440px]">
                                             {doc.id}
                                           </div>
                                         </div>
@@ -1300,24 +1220,24 @@ export function KnowledgeDocumentsPanel({
                                         status={badge.status}
                                         label={badge.label}
                                         dense
-                                        className="rounded-full bg-muted/50"
+                                        className="rounded-md bg-muted/50"
                                       />
                                     </div>
 
-                                    <div className="text-right font-mono text-[11px] tabular-nums text-foreground/70">
+                                    <div className="text-right text-xs tabular-nums text-foreground/70">
                                       {doc.chunk_count ?? '0'}
                                     </div>
-                                    <div className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                                    <div className="text-right text-xs tabular-nums text-muted-foreground">
                                       {formatFileSize(doc.file_size)}
                                     </div>
-                                    <div className="whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground">
+                                    <div className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                                       {formatDate(doc.created_at)}
                                     </div>
                                     <div className="flex items-center justify-end gap-1">
                                       <IconButton
                                         label="查看详情"
                                         variant="ghost"
-                                        className="h-7 w-7 rounded-full text-muted-foreground transition-[transform,background-color,color,box-shadow] hover:scale-[1.04] hover:text-primary hover:bg-primary/8 hover:shadow-[0_8px_18px_-12px_hsl(var(--primary)/0.45)]"
+                                        className="size-9 rounded-md text-muted-foreground hover:bg-primary/8 hover:text-primary"
                                         onClick={buildOpenInspectorHandler(doc)}
                                       >
                                         <Eye className="h-3.5 w-3.5" />
@@ -1327,7 +1247,7 @@ export function KnowledgeDocumentsPanel({
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 rounded-full px-2.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+                                        className="h-9 rounded-md px-2.5 text-xs font-medium text-primary hover:bg-primary/10"
                                         onClick={(event) => {
                                           event.stopPropagation()
                                           if (onPeek) onPeek(doc.id)
@@ -1348,15 +1268,12 @@ export function KnowledgeDocumentsPanel({
                                           <IconButton
                                             label={t('actions.moreActions')}
                                             variant="ghost"
-                                            className="h-7 w-7 rounded-full text-muted-foreground transition-[transform,background-color,color] hover:scale-[1.04] hover:text-foreground hover:bg-muted/70"
+                                            className="size-9 rounded-md text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                                           >
                                             <MoreVertical className="h-3.5 w-3.5" />
                                           </IconButton>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                          align="end"
-                                          className="w-56 rounded-xl border-border/60 shadow-strong/10"
-                                        >
+                                        <DropdownMenuContent align="end" className="w-56">
                                           <DropdownMenuItem
                                             onSelect={() =>
                                               detachPromise(
@@ -1405,7 +1322,7 @@ export function KnowledgeDocumentsPanel({
                                     </div>
                                   </div>
 
-                                  <div className="mx-0 mb-1 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 px-12 pb-1 text-[10px] text-muted-foreground/72">
+                                  <div className="mx-0 mb-1 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 px-12 pb-1 text-xs text-muted-foreground">
                                     {metadataItems.map((item, index) => (
                                       <div
                                         key={item.label}
@@ -1442,37 +1359,41 @@ export function KnowledgeDocumentsPanel({
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-auto flex items-center justify-end gap-2.5 border-t border-border/50 bg-card/45 px-4 py-2.5">
-                    <span className="text-[11px] text-muted-foreground/74">
+                  <div className="mt-auto flex flex-col gap-2 border-t border-border bg-background px-4 py-2.5 sm:flex-row sm:items-center sm:justify-end">
+                    <span className="text-xs text-muted-foreground">
                       显示 {pageStart}-{pageEnd} / 共 {visibleDocumentsCount} 条
                     </span>
                     <span
-                      className="inline-flex h-8 items-center rounded-xl border border-border/55 bg-background/78 px-2.5 text-[11px] text-muted-foreground shadow-none"
+                      className="inline-flex h-9 items-center rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground"
                     >
                       {pageSize} 条/页
                     </span>
                     <div className="inline-flex items-center gap-1.5">
-                      <button
+                      <Button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/55 bg-background/78 text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 disabled:cursor-not-allowed disabled:text-muted-foreground/35"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 rounded-md"
                         disabled={!canGoPrevious}
                         aria-label="上一页"
                         onClick={() => onPageChange(page - 1)}
                       >
-                        ‹
-                      </button>
-                      <span className="inline-flex h-8 min-w-[5.25rem] items-center justify-center rounded-xl border border-primary/18 bg-primary/[0.09] px-3 text-[11px] font-semibold text-primary">
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <span className="inline-flex h-9 min-w-[5.25rem] items-center justify-center rounded-md border border-primary/20 bg-primary/[0.09] px-3 text-xs font-semibold text-primary">
                         第 {page} / {pageCount} 页
                       </span>
-                      <button
+                      <Button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/55 bg-background/78 text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 disabled:cursor-not-allowed disabled:text-muted-foreground/35"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 rounded-md"
                         disabled={!canGoNext}
                         aria-label="下一页"
                         onClick={() => onPageChange(page + 1)}
                       >
-                        ›
-                      </button>
+                        <ChevronRight className="size-4" />
+                      </Button>
                     </div>
                   </div>
                 </>
@@ -1536,61 +1457,36 @@ function DocumentCard({
     <Panel
       padding="none"
       className={cn(
-        'group relative flex h-full flex-col rounded-2xl overflow-hidden transition-all duration-300 motion-reduce:transition-none border-border/50 bg-card/40 backdrop-blur-sm',
+        'group relative flex h-full flex-col overflow-hidden rounded-lg border-border bg-card transition-colors duration-150',
         selected
-          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background border-primary/40 bg-primary/[0.03]'
-          : 'hover:border-primary/30 hover:shadow-strong/10 hover:-translate-y-1'
+          ? 'border-primary/50 bg-primary/[0.03] ring-2 ring-primary/15'
+          : 'hover:border-primary/30'
       )}
     >
-      <div className={cn('h-1 w-full', statusBarClassName)} />
+      <div className={cn('h-0.5 w-full', statusBarClassName)} />
 
-      {/* Selection Checkbox */}
-      <div
-        className={cn(
-          'absolute top-4 left-4 z-10 rounded-lg border border-border/60 bg-background/80 backdrop-blur-md p-1.5 transition-all duration-300',
-          selected
-            ? 'opacity-100 border-primary bg-primary/10'
-            : contextualRevealClassName
-        )}
-      >
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-border/60 text-primary focus-ring cursor-pointer"
-          checked={selected}
-          onChange={onToggleSelect}
-          aria-label={t('table.selectDocument', { filename: doc.filename })}
-        />
-      </div>
-
-      <div className="p-6 flex-1 flex flex-col">
-        <div className="flex items-start justify-between mb-5">
-          <div className="relative">
+      <div className="flex flex-1 flex-col p-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-background">
+              <input
+                type="checkbox"
+                className="size-4 cursor-pointer rounded border-border text-primary focus-ring"
+                checked={selected}
+                onChange={onToggleSelect}
+                aria-label={t('table.selectDocument', { filename: doc.filename })}
+              />
+            </div>
             <div
               className={cn(
-                'size-14 rounded-2xl flex items-center justify-center border shadow-sm transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3',
+                'flex size-10 items-center justify-center rounded-lg border',
                 fileType.bg,
                 fileType.border,
                 fileType.color
               )}
             >
-              <TypeIcon className="size-7" />
+              <TypeIcon className="size-5" />
             </div>
-            {/* Quality Indicator Mini-Ring */}
-            {qualityPercent !== null && (
-              <div
-                className="absolute -bottom-1 -right-1 size-6 rounded-full bg-background border border-border/60 flex items-center justify-center shadow-sm"
-                title={`解析质量: ${qualityPercent}%`}
-              >
-                <div
-                  className={cn(
-                    'text-[8px] font-medium font-mono tabular-nums',
-                    qualityColor
-                  )}
-                >
-                  {qualityPercent}
-                </div>
-              </div>
-            )}
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <StatusBadge
@@ -1600,7 +1496,7 @@ function DocumentCard({
             />
             <div
               className={cn(
-                'px-2 py-0.5 rounded-full text-[11px] font-medium uppercase border ',
+                'rounded-md border px-2 py-0.5 text-xs font-medium',
                 fileType.bg,
                 fileType.color,
                 fileType.border
@@ -1608,11 +1504,16 @@ function DocumentCard({
             >
               {fileType.label}
             </div>
+            {qualityPercent !== null ? (
+              <span className={cn('text-xs font-medium tabular-nums', qualityColor)} title={`解析质量: ${qualityPercent}%`}>
+                质量 {qualityPercent}%
+              </span>
+            ) : null}
           </div>
         </div>
 
         <h3
-          className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-3 min-h-[2.5rem] group-hover:text-primary transition-colors"
+          className="mb-3 min-h-[2.5rem] line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors group-hover:text-primary"
           title={doc.filename}
         >
           {doc.filename}
@@ -1622,33 +1523,28 @@ function DocumentCard({
           <DocumentTags tags={userTags} max={3} dense className="mb-4" />
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3 mt-auto pt-4 border-t border-border/40">
+        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-border pt-4">
           <div className="space-y-0.5">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground/50">
+            <p className="text-xs font-medium text-muted-foreground">
               {t('row.size')}
             </p>
-            <p className="text-xs font-medium font-mono tabular-nums text-foreground/80">
+            <p className="text-xs font-medium tabular-nums text-foreground/80">
               {formatFileSize(doc.file_size)}
             </p>
           </div>
           <div className="space-y-0.5">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground/50">
+            <p className="text-xs font-medium text-muted-foreground">
               {t('row.chunks')}
             </p>
-            <p className="text-xs font-medium font-mono tabular-nums text-foreground/80">
+            <p className="text-xs font-medium tabular-nums text-foreground/80">
               {doc.chunk_count ?? '-'}
             </p>
           </div>
         </div>
       </div>
 
-      <div
-        className={cn(
-          'px-6 py-3.5 bg-muted/30 border-t border-border/40 flex items-center justify-between transition-all duration-300',
-          contextualRevealClassName
-        )}
-      >
-        <span className="text-[11px] text-muted-foreground/60 font-medium uppercase truncate max-w-[100px]">
+      <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2.5">
+        <span className="max-w-[120px] truncate text-xs font-medium text-muted-foreground">
           {parserLabel || t('row.parserAuto')}
         </span>
         <div className="flex items-center gap-1.5">
@@ -1656,7 +1552,7 @@ function DocumentCard({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 rounded-full px-3 text-[11px] font-medium text-primary hover:bg-primary/10"
+            className="h-9 rounded-md px-3 text-xs font-medium text-primary hover:bg-primary/10"
             onClick={(e) => {
               e.stopPropagation()
               if (onPeek) onPeek(doc.id)
@@ -1677,16 +1573,13 @@ function DocumentCard({
               <IconButton
                 label={t('actions.moreActions')}
                 variant="ghost"
-                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="size-9 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreVertical className="w-4 h-4" />
               </IconButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-56 rounded-xl border-border/60 shadow-strong/10"
-            >
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem
                 onSelect={() =>
                   detachPromise(copyText(doc.id, t('toasts.copyDocumentId')))
@@ -1730,7 +1623,7 @@ function DocumentCard({
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${doc.processing_progress || 60}%` }}
-            className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]"
+            className="h-full bg-primary"
           />
         </div>
       ) : null}
