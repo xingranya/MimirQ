@@ -8,11 +8,8 @@ import {
   ChevronRight,
   Clock3,
   Copy,
-  ListChecks,
   Loader2,
-  Mail,
   RefreshCw,
-  Search,
   ShieldCheck,
   Trash2,
   UserCog,
@@ -59,7 +56,7 @@ import { useTenantAccess } from '@/hooks/use-tenant-access'
 const ROLE_OPTIONS = [
   {
     key: 'owner',
-    label: 'Owner',
+    label: '所有者',
     cn: 'border-primary/20 bg-primary/10 text-primary',
   },
   {
@@ -89,15 +86,15 @@ const PAGE_SIZE_OPTIONS = [7, 10, 20, 50]
 const RBAC_MEMBERS_PARAMS = { limit: 500 } as const
 const RBAC_INVITATIONS_PARAMS = { status: 'pending', limit: 100 } as const
 const CARD_CLASS =
-  'rounded-[1.15rem] border border-border/60 bg-card/86 shadow-[0_10px_28px_hsl(var(--primary)/0.045)]'
+  'rounded-md border border-border bg-card'
 const RBAC_FIELD_LABEL_CLASS =
-  'text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground'
+  'text-xs font-medium text-muted-foreground'
 const RBAC_INPUT_CLASS =
-  'h-9 rounded-xl border-border/60 bg-background/72 text-[12px] shadow-none'
+  'h-9 rounded-md border-border bg-background text-sm'
 const RBAC_SOFT_BUTTON_CLASS =
-  'h-8 rounded-full border-border/60 bg-card/86 px-3 text-[11px] font-semibold text-foreground shadow-sm hover:bg-primary/10 hover:text-primary'
+  'h-8 rounded-md border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted'
 const RBAC_MUTED_CHIP_CLASS =
-  'h-9 w-fit rounded-full border border-border/60 bg-muted/45 px-3 text-[11px] font-semibold text-muted-foreground'
+  'h-9 w-fit rounded-md border border-border bg-muted/40 px-3 text-xs font-medium text-muted-foreground'
 const ROLE_DOT_TONES: Record<string, string> = {
   owner: 'bg-primary',
   admin: 'bg-accent',
@@ -114,10 +111,10 @@ type RbacMembersSnapshot = {
 
 function userDisplay(userId?: string | null) {
   const value = String(userId || '').trim()
-  if (!value) return { primary: '未知成员', secondary: '缺少 user_id' }
+  if (!value) return { primary: '未知成员', secondary: '缺少成员标识' }
   const [name, domain] = value.includes('@')
     ? value.split('@')
-    : [value, 'user_id']
+    : [value, '成员标识']
   return { primary: name || value, secondary: domain || value }
 }
 
@@ -155,10 +152,10 @@ function removeMemberDescription({
   displayName: string
 }): string {
   if (canRemove) {
-    return `将把 ${displayName} 从当前租户移除，并撤销组和显式访问授权`
+    return `将把 ${displayName} 从当前组织移除，并撤销组和单独授予的访问权限。`
   }
-  if (isSelf) return '不能移除当前用户。请切换到其他管理员账号后再操作'
-  return '缺少成员 ID，无法移除'
+  if (isSelf) return '不能移除当前用户。请切换到其他管理员账号后再操作。'
+  return '缺少成员标识，无法移除。'
 }
 
 function fmtDateTime(value?: string | null) {
@@ -276,16 +273,42 @@ function SettingsRbacPageContent() {
     () => members.filter((member) => !String(member.role || '').trim()).length,
     [members]
   )
-  const currentUserCount = useMemo(
-    () => members.filter((member) => member.is_current).length,
-    [members]
-  )
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, pageCount)
   const pagedMembers = filtered.slice(
     (safePage - 1) * pageSize,
     safePage * pageSize
   )
+  const pagedMemberRows = pagedMembers.map((member, index) => {
+    const uid = String(member.user_id || '').trim()
+    const currentRole = String(member.role || 'viewer')
+    const draft = uid
+      ? String(roleDraft[uid] || currentRole)
+      : currentRole
+    const display = userDisplay(uid)
+    const isSelf = Boolean(uid) && (
+      uid === currentAccountId || (!currentAccountId && member.is_current)
+    )
+    const canRemove = Boolean(uid) && !isSelf
+    return {
+      member,
+      uid,
+      key: uid || String(member.id || `member-${safePage}-${index}`),
+      currentRole,
+      draft,
+      roleChanged: draft !== currentRole,
+      saving: uid ? Boolean(savingIds[uid]) : false,
+      removing: uid ? Boolean(removingIds[uid]) : false,
+      display,
+      isSelf,
+      canRemove,
+      removeDescription: removeMemberDescription({
+        canRemove,
+        isSelf,
+        displayName: display.primary,
+      }),
+    }
+  })
 
   const saveRoleMutation = useMutation({
     mutationFn: async ({
@@ -321,8 +344,8 @@ function SettingsRbacPageContent() {
       })
       const roleLabel =
         ROLE_OPTIONS.find((option) => option.key === desired)?.label ??
-        `角色键（${desired}）`
-      toast.success(`已更新角色：${uid} -> ${roleLabel}`)
+        '未知角色'
+      toast.success(`已将 ${uid} 的角色更新为${roleLabel}`)
       queryClient.invalidateQueries({
         queryKey: queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
       })
@@ -468,7 +491,7 @@ function SettingsRbacPageContent() {
         bodyClassName="bg-transparent pb-6"
         headerClassName="[&_.text-muted-foreground]:text-muted-foreground"
         top={
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid overflow-hidden rounded-md border border-border bg-border md:grid-cols-3 md:gap-px">
             <StatCard
               icon={Users}
               label="总成员"
@@ -489,18 +512,6 @@ function SettingsRbacPageContent() {
               value={String(unassignedCount)}
               detail="待补齐角色"
               tone="orange"
-            />
-            <StatCard
-              icon={ListChecks}
-              label="列表状态"
-              value={loading ? '加载中' : '已就绪'}
-              detail={
-                currentUserCount
-                  ? `当前登录账号 ${currentUserCount}`
-                  : '成员列表状态'
-              }
-              tone={loading ? 'orange' : 'purple'}
-              variant="status"
             />
           </div>
         }
@@ -525,7 +536,7 @@ function SettingsRbacPageContent() {
                   邀请成员
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-lg shadow-lg sm:max-w-md">
+              <DialogContent className="rounded-md sm:max-w-md">
                 <form
                   onSubmit={(event) => {
                     event.preventDefault()
@@ -572,19 +583,16 @@ function SettingsRbacPageContent() {
                     <div className="mt-5 space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="tenant-invitation-email">成员邮箱</Label>
-                        <div className="relative">
-                          <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            id="tenant-invitation-email"
-                            type="email"
-                            autoComplete="email"
-                            value={inviteEmail}
-                            onChange={(event) => setInviteEmail(event.target.value)}
-                            placeholder="name@company.com"
-                            className="h-10 rounded-md pl-9"
-                            required
-                          />
-                        </div>
+                        <Input
+                          id="tenant-invitation-email"
+                          type="email"
+                          autoComplete="email"
+                          value={inviteEmail}
+                          onChange={(event) => setInviteEmail(event.target.value)}
+                          placeholder="name@company.com"
+                          className="h-10 rounded-md"
+                          required
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="tenant-invitation-role">初始角色</Label>
@@ -671,58 +679,37 @@ function SettingsRbacPageContent() {
       >
         <div className="grid grid-cols-1 gap-4">
           <section className={cn(CARD_CLASS, 'overflow-hidden')}>
-            <div className="flex flex-col gap-3 border-b border-border/50 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
               <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Users className="size-4" />
                 </div>
                 <div>
-                  <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+                  <h2 className="text-base font-semibold text-foreground">
                     成员管理
                   </h2>
-                  <p className="mt-0.5 text-[12px] text-muted-foreground">
-                    邀请新成员、调整角色，并同步当前访问控制状态
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    搜索成员并调整角色。邀请入口位于页面右上角。
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(RBAC_SOFT_BUTTON_CLASS, 'w-fit gap-2')}
-                disabled={loading}
-                onClick={() => {
-                  membersQuery.refetch()
-                  invitationsQuery.refetch()
-                }}
-              >
-                <RefreshCw
-                  className={cn(
-                    'size-4',
-                    loading && 'animate-spin motion-reduce:animate-none'
-                  )}
-                />
-                刷新
-              </Button>
             </div>
 
-            <div className="px-5 py-3">
-              <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.1fr)_220px_220px_auto] lg:items-end">
+            <div className="px-4 py-3 sm:px-5">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.1fr)_220px_220px_auto] xl:items-end">
                 <div className="space-y-1.5">
                   <Label className={RBAC_FIELD_LABEL_CLASS}>
                     搜索成员
                   </Label>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      className={cn(RBAC_INPUT_CLASS, 'pl-9 placeholder:text-muted-foreground')}
-                      value={query}
-                      onChange={(e) => {
-                        setQuery(e.target.value)
-                        setPage(1)
-                      }}
-                      placeholder="搜索成员（名称 / 邮箱 / ID）"
-                    />
-                  </div>
+                  <Input
+                    className={cn(RBAC_INPUT_CLASS, 'placeholder:text-muted-foreground')}
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value)
+                      setPage(1)
+                    }}
+                    placeholder="搜索邮箱或成员标识"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className={RBAC_FIELD_LABEL_CLASS}>
@@ -774,17 +761,108 @@ function SettingsRbacPageContent() {
                   variant="outline"
                   className={RBAC_MUTED_CHIP_CLASS}
                 >
-                  可见 {filtered.length} / {totalMembers || members.length}
+                  显示 {filtered.length} / {totalMembers || members.length}
                 </Badge>
               </div>
 
-              <div className="mt-3 overflow-hidden rounded-xl border border-border/60">
+              <div className="mt-3 space-y-2 xl:hidden">
+                {pagedMemberRows.length ? (
+                  pagedMemberRows.map((row) => (
+                    <article
+                      key={row.key}
+                      className="rounded-md border border-border bg-card p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={cn(
+                              'flex size-9 shrink-0 items-center justify-center rounded-md border text-sm font-semibold',
+                              avatarTone(row.uid)
+                            )}
+                          >
+                            {initials(row.uid)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-foreground">
+                              {row.display.primary}
+                            </div>
+                            <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                              {row.display.secondary}
+                            </div>
+                          </div>
+                        </div>
+                        <MemberStatusBadge isSelf={row.isSelf} />
+                      </div>
+
+                      <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">成员标识</dt>
+                          <dd className="mt-1 truncate font-mono text-foreground">
+                            {row.uid || '缺少成员标识'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">最近更新</dt>
+                          <dd className="mt-1 text-foreground">
+                            {fmtDateTime(
+                              row.member.updated_at || row.member.created_at
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                        <div className="space-y-1.5">
+                          <Label className={RBAC_FIELD_LABEL_CLASS}>角色</Label>
+                          <MemberRoleSelect
+                            value={row.draft}
+                            disabled={!canManageMembers || !row.uid}
+                            onValueChange={(value) => {
+                              if (!row.uid) return
+                              setRoleDraft((previous) => ({
+                                ...previous,
+                                [row.uid]: value,
+                              }))
+                            }}
+                          />
+                        </div>
+                        <MemberActionButtons
+                          canManageMembers={canManageMembers}
+                          canRemove={row.canRemove}
+                          displayName={row.display.primary}
+                          isSelf={row.isSelf}
+                          removeDescription={row.removeDescription}
+                          removing={row.removing}
+                          roleChanged={row.roleChanged}
+                          saving={row.saving}
+                          uid={row.uid}
+                          onRemove={removeMember}
+                          onSave={saveRole}
+                        />
+                      </div>
+                    </article>
+                  ))
+                ) : loading ? (
+                  <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                    加载中…
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Users}
+                    title="暂无成员"
+                    description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员。"
+                    className="rounded-md border-border bg-card"
+                  />
+                )}
+              </div>
+
+              <div className="mt-3 hidden overflow-hidden rounded-md border border-border xl:block">
                 <div className="overflow-x-auto">
-                  <table className="min-w-[900px] w-full table-fixed border-collapse text-left">
+                  <table className="w-full min-w-[900px] table-fixed border-collapse text-left">
                     <thead>
-                      <tr className="border-b border-border/60 bg-muted/38 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      <tr className="border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground">
                         <th className="w-[31%] px-3 py-2.5">成员</th>
-                        <th className="w-[28%] px-3 py-2.5">邮箱 / ID</th>
+                        <th className="w-[28%] px-3 py-2.5">邮箱或成员标识</th>
                         <th className="w-[15%] px-3 py-2.5">角色</th>
                         <th className="w-[9%] px-3 py-2.5">状态</th>
                         <th className="w-[10%] px-3 py-2.5">最近更新</th>
@@ -792,141 +870,76 @@ function SettingsRbacPageContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40 bg-card/72">
-                      {pagedMembers.length ? (
-                        pagedMembers.map((m) => {
-                          const uid = String(m.user_id || '').trim()
-                          const key = uid || String(m.id || '')
-                          const draft = uid
-                            ? String(roleDraft[uid] || m.role || 'viewer')
-                            : String(m.role || 'viewer')
-                          const saving = uid ? Boolean(savingIds[uid]) : false
-                          const removing = uid ? Boolean(removingIds[uid]) : false
-                          const display = userDisplay(uid)
-                          const isSelf = Boolean(uid) && (
-                            uid === currentAccountId ||
-                            (!currentAccountId && m.is_current)
-                          )
-                          const canRemove = Boolean(uid) && !isSelf
-                          const removeDescription = removeMemberDescription({
-                            canRemove,
-                            isSelf,
-                            displayName: display.primary,
-                          })
+                      {pagedMemberRows.length ? (
+                        pagedMemberRows.map((row) => {
                           return (
                             <tr
-                              key={key}
-                              className="text-[13px] text-foreground transition-colors hover:bg-primary/[0.035]"
+                              key={row.key}
+                              className="text-sm text-foreground transition-colors hover:bg-muted/40 motion-reduce:transition-none"
                             >
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-3">
                                   <div
                                     className={cn(
-                                      'flex size-8 shrink-0 items-center justify-center rounded-full border text-[12px] font-semibold',
-                                      avatarTone(uid)
+                                      'flex size-8 shrink-0 items-center justify-center rounded-md border text-xs font-semibold',
+                                      avatarTone(row.uid)
                                     )}
                                   >
-                                    {initials(uid)}
+                                    {initials(row.uid)}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="truncate font-semibold text-foreground" title={display.primary}>
-                                      {display.primary}
+                                    <div className="truncate font-semibold text-foreground" title={row.display.primary}>
+                                      {row.display.primary}
                                     </div>
-                                    <div className="truncate text-[12px] text-muted-foreground">
-                                      {display.secondary}
+                                    <div className="truncate text-xs text-muted-foreground">
+                                      {row.display.secondary}
                                     </div>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-3 py-2">
                                 <div
-                                  className="truncate font-mono text-[12px] text-muted-foreground"
-                                  title={uid || '(无用户 ID / user_id)'}
+                                  className="truncate font-mono text-xs text-muted-foreground"
+                                  title={row.uid || '缺少成员标识'}
                                 >
-                                  {uid || '(无用户 ID / user_id)'}
+                                  {row.uid || '缺少成员标识'}
                                 </div>
                               </td>
                               <td className="px-3 py-2">
-                                <Select
-                                  value={draft}
-                                  onValueChange={(v) => {
-                                    if (!uid) return
-                                    setRoleDraft((prev) => ({
-                                      ...prev,
-                                      [uid]: v,
+                                <MemberRoleSelect
+                                  value={row.draft}
+                                  disabled={!canManageMembers || !row.uid}
+                                  onValueChange={(value) => {
+                                    if (!row.uid) return
+                                    setRoleDraft((previous) => ({
+                                      ...previous,
+                                      [row.uid]: value,
                                     }))
                                   }}
-                                  disabled={!canManageMembers || !uid}
-                                >
-                                  <SelectTrigger className="h-8 min-w-0 rounded-full border-border/60 bg-card text-[12px] shadow-none">
-                                    <SelectValue placeholder="选择角色" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {ROLE_OPTIONS.map((r) => (
-                                      <SelectItem key={r.key} value={r.key}>
-                                        <span className="flex items-center gap-2">
-                                          <span
-                                            className={cn(
-                                              'size-2 rounded-full',
-                                              roleDotTone(r.key)
-                                            )}
-                                          />
-                                          {r.label}
-                                        </span>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                />
                               </td>
                               <td className="px-3 py-2">
-                                <Badge
-                                  className={cn(
-                                    'rounded-full border px-2 py-0.5 text-[11px] font-semibold shadow-none',
-                                    isSelf
-                                      ? 'border-primary/20 bg-primary/10 text-primary'
-                                      : 'border-success/20 bg-success/10 text-success'
-                                  )}
-                                >
-                                  {isSelf ? '当前用户' : '已同步'}
-                                </Badge>
+                                <MemberStatusBadge isSelf={row.isSelf} />
                               </td>
-                              <td className="px-3 py-2 text-[12px] text-muted-foreground">
-                                {fmtDateTime(m.updated_at || m.created_at)}
+                              <td className="px-3 py-2 text-xs text-muted-foreground">
+                                {fmtDateTime(
+                                  row.member.updated_at || row.member.created_at
+                                )}
                               </td>
                               <td className="px-3 py-2">
-                                <div className="flex justify-end gap-1.5">
-                                  <Button
-                                    size="sm"
-                                    data-rbac-save-role-action="true"
-                                    aria-label={`保存 ${display.primary} 的角色`}
-                                    className="h-8 rounded-full bg-info px-3 text-[12px] font-semibold text-primary-foreground shadow-sm hover:bg-info/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-                                    disabled={!canManageMembers || !uid || saving || removing}
-                                    onClick={() => saveRole(uid)}
-                                  >
-                                    {saving ? '保存中' : '保存'}
-                                  </Button>
-                                  <ConfirmDialog
-                                    title="移除成员？"
-                                    description={removeDescription}
-                                    confirmLabel="确认移除"
-                                    confirmDisabled={!canRemove || removing}
-                                    onConfirm={() => removeMember(uid)}
-                                  >
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="size-8 rounded-full border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"
-                                      disabled={!canManageMembers || !uid || removing}
-                                      title={isSelf ? '查看不能移除当前用户的原因' : '移除成员'}
-                                      aria-label={isSelf ? '不能移除当前用户' : `移除成员 ${display.primary}`}
-                                    >
-                                      {removing ? (
-                                        <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
-                                      ) : (
-                                        <Trash2 className="size-3.5" />
-                                      )}
-                                    </Button>
-                                  </ConfirmDialog>
-                                </div>
+                                <MemberActionButtons
+                                  canManageMembers={canManageMembers}
+                                  canRemove={row.canRemove}
+                                  displayName={row.display.primary}
+                                  isSelf={row.isSelf}
+                                  removeDescription={row.removeDescription}
+                                  removing={row.removing}
+                                  roleChanged={row.roleChanged}
+                                  saving={row.saving}
+                                  uid={row.uid}
+                                  onRemove={removeMember}
+                                  onSave={saveRole}
+                                />
                               </td>
                             </tr>
                           )
@@ -936,13 +949,13 @@ function SettingsRbacPageContent() {
                           <td colSpan={6}>
                             {loading ? (
                               <div className="px-4 py-10 text-sm text-muted-foreground">
-                                加载中...
+                                加载中…
                               </div>
                             ) : (
                               <EmptyState
                                 icon={Users}
                                 title="暂无成员"
-                                description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员"
+                                description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员。"
                                 className="rounded-none border-0 shadow-none"
                               />
                             )}
@@ -952,9 +965,10 @@ function SettingsRbacPageContent() {
                     </tbody>
                   </table>
                 </div>
+              </div>
 
-                <div className="flex flex-col gap-3 border-t border-border/60 bg-card/78 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-[12px] font-medium text-muted-foreground">
+              <div className="mt-3 flex flex-col gap-3 border-t border-border px-1 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-xs font-medium text-muted-foreground">
                     共 {filtered.length} 条
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -965,7 +979,7 @@ function SettingsRbacPageContent() {
                         setPage(1)
                       }}
                     >
-                      <SelectTrigger className="h-8 w-[116px] rounded-full border-border/60 bg-card text-[12px] shadow-none">
+                      <SelectTrigger className="h-8 w-[116px] rounded-md border-border bg-card text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -980,20 +994,20 @@ function SettingsRbacPageContent() {
                       variant="outline"
                       size="icon"
                       aria-label="上一页"
-                      className="size-8 rounded-full border-border/60 bg-card hover:bg-primary/10 hover:text-primary"
+                      className="size-8 rounded-md border-border bg-card hover:bg-muted"
                       disabled={safePage <= 1}
                       onClick={() => setPage((value) => Math.max(1, value - 1))}
                     >
                       <ChevronLeft className="size-4" />
                     </Button>
-                    <span className="rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground">
+                    <span className="min-w-8 text-center text-sm font-semibold text-foreground">
                       {safePage}
                     </span>
                     <Button
                       variant="outline"
                       size="icon"
                       aria-label="下一页"
-                      className="size-8 rounded-full border-border/60 bg-card hover:bg-primary/10 hover:text-primary"
+                      className="size-8 rounded-md border-border bg-card hover:bg-muted"
                       disabled={safePage >= pageCount}
                       onClick={() =>
                         setPage((value) => Math.min(pageCount, value + 1))
@@ -1001,11 +1015,10 @@ function SettingsRbacPageContent() {
                     >
                       <ChevronRight className="size-4" />
                     </Button>
-                    <span className="text-[12px] text-muted-foreground">
-                      / {pageCount} 页
+                    <span className="text-xs text-muted-foreground">
+                      共 {pageCount} 页
                     </span>
                   </div>
-                </div>
               </div>
             </div>
           </section>
@@ -1095,69 +1108,154 @@ function SettingsRbacPageContent() {
   )
 }
 
+function MemberRoleSelect({
+  value,
+  disabled,
+  onValueChange,
+}: Readonly<{
+  value: string
+  disabled: boolean
+  onValueChange: (value: string) => void
+}>) {
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger className="h-8 min-w-0 rounded-md border-border bg-card text-xs">
+        <SelectValue placeholder="选择角色" />
+      </SelectTrigger>
+      <SelectContent>
+        {ROLE_OPTIONS.map((role) => (
+          <SelectItem key={role.key} value={role.key}>
+            <span className="flex items-center gap-2">
+              <span
+                className={cn('size-2 rounded-sm', roleDotTone(role.key))}
+              />
+              {role.label}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function MemberStatusBadge({ isSelf }: Readonly<{ isSelf: boolean }>) {
+  return (
+    <Badge
+      className={cn(
+        'rounded-md border px-2 py-0.5 text-xs font-medium',
+        isSelf
+          ? 'border-primary/20 bg-primary/10 text-primary'
+          : 'border-success/20 bg-success/10 text-success'
+      )}
+    >
+      {isSelf ? '当前用户' : '已加入'}
+    </Badge>
+  )
+}
+
+function MemberActionButtons({
+  canManageMembers,
+  canRemove,
+  displayName,
+  isSelf,
+  removeDescription,
+  removing,
+  roleChanged,
+  saving,
+  uid,
+  onRemove,
+  onSave,
+}: Readonly<{
+  canManageMembers: boolean
+  canRemove: boolean
+  displayName: string
+  isSelf: boolean
+  removeDescription: string
+  removing: boolean
+  roleChanged: boolean
+  saving: boolean
+  uid: string
+  onRemove: (uid: string) => void
+  onSave: (uid: string) => void
+}>) {
+  return (
+    <div className="flex justify-end gap-2">
+      <Button
+        size="sm"
+        variant={roleChanged ? 'default' : 'outline'}
+        data-rbac-save-role-action="true"
+        aria-label={`保存 ${displayName} 的角色`}
+        className="h-8 rounded-md px-3 text-xs font-medium"
+        disabled={
+          !canManageMembers || !uid || !roleChanged || saving || removing
+        }
+        onClick={() => onSave(uid)}
+      >
+        {saving ? '保存中' : roleChanged ? '保存' : '已保存'}
+      </Button>
+      <ConfirmDialog
+        title="移除成员？"
+        description={removeDescription}
+        confirmLabel="确认移除"
+        confirmDisabled={!canRemove || removing}
+        onConfirm={() => onRemove(uid)}
+      >
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8 rounded-md border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          disabled={!canManageMembers || !uid || removing}
+          title={isSelf ? '查看不能移除当前用户的原因' : '移除成员'}
+          aria-label={isSelf ? '不能移除当前用户' : `移除成员 ${displayName}`}
+        >
+          {removing ? (
+            <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <Trash2 className="size-3.5" />
+          )}
+        </Button>
+      </ConfirmDialog>
+    </div>
+  )
+}
+
 function StatCard({
   icon: Icon,
   label,
   value,
   detail,
   tone,
-  variant = 'metric',
 }: Readonly<{
   icon: LucideIcon
   label: string
   value: string
   detail: string
-  tone: 'blue' | 'green' | 'orange' | 'purple'
-  variant?: 'metric' | 'status'
+  tone: 'blue' | 'green' | 'orange'
 }>) {
   const toneClass = {
-    blue: 'border-primary/20 bg-primary/10 text-primary',
-    green: 'border-success/20 bg-success/10 text-success',
-    orange: 'border-warning/20 bg-warning/10 text-warning',
-    purple: 'border-accent/20 bg-accent/10 text-accent',
+    blue: 'bg-primary/10 text-primary',
+    green: 'bg-success/10 text-success',
+    orange: 'bg-warning/10 text-warning',
   }[tone]
-  const statusClass =
-    value === '已就绪'
-      ? 'border-success/20 bg-success/10 text-success'
-      : 'border-warning/20 bg-warning/10 text-warning'
 
   return (
-    <div
-      className={cn(
-        CARD_CLASS,
-        'flex min-h-[58px] items-center gap-3 px-4 py-3'
-      )}
-    >
+    <div className="flex min-h-[72px] items-center gap-3 bg-card px-4 py-3">
       <div
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-xl border',
+          'flex size-8 shrink-0 items-center justify-center rounded-md',
           toneClass
         )}
       >
         <Icon className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <p className="truncate text-xs font-medium text-muted-foreground">
           {label}
         </p>
-        {variant === 'status' ? (
-          <div className="mt-1.5 flex min-w-0 items-center gap-2">
-            <span
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-semibold leading-none',
-                statusClass
-              )}
-            >
-              <span className="size-1.5 rounded-full bg-current" />
-              {value}
-            </span>
-          </div>
-        ) : (
-          <p className="mt-1 font-mono text-[22px] font-semibold leading-none tracking-[-0.045em] text-foreground tabular-nums">
-            {value}
-          </p>
-        )}
-        <p className="mt-1.5 truncate text-[10px] font-medium text-muted-foreground">
+        <p className="mt-1 text-xl font-semibold leading-none text-foreground tabular-nums">
+          {value}
+        </p>
+        <p className="mt-1.5 truncate text-xs text-muted-foreground">
           {detail}
         </p>
       </div>

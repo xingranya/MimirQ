@@ -14,15 +14,13 @@ import { formatApiError, toApiErrorInfo } from '@/lib/api-errors'
 import { cn, detachPromise } from '@/lib/utils'
 
 const SETTINGS_IDENTITY_PANEL_CLASS =
-  'overflow-hidden rounded-[1.25rem] border border-border/60 bg-card/88 shadow-[0_12px_30px_hsl(var(--primary)/0.05)]'
+  'overflow-hidden rounded-md border border-border bg-card'
 const SETTINGS_IDENTITY_LABEL_CLASS =
-  'text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground'
+  'text-xs font-medium text-muted-foreground'
 const SETTINGS_IDENTITY_INPUT_CLASS =
-  'h-9 rounded-xl border-border/60 bg-background/76 text-[12px] shadow-none transition-colors focus-visible:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/10'
+  'h-9 rounded-md border-border bg-background text-sm'
 const SETTINGS_IDENTITY_ICON_CLASS =
-  'relative flex size-9 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner'
-const SETTINGS_IDENTITY_META_CLASS =
-  'rounded-full border border-border/60 bg-muted/42 px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+  'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary'
 
 function downloadText(content: string, filename: string) {
   const blob = new Blob([content], { type: 'application/xml;charset=utf-8' })
@@ -78,47 +76,41 @@ export function SamlOpsPanel() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
           <div className={SETTINGS_IDENTITY_ICON_CLASS}>
-            <span className="absolute inset-1 rounded-xl bg-primary/5" />
             <ShieldCheck className="size-4" />
           </div>
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
               <span>SAML 单点登录</span>
-              <span className="rounded-full border border-border/60 bg-muted/45 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 按需配置
               </span>
             </div>
-            <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
-              对接企业身份源，完成单点登录和访问控制
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              连接企业身份源，统一登录方式和成员访问权限。
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={SETTINGS_IDENTITY_META_CLASS}>SSO</span>
-              <span className={SETTINGS_IDENTITY_META_CLASS}>Metadata</span>
-              <span className={SETTINGS_IDENTITY_META_CLASS}>Access control</span>
-            </div>
           </div>
         </div>
-        <div className="flex min-h-7 items-center gap-2 rounded-full border border-border/60 bg-muted/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+        <div className="flex min-h-8 items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground">
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
           ) : (
-            <span className="size-1.5 rounded-full bg-muted-foreground/45" />
+            <span className="size-1.5 rounded-sm bg-muted-foreground/45" />
           )}
-          <span>{busy ? 'Metadata 生成中' : '等待身份源'}</span>
+          <span>{busy ? '正在生成元数据' : '等待配置身份源'}</span>
         </div>
       </div>
 
-      <div className="mt-3 rounded-2xl border border-border/55 bg-muted/22 p-3">
+      <div className="mt-4 border-t border-border pt-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-end">
           <Field
-            label="身份源 ID"
-            helper="为空时使用默认身份源；多 IdP 场景可输入指定 provider。"
+            label="身份源标识"
+            helper="留空时使用默认身份源；连接多个身份源时填写对应标识。"
           >
             <Input
               value={providerId}
               onChange={(event) => setProviderId(event.target.value)}
               className={cn(SETTINGS_IDENTITY_INPUT_CLASS, 'min-w-[220px]')}
-              placeholder="默认身份源"
+              placeholder="使用默认身份源"
             />
           </Field>
           <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -126,9 +118,9 @@ export function SamlOpsPanel() {
               icon={Download}
               busy={busy === 'metadata'}
               disabled={Boolean(busy)}
-              label="下载 Metadata"
+              label="下载元数据"
               onClick={() =>
-                runAction('metadata', '获取 SAML Metadata', async () => {
+                runAction('metadata', '获取 SAML 元数据', async () => {
                   const xml = await authApi.samlMetadata({
                     provider_id: provider || null,
                   })
@@ -145,7 +137,7 @@ export function SamlOpsPanel() {
         </div>
       </div>
       {notice ? (
-        <div className="mt-3 rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-[12px] font-medium leading-5 text-warning">
+        <div className="mt-3 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-sm font-medium leading-5 text-warning">
           {notice}
         </div>
       ) : null}
@@ -165,7 +157,7 @@ function Field({
       </Label>
       {children}
       {helper ? (
-        <p className="text-[11px] leading-4 text-muted-foreground/86">
+        <p className="text-xs leading-5 text-muted-foreground">
           {helper}
         </p>
       ) : null}
@@ -189,7 +181,7 @@ function ActionButton({
   return (
     <Button
       variant="outline"
-      className="h-9 gap-1.5 rounded-full border-primary/20 bg-primary/10 px-3 text-[12px] font-semibold text-primary shadow-none transition-colors hover:border-primary/35 hover:bg-primary/15 disabled:border-border/60 disabled:bg-muted/50 disabled:text-muted-foreground"
+      className="h-9 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted disabled:bg-muted/50 disabled:text-muted-foreground"
       disabled={disabled}
       onClick={() => detachPromise(onClick())}
     >
