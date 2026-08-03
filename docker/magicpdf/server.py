@@ -51,6 +51,7 @@ _CH_COMPAT_DET_MODELS = ("Multilingual_PP-OCRv3_det_infer.pth", "ch_PP-OCRv5_det
 _CH_DOC_REC_MODEL = "ch_PP-OCRv4_rec_server_doc_infer.pth"
 _CH_COMPAT_REC_MODEL = "ch_PP-OCRv5_rec_infer.pth"
 _CH_COMPAT_DICT = "ppocrv5_dict.txt"
+_CH_COMPAT_CONFIG_PROFILES = ("ch", "ch_lite")
 _REQUIRED_MODEL_FILES = (
     "Layout/YOLO/doclayout_yolo_docstructbench_imgsz1280_2501.pt",
     f"OCR/paddleocr_torch/{_CH_DOC_DET_MODEL}",
@@ -171,20 +172,24 @@ def _ensure_ch_doc_model_compat(models_dir: Path) -> None:
     cfg_path = _models_config_path()
     data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     lang_cfg = data.get("lang")
-    ch_cfg = lang_cfg.get("ch") if isinstance(lang_cfg, dict) else None
-    if not isinstance(ch_cfg, dict):
+    if not isinstance(lang_cfg, dict):
         return
 
     changed = False
-    if needs_det_compat and compat_det is not None and ch_cfg.get("det") != compat_det.name:
-        ch_cfg["det"] = compat_det.name
-        changed = True
-    if needs_rec_compat and ch_cfg.get("rec") != _CH_COMPAT_REC_MODEL:
-        ch_cfg["rec"] = _CH_COMPAT_REC_MODEL
-        changed = True
-    if needs_rec_compat and ch_cfg.get("dict") != _CH_COMPAT_DICT:
-        ch_cfg["dict"] = _CH_COMPAT_DICT
-        changed = True
+    # MagicPDF 在 CPU 上会把 ch 自动切换为 ch_lite，两套配置必须同步兼容。
+    for profile in _CH_COMPAT_CONFIG_PROFILES:
+        profile_cfg = lang_cfg.get(profile)
+        if not isinstance(profile_cfg, dict):
+            continue
+        if needs_det_compat and compat_det is not None and profile_cfg.get("det") != compat_det.name:
+            profile_cfg["det"] = compat_det.name
+            changed = True
+        if needs_rec_compat and profile_cfg.get("rec") != _CH_COMPAT_REC_MODEL:
+            profile_cfg["rec"] = _CH_COMPAT_REC_MODEL
+            changed = True
+        if needs_rec_compat and profile_cfg.get("dict") != _CH_COMPAT_DICT:
+            profile_cfg["dict"] = _CH_COMPAT_DICT
+            changed = True
     if changed:
         cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 

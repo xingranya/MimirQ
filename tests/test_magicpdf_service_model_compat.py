@@ -33,7 +33,12 @@ def test_chinese_ocr_config_uses_available_compatible_models(tmp_path: Path, mon
                         "det": "ch_PP-OCRv3_det_infer.pth",
                         "rec": "ch_PP-OCRv4_rec_server_doc_infer.pth",
                         "dict": "ppocr_keys_v1.txt",
-                    }
+                    },
+                    "ch_lite": {
+                        "det": "ch_PP-OCRv3_det_infer.pth",
+                        "rec": "ch_PP-OCRv5_rec_infer.pth",
+                        "dict": "ppocrv5_dict.txt",
+                    },
                 }
             },
             sort_keys=False,
@@ -46,6 +51,12 @@ def test_chinese_ocr_config_uses_available_compatible_models(tmp_path: Path, mon
 
     chinese_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))["lang"]["ch"]
     assert chinese_config == {
+        "det": "Multilingual_PP-OCRv3_det_infer.pth",
+        "rec": "ch_PP-OCRv5_rec_infer.pth",
+        "dict": "ppocrv5_dict.txt",
+    }
+    chinese_lite_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))["lang"]["ch_lite"]
+    assert chinese_lite_config == {
         "det": "Multilingual_PP-OCRv3_det_infer.pth",
         "rec": "ch_PP-OCRv5_rec_infer.pth",
         "dict": "ppocrv5_dict.txt",
