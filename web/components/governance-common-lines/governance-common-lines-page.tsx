@@ -4,30 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  ArrowRight,
-  ChevronsLeft,
   Database,
-  FileSearch,
-  FileText,
   Hash,
   Loader2,
   RefreshCw,
   Search,
-  ShieldCheck,
   Sliders,
   Sparkles,
   Upload,
-  UsersRound,
   Wand2,
 } from 'lucide-react'
 
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { PageScaffold } from '@/components/ui/page-scaffold'
-import {
-  KnowledgeOpsFlowCard,
-  KnowledgeOpsHero,
-  KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
-} from '@/components/ui/knowledge-ops-hero'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -78,24 +67,6 @@ function buildLineRegexRule(sample: string): RegexRuleModel | null {
   return { pattern, repl: '', flags: 0 }
 }
 
-const emptyWorkflowSteps = [
-  {
-    icon: FileText,
-    title: '扫描文档',
-    description: '从数据集中抽取解析结果,识别潜在的反复出现的行。',
-  },
-  {
-    icon: UsersRound,
-    title: '聚合重复样行',
-    description: '跨文档聚合同类样行,计算命中统计与得分。',
-  },
-  {
-    icon: ShieldCheck,
-    title: '写入治理配置',
-    description: '勾选需要保留的规则,一键写入治理配置。',
-  },
-]
-
 const SCRIPT_UPLOAD_ACCEPT = '.js,.ts,.py,.rs'
 const MAX_PROCESSING_SCRIPT_CHARS = 200_000
 const COMMON_LINES_PROFILE_PARAMS = {
@@ -137,8 +108,6 @@ export function GovernanceCommonLinesPage() {
   const [minRatio, setMinRatio] = useState(0.5)
   const [maxLineLength, setMaxLineLength] = useState(120)
   const [maxCandidates, setMaxCandidates] = useState(50)
-  const [controlsCollapsed, setControlsCollapsed] = useState(false)
-
   const [loading, setLoading] = useState(false)
   const [importingScript, setImportingScript] = useState(false)
   const [resp, setResp] = useState<GovernanceCommonLinesLearnResponse | null>(
@@ -187,7 +156,7 @@ export function GovernanceCommonLinesPage() {
 
   useEffect(() => {
     if (metaError) {
-      toast.error(formatApiError(metaError, '加载数据集或治理配置失败'))
+      toast.error(formatApiError(metaError, '加载数据集或治理模板失败'))
     }
   }, [metaError])
 
@@ -278,7 +247,7 @@ export function GovernanceCommonLinesPage() {
     async (files: File[]) => {
       const ref = profileRef.trim()
       if (!ref) {
-        toast.error('请先选择写入目标治理配置')
+        toast.error('请先选择目标治理模板')
         return
       }
       if (!files.length) return
@@ -287,7 +256,7 @@ export function GovernanceCommonLinesPage() {
       try {
         const prof = await pipelineApi.getGovernanceProfile(ref)
         if (prof.is_system) {
-          toast.error('内置治理配置只读，请选择自定义治理配置')
+          toast.error('系统治理模板只读，请选择团队模板')
           return
         }
 
@@ -309,8 +278,7 @@ export function GovernanceCommonLinesPage() {
             stage: 'post_governance',
             content,
             enabled: false,
-            description:
-              '导入的处理脚本草案，仅用于治理配置审核，不会在入库链路中自动执行。',
+            description: '从本地导入的脚本草稿，默认停用。',
             created_at: new Date().toISOString(),
           })
         }
@@ -328,7 +296,7 @@ export function GovernanceCommonLinesPage() {
           byKey.set(`${item.language}:${item.name}`, item)
         const nextScripts = Array.from(byKey.values())
         if (nextScripts.length > 10) {
-          toast.error('处理脚本最多保留 10 个，请先在治理配置中清理旧脚本')
+          toast.error('最多保留 10 个处理脚本，请先删除不再使用的脚本')
           return
         }
 
@@ -352,7 +320,7 @@ export function GovernanceCommonLinesPage() {
     async (templates: BuiltinProcessingScript[]) => {
       const ref = profileRef.trim()
       if (!ref) {
-        toast.error('请先选择写入目标治理配置')
+        toast.error('请先选择目标治理模板')
         return
       }
       if (!templates.length) {
@@ -364,7 +332,7 @@ export function GovernanceCommonLinesPage() {
       try {
         const prof = await pipelineApi.getGovernanceProfile(ref)
         if (prof.is_system) {
-          toast.error('内置治理配置只读，请选择自定义治理配置')
+          toast.error('系统治理模板只读，请选择团队模板')
           return
         }
 
@@ -386,7 +354,7 @@ export function GovernanceCommonLinesPage() {
           byKey.set(`${item.language}:${item.name}`, item)
         const nextScripts = Array.from(byKey.values())
         if (nextScripts.length > 10) {
-          toast.error('处理脚本最多保留 10 个，请先在治理配置中清理旧脚本')
+          toast.error('最多保留 10 个处理脚本，请先删除不再使用的脚本')
           return
         }
 
@@ -441,7 +409,7 @@ export function GovernanceCommonLinesPage() {
   const applyToProfile = useCallback(async () => {
     const ref = profileRef.trim()
     if (!ref) {
-      toast.error('请选择一个自定义治理配置')
+      toast.error('请选择一个团队治理模板')
       return
     }
     if (!selectedCandidates.length) {
@@ -453,7 +421,7 @@ export function GovernanceCommonLinesPage() {
     try {
       const prof = await pipelineApi.getGovernanceProfile(ref)
       if (prof.is_system) {
-        toast.error('内置治理配置只读，请选择自定义治理配置')
+        toast.error('系统治理模板只读，请选择团队模板')
         return
       }
 
@@ -490,10 +458,10 @@ export function GovernanceCommonLinesPage() {
           regex_rules: nextRules,
         },
       })
-      toast.success(`已写入治理配置：新增 ${added} 条规则`)
+      toast.success(`已写入治理模板：新增 ${added} 条规则`)
       router.push('/data-governance/profiles')
     } catch (err: unknown) {
-      toast.error(formatApiError(err, '写入治理配置失败'))
+      toast.error(formatApiError(err, '写入治理模板失败'))
     } finally {
       setLoading(false)
     }
@@ -502,79 +470,49 @@ export function GovernanceCommonLinesPage() {
   return (
     <PageScaffold
       title="重复内容治理"
-      badge="规则生成"
       iconImage="profile-discovery"
       icon={Hash}
-      iconColor="text-success"
-      description="跨文档识别页眉、页脚、导航和免责声明等反复出现的行,可一键写入自定义治理配置。"
+      iconColor="text-primary"
+      description="识别多份文档中重复出现的页眉、页脚、导航和免责声明。"
       size="full"
       density="system-dense"
-      showHeader={false}
-      topClassName="relative z-10 w-full max-w-none px-3 md:px-4 lg:px-5 pt-3 md:pt-4 pb-2 md:pb-3"
       bodyContainerClassName="max-w-none"
-      top={
-        <KnowledgeOpsHero
-          iconImage="profile-discovery"
-          title="重复内容治理"
-          description="跨文档识别页眉、页脚、导航和免责声明等反复出现的行，可一键写入自定义治理配置。"
-          summary={
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-1 rounded-full bg-info/70" aria-hidden />
-                  候选
-                </span>
-                <span className="font-mono tabular-nums text-foreground">
-                  {candidates.length}
-                </span>
-                <span className="h-3.5 w-px bg-border/70" />
-                <span>已选</span>
-                <span className="font-mono tabular-nums text-foreground">
-                  {selectedCandidates.length}
-                </span>
-              </div>
-              <KnowledgeOpsFlowCard
-                steps={[
-                  { icon: FileSearch, label: '扫描文档' },
-                  { icon: Wand2, label: '聚合候选' },
-                  { icon: Database, label: '写入配置' },
-                ]}
-              />
-            </div>
-          }
-          actions={
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 gap-2 rounded-xl border-border/60 bg-card px-4 text-[13px] font-semibold shadow-subtle"
-                onClick={refreshMeta}
-                disabled={loadingMeta}
-              >
-                <RefreshCw
-                  className={cn(
-                    'w-4 h-4',
-                    loadingMeta && 'animate-spin motion-reduce:animate-none'
-                  )}
-                />
-                刷新
-              </Button>
-              <Button
-                size="sm"
-                className="h-10 gap-2 rounded-xl px-5 text-[13px] font-semibold shadow-soft"
-                onClick={() => detachPromise(runLearn())}
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
-                ) : (
-                  <Wand2 className="w-4 h-4" />
-                )}
-                扫描
-              </Button>
-            </>
-          }
-        />
+      actions={
+        <Button
+          size="sm"
+          className="h-9 rounded-md px-4"
+          onClick={() => detachPromise(runLearn())}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <Wand2 className="size-4" />
+          )}
+          扫描文档
+        </Button>
+      }
+      toolbar={
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground" aria-live="polite">
+            候选 {candidates.length} 条，已选 {selectedCandidates.length} 条
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-md"
+            onClick={refreshMeta}
+            disabled={loadingMeta}
+          >
+            <RefreshCw
+              className={cn(
+                'size-4',
+                loadingMeta && 'animate-spin motion-reduce:animate-none'
+              )}
+            />
+            刷新数据
+          </Button>
+        </div>
       }
     >
       <input
@@ -589,80 +527,38 @@ export function GovernanceCommonLinesPage() {
           detachPromise(importProcessingScripts(files))
         }}
       />
-      <div
-        className={cn(
-          'mt-6 grid transition-[grid-template-columns,gap] duration-200 ease-out',
-          controlsCollapsed
-            ? 'gap-2 xl:grid-cols-[0px_minmax(0,1fr)]'
-            : 'gap-6 xl:grid-cols-[420px_minmax(0,1fr)]'
-        )}
-      >
-        <aside className="relative min-w-0 xl:sticky xl:top-3 xl:self-start">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className={cn(
-              'absolute top-5 z-10 hidden size-8 rounded-full border-border/70 bg-card/95 text-muted-foreground shadow-soft backdrop-blur hover:bg-background hover:text-foreground xl:inline-flex',
-              controlsCollapsed ? 'right-[-26px]' : 'right-[-18px]'
-            )}
-            aria-label={controlsCollapsed ? '展开参数栏' : '收起参数栏'}
-            onClick={() => setControlsCollapsed((value) => !value)}
+      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="min-w-0 xl:sticky xl:top-3 xl:self-start">
+          <div
+            data-testid="common-lines-control-panel"
+            className="overflow-hidden rounded-md border border-border bg-card"
           >
-            <ChevronsLeft
-              className={cn(
-                'size-4 transition-transform',
-                controlsCollapsed && 'rotate-180'
-              )}
-            />
-          </Button>
-
-          {controlsCollapsed ? (
-            <div aria-hidden className="hidden xl:block" />
-          ) : (
-            <div
-              data-testid="common-lines-control-panel"
-              className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-subtle"
-            >
-              <section className="relative border-b border-border/55 from-success/[0.07] via-background to-transparent px-5 py-5 dark:from-success/[0.10]">
-                <span
-                  aria-hidden
-                  className="absolute left-0 top-4 bottom-4 w-[2px] rounded-full bg-success/70"
-                />
-                <div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-success/20 bg-success/[0.08] text-success">
-                      <FileSearch className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-foreground">
-                        识别范围
-                      </h2>
-                      <p className="mt-2 text-[13px] leading-6 text-muted-foreground/90">
-                        优先扫描治理前原始解析结果中的重复行,适合发现页眉、页脚、导航和免责声明。
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <section className="border-b border-border px-4 py-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  扫描范围
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  从解析后的正文中识别跨文档重复内容。
+                </p>
               </section>
 
-              <section className="border-b border-border/55">
-                <div className="flex items-center gap-2 px-5 py-4">
-                  <Database className="size-5 text-muted-foreground/80" />
-                  <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-foreground">
+              <section className="border-b border-border">
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <Database className="size-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
                     目标
                   </h2>
                 </div>
-                <div className="space-y-4 px-5 pb-5">
+                <div className="space-y-4 px-4 pb-4">
                   <div className="min-w-0 space-y-2">
-                    <Label className="text-[12px] font-semibold text-foreground/85">
+                    <Label className="text-xs font-semibold text-foreground">
                       数据集
                     </Label>
                     <Select
                       value={datasetId || ''}
                       onValueChange={(v) => setDatasetId(v)}
                     >
-                      <SelectTrigger className="h-11 rounded-lg border-border/60 bg-card text-[14px] shadow-none hover:border-success/40 focus:border-success/60 focus-visible:ring-2 focus-visible:ring-success/20">
+                      <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm shadow-none">
                         <SelectValue placeholder="选择数据集" />
                       </SelectTrigger>
                       <SelectContent>
@@ -679,24 +575,21 @@ export function GovernanceCommonLinesPage() {
                         )}
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] leading-5 text-muted-foreground/72">
-                      依赖入库时开启{' '}
-                      <span className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10.5px] text-foreground/85">
-                        persist_parsed_content
-                      </span>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      数据集需要保留解析后的正文，否则可能无法生成候选内容。
                     </p>
                   </div>
 
                   <div className="min-w-0 space-y-2">
-                    <Label className="text-[12px] font-semibold text-foreground/85">
-                      写入目标治理配置
+                    <Label className="text-xs font-semibold text-foreground">
+                      目标治理模板
                     </Label>
                     <Select
                       value={profileRef || ''}
                       onValueChange={(v) => setProfileRef(v)}
                     >
-                      <SelectTrigger className="h-11 rounded-lg border-border/60 bg-card text-[14px] shadow-none hover:border-success/40 focus:border-success/60 focus-visible:ring-2 focus-visible:ring-success/20">
-                        <SelectValue placeholder="选择自定义治理配置" />
+                      <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm shadow-none">
+                        <SelectValue placeholder="选择团队治理模板" />
                       </SelectTrigger>
                       <SelectContent>
                         {profiles.length ? (
@@ -710,86 +603,90 @@ export function GovernanceCommonLinesPage() {
                           ))
                         ) : (
                           <SelectItem value="__none__" disabled>
-                            暂无自定义治理配置(请先创建)
+                            暂无团队治理模板
                           </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] leading-5 text-muted-foreground/72">
-                      写入后可在{' '}
-                      <span className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10.5px] text-foreground/85">
-                        /data-governance/profiles
-                      </span>{' '}
-                      编辑
-                    </p>
+                    {profiles.length ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        候选规则会追加到所选模板，不会覆盖原有规则。
+                      </p>
+                    ) : loadingMeta ? null : (
+                      <Button
+                        asChild
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 w-full rounded-md"
+                      >
+                        <Link href="/data-governance/profiles">
+                          新建治理模板
+                        </Link>
+                      </Button>
+                    )}
                   </div>
 
-                  <div className="rounded-xl border border-dashed border-success/25 bg-success/[0.04] p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/[0.10] text-success">
-                        <Upload className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[12px] font-semibold text-foreground/85">
-                          导入处理脚本
-                        </div>
-                        <p className="mt-1 text-[11px] leading-5 text-muted-foreground/75">
-                          只导入 JS/TS、Python、Rust
-                          脚本草案到当前治理配置，用于处理解析后或治理后的文本；不上传文档，也不会自动执行。
-                        </p>
-                      </div>
+                  <details className="rounded-md border border-border bg-background">
+                    <summary className="cursor-pointer px-3 py-2.5 text-xs font-medium text-foreground">
+                      处理脚本（高级）
+                    </summary>
+                    <div className="space-y-2 border-t border-border p-3">
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        脚本会以停用草稿保存到当前治理模板，不会自动执行。
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-full rounded-md"
+                        disabled={
+                          importingScript || loading || !profileRef.trim()
+                        }
+                        onClick={() => uploadInputRef.current?.click()}
+                      >
+                        {importingScript ? (
+                          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+                        ) : (
+                          <Upload className="size-4" />
+                        )}
+                        {importingScript ? '正在导入' : '导入本地脚本'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-full rounded-md"
+                        disabled={
+                          importingScript ||
+                          loading ||
+                          !profileRef.trim() ||
+                          templateLibraryQuery.isFetching
+                        }
+                        onClick={() => {
+                          setSelectedTemplateKeys(new Set())
+                          setTemplateSearch('')
+                          setTemplateLibraryOpen(true)
+                        }}
+                      >
+                        <Sparkles className="size-4" />
+                        从模板中选择
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 h-9 w-full gap-2 rounded-lg border-success/25 bg-card text-[12px] font-semibold text-success shadow-none hover:bg-success/[0.08] hover:text-success"
-                      disabled={
-                        importingScript || loading || !profileRef.trim()
-                      }
-                      onClick={() => uploadInputRef.current?.click()}
-                    >
-                      {importingScript ? (
-                        <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
-                      ) : (
-                        <Upload className="size-3.5" />
-                      )}
-                      {importingScript ? '导入中' : '导入脚本草案'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 h-9 w-full gap-2 rounded-lg border-success/25 bg-card text-[12px] font-semibold text-success shadow-none hover:bg-success/[0.08] hover:text-success"
-                      disabled={
-                        importingScript ||
-                        loading ||
-                        !profileRef.trim() ||
-                        templateLibraryQuery.isFetching
-                      }
-                      onClick={() => {
-                        setSelectedTemplateKeys(new Set())
-                        setTemplateSearch('')
-                        setTemplateLibraryOpen(true)
-                      }}
-                    >
-                      <Sparkles className="size-3.5" />
-                      从模板库选择
-                    </Button>
-                  </div>
+                  </details>
                 </div>
               </section>
 
               <section>
-                <div className="flex items-center gap-2 px-5 py-4">
-                  <Sliders className="size-5 text-muted-foreground/80" />
-                  <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-foreground">
-                    参数
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <Sliders className="size-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    扫描条件
                   </h2>
                 </div>
-                <div className="grid grid-cols-2 gap-3 px-5 pb-4">
+                <div className="grid grid-cols-2 gap-3 px-4 pb-4">
                   <div className="min-w-0 space-y-1.5">
-                    <Label className="text-[11px] font-medium text-foreground/85">
+                    <Label className="text-xs font-medium text-foreground">
                       扫描文档数
                     </Label>
                     <Input
@@ -798,24 +695,24 @@ export function GovernanceCommonLinesPage() {
                       onChange={(e) =>
                         setLimitDocs(Number(e.target.value || 0))
                       }
-                      className="h-9 rounded-lg border-border/60 bg-card text-[13px] tabular-nums shadow-none"
+                      className="h-9 rounded-md border-border bg-card text-sm tabular-nums shadow-none"
                     />
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label className="text-[11px] font-medium text-foreground/85">
+                    <Label className="text-xs font-medium text-foreground">
                       最少命中文档
                     </Label>
                     <Input
                       type="number"
                       value={String(minDocs)}
                       onChange={(e) => setMinDocs(Number(e.target.value || 0))}
-                      className="h-9 rounded-lg border-border/60 bg-card text-[13px] tabular-nums shadow-none"
+                      className="h-9 rounded-md border-border bg-card text-sm tabular-nums shadow-none"
                     />
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label className="text-[11px] font-medium text-foreground/85">
+                    <Label className="text-xs font-medium text-foreground">
                       最小命中比例
                     </Label>
                     <Input
@@ -823,12 +720,12 @@ export function GovernanceCommonLinesPage() {
                       step="0.1"
                       value={String(minRatio)}
                       onChange={(e) => setMinRatio(Number(e.target.value || 0))}
-                      className="h-9 rounded-lg border-border/60 bg-card text-[13px] tabular-nums shadow-none"
+                      className="h-9 rounded-md border-border bg-card text-sm tabular-nums shadow-none"
                     />
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label className="text-[11px] font-medium text-foreground/85">
+                    <Label className="text-xs font-medium text-foreground">
                       最大行长度
                     </Label>
                     <Input
@@ -837,12 +734,12 @@ export function GovernanceCommonLinesPage() {
                       onChange={(e) =>
                         setMaxLineLength(Number(e.target.value || 0))
                       }
-                      className="h-9 rounded-lg border-border/60 bg-card text-[13px] tabular-nums shadow-none"
+                      className="h-9 rounded-md border-border bg-card text-sm tabular-nums shadow-none"
                     />
                   </div>
 
                   <div className="col-span-2 min-w-0 space-y-1.5">
-                    <Label className="text-[11px] font-medium text-foreground/85">
+                    <Label className="text-xs font-medium text-foreground">
                       最多候选数
                     </Label>
                     <Input
@@ -851,12 +748,12 @@ export function GovernanceCommonLinesPage() {
                       onChange={(e) =>
                         setMaxCandidates(Number(e.target.value || 0))
                       }
-                      className="h-9 rounded-lg border-border/60 bg-card text-[13px] tabular-nums shadow-none"
+                      className="h-9 rounded-md border-border bg-card text-sm tabular-nums shadow-none"
                     />
                   </div>
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-3 border-t border-border/50 bg-muted/[0.14] px-5 py-3 text-[12px] leading-5 text-foreground/85 transition-colors hover:bg-muted/[0.22]">
+                <label className="flex cursor-pointer items-start gap-3 border-t border-border px-4 py-3 text-xs leading-5 text-foreground transition-colors hover:bg-muted/30">
                   <Checkbox
                     checked={useOriginal}
                     onCheckedChange={(v) => setUseOriginal(Boolean(v))}
@@ -865,52 +762,48 @@ export function GovernanceCommonLinesPage() {
                   <span>优先基于治理前的原始解析结果进行识别</span>
                 </label>
               </section>
-            </div>
-          )}
+          </div>
         </aside>
 
         <section className="min-w-0">
-          <div className="flex min-h-[760px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-subtle">
-            <div className="flex min-h-[76px] flex-col gap-3 border-b border-border/60 bg-card px-7 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-muted-foreground">
-                  <Sparkles className="size-4" />
-                </div>
-                <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-foreground">
-                  候选结果
+          <div className="flex min-h-[640px] flex-col overflow-hidden rounded-md border border-border bg-card">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  候选内容
                 </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {resp
+                    ? `已扫描 ${resp.used_documents} / ${resp.total_documents} 份文档`
+                    : '等待扫描'}
+                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 {resp && candidates.length ? (
                   <>
-                    <span className="inline-flex h-9 items-center rounded-lg border border-border/60 bg-background px-3 text-[12px] font-medium tabular-nums text-foreground">
-                      共 {sortedCandidates.length}
-                    </span>
-                    <span className="inline-flex h-9 items-center rounded-lg border border-success/25 bg-success/[0.08] px-3 text-[12px] font-medium tabular-nums text-success">
-                      已选 {selectedCandidates.length}
-                    </span>
-                    <span className="inline-flex h-9 items-center rounded-lg border border-border/60 bg-muted/30 px-3 text-[12px] font-medium tabular-nums text-muted-foreground">
-                      扫描 {resp.used_documents}/{resp.total_documents} 文档
+                    <span className="inline-flex h-9 items-center rounded-md border border-border bg-muted px-3 text-xs font-medium tabular-nums text-muted-foreground">
+                      {sortedCandidates.length} 条候选，已选{' '}
+                      {selectedCandidates.length} 条
                     </span>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="h-9 rounded-lg px-3 text-[12px] font-medium text-muted-foreground shadow-none hover:bg-muted/60 hover:text-foreground"
+                      className="h-9 rounded-md px-3 text-xs"
                       onClick={() => toggleAll(true)}
                     >
                       全选
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="h-9 rounded-lg px-3 text-[12px] font-medium text-muted-foreground shadow-none hover:bg-muted/60 hover:text-foreground"
+                      className="h-9 rounded-md px-3 text-xs"
                       onClick={() => toggleAll(false)}
                     >
                       全不选
                     </Button>
                     <Button
                       size="sm"
-                      className="h-9 gap-2 rounded-lg px-4 text-[12px] font-semibold shadow-soft"
+                      className="h-9 rounded-md px-4 text-xs"
                       onClick={() => detachPromise(applyToProfile())}
                       disabled={loading || !selectedCandidates.length}
                     >
@@ -919,163 +812,87 @@ export function GovernanceCommonLinesPage() {
                       ) : (
                         <Hash className="w-3.5 h-3.5" />
                       )}
-                      写入配置 ({selectedCandidates.length})
+                      写入模板 ({selectedCandidates.length})
                     </Button>
                   </>
                 ) : null}
-                <span className="text-[14px] font-medium text-muted-foreground">
-                  {resp
-                    ? sortedCandidates.length
-                      ? `${sortedCandidates.length} 条数据`
-                      : '暂无数据'
-                    : '暂无数据'}
-                </span>
               </div>
             </div>
 
             {resp && candidates.length ? (
-              <div className="overflow-x-auto">
-                <div className="min-w-[720px]">
-                  <div className="grid grid-cols-[44px_minmax(0,1fr)_110px_110px] items-center gap-3 border-b border-border/60 bg-muted/[0.18] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/85">
-                    <div></div>
-                    <div>重复行预览</div>
-                    <div className="text-right">命中文档</div>
-                    <div className="text-right">命中比例</div>
-                  </div>
-                  <div className="divide-y divide-border/45">
-                    {sortedCandidates.map((c) => {
-                      const sig = String(c.signature || '')
-                      const checked = Boolean(selected[sig])
-                      const ratio = Number(c.ratio || 0)
-                      const ratioToneClass =
-                        ratio >= 0.8
-                          ? 'text-success'
-                          : ratio >= 0.5
-                            ? 'text-warning'
-                            : 'text-muted-foreground'
-                      return (
-                        <div
-                          key={sig}
-                          className={cn(
-                            'group grid grid-cols-[44px_minmax(0,1fr)_110px_110px] items-start gap-3 px-5 py-3 transition-colors',
-                            checked
-                              ? 'bg-success/[0.06] hover:bg-success/[0.10]'
-                              : 'bg-transparent hover:bg-muted/[0.16]'
-                          )}
-                        >
-                          <div className="pt-0.5">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(v) =>
-                                setSelected((prev) => ({
-                                  ...prev,
-                                  [sig]: Boolean(v),
-                                }))
-                              }
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <div
-                              className={cn(
-                                'line-clamp-2 break-words text-[13px] leading-[1.45rem] transition-colors',
-                                checked
-                                  ? 'text-foreground'
-                                  : 'text-foreground/90 group-hover:text-foreground'
-                              )}
-                              title={c.sample || c.signature}
-                            >
-                              {c.sample || c.signature}
-                            </div>
-                            <div
-                              className="mt-1 truncate font-mono text-[11px] text-muted-foreground/65"
-                              title={c.signature}
-                            >
-                              {c.signature}
-                            </div>
-                          </div>
-                          <div className="pt-0.5 text-right font-mono text-[12px] tabular-nums text-foreground/85">
-                            {c.docs}
+              <div>
+                <div className="hidden grid-cols-[40px_minmax(0,1fr)_7rem_7rem] items-center gap-3 border-b border-border bg-muted/35 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+                  <span />
+                  <span>重复内容</span>
+                  <span className="text-right">命中文档</span>
+                  <span className="text-right">命中比例</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {sortedCandidates.map((candidate) => {
+                    const signature = String(candidate.signature || '')
+                    const checked = Boolean(selected[signature])
+                    const ratio = Number(candidate.ratio || 0)
+                    return (
+                      <div
+                        key={signature}
+                        className={cn(
+                          'grid grid-cols-[32px_minmax(0,1fr)] items-start gap-3 px-4 py-3 transition-colors md:grid-cols-[40px_minmax(0,1fr)_7rem_7rem]',
+                          checked ? 'bg-primary/5' : 'hover:bg-muted/25'
+                        )}
+                      >
+                        <div className="pt-0.5">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) =>
+                              setSelected((previous) => ({
+                                ...previous,
+                                [signature]: Boolean(value),
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div
+                            className="line-clamp-3 break-words text-sm leading-5 text-foreground"
+                            title={candidate.sample || candidate.signature}
+                          >
+                            {candidate.sample || candidate.signature}
                           </div>
                           <div
-                            className={cn(
-                              'pt-0.5 text-right font-mono text-[12px] font-medium tabular-nums',
-                              ratioToneClass
-                            )}
+                            className="mt-1 truncate font-mono text-xs text-muted-foreground"
+                            title={candidate.signature}
                           >
-                            {ratio.toFixed(2)}
+                            {candidate.signature}
+                          </div>
+                          <div className="mt-2 flex gap-3 text-xs text-muted-foreground md:hidden">
+                            <span>命中文档 {candidate.docs}</span>
+                            <span>命中比例 {ratio.toFixed(2)}</span>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
+                        <div className="hidden pt-0.5 text-right font-mono text-xs tabular-nums text-foreground md:block">
+                          {candidate.docs}
+                        </div>
+                        <div className="hidden pt-0.5 text-right font-mono text-xs font-medium tabular-nums text-foreground md:block">
+                          {ratio.toFixed(2)}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-1 flex-col">
-                <div className="flex min-h-[410px] flex-none flex-col items-center justify-center px-6 py-10 text-center">
-                  <div className="relative mb-7 flex size-24 items-center justify-center rounded-full border border-success/20 bg-success/[0.08] text-success">
-                    <span
-                      aria-hidden
-                      className="absolute inset-2 rounded-full bg-success/[0.05]"
-                    />
-                    <Search className="relative size-10" />
-                    <span
-                      aria-hidden
-                      className="absolute -left-4 top-12 text-[28px] font-medium text-muted-foreground/25"
-                    >
-                      +
-                    </span>
-                    <span
-                      aria-hidden
-                      className="absolute -right-5 top-8 size-2 rounded-full bg-success/25"
-                    />
-                    <span
-                      aria-hidden
-                      className="absolute -right-2 bottom-5 size-1.5 rounded-full bg-muted-foreground/25"
-                    />
-                  </div>
-                  <div className="text-[18px] font-semibold tracking-[-0.01em] text-foreground">
-                    {resp ? '没有发现候选重复行' : '尚未生成候选结果'}
-                  </div>
-                  <p className="mt-3 max-w-xl text-[14px] leading-6 text-muted-foreground">
-                    {resp
-                      ? '可尝试降低最小命中比例、减少最少命中文档数,或增加扫描文档数。'
-                      : '点击右上角「扫描」开始生成候选行,再勾选需要写入治理配置的规则。'}
-                  </p>
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+                <div className="mb-4 flex size-12 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
+                  <Search className="size-5" />
                 </div>
-
-                {resp ? null : (
-                  <div className="px-10 pb-12">
-                    <div className="mx-auto mb-10 h-px max-w-5xl border-t border-dashed border-border/70" />
-                    <div className="mx-auto grid max-w-5xl grid-cols-1 items-center gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
-                      {emptyWorkflowSteps.map((step, index) => {
-                        const StepIcon = step.icon
-                        return (
-                          <div key={step.title} className="contents">
-                            <div className="rounded-xl border border-border/60 bg-background px-6 py-5 shadow-subtle">
-                              <div className="flex items-start gap-4">
-                                <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-success/[0.10] text-success">
-                                  <StepIcon className="size-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-[15px] font-semibold text-foreground">
-                                    {step.title}
-                                  </div>
-                                  <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">
-                                    {step.description}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            {index < emptyWorkflowSteps.length - 1 ? (
-                              <ArrowRight className="mx-auto hidden size-7 text-success md:block" />
-                            ) : null}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+                <div className="text-base font-semibold text-foreground">
+                  {resp ? '未发现符合条件的重复内容' : '尚未扫描文档'}
+                </div>
+                {resp ? (
+                  <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                    可以降低最小命中比例或增加扫描文档数后重试。
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -1092,11 +909,11 @@ export function GovernanceCommonLinesPage() {
           }
         }}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl rounded-md">
           <DialogHeader>
-            <DialogTitle>从内置模板库选择处理脚本</DialogTitle>
+            <DialogTitle>选择处理脚本模板</DialogTitle>
             <DialogDescription>
-              选中的脚本会被添加到当前治理配置的 processing_scripts 中,用于审计与版本管理;入库管道不会自动执行模板代码,可在自定义服务中复用。
+              选中的脚本会以停用草稿保存到当前治理模板，不会自动执行。
             </DialogDescription>
           </DialogHeader>
 
@@ -1106,28 +923,28 @@ export function GovernanceCommonLinesPage() {
               <Input
                 value={templateSearch}
                 onChange={(event) => setTemplateSearch(event.target.value)}
-                placeholder="按名称、描述、tag 搜索..."
-                className="h-9 flex-1 rounded-lg text-[13px]"
+                placeholder="搜索名称、说明或标签"
+                className="h-9 flex-1 rounded-md text-sm"
               />
             </div>
 
-            <div className="max-h-[480px] overflow-y-auto rounded-lg border border-border/60">
+            <div className="max-h-[480px] overflow-y-auto rounded-md border border-border">
               {templateLibraryQuery.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-                  正在加载模板库...
+                  正在加载模板
                 </div>
               ) : templateLibraryQuery.error ? (
-                <div className="px-4 py-8 text-center text-[13px] text-destructive">
-                  加载模板库失败:
+                <div className="px-4 py-8 text-center text-sm text-destructive">
+                  加载模板失败：
                   {formatApiError(templateLibraryQuery.error, '未知错误')}
                 </div>
               ) : filteredTemplates.length === 0 ? (
-                <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
-                  {templateSearch ? '没有匹配的模板' : '模板库为空'}
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  {templateSearch ? '没有匹配的模板' : '暂无处理脚本模板'}
                 </div>
               ) : (
-                <ul className="divide-y divide-border/60">
+                <ul className="divide-y divide-border">
                   {filteredTemplates.map((tpl) => {
                     const picked = selectedTemplateKeys.has(tpl.key)
                     return (
@@ -1135,7 +952,7 @@ export function GovernanceCommonLinesPage() {
                         key={tpl.key}
                         className={cn(
                           'px-4 py-3 transition-colors hover:bg-muted/40',
-                          picked && 'bg-success/[0.06]'
+                          picked && 'bg-primary/5'
                         )}
                       >
                         <div className="flex items-start gap-3">
@@ -1149,25 +966,25 @@ export function GovernanceCommonLinesPage() {
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[13px] font-semibold text-foreground">
+                              <span className="text-sm font-semibold text-foreground">
                                 {tpl.name}
                               </span>
                               <Badge
                                 variant="secondary"
-                                className="h-5 rounded-md px-1.5 text-[10px] font-medium uppercase"
+                                className="h-6 rounded-md px-2 text-xs font-medium"
                               >
                                 {tpl.language}
                               </Badge>
                               <Badge
                                 variant="outline"
-                                className="h-5 rounded-md px-1.5 text-[10px] font-medium"
+                                className="h-6 rounded-md px-2 text-xs font-medium"
                               >
                                 {tpl.stage === 'post_parse'
                                   ? '解析后'
                                   : '治理后'}
                               </Badge>
                             </div>
-                            <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
                               {tpl.description}
                             </p>
                             {tpl.tags?.length ? (
@@ -1178,7 +995,7 @@ export function GovernanceCommonLinesPage() {
                                   .map((tag) => (
                                     <span
                                       key={tag}
-                                      className="rounded bg-muted/60 px-1.5 py-[1px] text-[10px] text-muted-foreground"
+                                      className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
                                     >
                                       {tag}
                                     </span>
@@ -1196,7 +1013,7 @@ export function GovernanceCommonLinesPage() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
-            <div className="mr-auto self-center text-[12px] text-muted-foreground">
+            <div className="mr-auto self-center text-xs text-muted-foreground">
               已选 {selectedTemplateKeys.size} / {filteredTemplates.length}
             </div>
             <Button
@@ -1216,7 +1033,7 @@ export function GovernanceCommonLinesPage() {
               ) : (
                 <Sparkles className="size-4" />
               )}
-              添加到治理配置
+              添加到治理模板
             </Button>
           </DialogFooter>
         </DialogContent>
