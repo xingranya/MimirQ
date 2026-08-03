@@ -10,7 +10,7 @@ const DatasetProfilePageClient = dynamic(() => import('./page-client'), {
     <PageLoading
       className="min-h-dvh bg-background"
       message="正在加载数据集画像..."
-      srMessage="Loading dataset profile"
+      srMessage="正在加载数据集画像"
     />
   ),
 })
@@ -20,7 +20,7 @@ export default function DatasetProfilePage() {
 }
 
 /*
-Source markers retained for route-level source tests:
+以下字段标记用于路由级源码测试：
 解析质量
 语言分布
 页数分布

@@ -5,19 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  Activity,
-  ArrowLeft,
   BarChart3,
-  Cloud,
-  Database,
   Download,
   FileSearch,
   Loader2,
+  MoreHorizontal,
   RotateCcw,
   RefreshCw,
-  Settings2,
   Sparkles,
-  Table2,
 } from 'lucide-react'
 import {
   Bar,
@@ -31,7 +26,7 @@ import {
 } from 'recharts'
 
 import { AppFrame } from '@/components/app-frame'
-import { PageScaffold } from '@/components/ui/page-scaffold'
+import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
 import { Panel } from '@/components/ui/panel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,13 +38,18 @@ import { StatCard, StatsGrid } from '@/components/ui/stats-card'
 import { DocumentDetailDialog } from '@/components/document-detail-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SafeResponsiveChart } from '@/components/ui/safe-responsive-chart'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import { datasetApi, documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { reportClientError } from '@/lib/client-logging'
 import { queryKeys } from '@/lib/query-keys'
 import { cn, formatFileSize, formatDate, detachPromise } from '@/lib/utils'
-import { useRouter } from '@/i18n/navigation'
 
 import type {
   Document,
@@ -71,16 +71,11 @@ const PIE_COLORS = [
 const EMPTY_SCAN_RUNS: DatasetProfileScanRunOut[] = []
 const PROFILE_DOCUMENT_PAGE_SIZE = 50
 const PROFILE_BUCKET_PREVIEW_MAX_CHARS = 360
-const profileHeroCard = 'relative overflow-hidden rounded-2xl border border-border/60 bg-[radial-gradient(circle_at_0%_0%,hsl(var(--info)/0.18),transparent_34%),linear-gradient(135deg,hsl(var(--card)/0.96),hsl(var(--background)/0.92))] p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-border/50 dark:border-border/60 dark:bg-card dark:ring-white/5'
-const profilePanelClass = 'overflow-hidden border-border/60 bg-[linear-gradient(180deg,hsl(var(--card)/0.98),hsl(var(--background)/0.92))] p-3 shadow-[0_16px_45px_rgba(15,23,42,0.07)] ring-1 ring-border/50 dark:border-border/60 dark:bg-card/95 dark:ring-white/5'
+const profilePanelClass = 'overflow-hidden rounded-md border-border bg-card p-3 shadow-none'
 const profileChartProps = { className: 'h-[176px]', minHeight: 176 } as const
-const profileEmptyChartClass = 'h-[176px] flex items-center justify-center text-[11px] text-muted-foreground/60'
-const profileSectionTitleClass = 'text-[13px] font-semibold leading-none text-foreground/85'
-const profileSectionCaptionClass = 'mt-1 text-[11px] leading-4 text-muted-foreground/62'
-const profileToolbarGroupClass = 'inline-flex flex-wrap items-center gap-1 rounded-2xl border border-border/60 bg-card/70 p-1 shadow-[0_10px_30px_rgba(15,23,42,0.055)] ring-1 ring-border/50 backdrop-blur dark:border-border/60 dark:bg-card/70 dark:ring-white/5'
-const profileToolbarButtonClass = 'h-8 gap-1.5 rounded-xl px-2.5 text-[12px] font-medium text-muted-foreground shadow-none hover:bg-card/95 hover:text-foreground hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground [&_svg]:size-3.5'
-const profileToolbarExportButtonClass = 'h-8 gap-1.5 rounded-xl border-border/60 bg-card/75 px-2.5 text-[12px] font-medium text-foreground/85 shadow-[0_8px_20px_rgba(15,23,42,0.045)] hover:bg-card/95 hover:text-foreground dark:border-border/60 dark:bg-card/70 dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground [&_svg]:size-3.5'
-const profileToolbarPrimaryButtonClass = 'h-8 gap-1.5 rounded-xl bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--info)))] px-3 text-[12px] font-semibold text-primary-foreground shadow-[0_10px_24px_hsl(var(--info)/0.24)] hover:bg-[linear-gradient(90deg,hsl(var(--primary)/0.92),hsl(var(--info)/0.92))] [&_svg]:size-3.5'
+const profileEmptyChartClass = 'h-[176px] flex items-center justify-center text-sm text-muted-foreground'
+const profileSectionTitleClass = 'text-sm font-semibold leading-none text-foreground'
+const profileSectionCaptionClass = 'mt-1 text-sm leading-5 text-muted-foreground'
 
 function ProfileCardHeader({
   title,
@@ -101,7 +96,7 @@ function ProfileCardHeader({
       </div>
       {action || meta ? (
         <div className="shrink-0">
-          {action || <div className="font-mono text-[10px] leading-none text-muted-foreground/55">{meta}</div>}
+          {action || <div className="font-mono text-xs leading-none text-muted-foreground">{meta}</div>}
         </div>
       ) : null}
     </div>
@@ -177,23 +172,23 @@ function ProfileAnchorNav() {
   }, [])
 
   return (
-    <div className="mb-3 flex items-center gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-card/70 p-1.5 shadow-[0_12px_35px_rgba(15,23,42,0.06)] ring-1 ring-border/50 no-scrollbar backdrop-blur dark:border-border/60 dark:bg-card/70 dark:ring-white/5">
+    <nav aria-label="画像页面分段" className="mb-3 flex items-center gap-1 overflow-x-auto border-b border-border bg-background pb-2 no-scrollbar">
       {PROFILE_SECTIONS.map((sec) => (
         <button
           key={sec.id}
           type="button"
           onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           className={cn(
-            'shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap',
+            'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
             activeId === sec.id
-              ? 'bg-info/15 text-info shadow-sm'
-              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground dark:text-muted-foreground dark:hover:bg-muted/50 dark:hover:text-foreground',
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
           )}
         >
           {sec.label}
         </button>
       ))}
-    </div>
+    </nav>
   )
 }
 
@@ -210,6 +205,32 @@ function targetBadgeVariant(status: string): 'secondary' | 'outline' | 'soft' | 
   if (s === 'warn') return 'soft'
   if (s === 'pass') return 'outline'
   return 'secondary'
+}
+
+function formatTargetStatusLabel(status: string): string {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'pass') return '通过'
+  if (normalized === 'warn') return '提醒'
+  if (normalized === 'fail') return '未通过'
+  return '待检查'
+}
+
+function formatDocumentStatusLabel(status?: string | null): string {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'pending') return '等待处理'
+  if (normalized === 'processing') return '处理中'
+  if (normalized === 'completed') return '已完成'
+  if (normalized === 'failed') return '失败'
+  if (normalized === 'quarantined') return '已隔离'
+  if (normalized === 'cancelled' || normalized === 'canceled') return '已取消'
+  return '未知'
+}
+
+function formatLanguageLabel(language: string): string {
+  if (language === 'zh') return '中文'
+  if (language === 'en') return '英文'
+  if (language === 'mixed') return '中英混合'
+  return '未知'
 }
 
 function formatChunkTargetLabel(value: unknown): string {
@@ -244,7 +265,6 @@ function formatProfileRunStatus(status: string | null | undefined): string {
 }
 
 export default function DatasetProfilePage() {
-  const router = useRouter()
   const params = useParams()
   const datasetId = asDatasetId(params?.id)
 
@@ -432,7 +452,10 @@ export default function DatasetProfilePage() {
 
   const statusChartData = useMemo(() => {
     const m = summary?.by_status || {}
-    return Object.entries(m).map(([name, value]) => ({ name, value: Number(value || 0) }))
+    return Object.entries(m).map(([name, value]) => ({
+      name: formatDocumentStatusLabel(name),
+      value: Number(value || 0),
+    }))
   }, [summary])
 
   const lengthHistogramData = useMemo(() => {
@@ -467,9 +490,9 @@ export default function DatasetProfilePage() {
     const m = summary?.language_mix || {}
     const order = ['zh', 'en', 'mixed', 'unknown']
     return Object.entries(m)
-      .map(([name, value]) => ({ name, value: Number(value || 0) }))
+      .map(([key, value]) => ({ key, name: formatLanguageLabel(key), value: Number(value || 0) }))
       .filter((x) => x.value > 0)
-      .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name))
+      .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
       .map((entry, idx) => ({ ...entry, fill: PIE_COLORS[idx % PIE_COLORS.length] }))
   }, [summary])
 
@@ -522,9 +545,9 @@ export default function DatasetProfilePage() {
     const s = summary?.pdf_scan
     if (!s) return []
     return [
-      { name: 'scanned', value: Number(s.scanned || 0), fill: '#fb7185' },
-      { name: 'text', value: Number(s.not_scanned || 0), fill: '#38bdf8' },
-      { name: 'unknown', value: Number(s.unknown || 0), fill: '#94a3b8' },
+      { name: '扫描型', value: Number(s.scanned || 0), fill: '#fb7185' },
+      { name: '文本型', value: Number(s.not_scanned || 0), fill: '#38bdf8' },
+      { name: '未知', value: Number(s.unknown || 0), fill: '#94a3b8' },
     ]
   }, [summary])
 
@@ -754,13 +777,7 @@ export default function DatasetProfilePage() {
 
   const latestRunStatus = effectiveScanRun.status
   const latestRunProgress = effectiveScanRun.progress
-  const totalSizeLabel = summary ? formatFileSize(summary.total_size_bytes || 0) : (isLoading ? '…' : '-')
-  const scannedPdfCount = summary
-    ? `${summary.pdf_scan.scanned}/${summary.pdf_scan.scanned + summary.pdf_scan.not_scanned + summary.pdf_scan.unknown}`
-    : (isLoading ? '…' : '-')
   const totalFindingCount = (summary?.findings || []).reduce((acc, finding) => acc + Number(finding.count || 0), 0)
-  const generatedAtLabel = summary?.generated_at ? formatDate(summary.generated_at) : '--'
-  const latestRunLabel = formatProfileRunStatus(latestRunStatus)
   const activeFindings = useMemo(
     () => (summary?.findings || []).filter((finding) => Number(finding.count || 0) > 0),
     [summary?.findings]
@@ -807,115 +824,56 @@ export default function DatasetProfilePage() {
 
   return (
     <AppFrame>
-      <PageScaffold
+      <DatasetDetailShell
+        activeSection="profile"
+        datasetId={datasetId || ''}
+        datasetName={dataset?.name}
         title="数据画像"
-        showHeader={false}
-        size="full"
-        density="system-dense"
-        bodyGutter="dense"
-        bodyClassName="h-full overflow-hidden bg-[radial-gradient(circle_at_12%_0%,hsl(var(--info)/0.10),transparent_28%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--surface-2)/0.76)_44%,hsl(var(--background))_100%)] pb-3"
+        description="查看文档格式、长度、扫描件、重复项和切片质量。"
+        icon={BarChart3}
+        bodyClassName="h-full overflow-hidden bg-background pb-3"
         bodyContainerClassName="h-full min-h-0 overflow-hidden"
-        top={
-          <div className={profileHeroCard}>
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(hsl(var(--info)/0.045)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--info)/0.045)_1px,transparent_1px)] bg-[size:28px_28px]" />
-            <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-info/20 bg-info/5 text-info shadow-inner">
-                  <BarChart3 className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="truncate text-[20px] font-medium leading-none tracking-[-0.01em] text-foreground dark:text-foreground">
-                      数据画像
-                    </h1>
-                    <Badge variant="soft" className="h-5 border-info/30 bg-info/10 px-2 text-[10px] font-medium leading-none text-info">
-                      PROFILE
-                    </Badge>
-                  </div>
-                  <p className="mt-1.5 max-w-4xl text-[13px] leading-tight text-muted-foreground">
-                    数据集：<span className="font-semibold text-foreground dark:text-foreground">{dataset?.name || datasetId || '未选择'}</span>
-                    <span className="mx-2 text-muted-foreground/60">·</span>
-                    格式、长度、扫描件、PII、重复与切片指标的质量画像
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] leading-none text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Database className="size-3.5 text-info" />
-                      文档 <strong className="font-mono text-foreground dark:text-foreground">{summary?.total_documents ?? (isLoading ? '…' : 0)}</strong>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Cloud className="size-3.5 text-info" />
-                      总大小 <strong className="font-mono text-foreground dark:text-foreground">{totalSizeLabel}</strong>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <FileSearch className="size-3.5 text-warning" />
-                      扫描 PDF <strong className="font-mono text-foreground dark:text-foreground">{scannedPdfCount}</strong>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <BarChart3 className="size-3.5 text-destructive" />
-                      问题 <strong className="font-mono text-foreground dark:text-foreground">{summary ? totalFindingCount : (isLoading ? '…' : 0)}</strong>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Sparkles className="size-3.5 text-success" />
-                      更新时间 <strong className="font-mono text-foreground dark:text-foreground">{generatedAtLabel}</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 text-[13px] font-medium text-success shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-                <span className={cn('size-2 rounded-full', scanRunning ? 'animate-pulse bg-info' : 'bg-success')} />
-                {latestRunLabel}
-              </div>
-            </div>
-          </div>
-        }
-        toolbar={
-          <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className={profileToolbarGroupClass}>
-              <Button size="sm" variant="ghost" className={profileToolbarButtonClass} onClick={() => router.push('/datasets')}>
-                <ArrowLeft className="w-4 h-4" />
-                返回
-              </Button>
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={profileToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/health`)}>
-                  <Activity className="w-4 h-4" />
-                  健康
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="outline" className="h-9 rounded-md">
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                  导出
                 </Button>
-              ) : null}
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={profileToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/ingestion`)}>
-                  <Settings2 className="w-4 h-4" />
-                  入库策略
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button size="sm" variant="ghost" className={profileToolbarButtonClass} onClick={() => router.push(`/datasets/${datasetId}/tables`)}>
-                  <Table2 className="w-4 h-4" />
-                  表格 / TAG
-                </Button>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className={profileToolbarExportButtonClass}
-                onClick={() => detachPromise(exportJson())}
-                disabled={isExportingJson || !summary}
-              >
-                {isExportingJson ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <Download className="w-4 h-4" />}
-                导出 JSON
-              </Button>
-              <Button
-                size="sm"
-                className={profileToolbarPrimaryButtonClass}
-                onClick={() => detachPromise(exportHtml())}
-                disabled={isExportingHtml || !summary}
-              >
-                {isExportingHtml ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <Download className="w-4 h-4" />}
-                导出 HTML
-              </Button>
-            </div>
-          </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-md">
+                <DropdownMenuItem
+                  disabled={isExportingJson || !summary}
+                  onSelect={() => detachPromise(exportJson())}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  导出 JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isExportingHtml || !summary}
+                  onSelect={() => detachPromise(exportHtml())}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  导出 HTML
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-md"
+              onClick={() => detachPromise(refreshProfileOverview())}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="size-4" aria-hidden="true" />
+              )}
+              刷新画像
+            </Button>
+          </>
         }
       >
         <div data-profile-scroll-container="true" className="h-full min-h-0 overflow-y-auto pr-1 no-scrollbar">
@@ -936,8 +894,8 @@ export default function DatasetProfilePage() {
             return '-';
         }
 })()} color="teal" dense />
-              <StatCard dense icon={Sparkles} label="P50 长度" value={summary?.length_percentiles?.p50 ?? (isLoading ? '…' : 0)} subValue="chars" color="blue" />
-              <StatCard dense icon={Sparkles} label="P90 长度" value={summary?.length_percentiles?.p90 ?? (isLoading ? '…' : 0)} subValue="chars" color="blue" />
+              <StatCard dense icon={Sparkles} label="P50 长度" value={summary?.length_percentiles?.p50 ?? (isLoading ? '…' : 0)} subValue="字符" color="blue" />
+              <StatCard dense icon={Sparkles} label="P90 长度" value={summary?.length_percentiles?.p90 ?? (isLoading ? '…' : 0)} subValue="字符" color="blue" />
               <StatCard icon={Sparkles} label="扫描 PDF" value={(() => {
     if (summary) {
         return `${summary.pdf_scan.scanned}/${summary.pdf_scan.scanned + summary.pdf_scan.not_scanned + summary.pdf_scan.unknown}`;
@@ -1100,7 +1058,7 @@ export default function DatasetProfilePage() {
                     检查 token 分布、正文覆盖和重叠成本；缺统计只提示补采集，不代表入库失败。
                   </div>
                 </div>
-                <Badge variant="outline" className="shrink-0 border-border bg-card/70 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+                <Badge variant="outline" className="shrink-0 rounded-md border-border px-2 py-0.5 text-xs text-muted-foreground">
                   可选门禁
                 </Badge>
               </div>
@@ -1111,7 +1069,7 @@ export default function DatasetProfilePage() {
                     <div
                       key={String(t.key || t.label || idx)}
                       className={cn(
-                        'relative overflow-hidden rounded-xl border bg-card/60 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:bg-muted/20',
+                        'overflow-hidden rounded-md border bg-background px-2.5 py-2',
                         String(t.status || '').toLowerCase() === 'fail'
                           ? 'border-destructive/30'
                           : String(t.status || '').toLowerCase() === 'warn'
@@ -1119,32 +1077,22 @@ export default function DatasetProfilePage() {
                             : 'border-border/60 dark:border-border/60',
                       )}
                     >
-                      <div
-                        className={cn(
-                          'absolute inset-y-2 left-0 w-1 rounded-r-full',
-                          String(t.status || '').toLowerCase() === 'fail'
-                            ? 'bg-destructive'
-                            : String(t.status || '').toLowerCase() === 'warn'
-                              ? 'bg-warning'
-                              : 'bg-info/30',
-                        )}
-                      />
                       <div className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5 pl-2">
-                          <div className="truncate text-[12px] font-semibold text-foreground/85">{formatChunkTargetLabel(t.label || t.key)}</div>
-                          <Badge variant={targetBadgeVariant(String(t.status || ''))} className="h-5 shrink-0 px-1.5 text-[10px] font-mono uppercase">
-                            {String(t.status || '')}
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className="truncate text-sm font-semibold text-foreground">{formatChunkTargetLabel(t.label || t.key)}</div>
+                          <Badge variant={targetBadgeVariant(String(t.status || ''))} className="h-5 shrink-0 rounded-md px-1.5 text-xs uppercase">
+                            {formatTargetStatusLabel(String(t.status || ''))}
                           </Badge>
                         </div>
                         {t.message ? (
-                          <div className="mt-1 line-clamp-2 pl-2 text-[11px] leading-4 text-muted-foreground/65 text-pretty">
+                          <div className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground text-pretty">
                             {String(t.message)}
                           </div>
                         ) : null}
                       </div>
 
                       {t.suggestions.length ? (
-                        <div className="mt-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px] leading-4 text-muted-foreground/70 dark:bg-muted/30">
+                        <div className="mt-2 rounded-md bg-muted px-2.5 py-1.5 text-sm leading-5 text-muted-foreground">
                           {String(t.suggestions[0])}
                           {t.suggestions.length > 1 ? (
                             <span className="ml-1 text-muted-foreground/45">+{t.suggestions.length - 1}</span>
@@ -1155,8 +1103,8 @@ export default function DatasetProfilePage() {
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center text-[11px] text-muted-foreground/60">
-                  暂无数据（可运行深度扫描补齐 chunk token/coverage 等指标）
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  暂无数据，可运行深度扫描补齐切片长度、正文覆盖等指标。
                 </div>
               )}
             </Panel>
@@ -1210,37 +1158,37 @@ export default function DatasetProfilePage() {
 
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">覆盖文档</div>
+                  <div className="text-xs text-muted-foreground">覆盖文档</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {Number(summary?.parsing_provenance?.docs_with_provenance || 0)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">后备解析</div>
+                  <div className="text-xs text-muted-foreground">后备解析</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {Number(summary?.parsing_provenance?.fallback_docs || 0)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">P50 耗时 ms</div>
+                  <div className="text-xs text-muted-foreground">P50 耗时（毫秒）</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {Number(summary?.parsing_provenance?.elapsed_ms_percentiles?.p50 || 0)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">P90 耗时 ms</div>
+                  <div className="text-xs text-muted-foreground">P90 耗时（毫秒）</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {Number(summary?.parsing_provenance?.elapsed_ms_percentiles?.p90 || 0)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">平均解析分</div>
+                  <div className="text-xs text-muted-foreground">平均解析分</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {averageParseQuality == null ? '-' : averageParseQuality.toFixed(3)}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-2">
-                  <div className="text-[10px] text-muted-foreground">后备率</div>
+                  <div className="text-xs text-muted-foreground">后备率</div>
                   <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
                     {fallbackRate == null ? '-' : `${(fallbackRate * 100).toFixed(1)}%`}
                   </div>
@@ -1319,7 +1267,7 @@ export default function DatasetProfilePage() {
             </Panel>
 
             <Panel className={profilePanelClass}>
-              <ProfileCardHeader title="PII 命中" caption="手机号、邮箱、身份证等敏感信息次数" />
+              <ProfileCardHeader title="个人信息命中" caption="手机号、邮箱、身份证等敏感信息次数" />
               {piiChartData.length ? (
                 <SafeResponsiveChart {...profileChartProps}>
                     <BarChart data={piiChartData}>
@@ -1363,10 +1311,10 @@ export default function DatasetProfilePage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={totalFindingCount > 0 ? 'soft' : 'outline'} className="h-5 px-1.5 text-[10px] font-mono">
+                <Badge variant={totalFindingCount > 0 ? 'soft' : 'outline'} className="h-5 rounded-md px-1.5 text-xs">
                   命中 {totalFindingCount}
                 </Badge>
-                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-mono text-muted-foreground">
+                <Badge variant="outline" className="h-5 rounded-md px-1.5 text-xs text-muted-foreground">
                   已检查 {clearFindings.length}
                 </Badge>
               </div>
@@ -1379,7 +1327,7 @@ export default function DatasetProfilePage() {
                     key={f.key}
                     type="button"
                     className={cn(
-                      'relative overflow-hidden rounded-xl border bg-card/60 px-2.5 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-colors hover:bg-card/90 dark:bg-muted/20 md:grid-cols-[minmax(0,1fr)_auto]',
+                      'overflow-hidden rounded-md border bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted md:grid-cols-[minmax(0,1fr)_auto]',
                       String(f.severity || '').toLowerCase() === 'error'
                         ? 'border-destructive/30'
                         : String(f.severity || '').toLowerCase() === 'warning'
@@ -1389,53 +1337,43 @@ export default function DatasetProfilePage() {
                     )}
                     onClick={() => detachPromise(openFinding(f))}
                   >
-                    <div
-                      className={cn(
-                        'absolute inset-y-2 left-0 w-1 rounded-r-full',
-                        String(f.severity || '').toLowerCase() === 'error'
-                          ? 'bg-destructive'
-                          : String(f.severity || '').toLowerCase() === 'warning'
-                            ? 'bg-warning'
-                            : 'bg-info/30',
-                      )}
-                    />
                     <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-1.5 pl-2">
-                        <div className="truncate text-[12px] font-semibold text-foreground/85">{f.label}</div>
-                        <Badge variant={findingBadgeVariant(f.severity)} className="h-5 shrink-0 px-1.5 text-[10px] font-mono">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <div className="truncate text-sm font-semibold text-foreground">{f.label}</div>
+                        <Badge variant={findingBadgeVariant(f.severity)} className="h-5 shrink-0 rounded-md px-1.5 text-xs">
                           ×{f.count}
                         </Badge>
                       </div>
                       {f.description ? (
-                        <div className="mt-1 line-clamp-2 pl-2 text-[11px] leading-4 text-muted-foreground/65">{f.description}</div>
+                        <div className="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">{f.description}</div>
                       ) : null}
                     </div>
-                    <div className="mt-2 pl-2 text-[11px] font-medium text-info">查看文件</div>
+                    <div className="mt-2 text-xs font-medium text-primary">查看文件</div>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-success/20 bg-success/5 px-2 py-1.5 text-[11px] leading-4 text-success">
+              <div className="rounded-md bg-success/10 px-3 py-2 text-sm leading-5 text-success">
                 当前没有命中的可操作问题，下面仅保留已检查项摘要。
               </div>
             )}
 
             {clearFindings.length ? (
-              <div className="mt-3 rounded-xl border border-border/40 bg-muted/40 px-2 py-1.5 dark:bg-muted/20">
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/55">
+              <div className="mt-3 border-t border-border pt-3">
+                <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
                   已检查未命中
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {clearFindings.slice(0, 10).map((f) => (
                     <span
                       key={f.key}
-                      className="rounded-full border border-border/45 bg-card/60 px-2 py-0.5 text-[10px] leading-4 text-muted-foreground/65 dark:bg-card/50"
+                      className="rounded-md border border-border px-2 py-0.5 text-xs leading-4 text-muted-foreground"
                     >
                       {f.label}
                     </span>
                   ))}
                   {clearFindings.length > 10 ? (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] leading-4 text-muted-foreground/45">
+                    <span className="rounded-md px-2 py-0.5 text-xs leading-4 text-muted-foreground">
                       +{clearFindings.length - 10}
                     </span>
                   ) : null}
@@ -1449,11 +1387,11 @@ export default function DatasetProfilePage() {
           <Panel className={cn(profilePanelClass, 'p-3')}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground/85">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   深度扫描
                   {latestRunStatus ? (
-                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-mono">
-                      {String(latestRunStatus)}
+                    <Badge variant="outline" className="h-5 rounded-md px-1.5 text-xs">
+                      {formatProfileRunStatus(latestRunStatus)}
                     </Badge>
                   ) : null}
                 </div>
@@ -1517,7 +1455,7 @@ export default function DatasetProfilePage() {
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-4 rounded-lg bg-muted/40 px-2.5 py-1.5 dark:bg-muted/20">
-              <div className="text-[11px] text-muted-foreground/65">
+              <div className="text-sm text-muted-foreground">
                 进度：{(() => {
     if (scanRunning) {
         return `${latestRunProgress || 0}%`;
@@ -1547,7 +1485,7 @@ export default function DatasetProfilePage() {
             </div>
 
             {scanRuns.length ? (
-              <div className="rounded-xl border border-border/60 overflow-hidden">
+              <div className="overflow-x-auto rounded-md border border-border">
                 <table aria-label="数据集画像扫描运行记录" className="w-full text-left text-xs">
                   <thead className="bg-muted/40 text-muted-foreground">
                     <tr>
@@ -1564,7 +1502,7 @@ export default function DatasetProfilePage() {
                         <td className="px-2 py-1.5 font-mono text-xs">{r.created_at ? formatDate(r.created_at) : '-'}</td>
                         <td className="px-2 py-1.5">
                           <Badge variant="outline" className="font-mono text-xs">
-                            {String(r.status || '')}
+                            {formatProfileRunStatus(r.status)}
                           </Badge>
                         </td>
                         <td className="px-2 py-1.5 font-mono text-xs">{typeof r.progress === 'number' ? `${r.progress}%` : '-'}</td>
@@ -1578,16 +1516,16 @@ export default function DatasetProfilePage() {
                 </table>
               </div>
             ) : (
-              <div className="rounded-xl border border-border/45 bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground/60 dark:bg-muted/20">
+              <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
                 暂无扫描记录。启动一次深度扫描后，这里会显示快照和可对比版本。
               </div>
             )}
 
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="rounded-xl border border-border/50 bg-card/45 p-3 dark:bg-card/40">
+              <section className="border-t border-border pt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="text-[13px] font-semibold text-foreground/85">快照对比</div>
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-mono text-muted-foreground">
+                  <div className="text-sm font-semibold text-foreground">快照对比</div>
+                  <Badge variant="outline" className="h-5 rounded-md px-1.5 text-xs text-muted-foreground">
                     已完成 {completedRuns.length}
                   </Badge>
                 </div>
@@ -1596,10 +1534,10 @@ export default function DatasetProfilePage() {
                   <>
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] text-muted-foreground">基准快照</Label>
+                        <Label className="text-sm text-muted-foreground">基准快照</Label>
                         <Select value={compareA} onValueChange={setCompareA}>
                           <SelectTrigger className="h-8 bg-card/70 text-xs dark:bg-card/60">
-                            <SelectValue placeholder="选择 run" />
+                            <SelectValue placeholder="选择扫描记录" />
                           </SelectTrigger>
                           <SelectContent>
                             {completedRuns.map((r) => (
@@ -1611,10 +1549,10 @@ export default function DatasetProfilePage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] text-muted-foreground">对比快照</Label>
+                        <Label className="text-sm text-muted-foreground">对比快照</Label>
                         <Select value={compareB} onValueChange={setCompareB}>
                           <SelectTrigger className="h-8 bg-card/70 text-xs dark:bg-card/60">
-                            <SelectValue placeholder="选择 run" />
+                            <SelectValue placeholder="选择扫描记录" />
                           </SelectTrigger>
                           <SelectContent>
                             {completedRuns.map((r) => (
@@ -1630,52 +1568,52 @@ export default function DatasetProfilePage() {
                     {compareDelta ? (
                       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">文档数 Δ</div>
+                          <div className="text-xs text-muted-foreground">文档数变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">{compareDelta.docs >= 0 ? `+${compareDelta.docs}` : String(compareDelta.docs)}</div>
                         </div>
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">总大小 Δ</div>
+                          <div className="text-xs text-muted-foreground">总大小变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">
                             {compareDelta.bytes >= 0 ? '+' : '-'}
                             {formatFileSize(Math.abs(compareDelta.bytes))}
                           </div>
                         </div>
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">P90 长度 Δ</div>
+                          <div className="text-xs text-muted-foreground">P90 长度变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">{compareDelta.p90 >= 0 ? `+${compareDelta.p90}` : String(compareDelta.p90)}</div>
                         </div>
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">扫描 PDF Δ</div>
+                          <div className="text-xs text-muted-foreground">扫描 PDF 变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">{compareDelta.scanned >= 0 ? `+${compareDelta.scanned}` : String(compareDelta.scanned)}</div>
                         </div>
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">PII 命中 Δ</div>
+                          <div className="text-xs text-muted-foreground">个人信息命中变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">{compareDelta.pii >= 0 ? `+${compareDelta.pii}` : String(compareDelta.pii)}</div>
                         </div>
                         <div className="rounded-lg border border-border/45 bg-muted/40 p-2 dark:bg-muted/20">
-                          <div className="text-[10px] text-muted-foreground">Secrets 命中 Δ</div>
+                          <div className="text-xs text-muted-foreground">密钥线索命中变化</div>
                           <div className="mt-0.5 font-mono text-xs font-semibold">{compareDelta.secrets >= 0 ? `+${compareDelta.secrets}` : String(compareDelta.secrets)}</div>
                         </div>
                       </div>
                     ) : (
-                    <div className="mt-3 rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground/60 dark:bg-muted/20">
+                    <div className="mt-3 rounded-md bg-muted px-2.5 py-1.5 text-sm text-muted-foreground">
                         请选择两个已完成扫描记录。
                       </div>
                     )}
                   </>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-border/55 bg-muted/40 px-3 py-2 text-[11px] leading-4 text-muted-foreground/65 dark:bg-muted/20">
+                  <div className="rounded-md border border-dashed border-border bg-muted/50 px-3 py-2 text-sm leading-5 text-muted-foreground">
                     <div className="font-medium text-foreground/75">暂无可对比快照</div>
                     <div className="mt-0.5">
                       至少需要 2 次已完成深度扫描；当前 {completedRuns.length} 次。完成后这里会出现基准/对比快照下拉。
                     </div>
                   </div>
                 )}
-              </div>
+              </section>
 
-              <div className="rounded-xl border border-border/50 bg-card/45 p-3 dark:bg-card/40">
-                <div className="text-[13px] font-semibold text-foreground/85">离线报告</div>
-                <div className="text-[11px] leading-4 text-muted-foreground/65">
+              <section className="border-t border-border pt-3">
+                <div className="text-sm font-semibold text-foreground">离线报告</div>
+                <div className="text-sm leading-5 text-muted-foreground">
                   导出单文件 HTML，默认脱敏，适合离线分享。
                 </div>
                 <div className="mt-3 flex items-center gap-2">
@@ -1694,7 +1632,7 @@ export default function DatasetProfilePage() {
                     导出 HTML
                   </Button>
                 </div>
-              </div>
+              </section>
             </div>
           </Panel>
           </div>
@@ -1707,7 +1645,7 @@ export default function DatasetProfilePage() {
              setSelectedFinding(null)
            }
          }}>
-          <DialogContent className="max-w-4xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-4xl rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2">
@@ -1725,7 +1663,7 @@ export default function DatasetProfilePage() {
                     className="gap-2"
                     disabled={findingRetrying || findingLoading}
                     onClick={() => retryDocuments(findingRes.items.map((d) => String(d.id)), 'batch')}
-                    title="对当前清单触发重新处理（best-effort）"
+                    title="重新处理当前清单中的文件"
                   >
                     {findingRetrying ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : null}
                     <RefreshCw className="w-4 h-4" />
@@ -1748,11 +1686,11 @@ export default function DatasetProfilePage() {
     }
     else if (findingRes) {
             return (<div className="space-y-3">
-                  <div className="text-xs text-muted-foreground font-mono">
-                    showing {findingRes.items.length}/{findingRes.total}
+                  <div className="font-mono text-xs text-muted-foreground">
+                    已显示 {findingRes.items.length}/{findingRes.total}
                   </div>
-                  <div className="rounded-xl border border-border/60 overflow-hidden">
-                    <table aria-label="数据集画像 PII 命中明细" className="w-full text-left text-xs">
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table aria-label="数据集画像问题命中明细" className="w-full text-left text-xs">
                       <thead className="bg-muted/40 text-muted-foreground">
                         <tr>
                           <th className="px-2 py-1.5 font-medium">文件名</th>
@@ -1790,7 +1728,7 @@ export default function DatasetProfilePage() {
                             <td className="px-2 py-1.5 font-mono text-xs">{formatFileSize(d.file_size || 0)}</td>
                             <td className="px-2 py-1.5">
                               <Badge variant="outline" className="font-mono text-xs">
-                                {d.status}
+                                {formatDocumentStatusLabel(d.status)}
                               </Badge>
                             </td>
                             <td className="px-2 py-1.5 font-mono text-xs">{d.total_characters}</td>
@@ -1829,7 +1767,7 @@ export default function DatasetProfilePage() {
                 </div>);
         }
         else {
-            return (<div className="py-10 text-center text-[11px] text-muted-foreground/60">
+            return (<div className="py-10 text-center text-sm text-muted-foreground">
                   暂无数据
                 </div>);
         }
@@ -1845,7 +1783,7 @@ export default function DatasetProfilePage() {
              setBucketKey('')
            }
          }}>
-          <DialogContent className="max-w-5xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-w-5xl rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                 {(() => {
@@ -1876,7 +1814,7 @@ export default function DatasetProfilePage() {
                 ) : null}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Preview 已做 PII/Secrets 脱敏（best-effort）。点击文件名可查看文档详情。
+                内容预览已尽力隐藏个人信息和密钥线索。选择文件名可查看详情。
               </DialogDescription>
             </DialogHeader>
 
@@ -1890,11 +1828,11 @@ export default function DatasetProfilePage() {
     }
     else if (bucketRes) {
             return (<div className="space-y-3">
-                  <div className="text-xs text-muted-foreground font-mono">
-                    showing {bucketRes.items.length}/{bucketRes.total}
+                  <div className="font-mono text-xs text-muted-foreground">
+                    已显示 {bucketRes.items.length}/{bucketRes.total}
                   </div>
-                  <div className="rounded-xl border border-border/60 overflow-hidden">
-                    <table aria-label="数据集画像 Secrets 命中明细" className="w-full text-left text-xs">
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table aria-label="数据集画像分组明细" className="w-full text-left text-xs">
                       <thead className="bg-muted/40 text-muted-foreground">
                         <tr>
                           <th className="px-2 py-1.5 font-medium">文件名</th>
@@ -1930,7 +1868,7 @@ export default function DatasetProfilePage() {
                             <td className="px-2 py-1.5 font-mono text-xs">{formatFileSize(d.file_size || 0)}</td>
                             <td className="px-2 py-1.5">
                               <Badge variant="outline" className="font-mono text-xs">
-                                {d.status}
+                                {formatDocumentStatusLabel(d.status)}
                               </Badge>
                             </td>
                             <td className="px-2 py-1.5 font-mono text-xs">{d.total_characters}</td>
@@ -1957,7 +1895,7 @@ export default function DatasetProfilePage() {
                 </div>);
         }
         else {
-            return (<div className="py-10 text-center text-[11px] text-muted-foreground/60">
+            return (<div className="py-10 text-center text-sm text-muted-foreground">
                   暂无数据
                 </div>);
         }
@@ -1965,7 +1903,7 @@ export default function DatasetProfilePage() {
             </div>
           </DialogContent>
         </Dialog>
-      </PageScaffold>
+      </DatasetDetailShell>
     </AppFrame>
   )
 }
