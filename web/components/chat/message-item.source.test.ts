@@ -25,4 +25,10 @@ describe('对话消息层级源码契约', () => {
     expect(source).toContain('isStreaming && !message.content')
     expect(source).toContain('正在准备回答…')
   })
+
+  it('流式与最终回答复用同一套 Markdown 渲染', () => {
+    expect(source).toContain('normalizeChatMarkdown(message.content)')
+    expect(source).toContain('{normalizedAssistantContent}')
+    expect(source).not.toContain('else if (isStreaming)')
+  })
 })

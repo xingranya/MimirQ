@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { documentApi, feedbackApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { reportClientError } from '@/lib/client-logging'
+import { normalizeChatMarkdown } from '@/lib/chat-markdown'
 import { toast } from 'sonner'
 
 const INLINE_CITATION_HREF_PREFIX = 'mimirq-citation://'
@@ -225,12 +226,12 @@ type MessageMarkdownImageProps = Readonly<{ src?: string | Blob; alt?: string }>
 type MessageMarkdownCodeProps = Readonly<{ className?: string; children?: ReactNode }>
 
 function MessageMarkdownParagraph({ children }: MessageMarkdownChildrenProps) {
-  return <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>
+  return <p className="mb-3 leading-7 last:mb-0">{children}</p>
 }
 
 function MessageMarkdownList({ children }: MessageMarkdownChildrenProps) {
   return (
-    <ul className="list-disc pl-5 mb-3 space-y-1.5 marker:text-muted-foreground/60">
+    <ul className="my-4 list-disc space-y-2 pl-6 marker:text-primary/70">
       {children}
     </ul>
   )
@@ -238,14 +239,30 @@ function MessageMarkdownList({ children }: MessageMarkdownChildrenProps) {
 
 function MessageMarkdownOrderedList({ children }: MessageMarkdownChildrenProps) {
   return (
-    <ol className="list-decimal pl-5 mb-3 space-y-1.5 marker:text-muted-foreground/60">
+    <ol className="my-4 list-decimal space-y-2 pl-6 marker:font-semibold marker:text-primary">
       {children}
     </ol>
   )
 }
 
 function MessageMarkdownListItem({ children }: MessageMarkdownChildrenProps) {
-  return <li className="pl-1">{children}</li>
+  return <li className="pl-1.5 leading-7 [&>p]:mb-0">{children}</li>
+}
+
+function MessageMarkdownHeading1({ children }: MessageMarkdownChildrenProps) {
+  return <h1 className="mb-3 mt-6 text-xl font-semibold leading-8 first:mt-0">{children}</h1>
+}
+
+function MessageMarkdownHeading2({ children }: MessageMarkdownChildrenProps) {
+  return <h2 className="mb-2 mt-5 text-base font-semibold leading-7 first:mt-0">{children}</h2>
+}
+
+function MessageMarkdownHeading3({ children }: MessageMarkdownChildrenProps) {
+  return <h3 className="mb-2 mt-4 text-sm font-semibold leading-6 first:mt-0">{children}</h3>
+}
+
+function MessageMarkdownStrong({ children }: MessageMarkdownChildrenProps) {
+  return <strong className="font-semibold text-foreground">{children}</strong>
 }
 
 function MessageMarkdownAnchor({ href, children }: MessageMarkdownLinkProps) {
@@ -300,10 +317,42 @@ function MessageMarkdownImage({ src, alt }: MessageMarkdownImageProps) {
 
 function MessageMarkdownBlockquote({ children }: MessageMarkdownChildrenProps) {
   return (
-    <blockquote className="my-3 border-l border-border bg-muted/40 py-2 pl-3 pr-2 italic text-muted-foreground">
+    <blockquote className="my-4 border-l-2 border-primary/40 bg-muted/40 py-2.5 pl-4 pr-3 text-muted-foreground">
       {children}
     </blockquote>
   )
+}
+
+function MessageMarkdownPre({ children }: MessageMarkdownChildrenProps) {
+  return (
+    <pre className="my-4 max-w-full overflow-x-auto rounded-md border border-border bg-muted/40 p-4 text-[13px] leading-6">
+      {children}
+    </pre>
+  )
+}
+
+function MessageMarkdownTable({ children }: MessageMarkdownChildrenProps) {
+  return (
+    <div className="my-4 max-w-full overflow-x-auto rounded-md border border-border">
+      <table className="w-full border-collapse text-left text-sm">{children}</table>
+    </div>
+  )
+}
+
+function MessageMarkdownTableHead({ children }: MessageMarkdownChildrenProps) {
+  return <thead className="bg-muted/60 text-foreground">{children}</thead>
+}
+
+function MessageMarkdownTableHeader({ children }: MessageMarkdownChildrenProps) {
+  return <th className="border-b border-border px-3 py-2 font-semibold">{children}</th>
+}
+
+function MessageMarkdownTableCell({ children }: MessageMarkdownChildrenProps) {
+  return <td className="border-b border-border/70 px-3 py-2 align-top leading-6 last:border-r-0">{children}</td>
+}
+
+function MessageMarkdownRule() {
+  return <hr className="my-5 border-0 border-t border-border" />
 }
 
 function MessageMarkdownCode({ className, children, ...props }: MessageMarkdownCodeProps) {
@@ -334,10 +383,20 @@ const markdownBaseComponents = {
   a: MessageMarkdownAnchor,
   blockquote: MessageMarkdownBlockquote,
   code: MessageMarkdownCode,
+  h1: MessageMarkdownHeading1,
+  h2: MessageMarkdownHeading2,
+  h3: MessageMarkdownHeading3,
+  hr: MessageMarkdownRule,
   img: MessageMarkdownImage,
   li: MessageMarkdownListItem,
   ol: MessageMarkdownOrderedList,
   p: MessageMarkdownParagraph,
+  pre: MessageMarkdownPre,
+  strong: MessageMarkdownStrong,
+  table: MessageMarkdownTable,
+  td: MessageMarkdownTableCell,
+  th: MessageMarkdownTableHeader,
+  thead: MessageMarkdownTableHead,
   ul: MessageMarkdownList,
 }
 
@@ -563,6 +622,10 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     }),
     [handleInlineCitationClick, handleInlineCitationPrefetch]
   )
+  const normalizedAssistantContent = useMemo(
+    () => (isUser ? message.content : normalizeChatMarkdown(message.content)),
+    [isUser, message.content]
+  )
 
   let renderedContent: ReactNode
   if (isUser) {
@@ -574,13 +637,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         正在准备回答…
       </div>
     )
-  } else if (isStreaming) {
-    renderedContent = <div className="whitespace-pre-wrap">{message.content}</div>
   } else {
     renderedContent = (
       <InlineCitationHandlersContext.Provider value={inlineCitationHandlers}>
         <ReactMarkdown remarkPlugins={markdownPlugins} skipHtml components={markdownBaseComponents}>
-          {message.content}
+          {normalizedAssistantContent}
         </ReactMarkdown>
       </InlineCitationHandlersContext.Provider>
     )
