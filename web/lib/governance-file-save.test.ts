@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { saveGovernanceFileToBackend } from './governance-file-save'
+import {
+  GovernanceContentIncompleteError,
+  saveGovernanceFileToBackend,
+} from './governance-file-save'
 
 const payload = {
   markdown_content: '治理后的内容',
@@ -77,5 +80,22 @@ describe('saveGovernanceFileToBackend', () => {
         dependencies
       )
     ).rejects.toThrow('save failed')
+  })
+
+  it('正文未完整加载时拒绝写回任何远端来源', async () => {
+    const dependencies = createDependencies()
+
+    await expect(
+      saveGovernanceFileToBackend(
+        'truncated-document',
+        'knowledge_base',
+        payload,
+        dependencies,
+        { contentTruncated: true }
+      )
+    ).rejects.toBeInstanceOf(GovernanceContentIncompleteError)
+
+    expect(dependencies.updateKnowledgeDocument).not.toHaveBeenCalled()
+    expect(dependencies.updateParsingDocument).not.toHaveBeenCalled()
   })
 })

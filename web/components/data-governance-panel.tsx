@@ -90,7 +90,10 @@ import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
 import { deleteGovernanceFileFromBackend } from '@/lib/governance-file-delete'
-import { saveGovernanceFileToBackend } from '@/lib/governance-file-save'
+import {
+  GovernanceContentIncompleteError,
+  saveGovernanceFileToBackend,
+} from '@/lib/governance-file-save'
 import {
   fetchAllGovernanceDocuments,
   reconcileGovernanceFiles,
@@ -143,6 +146,7 @@ function getAvgScoreFillClass(avgScore: number): string {
 const ALL_DATASETS_VALUE = '__all_datasets__'
 const EMPTY_UPLOAD_FORMATS = ['PDF', 'Word', 'Excel', 'TXT', 'MD', 'ZIP'] as const
 const EMPTY_UPLOAD_STEPS = ['parse', 'quality', 'clean'] as const
+const GOVERNANCE_CONTENT_READ_LIMIT = 2_000_000
 
 type DataGovernanceTranslator = ReturnType<typeof useTranslations>
 
@@ -584,6 +588,9 @@ export function DataGovernancePanel() {
   const [governanceStates, setGovernanceStates] = useState<
     Record<string, FileGovernanceState>
   >({})
+  const [truncatedContentFileIds, setTruncatedContentFileIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const [selectedChunkFileIds, setSelectedChunkFileIds] = useState<Set<string>>(
     () => new Set()
   )
@@ -717,6 +724,27 @@ export function DataGovernancePanel() {
     [readyChunkFiles, selectedChunkFileIds]
   )
   const selectedReadyChunkCount = selectedReadyChunkFiles.length
+  const selectedContentIsTruncated = selectedFileId
+    ? truncatedContentFileIds.has(selectedFileId)
+    : false
+  const selectedReadyContainsTruncatedContent = selectedReadyChunkFiles.some(
+    (file) => truncatedContentFileIds.has(file.id)
+  )
+
+  const updateContentTruncationState = useCallback(
+    (fileId: string, contentTruncated: boolean) => {
+      setTruncatedContentFileIds((previous) => {
+        const next = new Set(previous)
+        if (contentTruncated) next.add(fileId)
+        else next.delete(fileId)
+        if (next.size === previous.size && next.has(fileId) === previous.has(fileId)) {
+          return previous
+        }
+        return next
+      })
+    },
+    []
+  )
 
   useEffect(() => {
     const readyIds = new Set(readyChunkFiles.map((file) => file.id))
@@ -786,13 +814,21 @@ export function DataGovernancePanel() {
     []
   )
 
-  // Ensure markdown is available after refresh: load from IndexedDB cache first, fallback to backend.
+  // 刷新后先从浏览器缓存恢复正文，缓存缺失时再读取后端内容。
   useEffect(() => {
     const file = selectedFile
     if (!file) return
     const id = (file?.id || '').trim()
     if (!id) return
     if ((file?.markdownContent || '').trim()) {
+      updateContentTruncationState(
+        id,
+        file.source === 'knowledge_base' &&
+          Math.max(
+            file.markdownContent.length,
+            file.originalMarkdownContent?.length || 0
+          ) >= GOVERNANCE_CONTENT_READ_LIMIT
+      )
       initializeGovernanceState(file)
       return
     }
@@ -807,6 +843,12 @@ export function DataGovernancePanel() {
         if (markdown || original) {
           const nextMarkdown = markdown || original
           const nextOriginal = original || markdown
+          updateContentTruncationState(
+            id,
+            file.source === 'knowledge_base' &&
+              Math.max(nextMarkdown.length, nextOriginal.length) >=
+                GOVERNANCE_CONTENT_READ_LIMIT
+          )
           updateParsedFile(id, {
             markdownContent: nextMarkdown,
             originalMarkdownContent: nextOriginal,
@@ -818,16 +860,25 @@ export function DataGovernancePanel() {
           })
           return
         }
-      } catch {
-        // ignore
+      } catch (error) {
+        reportClientWarning('Failed to restore governance content from cache', error)
       }
 
       try {
-        const remote =
-          file?.source === 'knowledge_base'
-            ? await documentApi.getParsedContent(id, { max_chars: 2_000_000 })
-            : await parsingApi.getContent(id)
+        let remote
+        let contentTruncated = false
+        if (file.source === 'knowledge_base') {
+          remote = await documentApi.getParsedContent(id, {
+            max_chars: GOVERNANCE_CONTENT_READ_LIMIT,
+          })
+          contentTruncated = Boolean(
+            remote.markdown_truncated || remote.original_markdown_truncated
+          )
+        } else {
+          remote = await parsingApi.getContent(id)
+        }
         if (cancelled) return
+        updateContentTruncationState(id, contentTruncated)
         const markdown = (remote?.markdown_content || '').trim()
         const original = (remote?.original_markdown_content || '').trim()
         if (!markdown && !original) return
@@ -842,15 +893,20 @@ export function DataGovernancePanel() {
           markdownContent: nextMarkdown,
           originalMarkdownContent: nextOriginal,
         })
-      } catch {
-        // ignore
+      } catch (error) {
+        reportClientWarning('Failed to load governance document content', error)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [initializeGovernanceState, selectedFile, updateParsedFile])
+  }, [
+    initializeGovernanceState,
+    selectedFile,
+    updateContentTruncationState,
+    updateParsedFile,
+  ])
 
   const handleDeleteFile = useCallback(
     async (fileId: string) => {
@@ -1283,6 +1339,13 @@ export function DataGovernancePanel() {
         const shouldSetOriginal =
           Boolean(state) && typeof f.originalMarkdownContent !== 'string'
 
+        if (
+          truncatedContentFileIds.has(f.id) &&
+          (shouldUpdateMarkdown || shouldSetOriginal || Boolean(nextChunkStatus))
+        ) {
+          throw new GovernanceContentIncompleteError()
+        }
+
         if (shouldUpdateMarkdown || shouldSetOriginal || nextChunkStatus) {
           const nextMarkdownContent = shouldUpdateMarkdown
             ? state?.cleanedContent || ''
@@ -1298,7 +1361,8 @@ export function DataGovernancePanel() {
               {
                 updateKnowledgeDocument: documentApi.updateParsedContent,
                 updateParsingDocument: parsingApi.updateContent,
-              }
+              },
+              { contentTruncated: truncatedContentFileIds.has(f.id) }
             )
           }
 
@@ -1312,7 +1376,7 @@ export function DataGovernancePanel() {
         }
       }
     },
-    [files, governanceStates, updateParsedFile]
+    [files, governanceStates, truncatedContentFileIds, updateParsedFile]
   )
 
   const persistGovernanceEditsSafely = useCallback(
@@ -1326,7 +1390,11 @@ export function DataGovernancePanel() {
         return true
       } catch (error) {
         reportClientError('Failed to persist governance edits', error)
-        toast.error(t('toasts.resultsSaveFailed'))
+        toast.error(
+          error instanceof GovernanceContentIncompleteError
+            ? t('toasts.truncatedContentReadOnly')
+            : t('toasts.resultsSaveFailed')
+        )
         return false
       } finally {
         setSavingGovernance(false)
@@ -1738,7 +1806,7 @@ export function DataGovernancePanel() {
                 variant="info"
                 size="sm"
                 onClick={handleSave}
-                disabled={!governanceState || savingGovernance}
+                disabled={!governanceState || savingGovernance || selectedContentIsTruncated}
                 className="gap-2 h-8 text-xs"
               >
                 {savingGovernance ? (
@@ -1753,7 +1821,11 @@ export function DataGovernancePanel() {
                 variant="outline"
                 size="sm"
                 onClick={handleSubmitSelectedToChunkPreview}
-                disabled={selectedReadyChunkCount === 0 || savingGovernance}
+                disabled={
+                  selectedReadyChunkCount === 0 ||
+                  savingGovernance ||
+                  selectedReadyContainsTruncatedContent
+                }
                 className="gap-2 h-8 text-xs"
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -1781,7 +1853,7 @@ export function DataGovernancePanel() {
             variant="info"
             size="sm"
             onClick={handleSave}
-            disabled={!governanceState || savingGovernance}
+            disabled={!governanceState || savingGovernance || selectedContentIsTruncated}
             className="gap-2 h-8 text-xs"
           >
             {savingGovernance ? (
@@ -1796,7 +1868,11 @@ export function DataGovernancePanel() {
             variant="outline"
             size="sm"
             onClick={handleSubmitSelectedToChunkPreview}
-            disabled={selectedReadyChunkCount === 0 || savingGovernance}
+            disabled={
+              selectedReadyChunkCount === 0 ||
+              savingGovernance ||
+              selectedReadyContainsTruncatedContent
+            }
             className="gap-2 h-8 text-xs"
           >
             <Layers className="w-3.5 h-3.5" />
@@ -1808,7 +1884,13 @@ export function DataGovernancePanel() {
             variant="default"
             size="sm"
             onClick={handlePushToChunkPreview}
-            disabled={!isLoaded || files.length === 0 || savingGovernance}
+            disabled={
+              !isLoaded ||
+              files.length === 0 ||
+              savingGovernance ||
+              selectedContentIsTruncated ||
+              selectedReadyContainsTruncatedContent
+            }
             className="gap-2 h-8 text-xs"
           >
             <Layers className="w-3.5 h-3.5" />
@@ -2337,6 +2419,17 @@ export function DataGovernancePanel() {
                           viewMode === 'edit' ? 'max-w-full' : 'max-w-4xl'
                         )}
                       >
+                        {selectedContentIsTruncated ? (
+                          <div className="mb-4 flex items-start gap-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                            <div>
+                              <p className="font-medium">{t('canvas.truncatedTitle')}</p>
+                              <p className="mt-1 text-muted-foreground">
+                                {t('canvas.truncatedDescription')}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
                         {/* 纸张效果容器 */}
                         <div
                           className={cn(

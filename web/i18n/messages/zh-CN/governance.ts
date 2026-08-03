@@ -416,6 +416,7 @@ DataGovernancePanel: {
       parseFailed: '解析失败，请稍后重试',
       resultsSaved: '已保存治理结果',
       resultsSaveFailed: '治理结果保存失败，请稍后重试',
+      truncatedContentReadOnly: '系统只加载了部分正文。为防止覆盖原文，请拆分文档后重新入库。',
       noChunkReadySelection: '请先保存并选择待切块文档',
       submittedToChunkPreview: '已提交 {count} 个文档到切块预览',
       filenameCopied: '文件名已复制',
@@ -501,6 +502,8 @@ DataGovernancePanel: {
       viewSource: '查看源码',
       viewRendered: '查看渲染',
       modified: '已修改',
+      truncatedTitle: '当前只显示部分正文',
+      truncatedDescription: '为防止覆盖完整原文，此文档只能查看，不能保存或提交切块。请拆分后重新入库。',
     },
     panel: {
       title: '治理工具箱',
