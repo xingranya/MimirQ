@@ -179,10 +179,12 @@ cd seeway-knowledge-base
 make init
 ```
 
-编辑 `.env`，至少填写可用的模型密钥：
+编辑 `.env`，至少填写可用的模型地址和模型名。云端服务需要真实密钥，本地免鉴权的 OpenAI 兼容服务可以将密钥留空：
 
 ```dotenv
+LLM_API_BASE=https://api.example.com/v1
 LLM_API_KEY=<your-api-key>
+LLM_MODEL=<your-model>
 ```
 
 如 LLM、Embedding 和 Reranker 使用不同服务，请分别配置对应的 Base URL、API Key 与模型名。随后启动并检查服务：
@@ -212,13 +214,50 @@ make api-ping
 
 > 更换 Embedding 模型、供应商或向量维度后，必须重建已有知识库索引。生产部署前请完成密钥、跨域、存储、备份、监控和权限配置检查。
 
+### 源码开发（Python venv + pip + pnpm）
+
+首次准备本地开发环境后，分别打开两个终端启动 API 与 Web：
+
+```bash
+make setup-host
+make backend
+make web
+```
+
+需要处理异步入库任务时，再运行 `make worker`；可通过 `make worker-check` 检查 Worker 是否正常发布健康状态。完整开发流程见[快速入门](./docs/quickstart.md)。
+
+### 可选解析服务
+
+解析器按资料类型和部署资源选择，不需要全部启动：
+
+| 解析器 | 启动命令 |
+|:---|:---|
+| ETL4LLM | `make up-etl4llm` |
+| Marker | `make up-marker` |
+| PaddleOCR-VL | `make up-paddlevl` |
+| MinerU Pipeline | `make up-mineru` |
+| MinerU VLM | `make up-mineru-vlm` |
+| olmOCR | `make up-olmocr` |
+| Magic-PDF | `make up-magicpdf` |
+| 百度千帆 OCR | `make up-qianfanocr` |
+
+使用 MinerU 云端 API 时只需在 `.env` 配置令牌和云端地址，不要启动本地 MinerU Compose 服务。
+
+### 停止和清理
+
+- `make down`：停止本项目容器，保留数据卷和镜像。
+- `make docker-reset`：停止容器并删除本项目数据卷，用于重新初始化数据。
+- `make docker-purge`：停止容器并删除本项目数据卷及镜像，用于彻底重建。
+
+涉及数据删除前请先完成备份。项目隔离、升级、备份和清理边界见[Docker Compose 部署指南](./docs/deployment/docker_compose.md)。
+
 ## 文档中心
 
 | 文档 | 内容 |
 |:---|:---|
-| [全流程操作指南](./docs/user_guide.md) | 从首次登录到知识库运营、评测与生产运维 |
+| [完整操作指南](./docs/user_guide.md) | 从首次登录到知识库运营、评测与生产运维 |
 | [快速入门](./docs/quickstart.md) | 本地开发、模型配置和常用命令 |
-| [Docker Compose 部署](./docs/deployment/docker_compose.md) | 容器部署、升级、备份与安全清理 |
+| [Docker Compose 部署指南](./docs/deployment/docker_compose.md) | 容器部署、升级、备份与安全清理 |
 | [运维手册](./docs/deployment/runbook.md) | 健康检查、监控、故障定位和恢复 |
 | [企业知识流水线设计准则](./docs/guides/rag_platform_design_principles.md) | 解析、治理、检索与回归的设计方法 |
 | [Dify 集成与验证](./docs/benchmarks/changzhou_dify.md) | External Knowledge API、HTTP 节点与实测记录 |
