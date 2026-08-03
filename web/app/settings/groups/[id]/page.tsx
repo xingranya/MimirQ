@@ -1,12 +1,12 @@
 /**
- * Settings - Tenant Group detail
+ * 设置 - 成员组详情
  *
- * View/edit group and manage membership.
+ * 编辑成员组信息并维护成员归属。
  */
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,7 +14,6 @@ import { toast } from 'sonner'
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
 import { AppFrame } from '@/components/app-frame'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,7 +21,7 @@ import { PageScaffold } from '@/components/ui/page-scaffold'
 import { Textarea } from '@/components/ui/textarea'
 import { cn, formatDate } from '@/lib/utils'
 import { formatApiError } from '@/lib/api-errors'
-import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
+import { TENANT_PERMISSIONS, tenantAccessAllows } from '@/lib/tenant-permissions'
 import { groupApi } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
 import { useRouter } from '@/i18n/navigation'
@@ -38,6 +37,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
+import { useTenantAccess } from '@/hooks/use-tenant-access'
 
 const GROUP_MEMBERS_PARAMS = { limit: 500 } as const
 
@@ -65,7 +67,7 @@ function normalizeMemberIds(raw: string): { ids: string[]; error?: string } {
     if (seen.has(p)) continue
     seen.add(p)
     if (p.length > 255) {
-      return { ids: [], error: 'member id 过长（max=255）' }
+      return { ids: [], error: '成员标识过长，最多 255 个字符。' }
     }
     out.push(p)
     if (out.length >= 200) break
@@ -75,7 +77,7 @@ function normalizeMemberIds(raw: string): { ids: string[]; error?: string } {
 
 export default function SettingsGroupDetailPage() {
   return (
-    <TenantPermissionGate permission={TENANT_PERMISSIONS.SETTINGS_READ} pageName="组管理">
+    <TenantPermissionGate permission={TENANT_PERMISSIONS.SETTINGS_READ} pageName="成员组管理">
       <SettingsGroupDetailPageContent />
     </TenantPermissionGate>
   )
@@ -84,6 +86,11 @@ export default function SettingsGroupDetailPage() {
 function SettingsGroupDetailPageContent() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const tenantAccessQuery = useTenantAccess()
+  const canManageGroups = tenantAccessAllows(
+    tenantAccessQuery.data,
+    TENANT_PERMISSIONS.SETTINGS_WRITE
+  )
   const params = useParams<{ id?: string | string[] }>()
   const groupId = asGroupId(params?.id)
 
@@ -148,13 +155,21 @@ function SettingsGroupDetailPageContent() {
     })
   }
 
+  const groupHasChanges = useMemo(() => {
+    const name = String(nameDraft || '').trim()
+    const externalId = String(externalIdDraft || '').trim()
+    const savedName = String(group?.name || '').trim()
+    const savedExternalId = String(group?.external_id || '').trim()
+    return name !== savedName || externalId !== savedExternalId
+  }, [nameDraft, externalIdDraft, group?.external_id, group?.name])
+
   const canSaveGroup = useMemo(() => {
     const name = String(nameDraft || '').trim()
     if (!name) return false
     if (name.length > 255) return false
     if (String(externalIdDraft || '').trim().length > 255) return false
-    return true
-  }, [nameDraft, externalIdDraft])
+    return groupHasChanges
+  }, [nameDraft, externalIdDraft, groupHasChanges])
 
   const filteredMembers = useMemo(() => {
     const q = String(memberQuery || '').trim().toLowerCase()
@@ -164,7 +179,7 @@ function SettingsGroupDetailPageContent() {
 
   const saveGroupMutation = useMutation({
     mutationFn: async ({ name, externalId }: { name: string; externalId: string }) => {
-      if (!groupId) throw new Error('缺少组 ID')
+      if (!groupId) throw new Error('缺少成员组标识')
       return groupApi.patchGroup(groupId, {
         name,
         external_id: externalId || null,
@@ -187,7 +202,7 @@ function SettingsGroupDetailPageContent() {
 
   const addMembersMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      if (!groupId) throw new Error('缺少组 ID')
+      if (!groupId) throw new Error('缺少成员组标识')
       return groupApi.addGroupMembers(groupId, { member_ids: ids })
     },
     onSuccess: (res) => {
@@ -203,7 +218,7 @@ function SettingsGroupDetailPageContent() {
 
   const removeMemberMutation = useMutation({
     mutationFn: async (userId: string) => {
-      if (!groupId) throw new Error('缺少组 ID')
+      if (!groupId) throw new Error('缺少成员组标识')
       return groupApi.removeGroupMembers(groupId, { member_ids: [userId] })
     },
     onMutate: (userId) => {
@@ -234,15 +249,15 @@ function SettingsGroupDetailPageContent() {
     const name = String(nameDraft || '').trim()
     const externalId = String(externalIdDraft || '').trim()
     if (!name) {
-      toast.error('名称不能为空（name）')
+      toast.error('请填写成员组名称。')
       return
     }
     if (name.length > 255) {
-      toast.error('名称过长（name，max=255）')
+      toast.error('成员组名称最多 255 个字符。')
       return
     }
     if (externalId.length > 255) {
-      toast.error('外部组 ID 过长（external_id，max=255）')
+      toast.error('外部目录标识最多 255 个字符。')
       return
     }
 
@@ -257,7 +272,7 @@ function SettingsGroupDetailPageContent() {
       return
     }
     if (!ids.length) {
-      toast.message('请输入至少 1 个成员 ID（user_id）')
+      toast.message('请至少填写一个成员标识。')
       return
     }
 
@@ -272,53 +287,86 @@ function SettingsGroupDetailPageContent() {
     removeMemberMutation.mutate(uid)
   }
 
-  const title = group?.name ? `组：${group.name}` : '组详情'
+  const title = group?.name || '成员组详情'
   const savingGroup = saveGroupMutation.isPending
   const adding = addMembersMutation.isPending
+  const navigate = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: groupHasChanges,
+    onNavigate: navigate,
+  })
 
   return (
     <AppFrame>
       <PageScaffold
         title={title}
-        description="编辑组信息，并维护组成员（user_id）"
+        description="编辑成员组信息，并维护成员归属。"
         icon={Users}
         iconColor="text-primary"
-        size="6xl"
+        size="full"
+        compact
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={() => router.push('/settings/groups')}>
-              <ArrowLeft className="size-4" />
-              返回列表
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 rounded-xl"
-              disabled={loadingGroup || loadingMembers}
-              onClick={() => {
-                groupQuery.refetch()
-                membersQuery.refetch()
-              }}
-            >
-              <RefreshCw className={cn('size-4', (loadingGroup || loadingMembers) && 'animate-spin motion-reduce:animate-none')} />
-              刷新
-            </Button>
-            <Button size="sm" className="gap-2 rounded-xl" disabled={!canSaveGroup || savingGroup} onClick={saveGroup}>
-              {savingGroup ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> : <Save className="size-4" />}
-              保存
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            className="h-9 gap-2 rounded-md px-3"
+            disabled={!canManageGroups || !canSaveGroup || savingGroup}
+            onClick={saveGroup}
+          >
+            {savingGroup ? (
+              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {savingGroup ? '保存中…' : groupHasChanges ? '保存修改' : '已保存'}
+          </Button>
         }
       >
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="size-5" />
-                基本信息
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 gap-2 rounded-md px-2 text-muted-foreground"
+            onClick={() => navigationGuard.requestNavigation('/settings/groups')}
+          >
+            <ArrowLeft className="size-4" />
+            返回成员组
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-md border-border"
+            disabled={loadingGroup || loadingMembers}
+            onClick={() => {
+              groupQuery.refetch()
+              membersQuery.refetch()
+            }}
+            aria-label="刷新成员组详情"
+            title="刷新"
+          >
+            <RefreshCw
+              className={cn(
+                'size-4',
+                (loadingGroup || loadingMembers) &&
+                  'animate-spin motion-reduce:animate-none'
+              )}
+            />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+          <section className="h-fit overflow-hidden rounded-md border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Users className="size-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">基本信息</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  名称用于成员识别，外部目录标识用于企业身份同步。
+                </p>
+              </div>
+            </div>
+            <div className="space-y-4 p-4">
               <div className="grid gap-2">
                 <Label htmlFor="group-name">名称</Label>
                 <Input
@@ -327,69 +375,89 @@ function SettingsGroupDetailPageContent() {
                   maxLength={255}
                   onChange={(e) => updateDraft({ name: e.target.value })}
                   placeholder="例如：研发 / 法务 / 财务"
-                  disabled={loadingGroup}
+                  disabled={!canManageGroups || loadingGroup}
                 />
-                <div className="text-xs text-muted-foreground">必填，最长 255 字符；名称在租户（tenant）内唯一</div>
+                <div className="text-xs text-muted-foreground">
+                  必填，最多 255 个字符；同一组织内不能重名。
+                </div>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="group-external-id">外部组 ID</Label>
+                <Label htmlFor="group-external-id">外部目录标识</Label>
                 <Input
                   id="group-external-id"
                   value={externalIdDraft}
                   maxLength={255}
                   onChange={(e) => updateDraft({ externalId: e.target.value })}
-                  placeholder="例如：Okta/AzureAD 组 ID"
-                  disabled={loadingGroup}
+                  placeholder="例如：Okta 或 Azure AD 中的组标识"
+                  disabled={!canManageGroups || loadingGroup}
                 />
                 <div className="text-xs text-muted-foreground">
-                  用于对齐外部身份提供方（IdP）/跨域身份管理（SCIM）的组标识（group）；留空表示不绑定
+                  用于连接企业身份目录，留空表示不绑定。
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-muted/20 p-3 text-xs text-muted-foreground space-y-1">
+              <dl className="grid gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
                 <div>
-                  组 ID（id）：<span className="font-mono">{group?.id || '-'}</span>
+                  <dt>成员组标识</dt>
+                  <dd className="mt-1 break-all font-mono text-foreground">
+                    {group?.id || '-'}
+                  </dd>
                 </div>
-                <div>
-                  创建时间（created_at）：<span className="font-mono">{group?.created_at ? formatDate(group.created_at) : '-'}</span>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div>
+                    <dt>创建时间</dt>
+                    <dd className="mt-1 text-foreground">
+                      {group?.created_at ? formatDate(group.created_at) : '-'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>最近更新</dt>
+                    <dd className="mt-1 text-foreground">
+                      {group?.updated_at ? formatDate(group.updated_at) : '-'}
+                    </dd>
+                  </div>
                 </div>
-                <div>
-                  更新时间（updated_at）：<span className="font-mono">{group?.updated_at ? formatDate(group.updated_at) : '-'}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </dl>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader className="space-y-2">
-              <CardTitle className="flex items-center justify-between gap-3">
+          <section className="overflow-hidden rounded-md border border-border bg-card">
+            <div className="space-y-3 border-b border-border px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2">
-                  <Users className="size-5" />
-                  成员
+                  <Users className="size-4 text-primary" />
+                  <span className="text-base font-semibold text-foreground">成员</span>
                 </span>
-                <span className="text-xs font-mono text-muted-foreground">{membersTotal} 人</span>
-              </CardTitle>
+                <span className="text-xs text-muted-foreground">{membersTotal} 人</span>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="space-y-2">
-                  <Label>搜索</Label>
+                  <Label htmlFor="group-member-search">搜索成员</Label>
                   <Input
+                    id="group-member-search"
                     value={memberQuery}
                     onChange={(e) => setMemberQuery(e.target.value)}
-                    placeholder="按成员 ID（user_id）过滤"
+                    placeholder="搜索成员标识"
+                    className="h-9 rounded-md"
                   />
                 </div>
                 <div className="flex items-end">
                   <Dialog
                     open={addOpen}
                     onOpenChange={(open) => {
+                      if (!open && adding) return
                       setAddOpen(open)
                       if (open) setAddText('')
                     }}
                   >
                     <DialogTrigger asChild>
-                      <Button size="sm" className="gap-2 rounded-xl" disabled={!groupId}>
+                      <Button
+                        size="sm"
+                        className="h-9 gap-2 rounded-md"
+                        disabled={!canManageGroups || !groupId}
+                      >
                         <UserPlus className="size-4" />
                         添加成员
                       </Button>
@@ -398,7 +466,7 @@ function SettingsGroupDetailPageContent() {
                       <DialogHeader>
                         <DialogTitle>添加成员</DialogTitle>
                         <DialogDescription className="text-sm">
-                          输入成员 ID（user_id，每行一个或逗号分隔）后端会失败关闭（fail-closed）：仅允许添加当前租户（tenant）已存在的成员
+                          输入当前组织已有成员的标识。每行填写一个，也可以用逗号或分号分隔。
                         </DialogDescription>
                       </DialogHeader>
 
@@ -411,7 +479,9 @@ function SettingsGroupDetailPageContent() {
                           placeholder="alice\nbob\ncharlie"
                           className="font-mono text-sm"
                         />
-                        <div className="text-xs text-muted-foreground">最多 200 个；单个成员 ID 最长 255 字符；重复会自动去重</div>
+                        <div className="text-xs text-muted-foreground">
+                          一次最多添加 200 人；重复内容会自动去除。
+                        </div>
                       </div>
 
                       <DialogFooter className="mt-4">
@@ -427,76 +497,149 @@ function SettingsGroupDetailPageContent() {
                   </Dialog>
                 </div>
               </div>
-            </CardHeader>
+            </div>
 
-            <CardContent>
-              <div className="rounded-2xl border border-border overflow-hidden">
-                <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground bg-muted/40 px-3 py-2">
-                  <div className="col-span-7">成员 ID（user_id）</div>
-                  <div className="col-span-4">加入时间（created_at）</div>
-                  <div className="col-span-1 text-right">操作（actions）</div>
+            <div className="p-4">
+              <div className="space-y-2 lg:hidden">
+                {filteredMembers.length ? (
+                  filteredMembers.map((member) => {
+                    const userId = String(member.user_id || '').trim()
+                    const removing = removingUserId === userId
+                    return (
+                      <article
+                        key={userId}
+                        className="rounded-md border border-border bg-card p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-mono text-sm text-foreground">
+                              {userId}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {member.created_at
+                                ? `${formatDate(member.created_at)} 加入`
+                                : '加入时间未知'}
+                            </p>
+                          </div>
+                          <GroupMemberRemoveAction
+                            userId={userId}
+                            removing={removing}
+                            disabled={!canManageGroups}
+                            onRemove={removeMember}
+                          />
+                        </div>
+                      </article>
+                    )
+                  })
+                ) : (
+                  <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                    {loadingMembers ? '加载中…' : '暂无成员'}
+                  </div>
+                )}
+              </div>
+
+              <div className="hidden overflow-hidden rounded-md border border-border lg:block">
+                <div className="grid grid-cols-12 bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <div className="col-span-7">成员标识</div>
+                  <div className="col-span-4">加入时间</div>
+                  <div className="col-span-1 text-right">操作</div>
                 </div>
 
                 {filteredMembers.length ? (
                   filteredMembers.map((m) => {
                     const uid = String(m.user_id || '').trim()
-                    const removing = Boolean(removingUserId && removingUserId === uid)
+                    const removing = removingUserId === uid
                     return (
-                      <div key={uid} className="grid grid-cols-12 px-3 py-2 text-sm border-t border-border items-center gap-2">
-                        <div className="col-span-7 font-mono text-xs truncate">{uid}</div>
-                        <div className="col-span-4 font-mono text-xs text-muted-foreground truncate">
+                      <div
+                        key={uid}
+                        className="grid grid-cols-12 items-center gap-2 border-t border-border px-3 py-2 text-sm"
+                      >
+                        <div className="col-span-7 truncate font-mono text-xs">
+                          {uid}
+                        </div>
+                        <div className="col-span-4 truncate text-xs text-muted-foreground">
                           {m.created_at ? formatDate(m.created_at) : '-'}
                         </div>
                         <div className="col-span-1 flex justify-end">
-                            <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                 disabled={!uid || removing}
-                                 aria-label={removing ? `正在移除成员 ${uid}` : `移除成员 ${uid}`}
-                               >
-                                 {removing ? (
-                                   <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-                                 ) : (
-                                   <Trash2 className="h-4 w-4" />
-                                 )}
-                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>移除成员？</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  将把 <span className="font-mono">{uid}</span> 从该组移除
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>取消</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => removeMember(uid)} disabled={removing}>
-                                  {removing ? '移除中…' : '移除'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <GroupMemberRemoveAction
+                            userId={uid}
+                            removing={removing}
+                            disabled={!canManageGroups}
+                            onRemove={removeMember}
+                          />
                         </div>
                       </div>
                     )
                   })
                 ) : (
                   <div className="px-3 py-8 text-sm text-muted-foreground">
-                    {loadingMembers ? '加载中…' : '暂无成员（或无权限）'}
+                    {loadingMembers ? '加载中…' : '暂无成员'}
                   </div>
                 )}
               </div>
-
-              <div className="mt-3 text-xs text-muted-foreground">
-                提示：成员使用租户成员 ID（tenant user_id）；添加时会校验租户成员关系（tenant membership，不存在则报错）
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </div>
+        <UnsavedChangesDialog
+          open={navigationGuard.navigationPending}
+          onOpenChange={(open) => {
+            if (!open) navigationGuard.cancelNavigation()
+          }}
+          onDiscard={navigationGuard.confirmNavigation}
+          title="放弃成员组修改？"
+          description="成员组名称或外部目录标识尚未保存。继续后，这些修改将丢失。"
+        />
       </PageScaffold>
     </AppFrame>
+  )
+}
+
+function GroupMemberRemoveAction({
+  userId,
+  removing,
+  disabled,
+  onRemove,
+}: Readonly<{
+  userId: string
+  removing: boolean
+  disabled: boolean
+  onRemove: (userId: string) => void
+}>) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 rounded-md text-destructive hover:bg-destructive/10 hover:text-destructive"
+          disabled={disabled || !userId || removing}
+          aria-label={removing ? `正在移除成员 ${userId}` : `移除成员 ${userId}`}
+          title="移除成员"
+        >
+          {removing ? (
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+          ) : (
+            <Trash2 className="size-4" />
+          )}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>移除成员？</AlertDialogTitle>
+          <AlertDialogDescription>
+            将把 <span className="font-mono">{userId}</span> 从当前成员组移除。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => onRemove(userId)}
+            disabled={removing}
+          >
+            {removing ? '移除中…' : '确认移除'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
