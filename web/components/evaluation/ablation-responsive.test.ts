@@ -134,4 +134,27 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toContain('rounded-lg')
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
   })
+
+  it('检索调参页使用扁平布局并在窄屏顺序排列', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'retrieval-ablations-page.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('grid min-h-0 grid-cols-1 gap-4')
+    expect(source).toContain('xl:grid-cols-[320px_minmax(0,1fr)]')
+    expect(source).toContain('2xl:grid-cols-[320px_minmax(0,1fr)_320px]')
+    expect(source).toContain('显示参数配置')
+    expect(source).toContain('显示评测排行')
+    expect(source).toContain('标准样本')
+    expect(source).not.toContain('h-[111.111%]')
+    expect(source).not.toContain('scale-[0.9]')
+    expect(source).not.toContain('grid-cols-[390px_minmax(0,1fr)_360px]')
+    expect(source).not.toContain('ablation-empty-illustration')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl|full)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+    expect(source).not.toContain('Golden/Regression')
+    expect(source).not.toContain('reranker ON/OFF')
+  })
 })

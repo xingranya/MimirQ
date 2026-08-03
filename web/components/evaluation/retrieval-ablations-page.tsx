@@ -374,11 +374,11 @@ async function submitAblationRun(
 
   try {
     const run = await evaluationApi.createRegressionRun(payload)
-    toast.success('已创建实验运行')
+    toast.success('评测任务已创建')
     await refetchRuns()
     selectTargetRun(run.id)
   } catch (err) {
-    toast.error(formatApiError(err, '创建实验运行失败'))
+    toast.error(formatApiError(err, '创建评测任务失败'))
   }
 }
 
@@ -404,9 +404,9 @@ async function submitAblationBatch(
       selectTargetRun(batch.run_ids[0])
     }
     await refetchRuns()
-    toast.success(`已提交 ${batch.total} 个消融实验运行`)
+    toast.success(`已提交 ${batch.total} 个参数评测任务`)
   } catch (err) {
-    const message = formatApiError(err, '批量创建消融实验运行失败')
+    const message = formatApiError(err, '批量创建参数评测任务失败')
     toast.error(message)
     throw new Error(message)
   }
@@ -419,11 +419,11 @@ function getComparableRunIds(
   const baseId = String(selectedBaseRunId || '').trim()
   const targetId = String(selectedTargetRunId || '').trim()
   if (!baseId || !targetId) {
-    toast.error('请选择基线与候选')
+    toast.error('请选择基准记录和目标记录')
     return null
   }
   if (baseId === targetId) {
-    toast.error('基线与候选不能相同')
+    toast.error('基准记录和目标记录不能相同')
     return null
   }
   return { baseId, targetId }
@@ -511,15 +511,15 @@ function AblationInfoTooltip({
           <button
             type="button"
             aria-label={label}
-            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-info/10 hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            <Info className="size-4" aria-hidden="true" />
           </button>
         </TooltipTrigger>
         <TooltipContent
           side={side}
           align="center"
-          className="max-w-[280px] text-[11px] leading-5"
+          className="max-w-[280px] text-xs leading-5"
         >
           {children}
         </TooltipContent>
@@ -571,27 +571,15 @@ function ablationWorkspaceGridClassName(
   leaderboardExpanded: boolean
 ): string {
   if (leftExpanded && leaderboardExpanded) {
-    return cn(
-      'relative grid h-full min-h-[760px] gap-4',
-      'grid-cols-[390px_minmax(0,1fr)_360px]'
-    )
+    return 'grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)] 2xl:h-full 2xl:min-h-[720px] 2xl:grid-cols-[320px_minmax(0,1fr)_320px]'
   }
   if (leftExpanded === false && leaderboardExpanded) {
-    return cn(
-      'relative grid h-full min-h-[760px] gap-4',
-      'grid-cols-[minmax(0,1fr)_360px]'
-    )
+    return 'grid min-h-0 grid-cols-1 gap-4 xl:h-full xl:min-h-[720px] xl:grid-cols-[minmax(0,1fr)_320px]'
   }
   if (leftExpanded && leaderboardExpanded === false) {
-    return cn(
-      'relative grid h-full min-h-[760px] gap-4',
-      'grid-cols-[390px_minmax(0,1fr)]'
-    )
+    return 'grid min-h-0 grid-cols-1 gap-4 xl:h-full xl:min-h-[720px] xl:grid-cols-[320px_minmax(0,1fr)]'
   }
-  return cn(
-    'relative grid h-full min-h-[760px] gap-4',
-    'grid-cols-[minmax(0,1fr)]'
-  )
+  return 'grid min-h-0 grid-cols-1 gap-4 xl:h-full xl:min-h-[720px]'
 }
 
 function AblationInlineStat({
@@ -607,16 +595,13 @@ function AblationInlineStat({
 
   return (
     <div
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 shadow-[inset_0_1px_0_hsl(var(--background)/0.9)]',
-        toneClasses.surface
-      )}
+      className="inline-flex items-baseline gap-1.5 border-r border-border pr-2 last:border-r-0 last:pr-0"
     >
-      <span className={cn('text-[11px] tracking-[0.08em]', toneClasses.label)}>
+      <span className={cn('text-xs', toneClasses.label)}>
         {label}
       </span>
       <span
-        className={cn('font-mono text-[11px] tabular-nums', toneClasses.value)}
+        className={cn('font-mono text-xs tabular-nums', toneClasses.value)}
       >
         {value}
       </span>
@@ -644,17 +629,17 @@ function AblationSection({
   return (
     <section
       className={cn(
-        'border-b border-border/60 bg-card px-4 py-3 last:border-b-0',
+        'border-b border-border bg-card px-4 py-3 last:border-b-0',
         className
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-foreground">
+          <div className="text-sm font-semibold text-foreground">
             {title}
           </div>
           {!collapsed && description ? (
-            <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -664,7 +649,7 @@ function AblationSection({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            className="size-8 shrink-0 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? `展开${title}` : `收起${title}`}
           >
@@ -693,32 +678,32 @@ function AblationDatasetCard({
   const version = compactValue(pipeline.version ?? 'v1', 20)
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]">
+    <div className="rounded-md border border-border bg-muted/30 p-3">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Database className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="truncate text-[13px] font-semibold text-foreground">
+            <div className="truncate text-sm font-semibold text-foreground">
               {dataset?.name || '未选择数据集'}
             </div>
-            <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
-              {dataset ? '固定' : '待选择'}
+            <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {dataset ? '已选择' : '待选择'}
             </span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>ID: {shortId(dataset?.id)}</span>
             <span>版本: {version}</span>
           </div>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-2 text-xs">
+        <span className="text-muted-foreground">
           {datasetPermissionLabel(dataset?.permission)}
         </span>
-        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-          主指标 {leaderboardMetricLabel(metricKey)}
+        <span className="font-medium text-primary">
+          参考指标：{leaderboardMetricLabel(metricKey)}
         </span>
       </div>
     </div>
@@ -727,30 +712,16 @@ function AblationDatasetCard({
 
 function AblationLeaderboardEmptyState() {
   return (
-    <div className="flex min-h-[530px] flex-col items-center justify-center px-8 text-center">
-      <div className="ablation-empty-illustration relative h-40 w-56">
-        <div className="absolute left-4 top-10 h-24 w-36 -rotate-6 rounded-2xl border border-primary/20 bg-card shadow-[0_16px_42px_hsl(var(--primary)/0.12)]" />
-        <div className="absolute left-11 top-16 h-2 w-20 rounded-full bg-border/70" />
-        <div className="absolute left-11 top-[108px] h-2 w-14 rounded-full bg-muted" />
-        <div className="absolute left-24 top-24 h-8 w-3 rounded bg-primary/30" />
-        <div className="absolute left-32 top-[72px] h-14 w-3 rounded bg-primary" />
-        <div className="absolute left-40 top-12 h-20 w-3 rounded bg-primary" />
-        <div className="absolute bottom-8 left-12 h-8 w-12 rounded bg-border/70 shadow-sm" />
-        <div className="absolute bottom-8 left-24 h-14 w-12 rounded bg-primary shadow-[0_14px_30px_hsl(var(--primary)/0.22)]" />
-        <div className="absolute bottom-8 left-36 h-10 w-12 rounded bg-border/70 shadow-sm" />
-        <div className="absolute right-9 top-11 flex h-20 w-20 items-center justify-center rounded-full bg-warning text-warning-foreground shadow-[0_18px_44px_hsl(var(--warning)/0.32)]">
-          <Trophy className="h-10 w-10 fill-current opacity-70" aria-hidden="true" />
-        </div>
+    <div className="flex min-h-72 flex-col items-center justify-center px-6 py-10 text-center">
+      <div className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <Trophy className="size-5" aria-hidden="true" />
       </div>
-      <div className="mt-2 text-[16px] font-semibold text-foreground">
+      <div className="mt-4 text-base font-semibold text-foreground">
         暂无排行数据
       </div>
-      <p className="mt-2 max-w-[260px] text-[13px] leading-6 text-muted-foreground">
-        固定数据集后运行一次排行统计，这里会显示每条运行记录的主指标与配置得分。
+      <p className="mt-2 max-w-[280px] text-sm leading-6 text-muted-foreground">
+        选择数据集并完成评测后，这里会按参考指标排列运行结果。
       </p>
-      <div className="mt-7 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-[12px] text-primary">
-        排行榜数据将在固定数据集运行后自动生成
-      </div>
     </div>
   )
 }
@@ -778,93 +749,71 @@ function AblationDiffEmptyState({
   const title = !hasDataset
     ? '先选择数据集'
     : !hasCases
-      ? '当前数据集还没有 Golden 样本'
+      ? '当前数据集还没有标准样本'
       : !runCount
-        ? '已有 Golden 样本，但还没有实验运行'
+        ? '已有标准样本，等待首次评测'
         : !hasComparableRuns
-          ? '已有 Golden 样本，但还差 1 条实验运行'
+          ? '再完成一次评测即可对比'
           : '等待生成差异对比'
   const description = !hasDataset
-    ? '先固定一个数据集，这里才能加载可对比的运行记录。'
+    ? '选择本次要验证的数据集后，系统会加载对应的评测记录。'
     : !hasCases
-      ? '这个页面不是用来创建 Golden 样本的。请先回“评测中心”准备标准问题、标准答案和标准证据。'
+      ? '请先在评测中心准备标准问题、答案和引用证据。'
       : !runCount
-        ? `当前数据集已经有 ${caseCount} 条 Golden/Regression 样本，但还没有实验运行。先点击左下角“运行消融实验”跑出第一条基线记录。`
+        ? `当前有 ${caseCount} 条标准样本。使用现有参数完成首次评测，作为后续比较的基准。`
         : !hasComparableRuns
-          ? `当前数据集已经有 ${caseCount} 条 Golden/Regression 样本，也已经跑出 1 条实验记录。差异对比至少需要 2 条：先保留这条作为基线，再改一个参数跑第二条候选。`
-          : '请先选择基线运行与候选运行，然后点击“生成差异对比”。系统将对两次运行进行结构化对比，展示差异与影响分析。'
+          ? `当前有 ${caseCount} 条标准样本和 1 条评测记录。调整一个参数再运行一次，即可查看变化。`
+          : '选择基准记录和目标记录，然后生成对比。'
   const steps = !hasDataset
     ? [
         { label: '选择数据集', hint: '固定本次要比较的知识库数据集。' },
-        { label: '确认 Golden 样本', hint: '确保该数据集已有标准问题、标准答案和标准证据。' },
+        { label: '确认标准样本', hint: '确保数据集已有标准问题、答案和引用证据。' },
         { label: '进入对比', hint: '完成后这里才会出现可比较的实验记录。' },
       ]
     : !hasCases
       ? [
-          { label: '返回评测中心', hint: '去 Golden 回归评测页维护样本。' },
-          { label: '准备 Golden 样本', hint: '至少要有标准问题、标准答案和标准证据。' },
+          { label: '返回评测中心', hint: '在回归评测页维护标准样本。' },
+          { label: '准备标准样本', hint: '至少需要标准问题、答案和引用证据。' },
           { label: '再回到这里', hint: '有了样本后再运行检索调参对比。' },
         ]
       : !runCount
         ? [
-            { label: '保留当前参数', hint: '先用你认为最稳定的一套检索参数跑第一条基线。' },
-            { label: '运行消融实验', hint: '点击左下角“运行消融实验”生成第一条记录。' },
-            { label: '再改一个参数', hint: '例如 top_k、检索模式或 reranker，准备第二次运行。' },
+            { label: '保留当前参数', hint: '先用稳定的检索参数完成基准评测。' },
+            { label: '运行参数评测', hint: '点击参数区底部按钮生成第一条记录。' },
+            { label: '再改一个参数', hint: '例如召回数量、检索模式或重排器。' },
           ]
         : !hasComparableRuns
           ? [
-              { label: '把现有记录当基线', hint: '当前这 1 条实验记录先作为稳定方案。' },
-              { label: '只改一个参数', hint: '例如 top_k、reranker 开关或 score threshold。' },
-              { label: '再运行一次', hint: '生成第 2 条候选记录后，这里才能比较差异。' },
+              { label: '把现有记录设为基准', hint: '将当前记录作为稳定方案。' },
+              { label: '只改一个参数', hint: '例如召回数量、重排器开关或分数阈值。' },
+              { label: '再运行一次', hint: '生成第二条目标记录后即可比较。' },
             ]
           : [
-              { label: '选择基线运行', hint: '选择作为基准的实验运行结果。' },
-              { label: '选择候选运行', hint: '选择需要对比的实验运行结果。' },
+              { label: '选择基准记录', hint: '选择稳定方案的评测结果。' },
+              { label: '选择目标记录', hint: '选择本次要验证的评测结果。' },
               { label: '生成差异对比', hint: '点击“生成差异对比”查看配置差异与指标变化。' },
             ]
 
   return (
-    <div className="flex min-h-[530px] flex-col items-center justify-center px-6 py-8 text-center">
-      <div className="ablation-empty-illustration relative h-36 w-[360px]">
-        <div className="absolute left-10 top-8 h-20 w-32 rounded-xl border border-primary/20 bg-card shadow-[0_16px_42px_hsl(var(--primary)/0.10)]">
-          <div className="border-b border-primary/15 px-3 py-2 text-left text-[10px] font-semibold text-primary">
-            基线
-          </div>
-          <div className="space-y-2 px-3 py-3">
-            <div className="h-2 rounded bg-muted" />
-            <div className="h-2 w-20 rounded bg-muted" />
-          </div>
-        </div>
-        <div className="absolute right-10 top-8 h-20 w-32 rounded-xl border border-success/20 bg-success/5 shadow-[0_16px_42px_hsl(var(--success)/0.10)]">
-          <div className="border-b border-success/20 px-3 py-2 text-left text-[10px] font-semibold text-success">
-            候选
-          </div>
-          <div className="space-y-2 px-3 py-3">
-            <div className="h-2 rounded bg-muted" />
-            <div className="h-2 w-20 rounded bg-muted" />
-          </div>
-        </div>
-        <div className="absolute left-1/2 top-12 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-card text-primary shadow-[0_16px_42px_hsl(var(--primary)/0.16)] ring-1 ring-primary/20">
-          <GitCompare className="h-7 w-7" aria-hidden="true" />
-        </div>
-        <div className="absolute left-[88px] top-3 h-8 w-[184px] rounded-t-2xl border-x border-t border-dashed border-success/40" />
+    <div className="flex min-h-[420px] flex-col items-center justify-center px-4 py-10 text-center sm:px-6">
+      <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <GitCompare className="size-5" aria-hidden="true" />
       </div>
-      <div className="mt-3 text-[16px] font-semibold text-foreground">
+      <div className="mt-4 text-base font-semibold text-foreground">
         {title}
       </div>
-      <p className="mt-2 max-w-[430px] text-[13px] leading-6 text-muted-foreground">
+      <p className="mt-2 max-w-[430px] text-sm leading-6 text-muted-foreground">
         {description}
       </p>
-      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[11px] font-medium text-primary">
-        <span>Golden 样本 {caseCount}</span>
-        <span className="h-3 w-px bg-primary/20" />
-        <span>实验运行 {runCount}</span>
+      <div className="mt-4 grid w-full max-w-[320px] grid-cols-2 divide-x divide-border border-y border-border py-3 text-xs">
+        <span>标准样本 {caseCount}</span>
+        <span>评测记录 {runCount}</span>
       </div>
       {autoRunLabel && onAutoRun ? (
         <div className="mt-4 flex max-w-[430px] flex-col items-center">
           <Button
             type="button"
-            className="h-10 rounded-full bg-info px-5 text-[13px] font-semibold text-primary-foreground hover:bg-info/90"
+            className="h-10 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             disabled={autoRunPending}
             onClick={onAutoRun}
           >
@@ -872,26 +821,26 @@ function AblationDiffEmptyState({
             {autoRunPending ? '正在自动补齐...' : autoRunLabel}
           </Button>
           {autoRunHelper ? (
-            <div className="mt-2 text-[11px] leading-5 text-info">
+            <div className="mt-2 text-xs leading-5 text-primary">
               {autoRunHelper}
             </div>
           ) : null}
         </div>
       ) : null}
-      <div className="mt-7 w-full max-w-[390px] rounded-2xl border border-dashed border-primary/30 bg-card/85 p-4 text-left">
+      <div className="mt-6 w-full max-w-[430px] divide-y divide-border border-y border-border text-left">
         {steps.map((step, index) => (
           <div
             key={step.label}
-            className="flex gap-3 py-2 first:pt-0 last:pb-0"
+            className="flex gap-3 py-3"
           >
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+            <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
               {index + 1}
             </span>
             <span>
-              <span className="block text-[13px] font-semibold text-foreground">
+              <span className="block text-sm font-semibold text-foreground">
                 {step.label}
               </span>
-              <span className="mt-0.5 block text-[12px] text-muted-foreground">
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                 {step.hint}
               </span>
             </span>
@@ -980,7 +929,7 @@ function JsonCodeLine({
   const tokens = useMemo(() => tokenizeJsonLine(text), [text])
 
   return (
-    <div className="grid grid-cols-[52px_minmax(0,1fr)] border-b border-border/60 text-[12px] leading-6">
+    <div className="grid grid-cols-[52px_minmax(0,1fr)] border-b border-border text-xs leading-6">
       <div className="select-none border-r border-border/70 px-3 text-right font-mono tabular-nums text-muted-foreground">
         {lineNumber}
       </div>
@@ -1004,7 +953,7 @@ function JsonCodeViewer({ code }: Readonly<{ code: string }>) {
   const lines = useMemo(() => splitCodeLines(code), [code])
 
   return (
-    <div className="h-full min-h-0 overflow-auto bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.35)_40%,hsl(var(--background))_100%)]">
+    <div className="h-full min-h-0 overflow-auto bg-background">
       <div className="min-w-max">
         {lines.map((line, index) => (
           <JsonCodeLine
@@ -1041,7 +990,7 @@ function AblationMetricDeltaCell({
   return (
     <div
       className={cn(
-        'text-right font-mono text-[11px]',
+        'text-right font-mono text-xs',
         ablationDeltaClass(delta)
       )}
     >
@@ -1091,31 +1040,31 @@ function AblationOverviewTab({
 
   return (
     <div className="px-5 py-3">
-      <div className="overflow-hidden border border-border/70">
-        <div className="grid border-b border-border/70 sm:grid-cols-3">
+      <div className="overflow-x-auto border border-border">
+        <div className="grid border-b border-border sm:grid-cols-3">
           <div className="bg-card px-3 py-2.5 sm:border-r sm:border-border/70">
-            <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
-              基线得分
+            <div className="text-xs text-muted-foreground">
+              基准得分
             </div>
-            <div className="mt-1 font-mono text-[13px] font-semibold text-foreground">
+            <div className="mt-1 font-mono text-sm font-semibold text-foreground">
               {diffScoreFmt.base}
             </div>
           </div>
           <div className="bg-card px-3 py-2.5 sm:border-r sm:border-border/70">
-            <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
-              候选得分
+            <div className="text-xs text-muted-foreground">
+              目标得分
             </div>
-            <div className="mt-1 font-mono text-[13px] font-semibold text-foreground">
+            <div className="mt-1 font-mono text-sm font-semibold text-foreground">
               {diffScoreFmt.target}
             </div>
           </div>
           <div className="bg-card px-3 py-2.5">
-            <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               指标变化
             </div>
             <div
               className={cn(
-                'mt-1 font-mono text-[13px] font-semibold',
+                'mt-1 font-mono text-sm font-semibold',
                 diffDeltaClass
               )}
             >
@@ -1124,25 +1073,25 @@ function AblationOverviewTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-[minmax(120px,1fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)] border-b border-border/70 bg-card px-3 py-2 text-[11px] tracking-[0.08em] text-muted-foreground">
+        <div className="grid min-w-[520px] grid-cols-[minmax(120px,1fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)] border-b border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <div>指标</div>
-          <div className="text-right">基线</div>
-          <div className="text-right">候选</div>
+          <div className="text-right">基准</div>
+          <div className="text-right">目标</div>
           <div className="text-right">变化</div>
         </div>
         {metricDiffRows.length ? (
           metricDiffRows.map((row) => (
             <div
               key={row.key}
-              className="grid grid-cols-[minmax(120px,1fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)] border-b border-border/60 px-3 py-2 text-xs last:border-b-0"
+              className="grid min-w-[520px] grid-cols-[minmax(120px,1fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)_minmax(88px,0.8fr)] border-b border-border px-3 py-2 text-xs last:border-b-0"
             >
-              <div className="truncate font-mono text-[11px] text-foreground">
+              <div className="truncate font-mono text-xs text-foreground">
                 {row.key}
               </div>
-              <div className="text-right font-mono text-[11px] text-muted-foreground">
+              <div className="text-right font-mono text-xs text-muted-foreground">
                 {compactValue(row.before, 24)}
               </div>
-              <div className="text-right font-mono text-[11px] text-muted-foreground">
+              <div className="text-right font-mono text-xs text-muted-foreground">
                 {compactValue(row.after, 24)}
               </div>
               <AblationMetricDeltaCell value={row.delta} />
@@ -1167,39 +1116,39 @@ function AblationConfigTab({
 }>) {
   if (!diff) {
     return (
-      <div className="px-5 py-10 text-center text-[12px] text-muted-foreground">
+      <div className="px-5 py-10 text-center text-xs text-muted-foreground">
         生成差异对比后可查看参数差异。
       </div>
     )
   }
 
   return (
-    <div className="mx-5 my-3 overflow-hidden border border-border/70">
-      <div className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)] border-b border-border/70 bg-card px-3 py-2 text-[11px] tracking-[0.08em] text-muted-foreground">
+    <div className="mx-5 my-3 overflow-x-auto border border-border">
+      <div className="grid min-w-[520px] grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)] border-b border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         <div>参数</div>
-        <div>基线</div>
-        <div>候选</div>
+        <div>基准</div>
+        <div>目标</div>
       </div>
       {paramDiffRows.length ? (
         paramDiffRows.map((row) => (
           <div
             key={row.key}
-            className="grid grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)] border-b border-border/60 bg-card px-3 py-2 text-xs last:border-b-0"
+            className="grid min-w-[520px] grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)] border-b border-border bg-card px-3 py-2 text-xs last:border-b-0"
           >
             <div
               className={cn(
-                'truncate font-mono text-[11px]',
+                'truncate font-mono text-xs',
                 row.changed ? 'font-semibold text-foreground' : 'text-foreground'
               )}
             >
               {row.key}
             </div>
-            <div className="truncate font-mono text-[11px] text-muted-foreground">
+            <div className="truncate font-mono text-xs text-muted-foreground">
               {row.before}
             </div>
             <div
               className={cn(
-                'truncate font-mono text-[11px]',
+                'truncate font-mono text-xs',
                 row.changed ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
@@ -1281,7 +1230,7 @@ function AblationRawTab({ diffJson }: Readonly<{ diffJson: string }>) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between border-b border-border/70 px-5 py-2.5">
-        <div className="text-[11px] tracking-[0.12em] text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           对比数据
         </div>
         <Database className="h-4 w-4 text-primary" />
@@ -1292,9 +1241,6 @@ function AblationRawTab({ diffJson }: Readonly<{ diffJson: string }>) {
 }
 
 function AblationComparisonWorkspace({
-  leaderboardCollapsed,
-  leftSidebarCollapsed,
-  setLeaderboardCollapsed,
   runsSelectionHint,
   diffDeltaClass,
   diffDeltaValue,
@@ -1329,9 +1275,6 @@ function AblationComparisonWorkspace({
   autoBootstrapPending,
   runAutoBootstrap,
 }: Readonly<{
-  leaderboardCollapsed: boolean
-  leftSidebarCollapsed: boolean
-  setLeaderboardCollapsed: (value: boolean) => void
   runsSelectionHint: string
   diffDeltaClass: string
   diffDeltaValue: string
@@ -1369,40 +1312,26 @@ function AblationComparisonWorkspace({
   autoBootstrapPending: boolean
   runAutoBootstrap: () => Promise<void>
 }>) {
-  const basePlaceholder = runsLoading ? '加载中...' : '选择基线运行'
-  const targetPlaceholder = runsLoading ? '加载中...' : '选择候选运行'
+  const basePlaceholder = runsLoading ? '加载中...' : '选择基准记录'
+  const targetPlaceholder = runsLoading ? '加载中...' : '选择目标记录'
   const baseRunLabel = selectedBaseRun?.id ? String(selectedBaseRun.id) : ''
   const targetRunLabel = selectedTargetRun?.id
     ? String(selectedTargetRun.id)
     : ''
 
   return (
-    <section className="relative order-2 min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]">
-      {leaderboardCollapsed ? (
-        <button
-          type="button"
-          className={cn(
-            'focus-ring absolute right-0 z-20 translate-x-1/2 rounded-full border border-border/70 bg-card p-1 text-muted-foreground shadow-sm transition-colors hover:bg-muted/50 hover:text-foreground',
-            leftSidebarCollapsed ? 'top-12' : 'top-3'
-          )}
-          onClick={() => setLeaderboardCollapsed(false)}
-          aria-label="展开排行榜"
-          title="展开排行榜"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      ) : null}
+    <section className="order-2 min-w-0 overflow-hidden rounded-md border border-border bg-card">
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
           <div className="flex min-w-0 items-center gap-1.5">
-            <div className="truncate text-[15px] font-semibold text-foreground">
-              差异对比工作区
+            <div className="truncate text-base font-semibold text-foreground">
+              运行对比
             </div>
             <AblationInfoTooltip label="查看运行记录选择说明" side="bottom">
               {runsSelectionHint}
             </AblationInfoTooltip>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-xs">
             <span className="text-muted-foreground">指标变化</span>
             <span
               className={cn('font-mono font-semibold', diffDeltaClass)}
@@ -1413,15 +1342,15 @@ function AblationComparisonWorkspace({
         </div>
 
         <div className="border-b border-border bg-card px-4 py-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-[12px] text-muted-foreground">选择基线运行</Label>
+              <Label className="text-xs text-muted-foreground">选择基准记录</Label>
               <Select
                 value={selectedBaseRunId}
                 onValueChange={setSelectedBaseRunId}
                 disabled={runsSelectDisabled}
               >
-                <SelectTrigger className="h-10 rounded-xl border-border bg-card text-[13px]">
+                <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm">
                   <SelectValue placeholder={basePlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1434,13 +1363,13 @@ function AblationComparisonWorkspace({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px] text-muted-foreground">选择候选运行</Label>
+              <Label className="text-xs text-muted-foreground">选择目标记录</Label>
               <Select
                 value={selectedTargetRunId}
                 onValueChange={setSelectedTargetRunId}
                 disabled={runsSelectDisabled}
               >
-                <SelectTrigger className="h-10 rounded-xl border-border bg-card text-[13px]">
+                <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm">
                   <SelectValue placeholder={targetPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1454,15 +1383,15 @@ function AblationComparisonWorkspace({
             </div>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <AblationInlineStat
-                label="基线"
+                label="基准"
                 value={shortId(baseRunLabel)}
                 tone="sky"
               />
               <AblationInlineStat
-                label="候选"
+                label="目标"
                 value={shortId(targetRunLabel)}
                 tone="neutral"
               />
@@ -1472,9 +1401,9 @@ function AblationComparisonWorkspace({
                 tone={diffDeltaTone}
               />
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                className="h-9 gap-1.5 rounded-xl bg-info px-4 text-[13px] text-primary-foreground shadow-[0_10px_24px_hsl(var(--info)/0.22)] hover:bg-info/90"
+                className="h-9 gap-1.5 rounded-md bg-primary px-4 text-sm text-primary-foreground hover:bg-primary/90"
                 disabled={diffLoading || !canGenerateDiff}
                 onClick={() => detachPromise(computeDiff())}
               >
@@ -1485,7 +1414,7 @@ function AblationComparisonWorkspace({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-9 gap-1.5 rounded-xl border-border bg-card px-3 text-[13px] text-foreground hover:bg-muted/50"
+                    className="h-9 gap-1.5 rounded-md border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
                   >
                     导出
                     <MoreHorizontal className="h-3.5 w-3.5" />
@@ -1500,7 +1429,7 @@ function AblationComparisonWorkspace({
                       )
                     }
                   >
-                    导出基线
+                    导出基准记录
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={!selectedTargetRunId}
@@ -1513,7 +1442,7 @@ function AblationComparisonWorkspace({
                       )
                     }
                   >
-                    导出候选
+                    导出目标记录
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={!diff}
@@ -1539,29 +1468,29 @@ function AblationComparisonWorkspace({
         </div>
 
         <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
-          <div className="border-b border-border px-4">
-            <TabsList className="h-10 justify-start gap-5 rounded-none border-none bg-transparent p-0">
+          <div className="overflow-x-auto border-b border-border px-4">
+            <TabsList className="h-10 min-w-max justify-start gap-5 rounded-none border-none bg-transparent p-0">
               <TabsTrigger
                 value="overview"
-                className="h-10 rounded-none border-b-2 border-transparent px-0 text-[13px] data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="h-10 rounded-none border-b-2 border-transparent px-0 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 概览
               </TabsTrigger>
               <TabsTrigger
                 value="config"
-                className="h-10 rounded-none border-b-2 border-transparent px-0 text-[13px] data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="h-10 rounded-none border-b-2 border-transparent px-0 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 配置差异
               </TabsTrigger>
               <TabsTrigger
                 value="deep-dive"
-                className="h-10 rounded-none border-b-2 border-transparent px-0 text-[13px] data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="h-10 rounded-none border-b-2 border-transparent px-0 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 深度分析
               </TabsTrigger>
               <TabsTrigger
                 value="raw"
-                className="h-10 rounded-none border-b-2 border-transparent px-0 text-[13px] data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="h-10 rounded-none border-b-2 border-transparent px-0 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 原始数据
               </TabsTrigger>
@@ -1596,7 +1525,7 @@ function AblationComparisonWorkspace({
 
           <TabsContent
             value="deep-dive"
-            className="mt-0 min-h-0 flex-1 overflow-auto bg-muted/40"
+            className="mt-0 min-h-0 flex-1 overflow-auto bg-background"
           >
             <AblationDeepDiveTab
               datasetId={datasetId}
@@ -1737,7 +1666,7 @@ export function RetrievalAblationsPage() {
   }, [settingsDefaultsApplied, settingsSnapshot])
   const diff = diffQuery.data ?? null
   const diffJson = useMemo(
-    () => prettyJson(diff ?? { hint: '选择基线/候选运行并生成差异对比' }),
+    () => prettyJson(diff ?? { hint: '选择基准记录和目标记录后生成对比' }),
     [diff]
   )
   const diffScore = diff?.diff_score ?? null
@@ -1782,21 +1711,21 @@ export function RetrievalAblationsPage() {
   const runDisabledReason = !datasetId.trim()
     ? '请选择数据集'
     : selectedDatasetCasesLoading
-      ? '正在确认 Golden/Regression 样本数'
+      ? '正在确认标准样本数量'
       : selectedDatasetCasesQuery.error
-        ? '无法确认 Golden/Regression 样本数，请刷新后重试'
+        ? '无法确认标准样本数量，请刷新后重试'
         : selectedDatasetHasNoCases
-          ? '当前数据集没有 Golden/Regression 样本，请先在评测页导入或生成样本'
+          ? '当前数据集没有标准样本，请先在评测中心导入或生成样本'
           : ''
   const selectedDatasetCasesStatusText = !datasetId.trim()
-    ? '请先选择数据集，再运行检索消融。'
+    ? '请先选择数据集，再运行参数评测。'
     : selectedDatasetCasesLoading
-      ? '正在确认当前数据集的 Golden/Regression 样本数...'
+      ? '正在确认当前数据集的标准样本数量...'
       : selectedDatasetCasesQuery.error
-        ? '无法读取当前数据集的 Golden/Regression 样本数，请刷新后重试。'
+        ? '无法读取当前数据集的标准样本数量，请刷新后重试。'
         : selectedDatasetHasNoCases
-          ? '当前数据集没有 Golden/Regression 样本，运行消融会直接失败；请先在评测页导入或生成样本。'
-          : `Golden/Regression 样本 ${selectedDatasetCaseCount} 条，可运行检索消融。`
+          ? '当前数据集没有标准样本。请先在评测中心导入或生成样本。'
+          : `已有 ${selectedDatasetCaseCount} 条标准样本，可以开始参数评测。`
 
   const runsByDataset = useMemo(() => {
     const ds = datasetId.trim()
@@ -1828,7 +1757,7 @@ export function RetrievalAblationsPage() {
 
   useEffect(() => {
     if (!leaderboardQuery.error) return
-    toast.error(formatApiError(leaderboardQuery.error, '拉取实验排行失败'))
+    toast.error(formatApiError(leaderboardQuery.error, '加载评测排行失败'))
   }, [leaderboardQuery.error])
 
   useEffect(() => {
@@ -1924,7 +1853,7 @@ export function RetrievalAblationsPage() {
           if (batch.run_ids[0]) setSelectedBaseRunId(String(batch.run_ids[0]))
           if (batch.run_ids[1]) setSelectedTargetRunId(String(batch.run_ids[1]))
           toast.success(
-            `已自动生成第 1 轮对比：top_k ${baselineTopK} vs ${candidateTopK}`
+            `已生成第一轮对比：召回数量 ${baselineTopK} 与 ${candidateTopK}`
           )
           return
         }
@@ -1940,7 +1869,7 @@ export function RetrievalAblationsPage() {
         await runsQuery.refetch()
         if (baselineRun?.id) setSelectedBaseRunId(String(baselineRun.id))
         setSelectedTargetRunId(run.id)
-        toast.success(`已自动补齐第 1 轮对比：top_k ${candidateTopK}`)
+        toast.success(`已补齐第一轮对比：召回数量 ${candidateTopK}`)
         return
       }
 
@@ -1967,7 +1896,7 @@ export function RetrievalAblationsPage() {
         if (baselineRun?.id) setSelectedBaseRunId(String(baselineRun.id))
         setSelectedTargetRunId(run.id)
         toast.success(
-          `已自动生成第 2 轮对比：reranker ${nextEnableReranker ? 'ON' : 'OFF'}`
+          `已生成第二轮对比：${nextEnableReranker ? '启用' : '关闭'}重排器`
         )
         return
       }
@@ -1997,10 +1926,10 @@ export function RetrievalAblationsPage() {
       if (baselineRun?.id) setSelectedBaseRunId(String(baselineRun.id))
       setSelectedTargetRunId(run.id)
       toast.success(
-        `已自动生成第 3 轮对比：${nextRetrievalMode === 'hybrid' ? 'hybrid' : 'vector'}`
+        `已生成第三轮对比：${nextRetrievalMode === 'hybrid' ? '混合检索' : '向量检索'}`
       )
     } catch (err) {
-      toast.error(formatApiError(err, '自动补齐基线/候选失败'))
+      toast.error(formatApiError(err, '自动补齐对比记录失败'))
     } finally {
       setAutoBootstrapPending(false)
     }
@@ -2084,7 +2013,7 @@ export function RetrievalAblationsPage() {
           runsByDataset.length === 0
             ? '自动生成第 1 轮对比'
             : '自动补齐第 1 轮对比',
-        helper: `系统会先比较 top_k：${clampNumber(topK, 1, 50)} vs ${candidateTopK}。`,
+        helper: `先比较召回数量 ${clampNumber(topK, 1, 50)} 与 ${candidateTopK}。`,
       }
     }
 
@@ -2097,7 +2026,7 @@ export function RetrievalAblationsPage() {
       return {
         stage: 'reranker',
         label: '自动生成第 2 轮对比',
-        helper: '系统会在保持其他参数基本不变时，补一组 reranker ON/OFF 对比。',
+        helper: '保持其他参数不变，比较启用和关闭重排器的结果。',
       }
     }
 
@@ -2110,7 +2039,7 @@ export function RetrievalAblationsPage() {
       return {
         stage: 'retrieval_mode',
         label: '自动生成第 3 轮对比',
-        helper: '系统会补一组 hybrid vs vector 对比，帮你看检索模式切换的影响。',
+        helper: '比较混合检索和向量检索，查看检索模式带来的变化。',
       }
     }
 
@@ -2122,12 +2051,12 @@ export function RetrievalAblationsPage() {
     if (!datasetId.trim()) return '先选择数据集，再加载可对比的运行记录。'
     if (runsLoading) return '正在加载当前数据集的运行记录...'
     if (runsByDataset.length === 0) {
-      return '当前数据集暂无可对比的运行记录。先运行消融实验；至少累计 2 条运行记录后才能生成差异对比。'
+      return '当前数据集暂无评测记录。至少完成两次参数评测后才能生成对比。'
     }
     if (runsByDataset.length === 1) {
-      return '当前数据集只有 1 条运行记录。差异对比需要基线与候选两条不同运行。'
+      return '当前只有一条评测记录。再完成一次评测后即可比较。'
     }
-    return '这里用于比较两次运行的配置、指标和逐样本差异；基线通常选择稳定版本，候选选择待验证版本。'
+    return '基准记录通常选择稳定方案，目标记录选择本次要验证的方案。'
   }, [datasetId, runsByDataset.length, runsLoading])
   const deepDiveMetricKeys = useMemo(
     () => LEADERBOARD_METRIC_OPTIONS.map((item) => item.key),
@@ -2159,24 +2088,22 @@ export function RetrievalAblationsPage() {
   )
 
   return (
-    <AppFrame showBackground={false} className="bg-muted/50">
-      <div className="flex h-[111.111%] w-[111.111%] origin-top-left scale-[0.9] flex-col bg-muted/50">
-        <header className="shrink-0 border-b border-border/60 bg-card/95 px-6 py-3.5">
+    <AppFrame showBackground={false} className="bg-background">
+      <div className="flex h-full min-h-0 flex-col bg-background">
+        <header className="shrink-0 border-b border-border bg-card px-4 py-3 sm:px-6">
           <PageHeader
             title="检索调参对比"
-            description="围绕同一数据集调召回参数、查看实验排行，并对基线与候选做结构化差异对比（也就是检索消融实验）。"
-            iconImage="retrieval-ablation"
+            description="比较同一数据集在不同检索参数下的评测结果。"
             icon={BarChart3}
-            iconColor="text-info"
-            badge="消融实验"
+            iconColor="text-primary"
             compact
             className="p-0"
           >
-              <div className="mr-14 flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   asChild
                   variant="outline"
-                  className="h-9 rounded-xl border-border bg-card px-3 text-[12px] text-foreground/85 hover:bg-muted/50 hover:text-foreground"
+                  className="h-9 rounded-md border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
                 >
                   <Link href="/evaluations">
                     <ChevronLeft className="mr-1.5 h-4 w-4" />
@@ -2186,8 +2113,8 @@ export function RetrievalAblationsPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="刷新消融实验数据"
-                  className="h-9 w-9 rounded-xl border-border bg-card text-primary hover:bg-primary/10"
+                  aria-label="刷新参数评测数据"
+                  className="size-9 rounded-md border-border bg-card text-primary hover:bg-primary/10"
                   disabled={datasetsLoading || runsLoading}
                   onClick={() => {
                     datasetsQuery.refetch()
@@ -2200,20 +2127,48 @@ export function RetrievalAblationsPage() {
           </PageHeader>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto p-4">
+        <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
+          {leftSidebarCollapsed || leaderboardCollapsed ? (
+            <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border pb-3">
+              {leftSidebarCollapsed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-md"
+                  onClick={() => setLeftSidebarCollapsed(false)}
+                >
+                  <ChevronRight className="mr-1.5 size-4" aria-hidden="true" />
+                  显示参数配置
+                </Button>
+              ) : null}
+              {leaderboardCollapsed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-md"
+                  onClick={() => setLeaderboardCollapsed(false)}
+                >
+                  <ChevronLeft className="mr-1.5 size-4" aria-hidden="true" />
+                  显示评测排行
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <div className={workspaceGridClassName}>
             {leftSidebarExpanded ? (
-              <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]">
+              <aside className="order-1 flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
                 <div className="shrink-0 border-b border-border bg-card px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-[15px] font-semibold text-foreground">
+                    <div className="text-base font-semibold text-foreground">
                       参数配置
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8 rounded-lg border border-border bg-card px-2.5 text-[12px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      className="h-8 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => setLeftSidebarCollapsed(true)}
                     >
                       收起
@@ -2222,15 +2177,15 @@ export function RetrievalAblationsPage() {
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain no-scrollbar">
                   <AblationSection
-                    title="实验基线"
-                    description="固定数据集与主指标，确认本轮消融实验的起点。"
+                    title="数据与指标"
+                    description="选择数据集和本轮评测使用的参考指标。"
                     className="bg-card"
                   >
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label
                           htmlFor="ablation-dataset"
-                          className="text-[12px] text-muted-foreground"
+                          className="text-xs text-muted-foreground"
                         >
                           当前数据集
                         </Label>
@@ -2241,7 +2196,7 @@ export function RetrievalAblationsPage() {
                         >
                           <SelectTrigger
                             id="ablation-dataset"
-                            className="h-10 rounded-xl border-border bg-card text-[13px] shadow-[0_1px_2px_hsl(var(--foreground)/0.04)]"
+                            className="h-10 rounded-md border-border bg-card text-sm"
                           >
                             <SelectValue
                               placeholder={
@@ -2265,7 +2220,7 @@ export function RetrievalAblationsPage() {
                       />
                       <div
                         className={cn(
-                          'flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-5',
+                          'flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-5',
                           selectedDatasetCasesUnavailable
                             ? 'border-warning/30 bg-warning/10 text-warning'
                             : 'border-success/30 bg-success/10 text-success'
@@ -2292,7 +2247,7 @@ export function RetrievalAblationsPage() {
                           <div className="text-sm font-medium text-foreground">
                             仅检索评测
                           </div>
-                          <div className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                          <div className="mt-1 text-xs leading-5 text-muted-foreground">
                             关闭生成质量指标，只保留召回率、平均倒数排名与归一化增益等检索指标。
                           </div>
                         </div>
@@ -2327,7 +2282,7 @@ export function RetrievalAblationsPage() {
                                 <span className="block text-sm font-medium text-foreground">
                                   {option.label}
                                 </span>
-                                <span className="block text-[11px] leading-5 text-muted-foreground">
+                                <span className="block text-xs leading-5 text-muted-foreground">
                                   {option.hint}
                                 </span>
                               </span>
@@ -2345,7 +2300,7 @@ export function RetrievalAblationsPage() {
                   >
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           样本上限
                         </Label>
                         <Input
@@ -2360,7 +2315,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           召回数量
                         </Label>
                         <Input
@@ -2373,7 +2328,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           检索模式
                         </Label>
                         <Select
@@ -2393,7 +2348,7 @@ export function RetrievalAblationsPage() {
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           分数阈值
                         </Label>
                         <Input
@@ -2409,7 +2364,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           混合权重
                         </Label>
                         <Input
@@ -2425,7 +2380,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           多样性系数
                         </Label>
                         <Input
@@ -2441,7 +2396,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           向量权重
                         </Label>
                         <Input
@@ -2457,7 +2412,7 @@ export function RetrievalAblationsPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                        <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                           关键词权重
                         </Label>
                         <Input
@@ -2492,7 +2447,7 @@ export function RetrievalAblationsPage() {
                           <span className="block text-sm font-medium text-foreground">
                             跳过空上下文样本
                           </span>
-                          <span className="block text-[11px] leading-5 text-muted-foreground">
+                          <span className="block text-xs leading-5 text-muted-foreground">
                             过滤掉没有引用上下文的样本，减少空样本对分数的扰动。
                           </span>
                         </span>
@@ -2509,7 +2464,7 @@ export function RetrievalAblationsPage() {
                           <span className="block text-sm font-medium text-foreground">
                             启用权重重排
                           </span>
-                          <span className="block text-[11px] leading-5 text-muted-foreground">
+                          <span className="block text-xs leading-5 text-muted-foreground">
                             对混合检索结果做二次权重整合，观察向量与关键词配比的影响。
                           </span>
                         </span>
@@ -2521,8 +2476,8 @@ export function RetrievalAblationsPage() {
                             <div className="text-sm font-medium text-foreground">
                               重排器
                             </div>
-                            <div className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                              默认跟随全局重排配置；本次实验可临时切换重排服务与候选数量。
+                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                              默认跟随系统设置；本次评测可临时切换重排服务和参与重排的结果数量。
                             </div>
                           </div>
                           <Switch
@@ -2532,7 +2487,7 @@ export function RetrievalAblationsPage() {
                         </div>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                            <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                               重排服务
                             </Label>
                             <Select
@@ -2550,12 +2505,12 @@ export function RetrievalAblationsPage() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <div className="text-[11px] leading-5 text-muted-foreground">
+                            <div className="text-xs leading-5 text-muted-foreground">
                               读取系统设置默认值，运行实验时可单独覆盖。
                             </div>
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                            <Label className="text-xs tracking-[0.08em] text-muted-foreground">
                               重排数量
                             </Label>
                             <Input
@@ -2575,12 +2530,12 @@ export function RetrievalAblationsPage() {
                   </AblationSection>
                 </div>
 
-                <div className="shrink-0 border-t border-info/20 bg-info/5 px-5 py-3.5 shadow-none">
-                  <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
-                    运行入口
+                <div className="shrink-0 border-t border-border bg-card px-4 py-3">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    开始评测
                   </div>
                   <Button
-                    className="mt-2 h-10 w-full gap-2 rounded-lg border border-info/30 bg-info/10 text-info shadow-[0_8px_18px_hsl(var(--info)/0.10)] transition-colors hover:border-info/40 hover:bg-info/15 hover:text-info"
+                    className="mt-2 h-10 w-full gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                     disabled={Boolean(runDisabledReason) || autoBootstrapPending}
                     onClick={() =>
                       detachPromise(
@@ -2591,14 +2546,14 @@ export function RetrievalAblationsPage() {
                     <PlayCircle className="h-4 w-4" />
                     {autoBootstrapPending
                       ? '正在自动补齐...'
-                      : autoRunLabel || '运行消融实验'}
+                      : autoRunLabel || '运行参数评测'}
                   </Button>
                   {runDisabledReason ? (
-                    <div className="mt-2 text-[11px] leading-5 text-warning">
+                    <div className="mt-2 text-xs leading-5 text-warning">
                       {runDisabledReason}
                     </div>
                   ) : autoRunLabel ? (
-                    <div className="mt-2 text-[11px] leading-5 text-info">
+                    <div className="mt-2 text-xs leading-5 text-primary">
                       {autoRunHelper}
                     </div>
                   ) : null}
@@ -2607,24 +2562,20 @@ export function RetrievalAblationsPage() {
             ) : null}
 
             <div className="contents">
-              {leftSidebarCollapsed ? (
-                <button
-                  type="button"
-                  className="focus-ring absolute left-0 top-3 z-20 -translate-x-1/2 rounded-full border border-border/70 bg-card p-1 text-muted-foreground shadow-sm transition-colors hover:bg-muted/50 hover:text-foreground"
-                  onClick={() => setLeftSidebarCollapsed(false)}
-                  aria-label="展开参数配置栏"
-                  title="展开参数配置栏"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              ) : null}
               {leaderboardExpanded ? (
-                <section className="order-3 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]">
+                <section
+                  className={cn(
+                    'order-3 flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card',
+                    leftSidebarExpanded
+                      ? 'xl:col-span-2 2xl:col-span-1'
+                      : 'xl:col-span-1'
+                  )}
+                >
                   <div className="flex h-full min-h-0 flex-col">
                     <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
                       <div className="min-w-0">
-                        <div className="truncate text-[15px] font-semibold text-foreground">
-                          实验排行
+                        <div className="truncate text-base font-semibold text-foreground">
+                          评测排行
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -2633,7 +2584,7 @@ export function RetrievalAblationsPage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-8 rounded-lg px-2.5 text-[12px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                          className="h-8 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           onClick={() => setLeaderboardCollapsed(true)}
                         >
                           收起
@@ -2645,14 +2596,14 @@ export function RetrievalAblationsPage() {
                       <div className="space-y-2">
                         <div className="flex items-end gap-2">
                           <div className="min-w-0 flex-1 space-y-1">
-                            <Label className="text-[12px] text-muted-foreground">
+                            <Label className="text-xs text-muted-foreground">
                               排行榜主指标
                             </Label>
                             <Select
                               value={leaderboardMetricKey}
                               onValueChange={setLeaderboardMetricKey}
                             >
-                              <SelectTrigger className="h-9 rounded-xl border-border bg-card text-[13px]">
+                              <SelectTrigger className="h-9 rounded-md border-border bg-card text-sm">
                                 <SelectValue placeholder="选择指标" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2670,7 +2621,7 @@ export function RetrievalAblationsPage() {
 
                           <Button
                             variant="outline"
-                            className="h-9 gap-1.5 rounded-xl border-border bg-card px-3 text-[13px] text-foreground hover:bg-muted/50"
+                            className="h-9 gap-1.5 rounded-md border-border bg-card px-3 text-sm text-foreground hover:bg-muted"
                             disabled={leaderboardLoading}
                             onClick={() => leaderboardQuery.refetch()}
                           >
@@ -2680,33 +2631,35 @@ export function RetrievalAblationsPage() {
                         </div>
 
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[12px] text-muted-foreground">
-                            筛选运行
+                          <span className="text-xs text-muted-foreground">
+                            点击结果后设为
                           </span>
-                          <div className="inline-flex rounded-lg border border-border/70 bg-card p-0.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.85)]">
+                          <div className="inline-flex rounded-md border border-border bg-muted/30 p-0.5">
                             <button
                               type="button"
+                              aria-pressed={leaderboardAssignRole === 'base'}
                               className={cn(
-                                'h-7 rounded-md px-2.5 text-[11px] font-medium',
+                                'h-7 rounded-md px-2.5 text-xs font-medium',
                                 leaderboardAssignRole === 'base'
-                                  ? 'bg-info text-primary-foreground shadow-sm'
+                                  ? 'bg-primary text-primary-foreground'
                                   : 'text-muted-foreground hover:bg-muted'
                               )}
                               onClick={() => setLeaderboardAssignRole('base')}
                             >
-                              基线
+                              基准
                             </button>
                             <button
                               type="button"
+                              aria-pressed={leaderboardAssignRole === 'target'}
                               className={cn(
-                                'h-7 rounded-md px-2.5 text-[11px] font-medium',
+                                'h-7 rounded-md px-2.5 text-xs font-medium',
                                 leaderboardAssignRole === 'target'
-                                  ? 'bg-primary text-primary-foreground shadow-sm'
+                                  ? 'bg-primary text-primary-foreground'
                                   : 'text-muted-foreground hover:bg-muted'
                               )}
                               onClick={() => setLeaderboardAssignRole('target')}
                             >
-                              候选
+                              目标
                             </button>
                           </div>
                         </div>
@@ -2741,7 +2694,7 @@ export function RetrievalAblationsPage() {
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="font-mono text-[12px] text-foreground">
+                                  <span className="font-mono text-xs text-foreground">
                                     {shortId(runId)}
                                   </span>
                                   <StatusBadge
@@ -2750,20 +2703,20 @@ export function RetrievalAblationsPage() {
                                     dense
                                   />
                                   {isBase ? (
-                                    <span className="rounded-full bg-info px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground">
-                                      基线
+                                    <span className="rounded-md bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground">
+                                      基准
                                     </span>
                                   ) : null}
                                   {isTarget ? (
-                                    <span className="rounded-full bg-primary/12 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                                      候选
+                                    <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                                      目标
                                     </span>
                                   ) : null}
                                 </div>
-                                <div className="mt-1.5 text-[13px] font-semibold tabular-nums text-foreground">
+                                <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
                                   {formatMetric(metricValue)}
                                 </div>
-                                <div className="mt-1 font-mono text-[11px] leading-4 text-muted-foreground">
+                                <div className="mt-1 font-mono text-xs leading-4 text-muted-foreground">
                                   {String(
                                     row.retrieval_config_hash ||
                                       '无配置哈希'
@@ -2782,9 +2735,6 @@ export function RetrievalAblationsPage() {
               ) : null}
 
               <AblationComparisonWorkspace
-                leaderboardCollapsed={leaderboardCollapsed}
-                leftSidebarCollapsed={leftSidebarCollapsed}
-                setLeaderboardCollapsed={setLeaderboardCollapsed}
                 runsSelectionHint={runsSelectionHint}
                 diffDeltaClass={diffDeltaClass}
                 diffDeltaValue={diffDeltaValue}
