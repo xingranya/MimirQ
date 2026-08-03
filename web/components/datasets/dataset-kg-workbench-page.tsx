@@ -6,8 +6,9 @@ import type { Remote } from 'comlink'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  ArrowLeft,
   Loader2,
+  Maximize2,
+  MoreHorizontal,
   Network,
   RefreshCw,
   Search,
@@ -16,18 +17,22 @@ import {
   Wrench,
 } from 'lucide-react'
 
-import { AppFrame } from '@/components/app-frame'
+import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
 import { GraphViewer, type GraphViewerRef } from '@/components/graph/graph-viewer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
-import { PageScaffold } from '@/components/ui/page-scaffold'
-import { Panel } from '@/components/ui/panel'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StepIndicator } from '@/components/ui/step-indicator'
 import { useRouter } from '@/i18n/navigation'
 
 import { datasetApi, documentApi, kgApi } from '@/lib/api'
@@ -94,28 +99,41 @@ const KG_WORKBENCH_DOCUMENT_PARAMS = {
 }
 const EMPTY_DOCS: Document[] = []
 
+function formatDocumentStatus(status: string): string {
+  const labels: Record<string, string> = {
+    completed: '已完成',
+    failed: '失败',
+    indexed: '已入库',
+    parsed: '已解析',
+    pending: '等待处理',
+    processing: '处理中',
+    quarantined: '已隔离',
+  }
+  return labels[status.toLowerCase()] || status
+}
+
 function DocsLoadingSkeleton() {
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-      <div className="rounded-lg border border-dashed border-border/60 bg-background/80 p-3">
+    <div className="rounded-md border border-border bg-muted/20 p-3">
+      <div className="border-b border-border pb-3">
         <PageLoading
           className="min-h-0 flex-none justify-start"
-          message="正在加载文档范围..."
-          srMessage="Loading dataset documents"
+          message="正在加载文档"
+          srMessage="正在加载数据集文档"
         />
       </div>
       <div className="mt-3 space-y-2">
         {DOCS_LOADING_SKELETON_KEYS.map((key) => (
           <div
             key={key}
-            className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/70 px-3 py-3"
+            className="flex items-start gap-3 rounded-md bg-background px-3 py-3"
           >
             <Skeleton className="mt-0.5 h-4 w-4 rounded-sm" />
             <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-4 w-4/5" />
               <Skeleton className="h-3 w-3/5" />
             </div>
-            <Skeleton className="h-7 w-16 rounded-lg" />
+            <Skeleton className="h-7 w-16 rounded-md" />
           </div>
         ))}
       </div>
@@ -125,10 +143,10 @@ function DocsLoadingSkeleton() {
 
 function SearchResultsSkeleton() {
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+    <div className="rounded-md border border-border bg-muted/20 p-3">
       <div className="space-y-2">
         {SEARCH_RESULTS_SKELETON_KEYS.map((key) => (
-          <div key={key} className="rounded-lg border border-border/60 bg-background/70 px-3 py-3">
+          <div key={key} className="rounded-md bg-background px-3 py-3">
             <Skeleton className="h-4 w-3/5" />
             <Skeleton className="mt-2 h-3 w-2/5" />
           </div>
@@ -141,23 +159,23 @@ function SearchResultsSkeleton() {
 function GraphPreviewSkeleton() {
   return (
     <div className="flex h-full min-h-[520px] items-center justify-center p-6">
-      <div className="w-full max-w-3xl rounded-2xl border border-border/70 bg-card/90 p-6 shadow-soft backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-md border border-border bg-background p-6">
         <PageLoading
           className="min-h-0 flex-none justify-start"
-          message="正在构建图谱预览..."
-          srMessage="Loading dataset graph preview"
+          message="正在构建图谱预览"
+          srMessage="正在加载数据集图谱预览"
         />
         <div className="mt-5 flex flex-wrap gap-2">
           {GRAPH_STATS_SKELETON_KEYS.map((key) => (
-            <Skeleton key={key} className="h-6 w-24 rounded-full" />
+            <Skeleton key={key} className="h-6 w-24 rounded-md" />
           ))}
         </div>
         <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(260px,0.85fr)]">
-          <Skeleton className="h-[320px] w-full rounded-xl" />
+          <Skeleton className="h-[320px] w-full rounded-md" />
           <div className="space-y-3">
-            <Skeleton className="h-24 w-full rounded-xl" />
-            <Skeleton className="h-24 w-full rounded-xl" />
-            <Skeleton className="h-10 w-40 rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-md" />
+            <Skeleton className="h-24 w-full rounded-md" />
+            <Skeleton className="h-10 w-40 rounded-md" />
           </div>
         </div>
       </div>
@@ -181,7 +199,7 @@ export default function DatasetKGWorkbenchPage() {
 
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(() => new Set())
 
-  // Step 2: Extract controls
+  // 图谱抽取参数
   const [pipelineHash, setPipelineHash] = useState('')
   const [replaceExisting, setReplaceExisting] = useState(true)
   const [pruneOrphans, setPruneOrphans] = useState(false)
@@ -192,7 +210,7 @@ export default function DatasetKGWorkbenchPage() {
   const [extractProgress, setExtractProgress] = useState<{ done: number; total: number } | null>(null)
   const [extractResults, setExtractResults] = useState<Record<string, { ok: true; res: KGExtractResponse } | { ok: false; error: string }>>({})
 
-  // Step 3: Graph preview
+  // 图谱预览状态
   const [graphLoading, setGraphLoading] = useState(false)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [graphClusterResult, setGraphClusterResult] = useState<GraphClusterResult | null>(null)
@@ -203,7 +221,7 @@ export default function DatasetKGWorkbenchPage() {
   const [minSharedEvents, setMinSharedEvents] = useState(2)
   const [graphMaxDocs, setGraphMaxDocs] = useState(50)
 
-  // Step 4: Quick search
+  // 图谱节点搜索
   const [searchQuery, setSearchQuery] = useState('')
   const [searchKind, setSearchKind] = useState<'all' | 'entity' | 'event'>('entity')
   const [searchLoading, setSearchLoading] = useState(false)
@@ -284,23 +302,6 @@ export default function DatasetKGWorkbenchPage() {
       cluster,
     }
   }, [graphClusterResult, graphData, selectedGraphNodeId])
-
-  const steps = useMemo(
-    () => [
-      { label: 'Scope', description: '选文档' },
-      { label: 'Extract', description: '抽取 KG' },
-      { label: 'Preview', description: '图预览' },
-      { label: 'Search', description: '快速检索' },
-    ],
-    []
-  )
-
-  const currentStep = useMemo(() => {
-    if (scopedDocIds.length === 0) return 0
-    if (!graphData) return 1
-    if (!searchQuery.trim()) return 2
-    return 3
-  }, [graphData, scopedDocIds.length, searchQuery])
 
   useEffect(() => {
     const error = datasetQuery.error || docsQuery.error
@@ -431,9 +432,9 @@ export default function DatasetKGWorkbenchPage() {
         prune_orphan_entities: pruneOrphans,
       })
       setExtractResults((prev) => ({ ...prev, [id]: { ok: true, res } }))
-      toast.success(`KG 抽取完成：events=${Number(res?.event_count || 0)}`)
+      toast.success(`图谱抽取完成，共生成 ${Number(res?.event_count || 0)} 个事件`)
     } catch (e: unknown) {
-      const msg = formatApiError(e, 'KG 抽取失败')
+      const msg = formatApiError(e, '图谱抽取失败')
       setExtractResults((prev) => ({ ...prev, [id]: { ok: false, error: msg } }))
       toast.error(msg)
     } finally {
@@ -444,7 +445,7 @@ export default function DatasetKGWorkbenchPage() {
   const extractSelected = useCallback(async () => {
     if (extractRunning) return
     if (scopedDocIds.length === 0) {
-      toast.error('请先选择要抽取 KG 的文档')
+      toast.error('请先选择要抽取的文档')
       return
     }
 
@@ -453,7 +454,7 @@ export default function DatasetKGWorkbenchPage() {
     const docIds = scopedDocIds.slice(0, maxDocs)
 
     if (scopedDocIds.length > docIds.length) {
-      toast.message(`已限制批量抽取数量：${docIds.length}/${scopedDocIds.length}`)
+      toast.message(`本次处理前 ${docIds.length} 篇文档，共选择 ${scopedDocIds.length} 篇`)
     }
 
     setExtractRunning(true)
@@ -473,7 +474,7 @@ export default function DatasetKGWorkbenchPage() {
           })
           nextResults[docId] = { ok: true, res }
         } catch (e: unknown) {
-          const msg = formatApiError(e, 'KG 抽取失败')
+          const msg = formatApiError(e, '图谱抽取失败')
           nextResults[docId] = { ok: false, error: msg }
         } finally {
           setExtractProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
@@ -483,7 +484,11 @@ export default function DatasetKGWorkbenchPage() {
 
       const okCount = Object.values(nextResults).filter((x) => x.ok).length
       const failCount = docIds.length - okCount
-      toast.success(`KG 抽取完成：ok=${okCount} fail=${failCount}`)
+      if (failCount > 0) {
+        toast.warning(`已完成 ${okCount} 篇，${failCount} 篇处理失败`)
+      } else {
+        toast.success(`已完成 ${okCount} 篇文档的图谱抽取`)
+      }
     } finally {
       setExtractRunning(false)
     }
@@ -508,7 +513,7 @@ export default function DatasetKGWorkbenchPage() {
     const maxDocs = limitPositiveInt(graphMaxDocs, 50, { min: 1, max: 200 })
     const docIds = scopedDocIds.slice(0, maxDocs)
     if (scopedDocIds.length > docIds.length) {
-      toast.message(`已限制图预览文档数：${docIds.length}/${scopedDocIds.length}`)
+      toast.message(`预览前 ${docIds.length} 篇文档，共选择 ${scopedDocIds.length} 篇`)
     }
 
     setGraphLoading(true)
@@ -550,22 +555,22 @@ export default function DatasetKGWorkbenchPage() {
     scopedDocIds,
   ])
 
-	  const scopedGraphUrl = useMemo(() => {
-	    const maxDocs = limitPositiveInt(graphMaxDocs, 50, { min: 1, max: 200 })
-	    const docIds = scopedDocIds.slice(0, maxDocs)
-	    const qs = new URLSearchParams()
-	    if (docIds.length) qs.set('document_ids', docIds.join(','))
-	    if (effectivePipelineHash) qs.set('pipeline_hash', effectivePipelineHash)
-	    const query = qs.toString()
-	    return query ? `/graph?${query}` : '/graph'
-	  }, [effectivePipelineHash, graphMaxDocs, scopedDocIds])
+  const scopedGraphUrl = useMemo(() => {
+    const maxDocs = limitPositiveInt(graphMaxDocs, 50, { min: 1, max: 200 })
+    const docIds = scopedDocIds.slice(0, maxDocs)
+    const qs = new URLSearchParams()
+    if (docIds.length) qs.set('document_ids', docIds.join(','))
+    if (effectivePipelineHash) qs.set('pipeline_hash', effectivePipelineHash)
+    const query = qs.toString()
+    return query ? `/graph?${query}` : '/graph'
+  }, [effectivePipelineHash, graphMaxDocs, scopedDocIds])
 
   const runQuickSearch = useCallback(async () => {
     const q = searchQuery.trim()
     if (!q) return
     if (searchLoading) return
     if (scopedDocIds.length === 0) {
-      toast.error('请先选择文档范围（Scope）')
+      toast.error('请先选择文档范围')
       return
     }
 
@@ -587,462 +592,523 @@ export default function DatasetKGWorkbenchPage() {
       }
     } catch (e: unknown) {
       reportClientError('Dataset KG quick search failed', e)
-      toast.error(formatApiError(e, 'KG 搜索失败'))
+      toast.error(formatApiError(e, '图谱搜索失败'))
       setSearchResults([])
     } finally {
       setSearchLoading(false)
     }
   }, [effectivePipelineHash, graphMaxDocs, scopedDocIds, searchKind, searchLoading, searchQuery])
 
-  const headerDescription = (
-    <span className="text-sm text-muted-foreground">
-      Dataset-scoped KG Workbench: 先选文档范围，再做抽取与图检索。批量操作会自动限流与限量。
-    </span>
-  )
-
-	  return (
-	    <AppFrame>
-	      <PageScaffold
-	        title={dataset?.name ? `KG Workbench · ${dataset.name}` : 'KG Workbench'}
-	        badge="Dataset KG"
-	        icon={Network}
-	        iconColor="text-indigo"
-	        description={headerDescription}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => router.push('/datasets')}>
-              <ArrowLeft className="w-4 h-4" />
-              返回
-            </Button>
-            {datasetId ? (
-              <Button variant="outline" className="gap-2" onClick={() => router.push(`/datasets/${datasetId}/ingestion`)}>
-                <Settings2 className="w-4 h-4" />
-                入库设置
+  return (
+    <DatasetDetailShell
+      activeSection="kg"
+      datasetId={datasetId || ''}
+      datasetName={dataset?.name}
+      title="知识图谱"
+      description="选择参与构图的文档，抽取实体与事件，并检查它们之间的关系。"
+      icon={Network}
+      bodyContainerClassName="min-h-0"
+      actions={
+        <>
+          <Button
+            size="sm"
+            className="h-9 gap-2 rounded-md"
+            onClick={() => detachPromise(loadGraphPreview())}
+            disabled={graphLoading || scopedDocIds.length === 0}
+          >
+            {graphLoading ? (
+              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="size-4" aria-hidden="true" />
+            )}
+            预览图谱
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-9 rounded-md"
+                aria-label="更多图谱操作"
+                title="更多图谱操作"
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
               </Button>
-            ) : null}
-            <Button variant="outline" className="gap-2" onClick={() => router.push('/graph/diagnostics')}>
-              <Wrench className="w-4 h-4" />
-              诊断
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => router.push('/graph/snapshots')}>
-              <Sparkles className="w-4 h-4" />
-              Snapshots
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => router.push(scopedGraphUrl)} disabled={scopedDocIds.length === 0}>
-              <Network className="w-4 h-4" />
-              打开全图
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setActiveDocQuery(docQuery.trim())}
-              disabled={docsLoading}
-            >
-              <RefreshCw className={cn('w-4 h-4', docsLoading && 'animate-spin motion-reduce:animate-none')} />
-              刷新
-            </Button>
-          </div>
-        }
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-md">
+              <DropdownMenuItem
+                onSelect={() => detachPromise(docsQuery.refetch())}
+                disabled={docsLoading}
+              >
+                <RefreshCw className="size-4" aria-hidden="true" />
+                刷新文档
+              </DropdownMenuItem>
+              {datasetId ? (
+                <DropdownMenuItem onSelect={() => router.push(`/datasets/${datasetId}/ingestion`)}>
+                  <Settings2 className="size-4" aria-hidden="true" />
+                  入库设置
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => router.push('/graph/diagnostics')}>
+                <Wrench className="size-4" aria-hidden="true" />
+                图谱诊断
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push('/graph/snapshots')}>
+                <Sparkles className="size-4" aria-hidden="true" />
+                图谱快照
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => router.push(scopedGraphUrl)}
+                disabled={scopedDocIds.length === 0}
+              >
+                <Maximize2 className="size-4" aria-hidden="true" />
+                打开全图
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      }
+    >
+      <div
+        data-kg-workbench="true"
+        className="grid min-h-0 overflow-hidden rounded-md border border-border bg-background lg:grid-cols-[360px_minmax(0,1fr)]"
       >
-        <div className="space-y-4">
-          <Panel className="space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">Steps</div>
-                <div className="text-xs text-muted-foreground">
-                  当前范围：<span className="font-mono">{scopedDocIds.length}</span> docs
-                </div>
+        <aside className="min-w-0 border-b border-border lg:border-b-0 lg:border-r">
+          <section className="p-4" aria-labelledby="kg-document-scope-title">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="kg-document-scope-title" className="text-base font-semibold text-foreground">
+                  文档范围
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  已选 {scopedDocIds.length} 篇，共 {docsTotal} 篇
+                </p>
               </div>
-              {docsTotal > docs.length ? (
-                <Badge variant="secondary" className="font-mono text-[11px]">
-                  loaded={docs.length} total={docsTotal}
-                </Badge>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-md px-2"
+                  onClick={selectAllLoaded}
+                  disabled={docs.length === 0}
+                >
+                  全选
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-md px-2"
+                  onClick={clearSelection}
+                  disabled={selectedDocIds.size === 0}
+                >
+                  清空
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <Input
+                value={docQuery}
+                onChange={(event) => setDocQuery(event.target.value)}
+                placeholder="搜索文档名称"
+                aria-label="搜索文档名称"
+                className="h-9 min-w-0 rounded-md"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') setActiveDocQuery(docQuery.trim())
+                }}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0 rounded-md"
+                onClick={() => setActiveDocQuery(docQuery.trim())}
+                disabled={docsLoading}
+                aria-label="搜索文档"
+                title="搜索文档"
+              >
+                {docsLoading ? (
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <Search className="size-4" aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+
+            <div className="mt-3 max-h-[360px] space-y-1 overflow-y-auto overscroll-contain pr-1">
+              {docsLoading ? (
+                <DocsLoadingSkeleton />
+              ) : docs.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  没有找到可用文档
+                </div>
               ) : (
-                <Badge variant="outline" className="font-mono text-[11px]">
-                  loaded={docs.length}
-                </Badge>
+                docs.map((doc) => {
+                  const id = String(doc.id || '')
+                  const filename = String(doc.filename || id || '')
+                  const status = String(doc.status || '')
+                  const checked = selectedDocIds.has(id)
+                  const isExtracting = singleExtractingDocId === id
+
+                  return (
+                    <div
+                      key={id}
+                      className={cn(
+                        'flex min-w-0 items-start gap-2 rounded-md border px-3 py-2 transition-colors',
+                        checked
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-transparent hover:bg-muted/60'
+                      )}
+                    >
+                      <Checkbox
+                        id={`kg-doc-${id}`}
+                        checked={checked}
+                        onCheckedChange={(value) => toggleDoc(id, Boolean(value))}
+                        className="mt-0.5"
+                        aria-label={`选择文档 ${filename || id}`}
+                      />
+                      <label htmlFor={`kg-doc-${id}`} className="min-w-0 flex-1 cursor-pointer">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {filename || id}
+                        </span>
+                        <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                          <span className="truncate font-mono">{id}</span>
+                          {status ? (
+                            <Badge variant="outline" className="shrink-0 rounded-md px-1.5 py-0 text-xs">
+                              {formatDocumentStatus(status)}
+                            </Badge>
+                          ) : null}
+                        </span>
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1 rounded-md px-2 text-xs"
+                        disabled={isExtracting}
+                        onClick={() => detachPromise(extractOneDoc(id))}
+                      >
+                        {isExtracting ? (
+                          <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                        ) : (
+                          <Sparkles className="size-3.5" aria-hidden="true" />
+                        )}
+                        抽取
+                      </Button>
+                    </div>
+                  )
+                })
               )}
             </div>
-            <StepIndicator steps={steps} currentStep={currentStep} />
-          </Panel>
+          </section>
 
-          <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
-            <div className="space-y-4">
-              <Panel className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold">1. Scope docs</div>
-                    <div className="text-xs text-muted-foreground">选择要参与 KG 的文档范围（可用搜索过滤）。</div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" onClick={selectAllLoaded} disabled={docs.length === 0}>
-                      全选已加载
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={clearSelection} disabled={selectedDocIds.size === 0}>
-                      清空
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">文档搜索</Label>
-                    <Input
-                      value={docQuery}
-                      onChange={(e) => setDocQuery(e.target.value)}
-                      placeholder="filename / q…"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="pt-5">
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => setActiveDocQuery(docQuery.trim())}
-                      disabled={docsLoading}
-                    >
-                      {docsLoading ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <Search className="w-4 h-4" />}
-                      搜索
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="max-h-[420px] overflow-y-auto overscroll-contain pr-1 space-y-1">
-                  {docsLoading ? (
-                    <DocsLoadingSkeleton />
-                  ) : docs.length === 0 ? (
-                    <div className="text-xs text-muted-foreground py-8 text-center">没有文档</div>
-                  ) : (
-                    docs.map((doc) => {
-                      const id = String(doc.id || '')
-                      const filename = String(doc.filename || id || '')
-                      const status = String(doc.status || '')
-                      const checked = selectedDocIds.has(id)
-                      const isExtracting = singleExtractingDocId === id
-
-                      return (
-                        <label
-                          key={id}
-                          className={cn(
-                            'flex items-start gap-2 rounded-lg border px-2 py-2 cursor-pointer transition-colors',
-                            checked ? 'border-primary/30 bg-primary/5' : 'border-border/60 hover:bg-muted/40'
-                          )}
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => toggleDoc(id, Boolean(v))}
-                            className="mt-0.5"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium truncate">{filename || id}</div>
-                            <div className="text-[11px] text-muted-foreground flex items-center gap-2">
-                              <span className="font-mono truncate">{id}</span>
-                              {status ? (
-                                <Badge variant="outline" className="font-mono text-[11px] px-1.5 py-0">
-                                  {status}
-                                </Badge>
-                              ) : null}
-                            </div>
-	                          </div>
-	                          <div className="flex-shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 gap-1 text-[11px]"
-                              disabled={isExtracting}
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                detachPromise(extractOneDoc(id))
-                              }}
-                            >
-                              {isExtracting ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" />
-                              ) : (
-                                <Sparkles className="w-3.5 h-3.5" />
-                              )}
-                              Extract
-                            </Button>
-                          </div>
-	                        </label>
-	                      )
-                    })
-                  )}
-                </div>
-              </Panel>
-
-              <Panel className="space-y-3">
-                <div className="font-semibold">2. Extract KG (bounded)</div>
-                <div className="grid gap-3 grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">pipeline_hash (optional)</Label>
-                    <Input value={pipelineHash} onChange={(e) => setPipelineHash(e.target.value)} placeholder="e.g. 9f8a…" className="h-9 font-mono text-xs" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">max docs</Label>
-                    <Input
-                      value={String(bulkMaxDocs)}
-                      onChange={(e) => setBulkMaxDocs(limitPositiveInt(e.target.value, 20, { min: 1, max: 200 }))}
-                      className="h-9 font-mono text-xs"
-                      inputMode="numeric"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 col-span-2">
-                    <Checkbox checked={replaceExisting} onCheckedChange={(v) => setReplaceExisting(Boolean(v))} />
-                    <span className="text-xs">replace existing</span>
-                    <Checkbox checked={pruneOrphans} onCheckedChange={(v) => setPruneOrphans(Boolean(v))} className="ml-4" />
-                    <span className="text-xs">prune orphans</span>
-                  </div>
-                  <div className="space-y-1 col-span-2">
-                    <Label className="text-xs text-muted-foreground">concurrency</Label>
-                    <Input
-                      value={String(bulkConcurrency)}
-                      onChange={(e) => setBulkConcurrency(limitPositiveInt(e.target.value, 3, { min: 1, max: 8 }))}
-                      className="h-9 font-mono text-xs"
-                      inputMode="numeric"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <Button
-                    className="gap-2"
-                    onClick={() => detachPromise(extractSelected())}
-                    disabled={extractRunning || scopedDocIds.length === 0}
-                  >
-                    {extractRunning ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <Sparkles className="w-4 h-4" />}
-                    抽取选中文档
-                  </Button>
-                  {extractProgress ? (
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {extractProgress.done}/{extractProgress.total}
-                    </div>
-                  ) : null}
-                </div>
-
-                {Object.keys(extractResults).length > 0 ? (
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div className="font-medium text-foreground">最近结果</div>
-                    <div className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 space-y-1">
-                      {Object.entries(extractResults)
-                        .slice(0, 50)
-                        .map(([docId, r]) => (
-                          <div key={docId} className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1">
-                            <span className="font-mono text-[11px] truncate">{docId}</span>
-                            {r.ok ? (
-                              <Badge variant="outline" className="font-mono text-[11px]">
-                                events={r.res.event_count}
-                              </Badge>
-                            ) : (
-                              <Badge variant="soft" className="font-mono text-[11px]">
-                                fail
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                ) : null}
-              </Panel>
-
-              <Panel className="space-y-3">
-                <div className="font-semibold">4. Quick KG search</div>
-                <div className="grid gap-2 grid-cols-[1fr_110px]">
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search entity/event…"
-                    className="h-9"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') detachPromise(runQuickSearch())
-                    }}
-                  />
-                  <Button variant="outline" className="gap-2" onClick={() => detachPromise(runQuickSearch())} disabled={searchLoading}>
-                    {searchLoading ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <Search className="w-4 h-4" />}
-                    搜索
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>kind:</span>
-                  <Button
-                    variant={searchKind === 'entity' ? 'secondary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSearchKind('entity')}
-                  >
-                    entity
-                  </Button>
-                  <Button
-                    variant={searchKind === 'event' ? 'secondary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSearchKind('event')}
-                  >
-                    event
-                  </Button>
-                  <Button variant={searchKind === 'all' ? 'secondary' : 'outline'} size="sm" onClick={() => setSearchKind('all')}>
-                    all
-                  </Button>
-                </div>
-
-                {searchLoading ? (
-                  <SearchResultsSkeleton />
-                ) : searchResults.length > 0 ? (
-                  <div className="max-h-[220px] overflow-y-auto overscroll-contain pr-1 space-y-1">
-                    {searchResults.map((n) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        className="w-full text-left rounded-lg border border-border/60 px-2 py-2 hover:bg-muted/40 transition-colors"
-                        onClick={() => {
-                          const nodeId = String(n.id || '')
-                          setSelectedGraphNodeId(nodeId)
-                          graphRef.current?.focusNode(nodeId)
-                          toast.message(`聚焦节点：${String(n.label || n.id)}`)
-                        }}
-                      >
-                        <div className="text-xs font-medium truncate">{String(n.label || n.id)}</div>
-                        <div className="text-[11px] text-muted-foreground font-mono truncate">{String(n.id)}</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground">输入关键词后点击搜索。</div>
-                )}
-              </Panel>
-            </div>
-
-            <div className="space-y-4">
-              <Panel className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold">3. Graph preview</div>
-                    <div className="text-xs text-muted-foreground">
-                      预览当前 Scope 的 KG 图（自动限制文档数，避免一次拉太多）。
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" className="gap-2" onClick={() => detachPromise(loadGraphPreview())} disabled={graphLoading}>
-                      {graphLoading ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : <RefreshCw className="w-4 h-4" />}
-                      加载预览
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-2" onClick={() => router.push(scopedGraphUrl)} disabled={scopedDocIds.length === 0}>
-                      <Network className="w-4 h-4" />
-                      全屏
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">max docs</Label>
-                    <Input
-                      value={String(graphMaxDocs)}
-                      onChange={(e) => setGraphMaxDocs(limitPositiveInt(e.target.value, 50, { min: 1, max: 200 }))}
-                      className="h-9 font-mono text-xs"
-                      inputMode="numeric"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <Checkbox checked={includeEntityLinks} onCheckedChange={(v) => setIncludeEntityLinks(Boolean(v))} />
-                    <span className="text-xs">entity links</span>
-                  </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <Checkbox checked={includeRelationLinks} onCheckedChange={(v) => setIncludeRelationLinks(Boolean(v))} />
-                    <span className="text-xs">relation links</span>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">min shared events</Label>
-                    <Input
-                      value={String(minSharedEvents)}
-                      onChange={(e) => setMinSharedEvents(limitPositiveInt(e.target.value, 2, { min: 1, max: 10 }))}
-                      className="h-9 font-mono text-xs"
-                      inputMode="numeric"
-                    />
-                  </div>
-                </div>
-
-                {graphLoading ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {GRAPH_STATS_SKELETON_KEYS.map((key) => (
-                      <Skeleton key={key} className="h-6 w-24 rounded-full" />
-                    ))}
-                  </div>
-                ) : graphStats || graphClusterResult ? (
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {graphStats ? (
-                      <>
-                        <Badge variant="outline" className="font-mono text-[11px]">
-                          entities={Number(graphStats.entities || 0)}
-                        </Badge>
-                        <Badge variant="outline" className="font-mono text-[11px]">
-                          events={Number(graphStats.events || 0)}
-                        </Badge>
-                        <Badge variant="outline" className="font-mono text-[11px]">
-                          links={Number(graphStats.links || 0)}
-                        </Badge>
-                      </>
-                    ) : null}
-                    {graphClusterResult ? (
-                      <>
-                        <Badge variant="secondary" className="font-mono text-[11px]">
-                          clusters={graphClusterResult.clusterCount}
-                        </Badge>
-                        <Badge variant="secondary" className="font-mono text-[11px]">
-                          maxCluster={Number(graphClusterResult.clusterSizes[0] || 0)}
-                        </Badge>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-              </Panel>
-
-              {selectedNodeDetail ? (
-                <Panel className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-semibold">Node drill-down</div>
-                    <Badge variant="secondary" className="font-mono text-[11px]">
-                      cluster={selectedNodeDetail.cluster}
-                    </Badge>
-                  </div>
-                  <div className="grid gap-1 text-[11px] text-muted-foreground md:grid-cols-2">
-                    <div className="truncate">
-                      label=<span className="font-medium text-foreground">{selectedNodeDetail.label}</span>
-                    </div>
-                    <div className="font-mono truncate">id={selectedNodeDetail.id}</div>
-                    <div className="font-mono truncate">type={selectedNodeDetail.type}</div>
-                    <div className="font-mono truncate">kind={selectedNodeDetail.kind}</div>
-                    <div className="font-mono truncate">degree={selectedNodeDetail.degree}</div>
-                  </div>
-                </Panel>
+          <section className="border-t border-border p-4" aria-labelledby="kg-extract-title">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 id="kg-extract-title" className="text-base font-semibold text-foreground">
+                  图谱抽取
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">从选中文档中提取实体和事件。</p>
+              </div>
+              {extractProgress ? (
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {extractProgress.done}/{extractProgress.total}
+                </span>
               ) : null}
-
-              <Panel padding="none" className="relative overflow-hidden h-[min(720px,calc(100vh-260px))] min-h-[520px]">
-                {graphData && graphPreviewData ? (
-                  <GraphViewer
-                    ref={graphRef}
-                    data={graphPreviewData}
-                    onNodeClick={(node) => {
-                      const nodeId = String(node?.id || '').trim()
-                      if (!nodeId) return
-                      setSelectedGraphNodeId(nodeId)
-                    }}
-                    selectedNodeId={selectedGraphNodeId}
-                    onBackgroundClick={() => setSelectedGraphNodeId(null)}
-                  />
-                ) : graphLoading ? null : (
-                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                    先点击“加载预览”拉取 KG 图数据
-                  </div>
-                )}
-                {graphLoading ? (
-                  <div className="absolute inset-0 z-10 bg-background/80 backdrop-blur-sm">
-                    <GraphPreviewSkeleton />
-                  </div>
-                ) : null}
-              </Panel>
             </div>
+
+            <details className="group mt-3 rounded-md border border-border bg-muted/20">
+              <summary className="flex h-9 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+                <Settings2 className="size-4 text-muted-foreground" aria-hidden="true" />
+                抽取设置
+              </summary>
+              <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-1 xl:col-span-2">
+                  <Label htmlFor="kg-pipeline-hash" className="text-sm">流程版本</Label>
+                  <Input
+                    id="kg-pipeline-hash"
+                    value={pipelineHash}
+                    onChange={(event) => setPipelineHash(event.target.value)}
+                    placeholder="留空则使用当前版本"
+                    className="h-9 rounded-md font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kg-bulk-max-docs" className="text-sm">单次文档数</Label>
+                  <Input
+                    id="kg-bulk-max-docs"
+                    value={String(bulkMaxDocs)}
+                    onChange={(event) => setBulkMaxDocs(limitPositiveInt(event.target.value, 20, { min: 1, max: 200 }))}
+                    className="h-9 rounded-md text-sm tabular-nums"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kg-bulk-concurrency" className="text-sm">并发任务数</Label>
+                  <Input
+                    id="kg-bulk-concurrency"
+                    value={String(bulkConcurrency)}
+                    onChange={(event) => setBulkConcurrency(limitPositiveInt(event.target.value, 3, { min: 1, max: 8 }))}
+                    className="h-9 rounded-md text-sm tabular-nums"
+                    inputMode="numeric"
+                  />
+                </div>
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground">
+                  <Checkbox checked={replaceExisting} onCheckedChange={(value) => setReplaceExisting(Boolean(value))} />
+                  覆盖已有结果
+                </label>
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground">
+                  <Checkbox checked={pruneOrphans} onCheckedChange={(value) => setPruneOrphans(Boolean(value))} />
+                  清理孤立实体
+                </label>
+              </div>
+            </details>
+
+            <Button
+              className="mt-3 h-9 w-full gap-2 rounded-md"
+              onClick={() => detachPromise(extractSelected())}
+              disabled={extractRunning || scopedDocIds.length === 0}
+            >
+              {extractRunning ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Sparkles className="size-4" aria-hidden="true" />
+              )}
+              抽取选中文档
+            </Button>
+
+            {Object.keys(extractResults).length > 0 ? (
+              <div className="mt-3">
+                <h3 className="text-sm font-medium text-foreground">最近结果</h3>
+                <div className="mt-2 max-h-40 space-y-1 overflow-y-auto overscroll-contain pr-1">
+                  {Object.entries(extractResults)
+                    .slice(0, 50)
+                    .map(([docId, result]) => (
+                      <div key={docId} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5">
+                        <span className="truncate font-mono text-xs text-muted-foreground">{docId}</span>
+                        {result.ok ? (
+                          <Badge variant="outline" className="shrink-0 rounded-md text-xs">
+                            {result.res.event_count} 个事件
+                          </Badge>
+                        ) : (
+                          <Badge variant="soft" className="shrink-0 rounded-md text-xs" title={result.error}>
+                            处理失败
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="border-t border-border p-4" aria-labelledby="kg-search-title">
+            <h2 id="kg-search-title" className="text-base font-semibold text-foreground">图谱搜索</h2>
+            <div className="mt-3 flex gap-2">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="搜索实体或事件"
+                aria-label="搜索图谱节点"
+                className="h-9 min-w-0 rounded-md"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') detachPromise(runQuickSearch())
+                }}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0 rounded-md"
+                onClick={() => detachPromise(runQuickSearch())}
+                disabled={searchLoading || !searchQuery.trim()}
+                aria-label="搜索图谱"
+                title="搜索图谱"
+              >
+                {searchLoading ? (
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <Search className="size-4" aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+            <div className="mt-2 flex rounded-md bg-muted p-1" aria-label="节点类型">
+              {([
+                ['entity', '实体'],
+                ['event', '事件'],
+                ['all', '全部'],
+              ] as const).map(([value, label]) => (
+                <Button
+                  key={value}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-8 flex-1 rounded-md px-2 text-sm shadow-none',
+                    searchKind === value
+                      ? 'bg-background text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  onClick={() => setSearchKind(value)}
+                  aria-pressed={searchKind === value}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+
+            {searchLoading ? (
+              <div className="mt-3"><SearchResultsSkeleton /></div>
+            ) : searchResults.length > 0 ? (
+              <div className="mt-3 max-h-56 space-y-1 overflow-y-auto overscroll-contain pr-1">
+                {searchResults.map((node) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    className="w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    onClick={() => {
+                      const nodeId = String(node.id || '')
+                      setSelectedGraphNodeId(nodeId)
+                      graphRef.current?.focusNode(nodeId)
+                      toast.message(`已定位到 ${String(node.label || node.id)}`)
+                    }}
+                  >
+                    <span className="block truncate text-sm font-medium text-foreground">{String(node.label || node.id)}</span>
+                    <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">{String(node.id)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">输入关键词查找当前文档范围内的节点。</p>
+            )}
+          </section>
+        </aside>
+
+        <main className="flex min-h-0 min-w-0 flex-col" aria-labelledby="kg-preview-title">
+          <header className="border-b border-border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="kg-preview-title" className="text-base font-semibold text-foreground">图谱预览</h2>
+                <p className="mt-1 text-sm text-muted-foreground">查看选中文档中的实体、事件和关系。</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 rounded-md"
+                onClick={() => router.push(scopedGraphUrl)}
+                disabled={scopedDocIds.length === 0}
+              >
+                <Maximize2 className="size-4" aria-hidden="true" />
+                打开全图
+              </Button>
+            </div>
+
+            {graphLoading ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {GRAPH_STATS_SKELETON_KEYS.map((key) => (
+                  <Skeleton key={key} className="h-6 w-24 rounded-md" />
+                ))}
+              </div>
+            ) : graphStats || graphClusterResult ? (
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {graphStats ? (
+                  <>
+                    <Badge variant="outline" className="rounded-md text-xs">实体 {Number(graphStats.entities || 0)}</Badge>
+                    <Badge variant="outline" className="rounded-md text-xs">事件 {Number(graphStats.events || 0)}</Badge>
+                    <Badge variant="outline" className="rounded-md text-xs">关系 {Number(graphStats.links || 0)}</Badge>
+                  </>
+                ) : null}
+                {graphClusterResult ? (
+                  <>
+                    <Badge variant="secondary" className="rounded-md text-xs">群组 {graphClusterResult.clusterCount}</Badge>
+                    <Badge variant="secondary" className="rounded-md text-xs">最大群组 {Number(graphClusterResult.clusterSizes[0] || 0)}</Badge>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            <details className="mt-3 rounded-md border border-border bg-muted/20">
+              <summary className="flex h-9 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+                <Settings2 className="size-4 text-muted-foreground" aria-hidden="true" />
+                预览设置
+              </summary>
+              <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="kg-preview-max-docs" className="text-sm">最多加载文档</Label>
+                  <Input
+                    id="kg-preview-max-docs"
+                    value={String(graphMaxDocs)}
+                    onChange={(event) => setGraphMaxDocs(limitPositiveInt(event.target.value, 50, { min: 1, max: 200 }))}
+                    className="h-9 rounded-md text-sm tabular-nums"
+                    inputMode="numeric"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kg-min-shared-events" className="text-sm">最少共享事件</Label>
+                  <Input
+                    id="kg-min-shared-events"
+                    value={String(minSharedEvents)}
+                    onChange={(event) => setMinSharedEvents(limitPositiveInt(event.target.value, 2, { min: 1, max: 10 }))}
+                    className="h-9 rounded-md text-sm tabular-nums"
+                    inputMode="numeric"
+                    disabled={!includeRelationLinks}
+                  />
+                </div>
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground sm:self-end">
+                  <Checkbox checked={includeEntityLinks} onCheckedChange={(value) => setIncludeEntityLinks(Boolean(value))} />
+                  显示实体关联
+                </label>
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-foreground sm:self-end">
+                  <Checkbox checked={includeRelationLinks} onCheckedChange={(value) => setIncludeRelationLinks(Boolean(value))} />
+                  显示关系连线
+                </label>
+              </div>
+            </details>
+          </header>
+
+          {selectedNodeDetail ? (
+            <section className="border-b border-border bg-muted/20 px-4 py-3" aria-label="节点详情">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <span className="font-medium text-foreground">{selectedNodeDetail.label}</span>
+                <span className="text-muted-foreground">类型 {selectedNodeDetail.type}</span>
+                <span className="text-muted-foreground">类别 {selectedNodeDetail.kind}</span>
+                <span className="text-muted-foreground">连接 {selectedNodeDetail.degree}</span>
+                <Badge variant="secondary" className="rounded-md text-xs">群组 {selectedNodeDetail.cluster}</Badge>
+                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground" title={selectedNodeDetail.id}>
+                  {selectedNodeDetail.id}
+                </span>
+              </div>
+            </section>
+          ) : null}
+
+          <div className="relative h-[clamp(420px,62vh,720px)] min-h-0 overflow-hidden bg-muted/10 lg:flex-1">
+            {graphData && graphPreviewData ? (
+              <GraphViewer
+                ref={graphRef}
+                data={graphPreviewData}
+                onNodeClick={(node) => {
+                  const nodeId = String(node?.id || '').trim()
+                  if (!nodeId) return
+                  setSelectedGraphNodeId(nodeId)
+                }}
+                selectedNodeId={selectedGraphNodeId}
+                onBackgroundClick={() => setSelectedGraphNodeId(null)}
+              />
+            ) : graphLoading ? null : (
+              <div className="flex h-full items-center justify-center px-6 text-center">
+                <div className="max-w-sm">
+                  <Network className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-medium text-foreground">尚未加载图谱</p>
+                  <p className="mt-1 text-sm text-muted-foreground">选择文档后，点击页面顶部的“预览图谱”。</p>
+                </div>
+              </div>
+            )}
+            {graphLoading ? (
+              <div className="absolute inset-0 z-10 bg-background/90">
+                <GraphPreviewSkeleton />
+              </div>
+            ) : null}
           </div>
-        </div>
-      </PageScaffold>
-    </AppFrame>
+        </main>
+      </div>
+    </DatasetDetailShell>
   )
 }
