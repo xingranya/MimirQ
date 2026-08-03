@@ -896,7 +896,7 @@ def _resolve_writable_dataset(
     if role not in EDIT_ROLES:
         raise HTTPException(
             status_code=403,
-            detail="No permission to create dataset. Please contact an administrator."
+            detail="当前账号没有创建知识库的权限，请发送邮件至 xingranya@qq.com。",
         )
 
     # Auto-create a default dataset with restricted permission (ONLY_ME).

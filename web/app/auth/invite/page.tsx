@@ -35,7 +35,7 @@ export default function TenantInvitationPage() {
     setError('')
 
     if (!token) {
-      setError('邀请链接无效，请联系管理员重新生成')
+      setError(`邀请链接无效，请发送邮件至 ${BRAND_CONFIG.contactEmail} 获取新链接。`)
       return
     }
     if (password !== confirmPassword) {
@@ -54,7 +54,12 @@ export default function TenantInvitationPage() {
       globalThis.history.replaceState(null, '', globalThis.location.pathname)
       router.push('/')
     } catch (caught: unknown) {
-      setError(toApiErrorInfo(caught, '接受邀请失败，请联系管理员重新生成邀请链接').message)
+      setError(
+        toApiErrorInfo(
+          caught,
+          `接受邀请失败，请发送邮件至 ${BRAND_CONFIG.contactEmail} 获取新链接。`
+        ).message
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -86,7 +91,14 @@ export default function TenantInvitationPage() {
             <div role="alert" className="text-center">
               <h2 className="text-base font-semibold text-foreground">邀请链接无效</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                链接缺少邀请凭证，请联系管理员重新生成。
+                链接缺少邀请凭证，请发送邮件至{' '}
+                <a
+                  href={BRAND_CONFIG.contactHref}
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  {BRAND_CONFIG.contactEmail}
+                </a>
+                {' '}获取新链接。
               </p>
               <Button asChild variant="outline" className="mt-5 rounded-md">
                 <Link href="/auth">返回登录</Link>

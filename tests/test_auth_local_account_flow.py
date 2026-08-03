@@ -122,7 +122,9 @@ def test_local_account_bootstrap_login_and_me(monkeypatch) -> None:
                 },
             )
             assert later_registration.status_code == 409
-            assert later_registration.json()["detail"] == "Initial registration is closed; contact an administrator"
+            assert later_registration.json()["detail"] == (
+                "首次设置已关闭。如需开通账号，请发送邮件至 xingranya@qq.com。"
+            )
 
         with test_session() as db:
             assert db.query(User).count() == 1
@@ -455,7 +457,9 @@ def test_production_existing_owner_registration_still_returns_conflict_without_t
                 },
             )
             assert second.status_code == 409
-            assert second.json()["detail"] == "Initial registration is closed; contact an administrator"
+            assert second.json()["detail"] == (
+                "首次设置已关闭。如需开通账号，请发送邮件至 xingranya@qq.com。"
+            )
     finally:
         engine.dispose()
 

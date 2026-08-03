@@ -5,6 +5,8 @@ export const BRAND_CONFIG = {
   standardName: 'SEEWAY 见外',
   assistantName: '见外传媒知识库',
   description: '可验证的企业知识库问答与检索工作台',
+  contactEmail: 'xingranya@qq.com',
+  contactHref: 'mailto:xingranya@qq.com',
   markSrc: '/brand/seewayk-logo.png',
   shortWordmarkSrc: '/brand/seeway-logo-only.png',
   wordmarkSrc: '/brand/seewayk-logo-wide.png',

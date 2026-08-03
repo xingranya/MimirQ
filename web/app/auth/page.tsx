@@ -18,23 +18,6 @@ import { BRAND_CONFIG } from '@/lib/brand'
 
 type Mode = 'login' | 'register'
 
-const DEFAULT_ADMIN_CONTACT_URL = 'https://github.com/skygazer42/MimirQ/issues'
-const SAFE_ADMIN_CONTACT_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
-
-function getAdminContactHref(): string {
-    const configuredUrl = (process.env.NEXT_PUBLIC_ADMIN_CONTACT_URL || '').trim()
-    if (!configuredUrl) return DEFAULT_ADMIN_CONTACT_URL
-
-    try {
-        const parsedUrl = new URL(configuredUrl)
-        return SAFE_ADMIN_CONTACT_PROTOCOLS.has(parsedUrl.protocol)
-            ? configuredUrl
-            : DEFAULT_ADMIN_CONTACT_URL
-    } catch {
-        return DEFAULT_ADMIN_CONTACT_URL
-    }
-}
-
 function getAuthSsoProviderLabel(provider?: { id?: string; name?: string }): string {
     if (provider?.name) return `Continue with ${provider.name}`
     if (provider?.id) return `Continue with ${provider.id}`
@@ -94,8 +77,6 @@ export default function AuthPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [ssoProviderWorkingId, setSsoProviderWorkingId] = useState<string | null>(null)
     const [error, setError] = useState<ApiErrorInfo | null>(null)
-    const contactAdminHref = getAdminContactHref()
-
     const isSsoSubmitting = ssoProviderWorkingId !== null
 
     const handleSso = async (providerId: string) => {
@@ -265,7 +246,14 @@ export default function AuthPage() {
                         {mode === 'register' && (
                             <div className="space-y-4">
                                 <p className="text-xs leading-5 text-muted-foreground">
-                                    仅用于未初始化的部署。生产环境首次 owner 注册可填写 bootstrap token；已有管理员时，请联系管理员开通账号。
+                                    仅用于未初始化的部署。已有管理员时，请发送邮件至{' '}
+                                    <a
+                                        href={BRAND_CONFIG.contactHref}
+                                        className="font-medium text-foreground underline underline-offset-4"
+                                    >
+                                        {BRAND_CONFIG.contactEmail}
+                                    </a>
+                                    {' '}申请开通账号。
                                 </p>
                                 <div className="space-y-2">
                                     <Label htmlFor="email" className="text-xs text-muted-foreground">邮箱地址</Label>
@@ -406,10 +394,10 @@ export default function AuthPage() {
                     <p className="text-xs text-muted-foreground">
                         遇到问题？{" "}
                         <a
-                            href={contactAdminHref}
+                            href={BRAND_CONFIG.contactHref}
                             className="focus-ring rounded-sm font-medium text-foreground/80 underline underline-offset-4 transition-colors hover:text-foreground"
                         >
-                            联系管理员
+                            {BRAND_CONFIG.contactEmail}
                         </a>
                     </p>
                 </div>

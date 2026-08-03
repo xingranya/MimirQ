@@ -9,6 +9,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { useAuth } from '@/hooks/use-auth'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
+import { BRAND_CONFIG } from '@/lib/brand'
 import { tenantAccessAllows, type TenantPermission } from '@/lib/tenant-permissions'
 
 type TenantPermissionGateProps = {
@@ -59,7 +60,14 @@ export function TenantPermissionGate({ permission, pageName, children }: Readonl
               <div>
                 <p className="text-sm font-semibold text-foreground">需要权限：{permission}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  当前角色：{access.data?.role || '未知'}。如需访问，请联系管理员调整成员角色。
+                  当前角色：{access.data?.role || '未知'}。如需访问，请发送邮件至{' '}
+                  <a
+                    href={BRAND_CONFIG.contactHref}
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
+                    {BRAND_CONFIG.contactEmail}
+                  </a>
+                  ，由管理员调整成员角色。
                 </p>
               </div>
               <Button variant="outline" className="gap-2 self-start" onClick={() => access.refetch()}>

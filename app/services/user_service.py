@@ -175,7 +175,7 @@ class UserService:
         if db.query(TenantMember.id).filter(TenantMember.tenant_id == tenant_id).first() is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Initial registration is closed; contact an administrator",
+                detail="首次设置已关闭。如需开通账号，请发送邮件至 xingranya@qq.com。",
             )
         db.add(
             TenantMember(

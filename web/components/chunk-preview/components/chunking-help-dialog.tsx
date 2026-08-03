@@ -3,12 +3,11 @@
  */
 'use client'
 
-import { ExternalLink, Keyboard, Scissors, Settings2, Sparkles } from 'lucide-react'
+import { Keyboard, Scissors, Settings2, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Button } from '@/components/ui/button'
 
 export function ChunkingHelpDialog({
   open,
@@ -87,26 +86,6 @@ export function ChunkingHelpDialog({
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm" className="h-8 px-3 text-[11px]">
-                  <a
-                    href="https://github.com/skygazer42/MimirQ/blob/main/docs/guides/chunk_preview.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {t("help.links.previewDocs")} <ExternalLink className="w-3.5 h-3.5 ml-1" />
-                  </a>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="h-8 px-3 text-[11px]">
-                  <a
-                    href="https://github.com/skygazer42/MimirQ/blob/main/docs/guides/chunk_strategies.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {t("help.links.strategiesDocs")} <ExternalLink className="w-3.5 h-3.5 ml-1" />
-                  </a>
-                </Button>
-              </div>
             </section>
 
             <section className="rounded-xl border border-border/60 bg-card/60 p-4">
