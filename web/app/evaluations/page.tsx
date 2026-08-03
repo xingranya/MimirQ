@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * RAGAS 评测页面 - 支持 Tab 切换
+ * 知识问答评测页面，支持在不同评测任务间切换。
  * Tab 1: 对话评测（基于对话历史）
  * Tab 2: 回归测试（基于测试用例）
  * Tab 3: Queryset Health（检索基准集健康度）
@@ -115,14 +115,14 @@ const TAB_META: Array<{
     id: 'conversation',
     label: '对话评测',
     title: '实时会话评分',
-    description: '基于已有对话和引用上下文，快速拉起一轮 RAGAS 评测。',
+    description: '根据已有对话和引用内容，快速检查回答质量。',
     icon: MessageSquare,
   },
   {
     id: 'regression',
-    label: 'Golden 评测集',
-    title: 'Golden 回归评测',
-    description: '用数据集级标准问答和标准证据持续评估当前 RAG pipeline。',
+    label: '回归评测',
+    title: '标准样本回归评测',
+    description: '使用数据集中的标准问答和引用证据检查知识问答效果。',
     icon: TestTube2,
   },
   {
@@ -624,7 +624,7 @@ function EvaluationResultsStage({
             helper="本次运行累计的令牌消耗"
           />
           <EvaluationStageStat
-            label="LLM 成本"
+            label="模型费用"
             value={formatMoney(summary.total_cost)}
             helper="本次运行产生的模型成本"
           />
@@ -1194,7 +1194,7 @@ function IterationDetailsCard({
 
 export default function EvaluationsPage() {
   return (
-    <NavigationVisibilityGate moduleKey="ragas" pageName="RAGAS 评测">
+    <NavigationVisibilityGate moduleKey="ragas" pageName="知识问答评测">
       <AppFrame>
         <Suspense fallback={<EvaluationsLoading />}>
           <EvaluationsPageContent />
@@ -1576,7 +1576,7 @@ function EvaluationsPageContent() {
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `ragas-run-items.${selectedRunId || 'latest'}.json`
+    anchor.download = `evaluation-run-items.${selectedRunId || 'latest'}.json`
     anchor.click()
     globalThis.window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -2109,7 +2109,7 @@ function EvaluationsPageContent() {
                       ) : (
                         <EvaluationHeroEmptyState
                           title="暂无评测记录"
-                          description="运行一次评测后，这里会出现真实 run 记录。"
+                          description="完成一次评测后，这里会显示运行记录。"
                         />
                       )}
                     </div>

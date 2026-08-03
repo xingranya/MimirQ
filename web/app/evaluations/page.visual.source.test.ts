@@ -37,4 +37,15 @@ describe('评测中心视觉与响应式契约', () => {
     expect(source).toContain('setSetupRailCollapsed(true)')
     expect(source).toContain('setRunsRailCollapsed(true)')
   })
+
+  it('使用面向用户的中文评测文案', () => {
+    expect(source).toContain("label: '回归评测'")
+    expect(source).toContain("title: '标准样本回归评测'")
+    expect(source).toContain('模型费用')
+    expect(source).toContain('知识问答评测')
+    expect(source).not.toContain('Golden 评测集')
+    expect(source).not.toContain('RAGAS 评测页面')
+    expect(source).not.toContain('RAG pipeline')
+    expect(source).not.toContain('真实 run 记录')
+  })
 })
