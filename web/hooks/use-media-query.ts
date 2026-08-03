@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from 'react'
 
+export const MOBILE_MEDIA_QUERY = '(max-width: 767.98px)'
+
 function getMediaQuerySnapshot(query: string): boolean {
   if (
     typeof globalThis.window === 'undefined' ||
@@ -50,7 +52,7 @@ export function useMediaQuery(query: string): boolean {
 
 /** Viewport narrower than Tailwind `md` (768px). */
 export function useIsMobile(): boolean {
-  return useMediaQuery('(max-width: 767.98px)')
+  return useMediaQuery(MOBILE_MEDIA_QUERY)
 }
 
 /** Viewport between Tailwind `md` and `lg` (768–1023px). */

@@ -89,6 +89,13 @@ describe('navbar source', () => {
     expect(src).toContain('hidden h-full w-14 flex-col')
   })
 
+  it('uses the shared responsive breakpoint instead of a one-off media query', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
+
+    expect(src).toContain("import { useIsMobile } from '@/hooks/use-media-query'")
+    expect(src).not.toContain('max-width: 768px')
+  })
+
   it('keeps the primary action flat and removes decorative sidebar effects', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
 

@@ -7,6 +7,7 @@ import { PanelLeftOpen } from 'lucide-react'
 import { Navbar } from "@/components/navbar"
 import { AppBackground } from "@/components/ui/app-background"
 import { Button } from '@/components/ui/button'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { BRAND_CONFIG } from '@/lib/brand'
 import { cn } from "@/lib/utils"
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
@@ -36,9 +37,11 @@ export function AppFrame({
   const t = useTranslations('Layout')
   const [isSidebarOpen, setSidebarOpen] = React.useState(true)
   const [hasHydratedSidebar, setHasHydratedSidebar] = React.useState(false)
+  const previousIsMobileRef = React.useRef<boolean | null>(null)
   const skipLinkRef = React.useRef<HTMLAnchorElement | null>(null)
   const appContentRef = React.useRef<HTMLDivElement | null>(null)
   const mobileSidebarTriggerRef = React.useRef<HTMLButtonElement | null>(null)
+  const isMobile = useIsMobile()
   const { isOpen: isDocPanelOpen } = useDocumentView()
   const docPanelPadding =
     withDocumentViewerPadding && isDocPanelOpen
@@ -47,30 +50,25 @@ export function AppFrame({
 
   React.useEffect(() => {
     if (!showNavbar || globalThis.window === undefined) return
+    const previousIsMobile = previousIsMobileRef.current
     const stored = readClientStorage(SIDEBAR_OPEN_STORAGE_KEY)
-    const isMobile = globalThis.window.matchMedia("(max-width: 768px)").matches
-    setSidebarOpen(isMobile ? false : stored === null ? true : stored === 'true')
+
+    previousIsMobileRef.current = isMobile
+    if (previousIsMobile === null || previousIsMobile !== isMobile) {
+      setSidebarOpen(isMobile ? false : stored === null ? true : stored === 'true')
+    }
     setHasHydratedSidebar(true)
-  }, [showNavbar])
+  }, [isMobile, showNavbar])
 
   React.useEffect(() => {
-    if (!showNavbar || !hasHydratedSidebar) return
+    if (!showNavbar || !hasHydratedSidebar || isMobile) return
     writeClientStorage(SIDEBAR_OPEN_STORAGE_KEY, String(isSidebarOpen))
-  }, [hasHydratedSidebar, isSidebarOpen, showNavbar])
+  }, [hasHydratedSidebar, isMobile, isSidebarOpen, showNavbar])
 
   // Accessibility: when the sidebar acts like a modal overlay (mobile),
   // prevent focus/interaction with the rest of the app.
   React.useEffect(() => {
     if (!showNavbar) return
-    if (globalThis.window === undefined) return
-
-    let isMobile = false
-    try {
-      isMobile = globalThis.window.matchMedia("(max-width: 768px)").matches
-    } catch {
-      isMobile = false
-    }
-
     const shouldInert = Boolean(isMobile && isSidebarOpen)
 
     const applyInert = (el: HTMLElement | null, inert: boolean) => {
@@ -94,7 +92,7 @@ export function AppFrame({
       applyInert(skipEl, false)
       applyInert(contentEl, false)
     }
-  }, [isSidebarOpen, showNavbar])
+  }, [isMobile, isSidebarOpen, showNavbar])
 
   return (
     <div className={cn("relative h-dvh overflow-hidden bg-background text-foreground", className)}>
@@ -111,6 +109,7 @@ export function AppFrame({
           <Navbar
             isSidebarOpen={isSidebarOpen}
             setSidebarOpen={setSidebarOpen}
+            isMobile={isMobile}
             mobileTriggerRef={mobileSidebarTriggerRef}
           />
         )}

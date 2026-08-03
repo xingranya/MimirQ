@@ -50,6 +50,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuth } from '@/hooks/use-auth'
 import { useBackendMetaDetails } from '@/hooks/use-backend-meta'
 import { useBackendReady } from '@/hooks/use-backend-ready'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { useCommandMenuState } from '@/store/command-menu'
 import { TENANT_PERMISSIONS, tenantAccessAllows, type TenantPermission } from '@/lib/tenant-permissions'
@@ -210,10 +211,12 @@ function loadOpenSections(): Record<SectionId, boolean> {
 export function Navbar({
   isSidebarOpen: externalIsOpen,
   setSidebarOpen: externalSetOpen,
+  isMobile: externalIsMobile,
   mobileTriggerRef,
 }: Readonly<{
   isSidebarOpen?: boolean
   setSidebarOpen?: (isOpen: boolean) => void
+  isMobile?: boolean
   mobileTriggerRef?: RefObject<HTMLButtonElement | null>
 }> = {}) {
   const navRef = useRef<HTMLElement | null>(null)
@@ -229,6 +232,8 @@ export function Navbar({
   const [hasHydratedNavigationAccess, setHasHydratedNavigationAccess] = useState(false)
   const isSidebarOpen = externalIsOpen ?? internalIsOpen
   const setSidebarOpen = externalSetOpen ?? setInternalIsOpen
+  const detectedIsMobile = useIsMobile()
+  const isMobile = externalIsMobile ?? detectedIsMobile
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated, isDevMode, logout } = useAuth()
@@ -272,13 +277,8 @@ export function Navbar({
   const backendStatusLabel = backendOk === true ? '正常' : backendOk === false ? '异常' : '检查中'
   const lastReadyAt = Math.max(backendReady.dataUpdatedAt || 0, backendReady.errorUpdatedAt || 0) || null
   const closeSidebarOnMobile = useCallback(() => {
-    if (globalThis.window === undefined) return
-    try {
-      if (globalThis.window.matchMedia('(max-width: 768px)').matches) setSidebarOpen(false)
-    } catch {
-      // 浏览器不支持媒体查询时保持当前侧栏状态。
-    }
-  }, [setSidebarOpen])
+    if (isMobile) setSidebarOpen(false)
+  }, [isMobile, setSidebarOpen])
   const toggleSection = useCallback((sectionId: SectionId) => {
     setOpenSections((current) => ({
       ...current,
@@ -317,34 +317,22 @@ export function Navbar({
   useEffect(() => {
     const el = navRef.current as (HTMLElement & { inert: boolean }) | null
     if (!el) return
-    let isMobile = false
-    try {
-      isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches
-    } catch {
-      isMobile = false
-    }
     const inertNow = !isSidebarOpen && isMobile
     try {
       el.inert = inertNow
     } catch {
       // 部分旧浏览器不支持 inert，保留原有焦点行为。
     }
-  }, [isSidebarOpen])
+  }, [isMobile, isSidebarOpen])
 
   // 移动端支持使用 Escape 关闭覆盖层。
   useEffect(() => {
-    if (!isSidebarOpen) return
+    if (!isSidebarOpen || !isMobile) return
     if (globalThis.window === undefined) return
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
       if (e.key !== 'Escape') return
-      try {
-        // 仅在窄屏下按覆盖层处理。
-        if (!globalThis.window.matchMedia('(max-width: 768px)').matches) return
-      } catch {
-        return
-      }
       e.preventDefault()
       restoreToggleFocusOnCloseRef.current = true
       setSidebarOpen(false)
@@ -352,7 +340,7 @@ export function Navbar({
 
     globalThis.window.addEventListener('keydown', onKeyDown)
     return () => globalThis.window.removeEventListener('keydown', onKeyDown)
-  }, [isSidebarOpen, setSidebarOpen])
+  }, [isMobile, isSidebarOpen, setSidebarOpen])
 
   // 键盘操作侧栏时，在展开和收起后恢复到可预期的焦点位置。
   useEffect(() => {
@@ -371,7 +359,7 @@ export function Navbar({
       // 仅在用户通过键盘触发展开时把焦点移入侧栏。
       const openedFromKnownTrigger =
         active === toggleButtonRef.current || active === mobileTriggerRef?.current
-      if (active && active !== document.body && !openedFromKnownTrigger) return
+      if (!openedFromKnownTrigger) return
       focusAfterInertStateChange(() => firstActionRef.current)
       return
     }
@@ -384,10 +372,9 @@ export function Navbar({
     if (!shouldRestore || !shouldRestoreToggleFocus) return
 
     focusAfterInertStateChange(() => {
-      const isMobile = globalThis.window.matchMedia('(max-width: 768px)').matches
       return isMobile ? mobileTriggerRef?.current : toggleButtonRef.current
     })
-  }, [focusAfterInertStateChange, isSidebarOpen, mobileTriggerRef])
+  }, [focusAfterInertStateChange, isMobile, isSidebarOpen, mobileTriggerRef])
 
   useEffect(() => {
     setOpenSections(loadOpenSections())
@@ -527,7 +514,7 @@ export function Navbar({
   return (
     <>
       {/* 移动端遮罩 */}
-      {isSidebarOpen ? (
+      {isMobile && isSidebarOpen ? (
         <button
           type="button"
           aria-label={t('toolbar.sidebarClose')}

@@ -170,6 +170,7 @@ import { Navbar } from './navbar'
 const ControlledNavbar = Navbar as React.ComponentType<{
   isSidebarOpen?: boolean
   setSidebarOpen?: (open: boolean) => void
+  isMobile?: boolean
   mobileTriggerRef?: React.RefObject<HTMLButtonElement | null>
 }>
 
@@ -188,6 +189,7 @@ function MobileNavbarHarness() {
     React.createElement(ControlledNavbar, {
       isSidebarOpen: isOpen,
       setSidebarOpen: setOpen,
+      isMobile: true,
       mobileTriggerRef: triggerRef,
     })
   )
@@ -329,21 +331,6 @@ describe('Navbar behavior', () => {
   })
 
   it('移动端在动画帧暂停时仍转移焦点，并在 Escape 关闭后返回触发按钮', () => {
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        addEventListener: vi.fn(),
-        addListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-        matches: query === '(max-width: 768px)',
-        media: query,
-        onchange: null,
-        removeEventListener: vi.fn(),
-        removeListener: vi.fn(),
-      })),
-    })
-
     vi.useFakeTimers()
     vi.mocked(window.requestAnimationFrame).mockImplementation(() => 1)
 
@@ -370,6 +357,56 @@ describe('Navbar behavior', () => {
 
     expect(document.activeElement).toBe(trigger)
     expect(view.container.querySelector('#mimirq-sidebar')?.getAttribute('class')).toContain('-translate-x-full')
+
+    view.unmount()
+  })
+
+  it('跨移动端断点时同步更新折叠侧栏的 inert 状态', () => {
+    let matches = false
+    const listeners = new Set<(event: MediaQueryListEvent) => void>()
+    const mediaQueryList = {
+      get matches() {
+        return matches
+      },
+      media: '(max-width: 767.98px)',
+      onchange: null,
+      addEventListener: (
+        _type: 'change',
+        listener: (event: MediaQueryListEvent) => void
+      ) => listeners.add(listener),
+      removeEventListener: (
+        _type: 'change',
+        listener: (event: MediaQueryListEvent) => void
+      ) => listeners.delete(listener),
+      addListener: (listener: (event: MediaQueryListEvent) => void) => listeners.add(listener),
+      removeListener: (listener: (event: MediaQueryListEvent) => void) => listeners.delete(listener),
+      dispatchEvent: () => true,
+    } as MediaQueryList
+    vi.mocked(window.matchMedia).mockReturnValue(mediaQueryList)
+
+    const view = renderComponent(
+      React.createElement(ControlledNavbar, {
+        isSidebarOpen: false,
+        setSidebarOpen: vi.fn(),
+      })
+    )
+    const nav = view.container.querySelector('#mimirq-sidebar') as HTMLElement & { inert: boolean }
+
+    expect(nav.inert).toBe(false)
+
+    act(() => {
+      matches = true
+      const event = { matches, media: mediaQueryList.media } as MediaQueryListEvent
+      listeners.forEach((listener) => listener(event))
+    })
+    expect(nav.inert).toBe(true)
+
+    act(() => {
+      matches = false
+      const event = { matches, media: mediaQueryList.media } as MediaQueryListEvent
+      listeners.forEach((listener) => listener(event))
+    })
+    expect(nav.inert).toBe(false)
 
     view.unmount()
   })
