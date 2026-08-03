@@ -41,4 +41,14 @@ describe('全局界面层级', () => {
       expect(source, relativePath).not.toMatch(/z-\[\d+\]/)
     }
   })
+
+  it('要求提示层通过 Portal 脱离滚动和裁切容器', () => {
+    const tooltipSource = readFileSync(
+      resolve(__dirname, '../components/ui/tooltip.tsx'),
+      'utf8'
+    )
+
+    expect(tooltipSource).toContain('<TooltipPrimitive.Portal>')
+    expect(tooltipSource).toContain('</TooltipPrimitive.Portal>')
+  })
 })

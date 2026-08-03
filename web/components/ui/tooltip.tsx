@@ -16,16 +16,18 @@ const TooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
 >(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Content
-    ref={ref}
-    sideOffset={sideOffset}
-    className={cn(
-      "overflow-hidden rounded-md bg-foreground text-background px-2.5 py-1 text-xs shadow-sm animate-slide-up-fade data-[state=closed]:animate-scale-fade-out data-[side=bottom]:animate-slide-down-fade data-[side=top]:animate-slide-up-fade motion-reduce:animate-none motion-reduce:transition-none",
-      UI_LAYER_CLASS.contextual,
-      className
-    )}
-    {...props}
-  />
+  <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Content
+      ref={ref}
+      sideOffset={sideOffset}
+      className={cn(
+        "overflow-hidden rounded-md bg-foreground text-background px-2.5 py-1 text-xs shadow-sm animate-slide-up-fade data-[state=closed]:animate-scale-fade-out data-[side=bottom]:animate-slide-down-fade data-[side=top]:animate-slide-up-fade motion-reduce:animate-none motion-reduce:transition-none",
+        UI_LAYER_CLASS.contextual,
+        className
+      )}
+      {...props}
+    />
+  </TooltipPrimitive.Portal>
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
