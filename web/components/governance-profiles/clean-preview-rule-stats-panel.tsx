@@ -1,9 +1,14 @@
 import React from 'react'
 
+import { cn } from '@/lib/utils'
 import type { CleanPreviewRuleStat } from '@/types'
 
-import { Panel } from '@/components/ui/panel'
-import { cn } from '@/lib/utils'
+function getRuleSourceLabel(source: string | null | undefined): string {
+  if (source === 'pack') return '场景清洗规则'
+  if (source === 'custom' || source === 'profile') return '自定义规则'
+  if (source === 'builtin' || source === 'default') return '系统规则'
+  return '清洗规则'
+}
 
 export function CleanPreviewRuleStatsPanel({
   ruleStats,
@@ -13,47 +18,59 @@ export function CleanPreviewRuleStatsPanel({
   className?: string
 }>) {
   const stats = Array.isArray(ruleStats) ? ruleStats : []
-  const hitsOnly = stats.filter((it) => (Number(it.hits) || 0) > 0)
-  const totalHits = hitsOnly.reduce((acc, it) => acc + (Number(it.hits) || 0), 0)
+  const hitsOnly = stats.filter((item) => (Number(item.hits) || 0) > 0)
+  const totalHits = hitsOnly.reduce(
+    (total, item) => total + (Number(item.hits) || 0),
+    0
+  )
 
   return (
-    <Panel padding="md" className={cn('rounded-2xl', className)}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold text-foreground">规则命中</div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            hits: <span className="font-mono">{totalHits}</span> · rules:{' '}
-            <span className="font-mono">
-              {hitsOnly.length}/{stats.length}
-            </span>
-          </div>
-        </div>
-      </div>
+    <section
+      className={cn(
+        'rounded-md border border-border bg-card p-4',
+        className
+      )}
+    >
+      <h2 className="text-sm font-semibold text-foreground">命中的清洗规则</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        共命中 {totalHits} 次，涉及 {hitsOnly.length} / {stats.length} 条规则
+      </p>
 
       {hitsOnly.length ? (
-        <div className="mt-3 space-y-1">
-          {hitsOnly.map((it) => (
+        <div className="mt-3 divide-y divide-border border-y border-border">
+          {hitsOnly.map((item) => (
             <div
-              key={it.index}
-              className="flex items-start justify-between gap-3 rounded-xl bg-muted/20 px-3 py-2"
+              key={item.index}
+              className="flex items-start justify-between gap-3 py-3"
             >
               <div className="min-w-0">
-                <div className="text-[11px] font-mono text-foreground break-all">{it.pattern}</div>
-                <div className="mt-1 text-[11px] text-muted-foreground font-mono">
-                  {it.source ? `source: ${it.source === 'pack' ? 'pack:' + (it.pack || 'unknown') : it.source} · ` : ''}
-                  flags: {Number(it.flags) || 0}
-                  {typeof it.repl === 'string' && it.repl ? ` · repl: ${it.repl}` : ''}
+                <div className="break-all font-mono text-xs text-foreground">
+                  {item.pattern}
+                </div>
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {getRuleSourceLabel(item.source)}
+                  {item.source === 'pack' && item.pack
+                    ? `：${item.pack}`
+                    : ''}
+                  {Number(item.flags) > 0
+                    ? `；匹配选项 ${Number(item.flags)}`
+                    : ''}
+                  {typeof item.repl === 'string' && item.repl
+                    ? `；替换为 ${item.repl}`
+                    : ''}
                 </div>
               </div>
-              <div className="shrink-0 text-[11px] font-mono rounded-full border border-border/60 bg-background px-2 py-0.5">
-                {Number(it.hits) || 0}
+              <div className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs tabular-nums">
+                {Number(item.hits) || 0} 次
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="mt-3 text-[12px] text-muted-foreground">无命中</div>
+        <div className="mt-3 text-sm text-muted-foreground">
+          样例内容没有命中清洗规则。
+        </div>
       )}
-    </Panel>
+    </section>
   )
 }

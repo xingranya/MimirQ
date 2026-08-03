@@ -1,17 +1,35 @@
 'use client'
 
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Braces, FileText, Loader2, Play, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from '@/i18n/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Panel } from '@/components/ui/panel'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
@@ -176,7 +194,10 @@ const RULE_PACK_COPY: Record<string, { label: string; description: string }> = {
   },
 }
 
-const INPUT_FORMAT_COPY: Record<'markdown' | 'html', { label: string; description: string }> = {
+const INPUT_FORMAT_COPY: Record<
+  'markdown' | 'html',
+  { label: string; description: string }
+> = {
   markdown: {
     label: 'Markdown / 纯文本',
     description: '适合 PDF、Office、TXT 解析后的正文。',
@@ -216,8 +237,7 @@ function applyPipelinePatchUpdate(
 }
 
 function pythonReFlagsToJs(flags: number): string {
-  // Best-effort mapping (Python re flags int -> JS flags).
-  // Python: IGNORECASE=2, MULTILINE=8, DOTALL=16
+  // 将常用 Python 正则选项映射到浏览器可校验的选项。
   let out = ''
   const n = Number(flags || 0)
   if (n & 2) out += 'i'
@@ -242,9 +262,9 @@ function stripLeadingInlineFlags(pattern: string): { pattern: string; inlineJsFl
 
 function validateRegexRuleBestEffort(pattern: string, flags: number): string | null {
   const raw = String(pattern || '').trim()
-  if (!raw) return 'pattern required'
+  if (!raw) return '请输入匹配表达式'
 
-  // Try to make common Python patterns "compile-checkable" in JS.
+  // 替换 Python 常用边界写法后，仅做前端格式预检。
   const stripped = stripLeadingInlineFlags(raw)
   const jsFlags = Array.from(new Set((pythonReFlagsToJs(flags) + stripped.inlineJsFlags).split(''))).join('')
   const jsPattern = stripped.pattern
@@ -254,8 +274,8 @@ function validateRegexRuleBestEffort(pattern: string, flags: number): string | n
   try {
     new RegExp(jsPattern, jsFlags)
     return null
-  } catch (err) {
-    return err instanceof Error ? err.message : 'Invalid regex'
+  } catch {
+    return '表达式格式有误，请检查括号和转义符'
   }
 }
 
@@ -292,7 +312,7 @@ export function ProfileEditorDrawer({
   const [savedDraftFingerprint, setSavedDraftFingerprint] = useState('')
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
-  // Sandbox test state.
+  // 模板效果测试状态。
   const [testInputFormat, setTestInputFormat] = useState<'markdown' | 'html'>('markdown')
   const [testHtmlXPath, setTestHtmlXPath] = useState('')
   const [testInput, setTestInput] = useState<string>('# Sample\n\nfoo')
@@ -459,7 +479,7 @@ export function ProfileEditorDrawer({
     }
   }, [open, isCreate, profileRef, seedCreate])
 
-  // Load available rule packs for multi-select UI (best-effort).
+  // 加载服务端提供的场景清洗规则。
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -481,10 +501,10 @@ export function ProfileEditorDrawer({
     }
   }, [open])
 
-  // Keep JSON view synced for quick-toggle edits.
+  // 保持高级 JSON 与常用设置同步。
   useEffect(() => {
     if (!open) return
-    // If user has a JSON error, do not overwrite their edits.
+    // 用户正在修正 JSON 时，不覆盖当前输入。
     if (patchJsonError) return
     if (patchJsonDirty) return
     setPatchJson(JSON.stringify(pipelinePatch, null, 2))
@@ -568,6 +588,16 @@ export function ProfileEditorDrawer({
   ).length
   const imageRemovalMode = String(pipelinePatch?.governance_remove_images ?? 'none')
   const maxBlankLines = Number(pipelinePatch?.governance_max_blank_lines ?? 1)
+  const drawerTitle = isCreate
+    ? '新建治理模板'
+    : isReadOnly
+      ? '查看治理模板'
+      : '编辑治理模板'
+  const drawerDescription = isCreate
+    ? '保存常用的文档清洗和入库规则。'
+    : loadedProfile?.is_system
+      ? '系统模板只能查看，可以复制后再调整。'
+      : '修改只会用于后续入库或重新处理，不会改动历史版本。'
 
   const save = async () => {
     if (!canSave) return
@@ -657,65 +687,47 @@ export function ProfileEditorDrawer({
   return (
     <>
       <Dialog open={open} onOpenChange={handleDrawerOpenChange}>
-      <DialogContent
-        className={cn(
-          // Drawer layout: right-aligned, full height.
-          'fixed right-0 top-0 left-auto bottom-0 h-dvh w-full max-w-3xl translate-x-0 translate-y-0 rounded-none',
-          'grid grid-rows-[auto,1fr] gap-0 p-0'
-        )}
-      >
-        <div className="border-b border-border bg-popover/80 backdrop-blur-md p-5">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="flex items-center gap-2">
-              <Braces className="size-5 text-primary" />
-              {(() => {
-    if (isCreate) {
-        return '新建治理模板';
-    }
-    else if (isReadOnly) {
-            return '查看治理模板';
-        }
-        else {
-            return '编辑治理模板';
-        }
-})()}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              {(() => {
-    if (isCreate) {
-        return '创建后可用于入库策略或手动选择应用。';
-    }
-    else if (loadedProfile?.is_system) {
-            return '内置模板只读；如需调整请复制为自定义模板。';
-        }
-        else {
-            return '修改后仅影响后续入库/重跑（不会自动回写历史版本）。';
-        }
-})()}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          className={cn(
+            'fixed bottom-0 left-auto right-0 top-0 h-dvh w-full max-w-3xl translate-x-0 translate-y-0 rounded-none',
+            'grid grid-rows-[auto,1fr] gap-0 overflow-hidden border-l border-border bg-background p-0 shadow-none'
+          )}
+        >
+          <div className="border-b border-border bg-card px-4 py-4 pr-12 sm:px-5 sm:pr-12">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Braces className="size-5 text-primary" />
+                {drawerTitle}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-5">
+                {drawerDescription}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <Tabs
-              value={activeTab}
-              onValueChange={(value) => setActiveTab(coerceOneOf(PROFILE_EDITOR_TABS, value, 'edit'))}
-            >
-              <TabsList className="rounded-xl">
-                <TabsTrigger value="edit" className="rounded-lg px-3">
-                  编辑
-                </TabsTrigger>
-                <TabsTrigger value="test" className="rounded-lg px-3">
-                  沙盒测试
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) =>
+                  setActiveTab(
+                    coerceOneOf(PROFILE_EDITOR_TABS, value, 'edit')
+                  )
+                }
+              >
+                <TabsList className="h-9 rounded-md">
+                  <TabsTrigger value="edit" className="rounded-md px-3">
+                    模板设置
+                  </TabsTrigger>
+                  <TabsTrigger value="test" className="rounded-md px-3">
+                    效果测试
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-            <div className="flex items-center gap-2">
               {activeTab === 'test' ? (
                 <Button
                   type="button"
                   size="sm"
-                  className="rounded-xl gap-2"
+                  className="h-9 rounded-md"
                   onClick={() => detachPromise(runTest())}
                   disabled={testRunning}
                 >
@@ -724,13 +736,13 @@ export function ProfileEditorDrawer({
                   ) : (
                     <Play className="size-4" />
                   )}
-                  运行
+                  运行测试
                 </Button>
               ) : (
                 <Button
                   type="button"
                   size="sm"
-                  className="rounded-xl gap-2"
+                  className="h-9 rounded-md"
                   onClick={() => detachPromise(save())}
                   disabled={!canSave}
                 >
@@ -739,16 +751,15 @@ export function ProfileEditorDrawer({
                   ) : (
                     <Save className="size-4" />
                   )}
-                  保存
+                  保存模板
                 </Button>
               )}
             </div>
           </div>
-        </div>
 
-        <div className="min-h-0 overflow-auto bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.22))] p-5">
+          <div className="min-h-0 overflow-auto bg-background p-4 sm:p-5">
           {loadingProfile ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground gap-2">
+            <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
               加载中…
             </div>
@@ -759,20 +770,20 @@ export function ProfileEditorDrawer({
             >
               <TabsContent value="edit" className="mt-0">
                 <div className="space-y-4">
-                  <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
-                    <div className="mb-4 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 font-medium text-primary">
-                        配置摘要
+                  <section className="rounded-md border border-border bg-card p-4">
+                    <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border pb-3 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        当前设置
                       </span>
                       <span>启用 {enabledGovernanceSwitchCount} 项清洗</span>
                       <span>·</span>
-                      <span>规则包 {selectedRulePacks.length} 个</span>
+                      <span>场景规则 {selectedRulePacks.length} 个</span>
                       <span>·</span>
-                      <span>自定义正则 {regexRules.length} 条</span>
+                      <span>自定义规则 {regexRules.length} 条</span>
                       <span>·</span>
                       <span>空行最多 {maxBlankLines} 行</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-1">
                         <Label htmlFor="gp-name">模板名称</Label>
                         <Input
@@ -789,15 +800,15 @@ export function ProfileEditorDrawer({
                           value={key}
                           onChange={(e) => setKey(e.target.value)}
                           disabled={!isCreate || isReadOnly}
-                          placeholder={isCreate ? 'e.g. team:pdf_text' : undefined}
+                          placeholder={isCreate ? '例如：team:pdf_text' : undefined}
                         />
                         {isCreate ? null : (
-                          <div className="text-[11px] text-muted-foreground">
-                            创建后不可修改；入库策略可用 id 或 key 引用该 Profile。
+                          <div className="text-xs text-muted-foreground">
+                            模板标识创建后不能修改，入库规则可通过它调用此模板。
                           </div>
                         )}
                       </div>
-                      <div className="md:col-span-2 space-y-1">
+                      <div className="space-y-1 md:col-span-2">
                         <Label htmlFor="gp-desc">用途说明</Label>
                         <Textarea
                           id="gp-desc"
@@ -808,15 +819,17 @@ export function ProfileEditorDrawer({
                         />
                       </div>
                     </div>
-                  </Panel>
+                  </section>
 
-                  <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
+                  <section className="rounded-md border border-border bg-card p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <div className="font-semibold text-foreground">适用文件类型</div>
-                        <div className="text-[12px] text-muted-foreground mt-1">
-                          只是声明这个治理方案适合什么输入；后端不会强制拦截，但入库策略会用它做分流提示。
-                        </div>
+                        <h2 className="text-sm font-semibold text-foreground">
+                          适用内容类型
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          用于入库时提示应当选择哪套模板，不会阻止其他类型的内容。
+                        </p>
                       </div>
                       <div className="grid w-full grid-cols-1 gap-2 sm:w-[360px] sm:grid-cols-2">
                         {PROFILE_INPUT_FORMAT_VALUES.map((fmt) => {
@@ -826,10 +839,10 @@ export function ProfileEditorDrawer({
                             <label
                               key={fmt}
                               className={cn(
-                                'flex cursor-pointer items-start gap-2 rounded-2xl border px-3 py-2 transition-colors',
+                                'flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition-colors',
                                 selected
-                                  ? 'border-primary/25 bg-primary/10 text-foreground'
-                                  : 'border-border/55 bg-background/75 text-muted-foreground hover:border-primary/20 hover:bg-primary/5',
+                                  ? 'border-primary/40 bg-primary/10 text-foreground'
+                                  : 'border-border bg-background text-muted-foreground hover:bg-muted/40',
                                 isReadOnly && 'cursor-default'
                               )}
                             >
@@ -840,39 +853,48 @@ export function ProfileEditorDrawer({
                                 disabled={isReadOnly}
                               />
                               <span className="min-w-0">
-                                <span className="block text-[12px] font-semibold">{copy.label}</span>
-                                <span className="block text-[10.5px] leading-4 text-muted-foreground">{copy.description}</span>
+                                <span className="block text-xs font-semibold">
+                                  {copy.label}
+                                </span>
+                                <span className="block text-xs leading-5 text-muted-foreground">
+                                  {copy.description}
+                                </span>
                               </span>
                             </label>
                           )
                         })}
                       </div>
                     </div>
-                  </Panel>
+                  </section>
 
-                  <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
+                  <section className="rounded-md border border-border bg-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold text-foreground">常用治理能力</div>
-                        <div className="text-[12px] text-muted-foreground mt-1">
-                          这里展示“要解决什么问题”和“会产生什么效果”。底层仍写入真实 pipeline_patch 字段。
-                        </div>
+                        <h2 className="text-sm font-semibold text-foreground">
+                          常用清洗步骤
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          选择文档入库前需要执行的处理步骤。
+                        </p>
                       </div>
-                      <span className="rounded-full border border-border/55 bg-background/75 px-2 py-1 text-[11px] text-muted-foreground">
+                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
                         已启用 {enabledGovernanceSwitchCount} / {GOVERNANCE_SWITCHES.length}
                       </span>
                     </div>
-                    <div data-profile-governance-switch-grid className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div
+                      data-profile-governance-switch-grid
+                      className="mt-4 divide-y divide-border border-y border-border"
+                    >
                       {GOVERNANCE_SWITCHES.map((item) => {
                         const checked = Boolean(pipelinePatch?.[item.key] ?? item.defaultChecked)
                         return (
                           <label
                             key={String(item.key)}
                             className={cn(
-                              'group flex cursor-pointer gap-3 rounded-2xl border p-3 transition-colors',
+                              'flex cursor-pointer gap-3 px-1 py-3 transition-colors',
                               checked
-                                ? 'border-primary/25 bg-primary/10'
-                                : 'border-border/50 bg-background/70 hover:border-primary/20 hover:bg-primary/5',
+                                ? 'bg-primary/5'
+                                : 'hover:bg-muted/30',
                               isReadOnly && 'cursor-default'
                             )}
                           >
@@ -883,21 +905,15 @@ export function ProfileEditorDrawer({
                               disabled={isReadOnly}
                             />
                             <span className="min-w-0 flex-1">
-                              <span className="flex items-center justify-between gap-2">
-                                <span className="text-[13px] font-semibold text-foreground">{item.label}</span>
-                                <span className="rounded-full border border-border/50 bg-background/65 px-1.5 py-0.5 font-mono text-[9.5px] text-muted-foreground">
-                                  {checked ? 'ON' : 'OFF'}
-                                </span>
+                              <span className="text-sm font-medium text-foreground">
+                                {item.label}
                               </span>
-                              <span className="mt-1 block text-[11.5px] leading-5 text-muted-foreground">
+                              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                                 {item.description}
                               </span>
-                              <span className="mt-2 block rounded-xl border border-border/35 bg-background/55 px-2 py-1 text-[11px] leading-4 text-muted-foreground">
-                                效果：{item.effect}
+                              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                {item.effect}
                               </span>
-                              <code className="mt-1.5 block truncate text-[10px] text-muted-foreground/55">
-                                写入字段：{String(item.key)}
-                              </code>
                             </span>
                           </label>
                         )
@@ -905,9 +921,11 @@ export function ProfileEditorDrawer({
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl border border-border/50 bg-background/75 p-3">
-                        <Label className="text-[13px] font-semibold text-foreground">图片处理</Label>
-                        <div className="mt-1 text-[11.5px] leading-5 text-muted-foreground">
+                      <div className="border-t border-border pt-3">
+                        <Label className="text-sm font-semibold text-foreground">
+                          图片处理
+                        </Label>
+                        <div className="mt-1 text-xs leading-5 text-muted-foreground">
                           只在确实影响检索时删除图片占位；默认建议保留。
                         </div>
                         <Select
@@ -915,7 +933,7 @@ export function ProfileEditorDrawer({
                           onValueChange={(v) => updatePatchValue('governance_remove_images', v)}
                           disabled={isReadOnly}
                         >
-                          <SelectTrigger className="mt-3 h-9 rounded-xl border-border/60 bg-card">
+                          <SelectTrigger className="mt-3 h-9 rounded-md border-border bg-card">
                             <SelectValue placeholder="保留图片" />
                           </SelectTrigger>
                           <SelectContent>
@@ -924,66 +942,67 @@ export function ProfileEditorDrawer({
                             <SelectItem value="all">移除全部图片标记</SelectItem>
                           </SelectContent>
                         </Select>
-                        <div className="mt-2 text-[10.5px] text-muted-foreground/70">
-                          当前写入：governance_remove_images = {imageRemovalMode}
-                        </div>
                       </div>
-                      <div className="rounded-2xl border border-border/50 bg-background/75 p-3">
-                        <Label className="text-[13px] font-semibold text-foreground">最大连续空行</Label>
-                        <div className="mt-1 text-[11.5px] leading-5 text-muted-foreground">
+                      <div className="border-t border-border pt-3">
+                        <Label className="text-sm font-semibold text-foreground">
+                          最大连续空行
+                        </Label>
+                        <div className="mt-1 text-xs leading-5 text-muted-foreground">
                           控制清洗后 Markdown 的留白密度，通常 1 行最适合入库。
                         </div>
                         <Input
                           type="number"
                           min={0}
-                          className="mt-3 h-9 rounded-xl border-border/60 bg-card"
+                          className="mt-3 h-9 rounded-md border-border bg-card"
                           value={String(maxBlankLines)}
                           onChange={(e) => updatePatchValue('governance_max_blank_lines', Number(e.target.value || 1))}
                           disabled={isReadOnly}
                         />
-                        <div className="mt-2 text-[10.5px] text-muted-foreground/70">
-                          当前写入：governance_max_blank_lines
-                        </div>
                       </div>
                     </div>
-                  </Panel>
+                  </section>
 
-                  <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
+                  <section className="rounded-md border border-border bg-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold text-foreground">场景规则包</div>
-                        <div className="text-[12px] text-muted-foreground mt-1">
-                          服务端内置的场景化清洗规则。优先选来源场景，不建议一口气全选。
-                        </div>
+                        <h2 className="text-sm font-semibold text-foreground">
+                          场景清洗规则
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          按文档来源选择即可，不必全部启用。
+                        </p>
                       </div>
                       {loadingRulePacks ? (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-                          加载中...
+                          加载中
                         </div>
                       ) : (
-                        <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
+                        <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
                           已选 {selectedRulePacks.length} 个
                         </span>
                       )}
                     </div>
 
                     {availableRulePacks.length ? (
-                      <div data-profile-rule-pack-grid className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <div
+                        data-profile-rule-pack-grid
+                        className="mt-4 divide-y divide-border border-y border-border"
+                      >
                         {availableRulePacks.map((pack) => {
                           const selected = selectedRulePacks.includes(pack)
                           const copy = RULE_PACK_COPY[pack] || {
                             label: pack.replaceAll('_', ' '),
-                            description: '服务端返回的自定义规则包。',
+                            description: '适用于当前来源的文档清洗规则。',
                           }
                           return (
                             <label
                               key={pack}
                               className={cn(
-                                'flex cursor-pointer items-start gap-2 rounded-2xl border px-3 py-2 transition-colors',
+                                'flex cursor-pointer items-start gap-2 px-2 py-3 transition-colors',
                                 selected
-                                  ? 'border-primary/25 bg-primary/10'
-                                  : 'border-border/50 bg-background/70 hover:border-primary/20 hover:bg-primary/5',
+                                  ? 'bg-primary/5'
+                                  : 'hover:bg-muted/30',
                                 isReadOnly && 'cursor-default'
                               )}
                             >
@@ -994,9 +1013,12 @@ export function ProfileEditorDrawer({
                                 disabled={isReadOnly}
                               />
                               <span className="min-w-0">
-                                <span className="block text-[12.5px] font-semibold text-foreground">{copy.label}</span>
-                                <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">{copy.description}</span>
-                                <code className="mt-1 block truncate text-[10px] text-muted-foreground/55">{pack}</code>
+                                <span className="block text-sm font-medium text-foreground">
+                                  {copy.label}
+                                </span>
+                                <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                                  {copy.description}
+                                </span>
                               </span>
                             </label>
                           )
@@ -1004,40 +1026,40 @@ export function ProfileEditorDrawer({
                       </div>
                     ) : (
                       <div className="mt-3 text-sm text-muted-foreground">
-                        {loadingRulePacks ? '正在加载规则包...' : '暂无可用规则包'}
+                        {loadingRulePacks ? '正在加载规则' : '暂无可用场景规则'}
                       </div>
                     )}
-                  </Panel>
+                  </section>
 
                   <details
                     data-profile-advanced-json
-                    className="group rounded-2xl border border-border/55 bg-card/82 shadow-sm"
+                    className="group rounded-md border border-border bg-card"
                     open={Boolean(patchJsonError || patchJsonDirty)}
                   >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                       <span>
-                        <span className="flex items-center gap-2 font-semibold text-foreground">
+                        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                           <Braces className="size-4 text-muted-foreground" />
-                          高级 JSON
+                          高级配置 JSON
                         </span>
-                        <span className="mt-1 block text-[12px] text-muted-foreground">
-                          只有需要手动覆盖后端字段时再展开；上方开关会自动同步到这里。
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          仅供熟悉配置字段的管理员使用，常用设置会自动同步到这里。
                         </span>
                       </span>
-                      <span className="rounded-full border border-border/55 bg-background/75 px-2 py-1 text-[11px] text-muted-foreground">
-                        pipeline_patch
+                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        高级
                       </span>
                     </summary>
-                    <div className="border-t border-border/45 px-4 pb-4 pt-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[12px] text-muted-foreground">
-                          修改 JSON 后点击“应用 JSON”解析；解析失败不会覆盖当前配置。
+                    <div className="border-t border-border px-4 pb-4 pt-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs leading-5 text-muted-foreground">
+                          修改后先应用配置。格式有误时不会覆盖当前设置。
                         </div>
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="rounded-xl"
+                          className="h-9 rounded-md"
                           onClick={applyPatchJson}
                           disabled={isReadOnly}
                         >
@@ -1052,39 +1074,46 @@ export function ProfileEditorDrawer({
                           setPatchJsonDirty(true)
                         }}
                         disabled={isReadOnly}
-                        className={cn('mt-3 min-h-[180px] font-mono text-[12px]', patchJsonError && 'aria-[invalid=true]')}
+                        className={cn(
+                          'mt-3 min-h-[180px] font-mono text-xs',
+                          patchJsonError && 'aria-[invalid=true]'
+                        )}
                         aria-invalid={patchJsonError ? 'true' : 'false'}
                       />
                       {patchJsonError ? (
-                        <div className="mt-2 text-[12px] text-destructive">JSON 解析失败：{patchJsonError}</div>
+                        <div className="mt-2 text-xs text-destructive">
+                          JSON 格式有误：{patchJsonError}
+                        </div>
                       ) : null}
                     </div>
                   </details>
 
                   <details
                     data-profile-regex-rules
-                    className="group rounded-2xl border border-border/55 bg-card/82 shadow-sm"
+                    className="group rounded-md border border-border bg-card"
                     open={regexRules.length > 0}
                   >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                       <span>
-                        <span className="font-semibold text-foreground">自定义正则规则</span>
-                        <span className="mt-1 block text-[12px] text-muted-foreground">
+                        <span className="text-sm font-semibold text-foreground">
+                          自定义文本规则
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                           内置规则无法处理固定噪声时再添加。系统会检查表达式安全性和长度。
                         </span>
                       </span>
-                      <span className="rounded-full border border-border/55 bg-background/75 px-2 py-1 text-[11px] text-muted-foreground">
+                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
                         {regexRules.length} 条
                       </span>
                     </summary>
 
-                    <div className="border-t border-border/45 px-4 pb-4 pt-3">
+                    <div className="border-t border-border px-4 pb-4 pt-3">
                       <div className="flex justify-end">
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="rounded-xl"
+                          className="h-9 rounded-md"
                           onClick={addRule}
                           disabled={isReadOnly}
                         >
@@ -1092,12 +1121,14 @@ export function ProfileEditorDrawer({
                         </Button>
                       </div>
                       {regexRules.length ? (
-                        <div className="mt-4 space-y-3">
+                        <div className="mt-4 divide-y divide-border border-y border-border">
                         {regexRules.map((r, idx) => (
-                          <div key={`regex-rule-${idx}`} className="rounded-xl border border-border bg-muted/30 p-3">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div className="md:col-span-2 space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">匹配表达式</Label>
+                          <div key={`regex-rule-${idx}`} className="py-3">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                              <div className="space-y-1 md:col-span-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  匹配表达式
+                                </Label>
                                 <Input
                                   value={r.pattern || ''}
                                   onChange={(e) => updateRule(idx, { pattern: e.target.value })}
@@ -1106,11 +1137,13 @@ export function ProfileEditorDrawer({
                                 />
                                 {(() => {
                                   const err = validateRegexRuleBestEffort(r.pattern || '', Number(r.flags ?? 0))
-                                  return err ? <div className="text-[11px] text-destructive">{err}</div> : null
+                                  return err ? <div className="text-xs text-destructive">{err}</div> : null
                                 })()}
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">匹配选项</Label>
+                                <Label className="text-xs text-muted-foreground">
+                                  匹配选项
+                                </Label>
                                 <Input
                                   type="number"
                                   value={String(r.flags ?? 0)}
@@ -1118,8 +1151,10 @@ export function ProfileEditorDrawer({
                                   disabled={isReadOnly}
                                 />
                               </div>
-                              <div className="md:col-span-3 space-y-1">
-                                <Label className="text-[12px] text-muted-foreground">替换内容</Label>
+                              <div className="space-y-1 md:col-span-3">
+                                <Label className="text-xs text-muted-foreground">
+                                  替换内容
+                                </Label>
                                 <Input
                                   value={r.repl || ''}
                                   onChange={(e) => updateRule(idx, { repl: e.target.value })}
@@ -1133,7 +1168,7 @@ export function ProfileEditorDrawer({
                                 type="button"
                                 size="sm"
                                 variant="ghost"
-                                className="rounded-xl"
+                                className="h-9 rounded-md text-destructive hover:text-destructive"
                                 onClick={() => removeRule(idx)}
                                 disabled={isReadOnly}
                               >
@@ -1144,8 +1179,8 @@ export function ProfileEditorDrawer({
                         ))}
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-4 text-sm text-muted-foreground">
-                          暂无自定义规则。通常先使用上方场景规则包，只有遇到固定噪声样式时再新增正则。
+                        <div className="mt-3 border-y border-dashed border-border px-1 py-4 text-sm text-muted-foreground">
+                          暂无自定义规则。先使用上方的场景清洗规则，遇到固定噪声格式时再添加。
                         </div>
                       )}
                     </div>
@@ -1155,25 +1190,27 @@ export function ProfileEditorDrawer({
 
               <TabsContent value="test" className="mt-0">
                 <div className="space-y-4">
-                  <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <section className="rounded-md border border-border bg-card p-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label>测试输入类型</Label>
+                        <Label>样例内容类型</Label>
                         <Select
                           value={testInputFormat}
                           onValueChange={(value) => setTestInputFormat(coerceOneOf(PROFILE_INPUT_FORMAT_VALUES, value, 'markdown'))}
                         >
-                          <SelectTrigger className="h-10 rounded-xl">
-                            <SelectValue placeholder="markdown" />
+                          <SelectTrigger className="h-10 rounded-md">
+                            <SelectValue placeholder="选择内容类型" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="markdown">markdown</SelectItem>
-                            <SelectItem value="html">html</SelectItem>
+                            <SelectItem value="markdown">
+                              Markdown / 纯文本
+                            </SelectItem>
+                            <SelectItem value="html">HTML / 网页</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <Label>HTML 正文 XPath（可选）</Label>
+                        <Label>网页正文定位规则（可选）</Label>
                         <Input
                           value={testHtmlXPath}
                           onChange={(e) => setTestHtmlXPath(e.target.value)}
@@ -1181,56 +1218,66 @@ export function ProfileEditorDrawer({
                           placeholder="//article | //main"
                         />
                       </div>
-                      <div className="md:col-span-2 space-y-1">
+                      <div className="space-y-1 md:col-span-2">
                         <Label>粘贴一段样例内容</Label>
-                        <Textarea value={testInput} onChange={(e) => setTestInput(e.target.value)} className="min-h-[180px] font-mono text-[12px]" />
-                        <div className="text-[11px] text-muted-foreground">
-                          用真实样例跑一次，可以看到清洗后的 Markdown、命中规则和 diff，不需要靠猜。
+                        <Textarea
+                          value={testInput}
+                          onChange={(e) => setTestInput(e.target.value)}
+                          className="min-h-[180px] font-mono text-xs"
+                        />
+                        <div className="text-xs leading-5 text-muted-foreground">
+                          建议使用真实内容测试，结果会显示清洗后的正文、命中规则和改动对比。
                         </div>
                       </div>
                     </div>
-                  </Panel>
+                  </section>
 
                   {testResp ? (
                     <div className="grid grid-cols-1 gap-4">
-                      <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
+                      <section className="rounded-md border border-border bg-card p-4">
                         <div className="flex items-center gap-2">
                           <FileText className="size-4 text-muted-foreground" />
-                          <div className="font-semibold text-foreground">清洗结果（Markdown）</div>
+                          <h2 className="text-sm font-semibold text-foreground">
+                            清洗后的正文
+                          </h2>
                         </div>
                         <Textarea
                           value={String(testResp.markdown || '')}
                           readOnly
-                          className="mt-3 min-h-[220px] font-mono text-[12px] bg-muted/20"
+                          className="mt-3 min-h-[220px] bg-muted/20 font-mono text-xs"
                         />
-                      </Panel>
+                      </section>
 
                       <CleanPreviewRuleStatsPanel ruleStats={testResp.rule_stats} />
 
                       {testResp.diff_unified ? (
-                        <Panel padding="lg" className="rounded-2xl border-border/55 bg-card/92 shadow-sm">
+                        <section className="rounded-md border border-border bg-card p-4">
                           <div className="flex items-center gap-2">
                             <Braces className="size-4 text-muted-foreground" />
-                            <div className="font-semibold text-foreground">改动对比（Diff）</div>
+                            <h2 className="text-sm font-semibold text-foreground">
+                              改动对比
+                            </h2>
                           </div>
                           <Textarea
                             value={String(testResp.diff_unified || '')}
                             readOnly
-                            className="mt-3 min-h-[220px] font-mono text-[12px] bg-muted/20"
+                            className="mt-3 min-h-[220px] bg-muted/20 font-mono text-xs"
                           />
                           {testResp.diff_truncated ? (
-                            <div className="mt-2 text-[12px] text-muted-foreground">diff 已截断</div>
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              改动内容较长，仅显示前一部分。
+                            </div>
                           ) : null}
-                        </Panel>
+                        </section>
                       ) : null}
                     </div>
                   ) : (
-                    <Panel padding="lg" className="rounded-2xl border-dashed border-border/60 bg-card/70">
+                    <section className="rounded-md border border-dashed border-border bg-card p-4">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Play className="size-4" />
-                        点击“运行”调用 clean-preview 查看清洗效果与 diff
+                        点击“运行测试”查看清洗结果和改动内容。
                       </div>
-                    </Panel>
+                    </section>
                   )}
                 </div>
               </TabsContent>
