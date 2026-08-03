@@ -79,4 +79,23 @@ describe('消融分析响应式布局', () => {
     expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
     expect(source).not.toContain('shadow-')
   })
+
+  it('效率前沿修正坐标系并隔离图表标签', () => {
+    const source = readFileSync(
+      resolve(__dirname, 'ablation-pareto-panel.tsx'),
+      'utf8'
+    )
+
+    expect(source).toContain('viewBox="0 0 100 100"')
+    expect(source).toContain('aspect-[16/9] min-h-64')
+    expect(source).toContain('(point.latency - minLatency) / latencyRange')
+    expect(source).toContain('效率前沿')
+    expect(source).toContain('响应延迟')
+    expect(source).not.toContain('radial-gradient')
+    expect(source).not.toContain('linear-gradient')
+    expect(source).not.toContain('hover:scale')
+    expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl)/)
+    expect(source).not.toMatch(/text-\[(?:9|10|11)(?:\.\d+)?px\]/)
+    expect(source).not.toContain('shadow-')
+  })
 })
