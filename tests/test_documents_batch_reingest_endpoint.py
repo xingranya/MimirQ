@@ -24,8 +24,7 @@ def test_documents_batch_reingest_calls_patch_and_retry(monkeypatch):  # noqa: A
 
     calls = {"patch": 0, "retry": 0}
 
-    async def _fake_patch(**kwargs):  # noqa: ANN001, ANN202
-        await yield_control()
+    def _fake_patch(**kwargs):  # noqa: ANN001, ANN202
         calls["patch"] += 1
         return None
 
@@ -70,4 +69,3 @@ def test_documents_batch_reingest_calls_patch_and_retry(monkeypatch):  # noqa: A
     assert body["queued"] == 2
     assert calls["patch"] == 2
     assert calls["retry"] == 2
-

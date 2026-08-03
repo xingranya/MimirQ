@@ -183,7 +183,7 @@ async def batch_reingest_documents(
     for document_id in payload.document_ids:
         if bool(payload.replace) or has_patch:
             try:
-                await documents_module.patch_document_pipeline(
+                documents_module.patch_document_pipeline(
                     document_id=document_id,
                     payload=patch_req,
                     tenant_id=tenant_id,
