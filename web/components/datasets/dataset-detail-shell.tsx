@@ -85,6 +85,7 @@ type DatasetDetailShellProps = PageScaffoldLayoutProps & {
   datasetName?: string | null
   description: ReactNode
   icon: LucideIcon
+  onSectionNavigate?: (href: string) => void
   title: string
 }
 
@@ -104,6 +105,7 @@ export function DatasetDetailShell({
   density = 'system-dense',
   description,
   icon: Icon,
+  onSectionNavigate,
   size = 'full',
   title,
 }: Readonly<DatasetDetailShellProps>) {
@@ -169,11 +171,17 @@ export function DatasetDetailShell({
           <div className="min-w-0 flex-1 md:hidden">
             <Select
               value={activeSection}
-              onValueChange={(value) =>
-                router.push(
-                  buildSectionHref(datasetId, value as DatasetDetailSection)
+              onValueChange={(value) => {
+                const href = buildSectionHref(
+                  datasetId,
+                  value as DatasetDetailSection
                 )
-              }
+                if (onSectionNavigate) {
+                  onSectionNavigate(href)
+                  return
+                }
+                router.push(href)
+              }}
             >
               <SelectTrigger
                 aria-label="选择数据集功能"

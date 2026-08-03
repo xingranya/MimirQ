@@ -69,6 +69,16 @@ export function useUnsavedNavigationGuard({
   }, [enabled])
 
   const cancelNavigation = useCallback(() => setPendingHref(null), [])
+  const requestNavigation = useCallback(
+    (href: string) => {
+      if (enabled) {
+        setPendingHref(href)
+        return
+      }
+      onNavigate(href)
+    },
+    [enabled, onNavigate]
+  )
   const confirmNavigation = useCallback(() => {
     if (!pendingHref) return
     const href = pendingHref
@@ -81,5 +91,6 @@ export function useUnsavedNavigationGuard({
     confirmNavigation,
     navigationPending: enabled && pendingHref !== null,
     pendingHref,
+    requestNavigation,
   }
 }

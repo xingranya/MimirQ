@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, BarChart3, Cloud, Database, FileSearch, FileUp, Heart, Loader2, Plus, RefreshCw, Save, Scissors, Settings2, ShieldCheck, Sparkles, Table2, Trash2 } from 'lucide-react'
+import { BarChart3, FileUp, Loader2, Plus, RefreshCw, Save, Scissors, Settings2, Sparkles, Trash2 } from 'lucide-react'
 
 import { AppFrame } from '@/components/app-frame'
-import { PageScaffold } from '@/components/ui/page-scaffold'
+import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
 import { Panel } from '@/components/ui/panel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +29,7 @@ import { randomBase36Id } from '@/lib/secure-random'
 import { cn, detachPromise } from '@/lib/utils'
 import { useRouter } from '@/i18n/navigation'
 import { usePipelineCapabilities } from '@/contexts/pipeline-capabilities-context'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import type {
   IngestionPolicy,
   IngestionRule,
@@ -58,7 +59,7 @@ type IngestionPolicyTemplate = {
   name: string
   description: string
   tags: string[]
-  // The id will be generated when applying the template.
+  // 应用模板时生成唯一规则 ID。
   rules: Array<Omit<IngestionRule, 'id'>>
 }
 
@@ -562,7 +563,7 @@ function draftToRule(d: RuleDraft): IngestionRule {
   if (raw) {
     const parsed: unknown = JSON.parse(raw)
     if (!isRecord(parsed)) {
-      throw new Error('pipeline patch must be a JSON object')
+      throw new Error('高级策略参数必须是 JSON 对象')
     }
     patch = parsed
   }
@@ -690,6 +691,15 @@ export default function DatasetIngestionPolicyPage() {
   }, [refetchDataset, refetchIngestionStats, refetchPolicy])
 
   const rules = useMemo(() => policy?.rules || [], [policy])
+  const isDirty = useMemo(() => {
+    if (!policy || !policyQuery.data) return false
+    return JSON.stringify(policy) !== JSON.stringify(policyQuery.data)
+  }, [policy, policyQuery.data])
+  const navigateAfterConfirm = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: isDirty && !saving,
+    onNavigate: navigateAfterConfirm,
+  })
 
   const openCreate = useCallback(() => {
     setEditingIndex(null)
@@ -755,24 +765,20 @@ export default function DatasetIngestionPolicyPage() {
     const ids = generateTemplateRuleIds(tpl.rules.length)
     const newRules: IngestionRule[] = tpl.rules.map((r, i) => ({ ...r, id: ids[i] }))
 
-    const merged =
-      (() => {
+    let merged: IngestionRule[]
     if (mode === 'replace') {
-        return newRules;
+      merged = newRules
+    } else if (mode === 'append') {
+      merged = [...existing, ...newRules]
+    } else {
+      merged = [...newRules, ...existing]
     }
-    else if (mode === 'append') {
-            return [...existing, ...newRules];
-        }
-        else {
-            return [...newRules, ...existing];
-        }
-})()
 
     setPolicy({ version: '1', rules: merged })
     setTemplatesOpen(false)
     toast.success(`已应用模板：${tpl.name}（${newRules.length} 条规则）`)
 
-    // Bring the user back to the top to see the newly inserted rules.
+    // 应用模板后回到顶部，便于立即检查新增规则。
     globalThis.window.requestAnimationFrame(() => {
       const sc = document.querySelector<HTMLElement>('[data-page-scroll-container="true"]')
       sc?.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
@@ -788,7 +794,7 @@ export default function DatasetIngestionPolicyPage() {
       await refreshIngestionPolicy()
     } catch (e: unknown) {
       reportClientError('Failed to save ingestion policy', e)
-      toast.error(formatApiError(e, '保存失败（请检查规则ID/扩展名/正则/patch JSON）'))
+      toast.error(formatApiError(e, '保存失败，请检查规则标识、扩展名、文件名正则和高级策略参数'))
     } finally {
       setSaving(false)
     }
@@ -810,156 +816,47 @@ export default function DatasetIngestionPolicyPage() {
     }
   }, [previewFile, datasetId])
 
-  const ingestionHeroCard = 'relative overflow-hidden rounded-[26px] border border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(246,248,251,0.94)_45%,rgba(232,246,250,0.72))] shadow-[0_24px_70px_rgba(15,23,42,0.10)] ring-1 ring-white/80 before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_16%_10%,rgba(8,145,178,0.16),transparent_26%),radial-gradient(circle_at_82%_0%,rgba(15,23,42,0.075),transparent_24%),linear-gradient(90deg,rgba(15,23,42,0.035)_1px,transparent_1px)] before:bg-[length:auto,auto,34px_34px] dark:border-border/60 dark:bg-none dark:bg-card/95 dark:ring-white/5'
-  const ingestionToolbarGroupClass = 'inline-flex flex-wrap items-center gap-1 rounded-2xl border border-border/60 bg-card/82 p-1 shadow-[0_12px_34px_rgba(15,23,42,0.07)] ring-1 ring-white/75 backdrop-blur dark:border-border/60 dark:bg-card/70 dark:ring-white/5'
-  const ingestionToolbarButtonClass = 'h-8 gap-1.5 rounded-xl px-2.5 text-[12px] font-semibold text-muted-foreground shadow-none hover:bg-card hover:text-foreground hover:shadow-sm dark:text-muted-foreground dark:hover:bg-muted/60 dark:hover:text-foreground [&_svg]:size-3.5'
-  const ingestionToolbarPrimaryButtonClass = 'h-8 min-w-[104px] gap-1.5 rounded-xl bg-primary px-3.5 text-[12px] font-semibold text-primary-foreground shadow-[0_12px_26px_rgba(15,23,42,0.22)] hover:bg-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 [&_svg]:size-3.5'
-  const ingestionPanelClass = 'rounded-[24px] border-border/60 bg-card/88 shadow-[0_18px_54px_rgba(15,23,42,0.08)] ring-1 ring-white/75 backdrop-blur-xl dark:border-border/60 dark:bg-card/82 dark:ring-white/5'
-  const ingestionPanelHeaderClass = 'shrink-0 border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,0.78))] px-5 py-4 dark:border-border/60 dark:bg-none dark:bg-muted/20'
-  const ingestionIconPillClass = 'flex size-9 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-card text-foreground/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_8px_22px_rgba(15,23,42,0.08)] dark:border-border/60 dark:bg-muted/30 dark:text-foreground'
-  const ingestionActionButtonClass = 'h-9 rounded-xl px-3 text-[12px] font-semibold shadow-sm [&_svg]:size-4'
-  const ingestionMetricCardClass = 'group relative overflow-hidden rounded-2xl border border-border/60 bg-card/90 px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.055)] ring-1 ring-white/80 transition-colors hover:border-border dark:border-border/60 dark:bg-card/80 dark:ring-white/5'
-  const activeRuleCount = rules.filter((rule) => rule.enabled !== false).length
-  const parserBackendCount = new Set(rules.map((rule) => rule.parser_backend).filter(Boolean)).size
-
+  const ingestionPanelClass = 'rounded-md border-border bg-card shadow-none'
+  const ingestionPanelHeaderClass = 'shrink-0 border-b border-border bg-background px-5 py-4'
+  const ingestionIconPillClass = 'flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground'
+  const ingestionActionButtonClass = 'h-9 rounded-md px-3 text-sm font-semibold shadow-none [&_svg]:size-4'
+  const ingestionMetricCardClass = 'overflow-hidden rounded-md border border-border bg-card px-4 py-3 shadow-none'
   return (
     <AppFrame>
-      <PageScaffold
+      <DatasetDetailShell
+        activeSection="ingestion"
+        datasetId={datasetId}
+        datasetName={dataset?.name}
         title="入库策略"
-        showHeader={false}
-        size="full"
-        density="system-dense"
-        bodyGutter="dense"
-        bodyClassName="h-full overflow-hidden bg-[radial-gradient(circle_at_16%_0%,hsl(var(--info)/0.12),transparent_30%),radial-gradient(circle_at_84%_10%,hsl(var(--foreground)/0.055),transparent_28%),linear-gradient(180deg,hsl(var(--background)/0.98),hsl(var(--surface-2)/0.76))] pb-3"
+        description="按文件类型配置预处理、解析、治理与切片规则。"
+        icon={Settings2}
+        onSectionNavigate={navigationGuard.requestNavigation}
+        bodyClassName="h-full overflow-hidden bg-background pb-3"
         bodyContainerClassName="h-full min-h-0 overflow-hidden"
-        top={
-          <div className={ingestionHeroCard}>
-            <div className="absolute inset-y-4 left-3 w-1 rounded-full bg-[linear-gradient(180deg,hsl(var(--primary)),hsl(var(--info)/0.78),hsl(var(--primary)/0.36))]" />
-            <div className="relative flex flex-col gap-3 px-5 py-3.5 pl-8 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-start gap-3.5">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-info/30 bg-card/82 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_26px_hsl(var(--info)/0.14)] dark:bg-info/10">
-                  <Settings2 className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="truncate text-[22px] font-semibold leading-none tracking-[-0.035em] text-foreground dark:text-foreground">入库策略工作台</h1>
-                    <span className="inline-flex h-5 items-center rounded-full border border-border bg-card/82 px-2 text-[10px] font-bold uppercase leading-none tracking-[0.12em] text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-border/60 dark:bg-muted/30 dark:text-muted-foreground">
-                      pipeline policy
-                    </span>
-                    <Badge variant="soft" className="h-5 border-primary/20 bg-primary/10 px-2 font-mono text-[10px] leading-none text-primary">
-                      POLICY
-                    </Badge>
-                  </div>
-                  <div className="mt-1.5 text-[13px] leading-tight text-muted-foreground dark:text-muted-foreground">
-                    <span className="font-semibold text-foreground">数据集：</span>
-                    <span className="font-medium text-foreground">{dataset?.name || datasetId}</span>
-                    <span> · 按文件类型配置预处理、解析、治理与切块入口</span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-medium leading-none text-muted-foreground dark:text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Database className="size-3.5 text-muted-foreground/80" />
-                      <span>规则</span>
-                      <span className="font-mono font-semibold text-foreground">{rules.length}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <ShieldCheck className="size-3.5 text-muted-foreground/80" />
-                      <span>启用</span>
-                      <span className="font-mono font-semibold text-foreground">{activeRuleCount}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Cloud className="size-3.5 text-muted-foreground/80" />
-                      <span>解析后端</span>
-                      <span className="font-mono font-semibold text-foreground">{parserBackendCount || '--'}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <FileSearch className="size-3.5 text-muted-foreground/80" />
-                      <span>预览</span>
-                      <span className="font-semibold text-foreground">样例文件链路验证</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-stretch gap-2 lg:w-[360px]">
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ['01', '匹配规则'],
-                    ['02', '解析治理'],
-                    ['03', '切块入库'],
-                  ].map(([step, label]) => (
-                    <div key={step} className="rounded-2xl border border-border/60 bg-card/72 px-3 py-2 shadow-[0_10px_26px_rgba(15,23,42,0.07)] ring-1 ring-border/60 backdrop-blur">
-                      <div className="font-mono text-[10px] font-black leading-none text-info">{step}</div>
-                      <div className="mt-1 truncate text-[11px] font-bold leading-none text-foreground">{label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="inline-flex h-9 items-center gap-2 rounded-xl border border-success/30 bg-success/5 px-3 text-[12px] font-semibold text-success shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_10px_24px_rgba(5,150,105,0.10)]">
-                  <span className="size-2 rounded-full bg-success" />
-                  策略可编辑
-                </div>
-              </div>
-            </div>
-          </div>
-        }
-        toolbar={
-          <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className={ingestionToolbarGroupClass}>
-              <Button size="sm" variant="ghost" onClick={() => router.push('/datasets')} className={ingestionToolbarButtonClass}>
-                <ArrowLeft className="size-3.5" />
-                返回
-              </Button>
-              {datasetId ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push(`/datasets/${datasetId}/health`)}
-                  className={ingestionToolbarButtonClass}
-                >
-                  <Heart className="size-3.5" />
-                  健康
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push(`/datasets/${datasetId}/precheck`)}
-                  className={ingestionToolbarButtonClass}
-                >
-                  <ShieldCheck className="size-3.5" />
-                  预检
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push(`/datasets/${datasetId}/profile`)}
-                  className={ingestionToolbarButtonClass}
-                >
-                  <BarChart3 className="size-3.5" />
-                  数据画像
-                </Button>
-              ) : null}
-              {datasetId ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => router.push(`/datasets/${datasetId}/tables`)}
-                  className={ingestionToolbarButtonClass}
-                >
-                  <Table2 className="size-3.5" />
-                  表格 / TAG
-                </Button>
-              ) : null}
-            </div>
-            <Button size="sm" onClick={savePolicy} disabled={saving || !policy} className={ingestionToolbarPrimaryButtonClass}>
-              {saving ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Save className="size-3.5" />}
-              保存
+        actions={
+          <>
+            {isDirty ? (
+              <Badge variant="soft" className="h-7 rounded-md px-2 text-xs">
+                有未保存更改
+              </Badge>
+            ) : null}
+            <Button
+              size="sm"
+              onClick={savePolicy}
+              disabled={saving || !policy || !isDirty}
+              className="h-9 rounded-md"
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Save className="size-4" aria-hidden="true" />
+              )}
+              {saving ? '正在保存' : '保存策略'}
             </Button>
-          </div>
+          </>
         }
       >
-        <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+        <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
           {ingestionStats ? (
             <div className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-4">
               {[
@@ -967,41 +864,41 @@ export default function DatasetIngestionPolicyPage() {
                   icon: FileUp,
                   label: '文档数',
                   value: ingestionStats.total_documents,
-                  subValue: `completed ${(ingestionStats.by_status?.completed || 0)} · failed ${(ingestionStats.by_status?.failed || 0)}`,
+                  subValue: `已完成 ${ingestionStats.by_status?.completed || 0} · 失败 ${ingestionStats.by_status?.failed || 0}`,
                   tone: 'text-info bg-info/10 border-info/20',
                 },
                 {
                   icon: Scissors,
                   label: '切片数',
                   value: ingestionStats.total_chunks,
-                  subValue: 'sum(chunk_count)',
+                  subValue: '所有文档切片总数',
                   tone: 'text-success bg-success/10 border-success/20',
                 },
                 {
                   icon: BarChart3,
                   label: '总字符数',
                   value: ingestionStats.total_characters,
-                  subValue: 'sum(total_characters)',
+                  subValue: '所有文档字符总数',
                   tone: 'text-warning bg-warning/10 border-warning/20',
                 },
                 {
                   icon: RefreshCw,
                   label: '最近入库',
                   value: ingestionStats.last_processed_at ? new Date(ingestionStats.last_processed_at).toLocaleString() : '—',
-                  subValue: 'processed_at',
+                  subValue: '最近完成处理时间',
                   tone: 'text-success bg-success/10 border-success/20',
                 },
               ].map((item) => (
                 <div key={item.label} className={ingestionMetricCardClass}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70 dark:text-muted-foreground">{item.label}</div>
-                      <div className="mt-1 truncate font-mono text-[17px] font-black leading-none tracking-[-0.02em] text-foreground tabular-nums dark:text-foreground">
+                      <div className="text-xs font-medium text-muted-foreground">{item.label}</div>
+                      <div className="mt-1 truncate font-mono text-base font-semibold leading-none text-foreground tabular-nums">
                         {item.value}
                       </div>
-                      <div className="mt-1.5 truncate text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">{item.subValue}</div>
+                      <div className="mt-1.5 truncate text-xs text-muted-foreground">{item.subValue}</div>
                     </div>
-                    <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-xl border', item.tone)}>
+                    <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-md border', item.tone)}>
                       <item.icon className="size-4" />
                     </div>
                   </div>
@@ -1010,23 +907,22 @@ export default function DatasetIngestionPolicyPage() {
             </div>
           ) : null}
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_440px]">
-          <Panel variant="glass" className={cn(ingestionPanelClass, 'flex min-h-0 flex-col overflow-hidden')}>
+          <div className="grid grid-cols-1 gap-3 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_440px]">
+          <Panel className={cn(ingestionPanelClass, 'flex min-h-[520px] flex-col overflow-hidden xl:min-h-0')}>
             <div className={cn(ingestionPanelHeaderClass, 'flex items-center justify-between gap-4')}>
               <div className="flex min-w-0 items-start gap-3">
                 <div className={ingestionIconPillClass}>
                   <Settings2 className="size-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="mb-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-info">Policy routing</div>
                   <div className="flex items-center gap-2">
-                    <div className="text-[15px] font-bold tracking-[-0.015em] text-foreground dark:text-foreground">规则列表</div>
-                    <Badge variant="outline" className="h-5 rounded-full px-2 font-mono text-[10px] uppercase text-muted-foreground">
-                      {rules.length} rules
+                    <div className="text-base font-semibold text-foreground">规则列表</div>
+                    <Badge variant="outline" className="h-5 rounded-md px-2 text-xs text-muted-foreground">
+                      {rules.length} 条规则
                     </Badge>
                   </div>
-                  <div className="mt-1 max-w-3xl text-[12px] leading-5 text-muted-foreground dark:text-muted-foreground">
-                    从上到下匹配，命中后应用：预处理步骤 / 解析后端 / chunk 策略 / 治理预设 / pipeline_patch
+                  <div className="mt-1 max-w-3xl text-sm leading-5 text-muted-foreground">
+                    从上到下匹配，命中后依次应用预处理、解析后端、切片策略和治理预设。
                   </div>
                 </div>
               </div>
@@ -1035,31 +931,31 @@ export default function DatasetIngestionPolicyPage() {
                   <Sparkles className="size-4" />
                   从模板添加
                 </Button>
-                <Button onClick={openCreate} className={cn(ingestionActionButtonClass, 'bg-primary text-primary-foreground shadow-[0_12px_24px_rgba(2,132,199,0.24)] hover:bg-primary/90')}>
+                <Button onClick={openCreate} className={cn(ingestionActionButtonClass, 'bg-primary text-primary-foreground hover:bg-primary/90')}>
                   <Plus className="size-4" />
                   新增规则
                 </Button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.72),rgba(255,255,255,0.92))] p-4 no-scrollbar dark:bg-none dark:bg-muted/5">
+            <div className="bg-background p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto no-scrollbar">
               {(rules || []).length === 0 ? (
-                <div className="flex min-h-[260px] flex-col justify-center rounded-[22px] border border-dashed border-border bg-card/72 px-6 py-8 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] dark:border-border dark:bg-muted/20 dark:text-muted-foreground">
+                <div className="flex min-h-[260px] flex-col justify-center rounded-md border border-dashed border-border bg-muted/30 px-6 py-8 text-muted-foreground">
                   <div className="flex items-start gap-4">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground dark:bg-muted/40">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <Sparkles className="size-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[15px] font-bold tracking-[-0.01em] text-foreground dark:text-foreground">还没有入库规则</div>
-                      <div className="mt-1 max-w-xl text-[12px] leading-6">
-                        建议先从模板生成 PDF / HTML / 纯文本规则，再按数据集情况调整解析后端、治理预设和 chunk 策略。
+                      <div className="text-base font-semibold text-foreground">还没有入库规则</div>
+                      <div className="mt-1 max-w-xl text-sm leading-6">
+                        建议先从模板生成 PDF、HTML 或纯文本规则，再按数据集情况调整解析后端、治理预设和切片策略。
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" className="rounded-xl bg-card text-[12px] font-semibold" onClick={() => setTemplatesOpen(true)}>
+                        <Button variant="outline" size="sm" className="rounded-md bg-card text-sm font-semibold" onClick={() => setTemplatesOpen(true)}>
                           <Sparkles className="size-3.5" />
                           从模板开始
                         </Button>
-                        <Button size="sm" className="rounded-xl bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary/90" onClick={openCreate}>
+                        <Button size="sm" className="rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90" onClick={openCreate}>
                           <Plus className="size-3.5" />
                           手动新增
                         </Button>
@@ -1069,62 +965,61 @@ export default function DatasetIngestionPolicyPage() {
                 </div>
               ) : (
                 (rules || []).map((r, idx) => (
-                  <div key={r.id} className="group relative mb-3 overflow-hidden rounded-[22px] border border-border/60 bg-card/96 p-4 pl-5 shadow-[0_16px_38px_rgba(15,23,42,0.07)] ring-1 ring-white/85 transition-colors last:mb-0 hover:border-info/30 dark:border-border/60 dark:bg-card/72 dark:ring-white/5">
-                    <div className="absolute inset-y-4 left-0 w-1 rounded-r-full bg-[linear-gradient(180deg,hsl(var(--primary)),hsl(var(--info)/0.78),hsl(var(--success)/0.76))] opacity-85" />
+                  <div key={r.id} className="mb-3 overflow-hidden rounded-md border border-border bg-card p-4 transition-colors last:mb-0 hover:border-primary/30">
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground dark:text-foreground">{r.name}</span>
-                            <Badge variant={r.enabled ? 'soft' : 'outline'} className="h-5 rounded-full px-2 text-[10px] font-mono uppercase">
-                              {r.enabled ? 'enabled' : 'disabled'}
+                            <Badge variant={r.enabled ? 'soft' : 'outline'} className="h-5 rounded-md px-2 text-xs">
+                              {r.enabled ? '已启用' : '已停用'}
                             </Badge>
-                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground dark:bg-muted/50 dark:text-muted-foreground">#{idx + 1}</span>
+                            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
                           </div>
                           <div className="mt-1.5 text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
                             ext: {(r.match?.extensions || []).join(', ') || '（任意）'}
-                            {r.match?.filename_regex ? ` · filename_regex: ${r.match.filename_regex}` : ''}
+                            {r.match?.filename_regex ? ` · 文件名正则：${r.match.filename_regex}` : ''}
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
-                          <Button variant="outline" size="sm" className="size-8 rounded-xl px-0 text-[12px]" onClick={() => moveRule(idx, -1)} disabled={idx === 0}>
+                          <Button variant="outline" size="sm" className="size-8 rounded-md px-0 text-sm" onClick={() => moveRule(idx, -1)} disabled={idx === 0} aria-label="上移规则">
                             ↑
                           </Button>
-                          <Button variant="outline" size="sm" className="size-8 rounded-xl px-0 text-[12px]" onClick={() => moveRule(idx, 1)} disabled={idx === rules.length - 1}>
+                          <Button variant="outline" size="sm" className="size-8 rounded-md px-0 text-sm" onClick={() => moveRule(idx, 1)} disabled={idx === rules.length - 1} aria-label="下移规则">
                             ↓
                           </Button>
-                          <Button variant="outline" size="sm" className="h-8 rounded-xl px-3 text-[12px] font-semibold" onClick={() => openEdit(idx)}>
+                          <Button variant="outline" size="sm" className="h-8 rounded-md px-3 text-sm font-semibold" onClick={() => openEdit(idx)}>
                             编辑
                           </Button>
-                          <Button variant="destructive" size="sm" className="h-8 gap-1.5 rounded-xl px-3 text-[12px] font-semibold" onClick={() => removeRule(idx)}>
+                          <Button variant="destructive" size="sm" className="h-8 gap-1.5 rounded-md px-3 text-sm font-semibold" onClick={() => removeRule(idx)}>
                             <Trash2 className="size-3.5" />
                             删除
                           </Button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-2 text-[11px] md:grid-cols-3">
-                        <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2">
-                          <div className="font-mono text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">match</div>
+                      <div className="grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
+                        <div className="rounded-md bg-muted px-3 py-2">
+                          <div className="text-xs font-medium text-muted-foreground">匹配范围</div>
                           <div className="mt-1 truncate font-semibold text-foreground/85">
-                            {(r.match?.extensions || []).join(', ') || 'any file'}
+                            {(r.match?.extensions || []).join(', ') || '任意文件'}
                           </div>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2">
-                          <div className="font-mono text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">parse</div>
+                        <div className="rounded-md bg-muted px-3 py-2">
+                          <div className="text-xs font-medium text-muted-foreground">解析方式</div>
                           <div className="mt-1 truncate font-semibold text-foreground/85">
-                            {r.parser_backend || 'default'} · pre {r.preprocess?.enabled ? (r.preprocess?.steps || []).length : 0}
+                            {r.parser_backend || '默认'} · 预处理 {r.preprocess?.enabled ? (r.preprocess?.steps || []).length : 0}
                           </div>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2">
-                          <div className="font-mono text-[9px] font-black uppercase tracking-[0.15em] text-muted-foreground/70">chunk</div>
+                        <div className="rounded-md bg-muted px-3 py-2">
+                          <div className="text-xs font-medium text-muted-foreground">切片方式</div>
                           <div className="mt-1 truncate font-semibold text-foreground/85">
-                            {r.chunk_strategy || r.governance_profile_ref || 'dataset default'}
+                            {r.chunk_strategy || r.governance_profile_ref || '数据集默认'}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
                         <Badge variant="outline" className="rounded-lg border-border bg-muted/40 font-mono text-muted-foreground">
                           preprocess: {r.preprocess?.enabled ? (r.preprocess?.steps || []).length : 0}
                         </Badge>
@@ -1142,31 +1037,31 @@ export default function DatasetIngestionPolicyPage() {
             </div>
           </Panel>
 
-          <Panel variant="glass" className={cn(ingestionPanelClass, 'flex min-h-0 flex-col overflow-hidden')}>
+          <Panel className={cn(ingestionPanelClass, 'flex min-h-[520px] flex-col overflow-hidden xl:min-h-0')}>
             <div className={cn(ingestionPanelHeaderClass, 'space-y-3')}>
               <div className="flex items-start gap-3">
                 <div className={ingestionIconPillClass}>
                   <Sparkles className="size-4 text-info" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[15px] font-bold tracking-[-0.015em] text-foreground dark:text-foreground">入库预览（样例文件）</div>
-                  <div className="mt-1 text-[12px] leading-5 text-muted-foreground dark:text-muted-foreground">
-                    上传样例文件，按当前策略执行：匹配规则 → 预处理 → 解析 → 治理 diff / 问题。
+                  <div className="text-base font-semibold text-foreground">入库预览</div>
+                  <div className="mt-1 text-sm leading-5 text-muted-foreground">
+                    上传样例文件，按当前策略执行匹配、预处理、解析和治理检查。
                   </div>
                 </div>
               </div>
-              <div className="rounded-[22px] border border-info/20 bg-[linear-gradient(135deg,rgba(240,249,255,0.95),rgba(255,255,255,0.9))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_14px_32px_rgba(2,132,199,0.10)] dark:border-border/60 dark:bg-none dark:bg-muted/20">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70 dark:text-muted-foreground">sample file</span>
-                  {previewFile ? <span className="truncate font-mono text-[11px] text-muted-foreground dark:text-muted-foreground">{previewFile.name}</span> : null}
+                  <span className="text-sm font-medium text-foreground">样例文件</span>
+                  {previewFile ? <span className="truncate font-mono text-xs text-muted-foreground">{previewFile.name}</span> : null}
                 </div>
                 <div className="flex flex-col gap-2">
                   <Input
                     type="file"
-                    className="h-10 w-full min-w-0 rounded-2xl border-border bg-card text-[11px] shadow-sm"
+                    className="h-10 w-full min-w-0 rounded-md border-border bg-card text-sm shadow-none"
                     onChange={(e) => setPreviewFile(e.target.files?.[0] || null)}
                   />
-                  <Button onClick={runPreview} disabled={!previewFile || previewing} className="h-10 w-full shrink-0 gap-2 rounded-2xl bg-primary px-3 text-xs font-bold text-primary-foreground shadow-[0_14px_28px_rgba(15,23,42,0.24)] hover:bg-primary/90">
+                  <Button onClick={runPreview} disabled={!previewFile || previewing} className="h-10 w-full shrink-0 gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-none hover:bg-primary/90">
                     {previewing ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> : <Sparkles className="size-4" />}
                     生成预览
                   </Button>
@@ -1175,21 +1070,21 @@ export default function DatasetIngestionPolicyPage() {
             </div>
 
             {preview ? (
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.62),rgba(255,255,255,0.92))] p-4 no-scrollbar dark:bg-none dark:bg-muted/5">
+              <div className="flex-1 space-y-3 bg-background p-4 xl:min-h-0 xl:overflow-y-auto no-scrollbar">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant={preview.rule?.matched ? 'soft' : 'outline'} className="rounded-lg font-mono">
-                    matched: {preview.rule?.matched ? 'true' : 'false'}
+                    规则命中：{preview.rule?.matched ? '是' : '否'}
                   </Badge>
                   {preview.rule?.rule_name ? <Badge variant="outline" className="rounded-lg font-mono">{preview.rule.rule_name}</Badge> : null}
-                  <Badge variant="outline" className="rounded-lg font-mono">parser: {preview.rule?.parser_backend}</Badge>
-                  {preview.rule?.chunk_strategy ? <Badge variant="outline" className="rounded-lg font-mono">chunk: {preview.rule.chunk_strategy}</Badge> : null}
-                  {preview.rule?.governance_profile_ref ? <Badge variant="outline" className="rounded-lg font-mono">profile: {preview.rule.governance_profile_ref}</Badge> : null}
-                  <Badge variant="outline" className="rounded-lg font-mono">preprocess_changed: {String(preview.preprocess?.changed)}</Badge>
+                  <Badge variant="outline" className="rounded-md font-mono">解析器：{preview.rule?.parser_backend}</Badge>
+                  {preview.rule?.chunk_strategy ? <Badge variant="outline" className="rounded-md font-mono">切片：{preview.rule.chunk_strategy}</Badge> : null}
+                  {preview.rule?.governance_profile_ref ? <Badge variant="outline" className="rounded-md font-mono">治理预设：{preview.rule.governance_profile_ref}</Badge> : null}
+                  <Badge variant="outline" className="rounded-md font-mono">预处理有变化：{preview.preprocess?.changed ? '是' : '否'}</Badge>
                 </div>
 
                 {Array.isArray(preview.clean?.issues) && preview.clean.issues.length > 0 ? (
-                  <Panel variant="muted" className="rounded-2xl border-warning/30 bg-warning/5 p-4 shadow-none">
-                    <div className="mb-2 text-sm font-bold text-foreground dark:text-foreground">后端检测到的问题（issues）</div>
+                  <Panel variant="muted" className="rounded-md border-warning/30 bg-warning/5 p-4 shadow-none">
+                    <div className="mb-2 text-sm font-semibold text-foreground">检测到的问题</div>
                     <div className="space-y-2">
                       {preview.clean.issues.slice(0, 8).map((it) => (
                         <div key={`${it.code}-${it.message}`} className="text-xs leading-5 text-foreground/85 dark:text-muted-foreground">
@@ -1206,14 +1101,14 @@ export default function DatasetIngestionPolicyPage() {
                 ) : null}
 
                 <div className="grid grid-cols-1 gap-3">
-                  <Panel variant="muted" className="overflow-hidden rounded-2xl border-border/60 bg-card/78 p-0 shadow-none dark:border-border/60 dark:bg-card/60">
-                    <div className="border-b border-border/60 px-4 py-3 text-sm font-bold">解析后 Markdown（raw）</div>
+                  <Panel variant="muted" className="overflow-hidden rounded-md border-border bg-card p-0 shadow-none">
+                    <div className="border-b border-border px-4 py-3 text-sm font-semibold">解析后 Markdown</div>
                     <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap p-4 text-xs leading-relaxed no-scrollbar">
                       {preview.parse?.markdown || ''}
                     </pre>
                   </Panel>
-                  <Panel variant="muted" className="overflow-hidden rounded-2xl border-border/60 bg-card/78 p-0 shadow-none dark:border-border/60 dark:bg-card/60">
-                    <div className="border-b border-border/60 px-4 py-3 text-sm font-bold">治理后 Markdown（clean）</div>
+                  <Panel variant="muted" className="overflow-hidden rounded-md border-border bg-card p-0 shadow-none">
+                    <div className="border-b border-border px-4 py-3 text-sm font-semibold">治理后 Markdown</div>
                     <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap p-4 text-xs leading-relaxed no-scrollbar">
                       {preview.clean?.markdown || ''}
                     </pre>
@@ -1221,8 +1116,8 @@ export default function DatasetIngestionPolicyPage() {
                 </div>
 
                 {preview.clean?.diff_unified ? (
-                  <Panel variant="muted" className="overflow-hidden rounded-2xl border-border/60 bg-foreground p-0 text-muted-foreground/30 shadow-none dark:border-border/60">
-                    <div className="border-b border-border/20 px-4 py-3 text-sm font-bold">Unified Diff（后端）</div>
+                  <Panel variant="muted" className="overflow-hidden rounded-md border-border bg-foreground p-0 text-muted-foreground/30 shadow-none">
+                    <div className="border-b border-border/20 px-4 py-3 text-sm font-semibold">治理差异</div>
                     <pre className="max-h-[320px] overflow-y-auto whitespace-pre p-4 font-mono text-xs leading-relaxed no-scrollbar">
                       {preview.clean.diff_unified}
                     </pre>
@@ -1230,14 +1125,14 @@ export default function DatasetIngestionPolicyPage() {
                 ) : null}
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col justify-between bg-[linear-gradient(180deg,rgba(248,250,252,0.62),rgba(255,255,255,0.92))] p-4 dark:bg-none dark:bg-muted/5">
-                <div className="rounded-2xl border border-dashed border-border bg-card/68 px-4 py-5 text-[12px] leading-6 text-muted-foreground dark:border-border dark:bg-muted/20 dark:text-muted-foreground">
-                  可选：选择 HTML / PDF / DOCX / CSV 样例后生成预览，用于检查策略命中和治理 diff。
+              <div className="flex flex-1 flex-col justify-between bg-background p-4">
+                <div className="rounded-md border border-dashed border-border bg-muted/30 px-4 py-5 text-sm leading-6 text-muted-foreground">
+                  选择 HTML、PDF、DOCX 或 CSV 样例后生成预览，用于检查策略命中和治理差异。
                 </div>
-                <div className="mt-4 grid gap-2 text-[11px] text-muted-foreground dark:text-muted-foreground">
-                  <div className="rounded-xl bg-muted/60 px-3 py-2 dark:bg-muted/30">1. 先确认命中规则是否符合预期</div>
-                  <div className="rounded-xl bg-muted/60 px-3 py-2 dark:bg-muted/30">2. 再看解析后 Markdown 和治理后 Markdown 差异</div>
-                  <div className="rounded-xl bg-muted/60 px-3 py-2 dark:bg-muted/30">3. 最后保存策略并重建相关索引</div>
+                <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
+                  <div className="rounded-md bg-muted px-3 py-2">1. 确认命中规则是否符合预期</div>
+                  <div className="rounded-md bg-muted px-3 py-2">2. 检查解析结果与治理结果差异</div>
+                  <div className="rounded-md bg-muted px-3 py-2">3. 保存策略并重建相关索引</div>
                 </div>
               </div>
             )}
@@ -1246,15 +1141,15 @@ export default function DatasetIngestionPolicyPage() {
         </div>
 
         <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-          <DialogContent className="max-w-3xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-y-auto rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">{editingIndex == null ? '新增规则' : '编辑规则'}</DialogTitle>
+              <DialogTitle className="text-xl font-semibold text-foreground">{editingIndex == null ? '新增规则' : '编辑规则'}</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                提示：规则从上到下匹配。扩展名支持 .pdf / pdf 两种写法；filename_regex 为可选。
+                规则按从上到下的顺序匹配。扩展名支持 .pdf 或 pdf 两种写法，文件名正则可以留空。
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>规则 ID（唯一）</Label>
@@ -1264,7 +1159,7 @@ export default function DatasetIngestionPolicyPage() {
                   <Label>规则名称</Label>
                   <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-border/60 p-3">
+                <div className="flex items-center justify-between rounded-md border border-border p-3">
                   <div>
                     <div className="text-sm font-semibold">启用规则</div>
                     <div className="text-xs text-muted-foreground">禁用后不会被匹配</div>
@@ -1280,7 +1175,7 @@ export default function DatasetIngestionPolicyPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>filename_regex（可选）</Label>
+                  <Label>文件名正则（可选）</Label>
                   <Input
                     value={draft.filenameRegex}
                     onChange={(e) => setDraft({ ...draft, filenameRegex: e.target.value })}
@@ -1288,7 +1183,7 @@ export default function DatasetIngestionPolicyPage() {
                   />
                 </div>
 
-                <Panel variant="muted" className="p-4">
+                <Panel variant="muted" className="rounded-md p-4 shadow-none">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-semibold">解析前预处理</div>
@@ -1300,7 +1195,7 @@ export default function DatasetIngestionPolicyPage() {
                     {PREPROCESS_STEP_CATALOG.map((s) => {
                       const checked = draft.preprocessStepIds.includes(s.id)
                       return (
-                        <div key={s.id} className="flex items-start gap-3 rounded-lg border border-border/60 p-3 hover:bg-muted/30 transition-colors cursor-pointer">
+                        <div key={s.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 transition-colors hover:bg-muted/30">
                           <Checkbox
                             checked={checked}
                             onCheckedChange={(v) => {
@@ -1313,7 +1208,7 @@ export default function DatasetIngestionPolicyPage() {
                           <div className="min-w-0">
                             <div className="text-sm font-medium">{s.label}</div>
                             <div className="text-xs text-muted-foreground">{s.desc}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono mt-1">{s.id}</div>
+                            <div className="mt-1 font-mono text-xs text-muted-foreground">{s.id}</div>
                           </div>
                         </div>
                       )
@@ -1344,7 +1239,7 @@ export default function DatasetIngestionPolicyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Chunk 策略（可选覆盖）</Label>
+                  <Label>切片策略（可选覆盖）</Label>
                   <Select value={draft.chunkStrategy || NONE} onValueChange={(v) => setDraft({ ...draft, chunkStrategy: v === NONE ? '' : v })}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="不覆盖" />
@@ -1361,7 +1256,7 @@ export default function DatasetIngestionPolicyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>治理预设（Profiles/脚本，可选）</Label>
+                  <Label>治理预设（可选）</Label>
                   <Select value={draft.governanceProfileRef || NONE} onValueChange={(v) => setDraft({ ...draft, governanceProfileRef: v === NONE ? '' : v })}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="不使用预设" />
@@ -1376,20 +1271,20 @@ export default function DatasetIngestionPolicyPage() {
                     </SelectContent>
                   </Select>
                   <div className="text-xs text-muted-foreground">
-                    预设会注入 pipeline_patch + regex_rules（后端同样做安全校验）。
+                    预设会自动应用治理参数和正则规则，保存时仍会进行安全校验。
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>高级：pipeline_patch（JSON，可选）</Label>
-	                  <Textarea
-	                    value={draft.pipelinePatchJson}
-	                    onChange={(e) => setDraft({ ...draft, pipelinePatchJson: e.target.value })}
-	                    placeholder={`{\n  "governance_enabled": true,\n  "governance_remove_boilerplate": true\n}`}
-	                    className="min-h-[220px] font-mono text-xs"
-	                  />
+                  <Label>高级策略参数（JSON，可选）</Label>
+                  <Textarea
+                    value={draft.pipelinePatchJson}
+                    onChange={(e) => setDraft({ ...draft, pipelinePatchJson: e.target.value })}
+                    placeholder={`{\n  "governance_enabled": true,\n  "governance_remove_boilerplate": true\n}`}
+                    className="min-h-[220px] rounded-md font-mono text-xs"
+                  />
                   <div className="text-xs text-muted-foreground">
-                    仅允许 DocumentPipelineOptions 的字段；未知字段会被后端拒绝。
+                    技术字段 pipeline_patch 仅支持系统允许的处理参数，未知字段无法保存。
                   </div>
                 </div>
               </div>
@@ -1403,7 +1298,7 @@ export default function DatasetIngestionPolicyPage() {
         </Dialog>
 
         <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
-          <DialogContent className="max-w-3xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-3xl overflow-y-auto rounded-md border-border bg-background shadow-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -1414,32 +1309,32 @@ export default function DatasetIngestionPolicyPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-border">
               {INGESTION_POLICY_TEMPLATES.map((tpl) => (
-                <div key={tpl.key} className="rounded-xl border border-border/60 p-4 hover:bg-muted/20 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
+                <div key={tpl.key} className="py-4 first:pt-0 last:pb-0">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="font-semibold">{tpl.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{tpl.description}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{tpl.description}</div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {tpl.tags.map((t) => (
-                          <Badge key={t} variant="outline" className="text-[11px] font-mono">
+                          <Badge key={t} variant="outline" className="rounded-md font-mono text-xs">
                             {t}
                           </Badge>
                         ))}
-                        <Badge variant="soft" className="text-[11px] font-mono">
-                          rules: {tpl.rules.length}
+                        <Badge variant="soft" className="rounded-md text-xs">
+                          {tpl.rules.length} 条规则
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 flex-shrink-0">
-                      <Button size="sm" onClick={() => applyTemplate(tpl, 'prepend')}>
+                    <div className="grid shrink-0 grid-cols-1 gap-2 sm:w-32">
+                      <Button size="sm" className="rounded-md" onClick={() => applyTemplate(tpl, 'prepend')}>
                         追加到顶部
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => applyTemplate(tpl, 'append')}>
+                      <Button size="sm" variant="outline" className="rounded-md" onClick={() => applyTemplate(tpl, 'append')}>
                         追加到底部
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => applyTemplate(tpl, 'replace')}>
+                      <Button size="sm" variant="destructive" className="rounded-md" onClick={() => applyTemplate(tpl, 'replace')}>
                         替换当前策略
                       </Button>
                     </div>
@@ -1456,7 +1351,31 @@ export default function DatasetIngestionPolicyPage() {
           </DialogContent>
         </Dialog>
 
-      </PageScaffold>
+        <Dialog
+          open={navigationGuard.navigationPending}
+          onOpenChange={(open) => {
+            if (!open) navigationGuard.cancelNavigation()
+          }}
+        >
+          <DialogContent className="rounded-md">
+            <DialogHeader>
+              <DialogTitle>离开入库策略？</DialogTitle>
+              <DialogDescription>
+                当前更改尚未保存，离开后这些更改会丢失。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={navigationGuard.cancelNavigation}>
+                继续编辑
+              </Button>
+              <Button variant="destructive" onClick={navigationGuard.confirmNavigation}>
+                放弃更改并离开
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+      </DatasetDetailShell>
     </AppFrame>
   )
 }

@@ -71,6 +71,33 @@ describe('useUnsavedNavigationGuard', () => {
     expect(hook.result.current.navigationPending).toBe(false)
   })
 
+  it('程序化路由在有修改时同样等待确认', () => {
+    const onNavigate = vi.fn()
+    const hook = trackHook(
+      renderHook(() => useUnsavedNavigationGuard({ enabled: true, onNavigate }))
+    )
+
+    act(() => hook.result.current.requestNavigation('/datasets/demo/profile'))
+
+    expect(hook.result.current.pendingHref).toBe('/datasets/demo/profile')
+    expect(onNavigate).not.toHaveBeenCalled()
+
+    act(() => hook.result.current.confirmNavigation())
+    expect(onNavigate).toHaveBeenCalledWith('/datasets/demo/profile')
+  })
+
+  it('没有修改时程序化路由立即导航', () => {
+    const onNavigate = vi.fn()
+    const hook = trackHook(
+      renderHook(() => useUnsavedNavigationGuard({ enabled: false, onNavigate }))
+    )
+
+    act(() => hook.result.current.requestNavigation('/datasets/demo/profile'))
+
+    expect(onNavigate).toHaveBeenCalledWith('/datasets/demo/profile')
+    expect(hook.result.current.navigationPending).toBe(false)
+  })
+
   it('没有修改时不拦截链接和页面刷新', () => {
     const onNavigate = vi.fn()
     trackHook(
