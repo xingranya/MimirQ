@@ -26,7 +26,10 @@ import type {
   GovernanceProfilePayload,
   RegexRuleModel,
 } from '@/types'
-import { buildCleanPreviewRequestFromGovernanceProfile } from '@/lib/governance-profile-utils'
+import {
+  buildCleanPreviewRequestFromGovernanceProfile,
+  buildGovernanceProfilePayload,
+} from '@/lib/governance-profile-utils'
 import { CleanPreviewRuleStatsPanel } from '@/components/governance-profiles/clean-preview-rule-stats-panel'
 
 type Mode = 'create' | 'edit' | 'view'
@@ -298,13 +301,14 @@ export function ProfileEditorDrawer({
   const [testResp, setTestResp] = useState<CleanPreviewResponse | null>(null)
 
   const payload: GovernanceProfilePayload = useMemo(
-    () => ({
-      version: '1',
-      input_formats: inputFormats.length ? inputFormats : ['markdown'],
-      pipeline_patch: pipelinePatch,
-      regex_rules: regexRules,
-    }),
-    [inputFormats, pipelinePatch, regexRules]
+    () =>
+      buildGovernanceProfilePayload(
+        isCreate ? seedCreate?.payload : loadedProfile?.payload,
+        inputFormats,
+        pipelinePatch,
+        regexRules
+      ),
+    [inputFormats, isCreate, loadedProfile, pipelinePatch, regexRules, seedCreate]
   )
 
   const selectedRulePacks = useMemo(
@@ -374,7 +378,7 @@ export function ProfileEditorDrawer({
         setActiveTab('edit')
         setTestResp(null)
       } catch (err: unknown) {
-        toast.error(formatApiError(err, '加载 Profile 失败'))
+        toast.error(formatApiError(err, '加载治理模板失败'))
       } finally {
         if (!cancelled) setLoadingProfile(false)
       }
@@ -499,7 +503,7 @@ export function ProfileEditorDrawer({
     if (!canSave) return
     const trimmedName = name.trim()
     if (!trimmedName) {
-      toast.error('name 不能为空')
+      toast.error('请输入模板名称')
       return
     }
 
@@ -514,13 +518,13 @@ export function ProfileEditorDrawer({
         const k = key.trim()
         if (k) payloadCreate.key = k
         const created = await pipelineApi.createGovernanceProfile(payloadCreate)
-        toast.success('已创建 Profile')
+        toast.success('治理模板已创建')
         onCreated?.(created)
         onOpenChange(false)
       } else {
         const ref = (profileRef || '').trim()
         if (!ref) {
-          toast.error('profile_ref 缺失')
+          toast.error('未找到要保存的治理模板')
           return
         }
         const updated = await pipelineApi.updateGovernanceProfile(ref, {
@@ -528,7 +532,7 @@ export function ProfileEditorDrawer({
           description: description.trim() || '',
           payload,
         })
-        toast.success('已保存 Profile')
+        toast.success('治理模板已保存')
         onSaved?.(updated)
         onOpenChange(false)
       }

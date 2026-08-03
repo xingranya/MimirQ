@@ -1,5 +1,23 @@
 import type { CleanPreviewRequest, GovernanceProfileCreate, GovernanceProfileOut, GovernanceProfilePayload, RegexRuleModel } from '@/types'
 
+export function buildGovernanceProfilePayload(
+  sourcePayload: GovernanceProfilePayload | null | undefined,
+  inputFormats: Array<'markdown' | 'html'>,
+  pipelinePatch: GovernanceProfilePayload['pipeline_patch'],
+  regexRules: RegexRuleModel[]
+): GovernanceProfilePayload {
+  return {
+    version: sourcePayload?.version || '1',
+    extends: sourcePayload?.extends ?? null,
+    input_formats: inputFormats.length ? inputFormats : ['markdown'],
+    pipeline_patch: pipelinePatch,
+    regex_rules: regexRules,
+    processing_scripts: (sourcePayload?.processing_scripts ?? []).map((script) => ({
+      ...script,
+    })),
+  }
+}
+
 type BuildCleanPreviewOptions = {
   includeDiff?: boolean
   diffMaxLines?: number
