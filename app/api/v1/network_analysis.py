@@ -30,21 +30,27 @@ _SCHEMA = "mimirq.kg_network_analysis.v1"
 # unbounded graph is a CPU/memory DoS vector, so cap the input size defensively.
 _MAX_EDGES = 20_000
 
+# 稠密图中的简单路径会组合爆炸，必须同时限制返回数量、搜索步数和节点标识长度。
+_MAX_PATHS = 500
+_MAX_PATH_SEARCH_STEPS = 50_000
+_MAX_NODE_ID_LENGTH = 256
+
 
 class EdgeIn(BaseModel):
-    source: str
-    target: str
+    source: str = Field(min_length=1, max_length=_MAX_NODE_ID_LENGTH)
+    target: str = Field(min_length=1, max_length=_MAX_NODE_ID_LENGTH)
     weight: float = 1.0
 
 
 class GraphRequest(BaseModel):
     edges: list[EdgeIn] = Field(default_factory=list, max_length=_MAX_EDGES)
-    start_id: str | None = None
-    target_id: str | None = None
+    start_id: str | None = Field(default=None, max_length=_MAX_NODE_ID_LENGTH)
+    target_id: str | None = Field(default=None, max_length=_MAX_NODE_ID_LENGTH)
     max_hops: int = Field(default=2, ge=1, le=10)
+    max_paths: int = Field(default=_MAX_PATHS, ge=1, le=_MAX_PATHS)
     top_k: int = Field(default=10, ge=1, le=100)
     algorithm: Literal["degree", "pagerank"] = "degree"
-    node_id: str | None = None
+    node_id: str | None = Field(default=None, max_length=_MAX_NODE_ID_LENGTH)
 
 
 def _adjacency(edges: list[EdgeIn]) -> dict[str, dict[str, float]]:
@@ -94,23 +100,47 @@ def _shortest_path(graph: dict[str, dict[str, float]], *, start_id: str, target_
     return []
 
 
-def _all_paths_between(graph: dict[str, dict[str, float]], *, start_id: str, target_id: str, max_hops: int) -> list[list[str]]:
+def _all_paths_between(
+    graph: dict[str, dict[str, float]],
+    *,
+    start_id: str,
+    target_id: str,
+    max_hops: int,
+    max_paths: int,
+    max_search_steps: int | None = None,
+) -> tuple[list[list[str]], bool, int]:
+    """在路径数量和搜索步数预算内枚举简单路径。"""
+    max_search_steps = _MAX_PATH_SEARCH_STEPS if max_search_steps is None else max_search_steps
     out: list[list[str]] = []
+    truncated = False
+    search_steps = 0
 
     def _dfs(path: list[str]) -> None:
-        node = path[-1]
-        if len(path) - 1 > max_hops:
+        nonlocal search_steps, truncated
+        if truncated:
             return
+        if search_steps >= max_search_steps:
+            truncated = True
+            return
+        search_steps += 1
+        node = path[-1]
         if node == target_id and len(path) > 1:
             out.append(list(path))
+            # 达到数量上限后立即停止，调用方必须把结果视为截断后的有界前缀。
+            if len(out) >= max_paths:
+                truncated = True
+            return
+        if len(path) - 1 >= max_hops:
             return
         for neighbor in sorted((graph.get(node) or {}).keys()):
+            if truncated:
+                return
             if neighbor in path:
                 continue
             _dfs(path + [neighbor])
 
     _dfs([start_id])
-    return out
+    return out, truncated, search_steps
 
 
 def _degree_centrality(graph: dict[str, dict[str, float]]) -> list[dict[str, float | str]]:
@@ -165,8 +195,22 @@ def paths_between(body: GraphRequest) -> dict:
     graph = _adjacency(body.edges)
     start = str(body.start_id or "").strip()
     target = str(body.target_id or "").strip()
-    paths = _all_paths_between(graph, start_id=start, target_id=target, max_hops=int(body.max_hops))
-    return {"schema": _SCHEMA, "paths": paths}
+    paths, truncated, search_steps = _all_paths_between(
+        graph,
+        start_id=start,
+        target_id=target,
+        max_hops=int(body.max_hops),
+        max_paths=int(body.max_paths),
+    )
+    return {
+        "schema": _SCHEMA,
+        "paths": paths,
+        "path_count": len(paths),
+        "path_limit": int(body.max_paths),
+        "search_steps": search_steps,
+        "path_search_limit": _MAX_PATH_SEARCH_STEPS,
+        "truncated": truncated,
+    }
 
 
 @router.post("/centrality")
