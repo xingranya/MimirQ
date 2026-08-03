@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, GitCompare, Info, Loader2, Sparkles, TextCursorInput, Undo, Wrench } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -264,66 +264,57 @@ export function DataCleaner({
   }, [content, onClean])
 
   const resetButtonClass =
-    'h-8 rounded-full border-border/45 bg-background/42 px-3 text-[11px] font-medium text-muted-foreground/78 shadow-none hover:border-border/55 hover:bg-background/64 hover:text-foreground'
+    'h-8 rounded-md border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground'
   const applyButtonClass =
-    'h-8 gap-2 rounded-full border-primary/30 bg-primary/[0.12] px-3.5 text-[11px] font-semibold text-primary shadow-[0_10px_24px_-18px_hsl(var(--primary)/0.45)] hover:border-primary/40 hover:bg-primary/[0.18] hover:text-primary'
+    'h-8 gap-2 rounded-md border-primary bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-none hover:bg-primary/90'
   const llmToggleClass = cn(
-    'h-7 rounded-full px-3 text-[11px] font-semibold shadow-none transition-colors motion-reduce:transition-none',
+    'h-8 rounded-md px-3 text-xs font-medium shadow-none transition-colors motion-reduce:transition-none',
     llmEnabled
-      ? 'border-accent/28 bg-accent/[0.09] text-accent hover:border-accent/38 hover:bg-accent/[0.16] hover:text-accent'
-      : 'border-border/45 bg-background/48 text-muted-foreground hover:bg-background/70 hover:text-foreground'
+      ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
+      : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
   )
   const configShellClass =
-    'overflow-hidden rounded-[1.35rem] border border-border/42 bg-[linear-gradient(180deg,hsl(var(--card)/0.82)_0%,hsl(var(--surface-2)/0.56)_100%)] p-2 shadow-[0_18px_46px_-40px_hsl(var(--foreground)/0.28),inset_0_1px_0_hsl(var(--card)/0.68)]'
+    'border-b border-border pb-4'
   const configHeaderClass =
-    'relative overflow-hidden rounded-[1.12rem] border border-border/36 bg-card/62 px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.66)]'
+    'border-b border-border px-1 pb-3'
   const rulesPanelClass =
-    'mt-2 overflow-hidden rounded-[1.12rem] border border-border/38 bg-card/50 shadow-[0_14px_34px_-34px_hsl(var(--foreground)/0.2)]'
-  const configFlowClass =
-    'mt-3 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1 rounded-full border border-border/32 bg-background/34 px-2 py-1.5'
-  const configFlowStepClass =
-    'flex min-w-0 items-center justify-center gap-1.5 truncate rounded-full px-2 py-1 text-[10.5px] font-medium leading-3 text-muted-foreground/72 first:bg-primary/[0.07] first:text-primary'
-  const configFlowDotClass =
-    'size-1.5 shrink-0 rounded-full bg-current opacity-55'
-  const configFlowConnectorClass =
-    'h-px w-4 rounded-full bg-border/46'
+    'divide-y divide-border'
   const configSubpanelClass =
-    'rounded-[1rem] border border-border/32 bg-background/30 p-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.34)]'
+    'px-1 py-3'
   const llmPanelClass =
-    'rounded-[1rem] border border-accent/18 bg-accent/[0.045] p-2.5'
+    'border-y border-border bg-muted/20 p-3'
   const diffPanelClass =
-    'overflow-hidden rounded-[1rem] border border-border/45 bg-card/82 shadow-[0_8px_18px_rgba(15,23,42,0.02)]'
+    'overflow-hidden border-y border-border bg-background'
   const emptyStateClass =
-    'flex items-start gap-2 rounded-[0.95rem] border border-dashed border-border/38 bg-background/34 px-3 py-2.5 text-[11px] leading-5 text-muted-foreground/72'
+    'flex items-start gap-2 rounded-md bg-muted/30 px-3 py-3 text-xs leading-5 text-muted-foreground'
   const cleanerLabelClass =
-    'text-[10px] font-semibold uppercase leading-3 tracking-[0.16em] text-muted-foreground/56'
+    'text-xs font-medium text-foreground'
   const cleanerCaptionClass =
-    'text-[10.5px] leading-4 text-muted-foreground/62'
+    'text-xs leading-5 text-muted-foreground'
 
   return (
-    <div className="space-y-3 p-4 md:p-5">
+    <div className="space-y-4 p-3 md:p-4">
       <div className={configShellClass}>
         <div className={configHeaderClass}>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,hsl(var(--primary)/0.28),transparent)]" />
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-[0.95rem] border border-primary/16 bg-primary/[0.07] text-primary shadow-[0_10px_22px_-18px_hsl(var(--primary)/0.5)]">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Wrench className="size-4" />
               </span>
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold leading-5 tracking-[-0.018em] text-foreground/92">{t("header.title")}</h3>
-                <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground/66">
-                  预设与治理规则集中配置
+                <h3 className="text-sm font-semibold leading-5 text-foreground">{t("header.title")}</h3>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  选择规则并预览清洗结果
                 </p>
               </div>
             </div>
-            <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border/38 bg-background/42 px-2 shadow-[inset_0_1px_0_hsl(var(--card)/0.55)]">
-              <span className="text-[10px] font-medium tracking-[0.08em] text-muted-foreground/58">格式</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-xs text-muted-foreground">格式</span>
               <Select
                 value={inputFormat}
                 onValueChange={(value) => setInputFormat(coerceOneOf(DATA_CLEANER_INPUT_FORMAT_VALUES, value, 'markdown'))}
               >
-                <SelectTrigger className="focus-ring h-6 w-[92px] rounded-full border-0 bg-transparent px-1 text-[11px] font-semibold text-foreground/82 shadow-none">
+                <SelectTrigger className="focus-ring h-8 w-[108px] rounded-md border-border bg-background px-2 text-xs font-medium shadow-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -333,46 +324,27 @@ export function DataCleaner({
               </Select>
             </div>
           </div>
-          <div className={configFlowClass} aria-label="智能清洗流程">
-            {['治理预设', '规则清洗', '结果预览'].map((label, index) => (
-              <Fragment key={label}>
-                {index > 0 ? <span aria-hidden="true" className={configFlowConnectorClass} /> : null}
-                <span className={configFlowStepClass}>
-                  <span className={configFlowDotClass} />
-                  <span className="truncate">{label}</span>
-                </span>
-              </Fragment>
-            ))}
-          </div>
         </div>
 
         <div className={rulesPanelClass}>
-          <div className="flex items-center justify-between gap-3 border-b border-border/35 bg-muted/[0.16] px-3 py-2.5">
+          <div className="px-1 py-3">
             <div className="min-w-0">
-              <div className="text-[13px] font-semibold leading-4 tracking-[-0.012em] text-foreground/86">治理编排</div>
-              <div className={cn('mt-0.5 truncate', cleanerCaptionClass)}>按顺序合并治理预设、脚本补丁和规则管线</div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <span className="rounded-full border border-primary/12 bg-primary/[0.06] px-2 py-0.5 text-[9.5px] font-medium text-primary/82">
-                预设
-              </span>
-              <span className="rounded-full border border-info/12 bg-info/[0.06] px-2 py-0.5 text-[9.5px] font-medium text-info/82">
-                管线
-              </span>
+              <div className="text-sm font-medium text-foreground">治理规则</div>
+              <div className={cn('mt-0.5', cleanerCaptionClass)}>先选常用预设，再按需调整具体规则</div>
             </div>
           </div>
-          <div className="grid gap-2.5 p-2.5">
+          <div>
             <div className={configSubpanelClass}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className={cleanerLabelClass}>治理预设</div>
-                <div className={cleanerCaptionClass}>选择预设或脚本补丁</div>
+                <div className={cleanerCaptionClass}>快速应用一组常用设置</div>
               </div>
               <GovernanceProfileSelector compact={true} onApplyPatch={applyPipelinePatch} />
             </div>
             <div className={configSubpanelClass}>
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className={cleanerLabelClass}>规则管线</div>
-                <div className={cleanerCaptionClass}>规则开关与 JSON 配置</div>
+                <div className={cleanerLabelClass}>清洗规则</div>
+                <div className={cleanerCaptionClass}>调整规则和高级参数</div>
               </div>
               <PipelineOptionsPanel compact={true} showJsonToolbar={true} showIndexingControls={false} />
             </div>
@@ -399,7 +371,7 @@ export function DataCleaner({
         </Alert>
       )}
 
-      <div className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/34 bg-card/42 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-y border-border py-2">
         <Button onClick={handleReset} variant="outline" size="sm" className={resetButtonClass}>
           <Undo className="h-3.5 w-3.5" />
           {t('actions.reset')}
@@ -417,12 +389,12 @@ export function DataCleaner({
       <div className={llmPanelClass}>
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-[0.85rem] bg-accent/[0.08] text-accent ring-1 ring-accent/12">
+            <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Sparkles className="size-3.5" />
             </span>
             <div className="min-w-0">
-              <span className="text-[12px] font-medium text-foreground/80">{t('llm.title')}</span>
-              <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground/68">可选二次清洗，默认只执行规则预览</p>
+              <span className="text-sm font-medium text-foreground">{t('llm.title')}</span>
+              <p className="mt-0.5 text-xs text-muted-foreground">需要时再用模型润色清洗结果</p>
             </div>
           </div>
           <Button variant="outline" size="sm" className={llmToggleClass} onClick={() => setLlmEnabled((value) => !value)}>
@@ -438,7 +410,7 @@ export function DataCleaner({
                 value={promptTemplateId || SELECT_DEFAULT_VALUE}
                 onValueChange={(value) => setPromptTemplateId(value === SELECT_DEFAULT_VALUE ? '' : value)}
               >
-                <SelectTrigger className="h-8 w-full rounded-lg border-border/60 bg-background/70 text-[11px] shadow-none">
+                <SelectTrigger className="h-8 w-full rounded-md border-border bg-background text-xs shadow-none">
                   <SelectValue placeholder={t('llm.promptTemplatePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -462,12 +434,12 @@ export function DataCleaner({
           className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-muted/30"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-[0.85rem] bg-info/[0.07] text-info ring-1 ring-info/12">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-info/10 text-info">
               <GitCompare className="size-3.5" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[12px] font-semibold leading-4 text-foreground/78">{t('diff.title')}</span>
-              <span className="block text-[10.5px] leading-4 text-muted-foreground/62">执行清洗后查看规则命中、文本变化和统一 diff</span>
+              <span className="block text-sm font-medium leading-5 text-foreground">{t('diff.title')}</span>
+              <span className="block text-xs leading-5 text-muted-foreground">查看规则命中和文本改动</span>
             </span>
           </span>
           <TextCursorInput className="size-4 text-muted-foreground/70" />
@@ -475,9 +447,9 @@ export function DataCleaner({
         {previewDiff && (
           <div className="max-h-80 space-y-3 overflow-y-auto border-t border-border/48 bg-muted/[0.14] p-3 no-scrollbar overscroll-contain">
             {impact ? (
-              <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-                <div className="mb-2 text-[11px] font-medium text-muted-foreground/80">{t('diff.impactTitle')}</div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+              <div className="rounded-md border border-border bg-background p-3">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">{t('diff.impactTitle')}</div>
+                <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                   <div className="flex items-center justify-between gap-2">
                     <span>{t('diff.impact.chars')}</span>
                     <span className="font-mono text-foreground/90">
@@ -526,14 +498,14 @@ export function DataCleaner({
             ) : null}
 
             {lastPreview?.issues?.length ? (
-              <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+              <div className="rounded-md border border-border bg-background p-3">
                 <div className="mb-2 text-xs font-medium text-muted-foreground">{t('diff.issuesTitle')}</div>
                 <div className="space-y-2">
                   {lastPreview.issues.slice(0, 8).map((issue) => (
                     <div key={issue.code} className="text-xs text-foreground/80">
                       <span
                         className={cn(
-                          'mr-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium',
+                          'mr-2 inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium',
                           getSeverityBadgeClass(issue.severity)
                         )}
                       >
@@ -548,7 +520,7 @@ export function DataCleaner({
                 {lastPreview.suggested_pipeline_patch &&
                   Object.keys(lastPreview.suggested_pipeline_patch).length > 0 && (
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="text-[11px] text-muted-foreground">{t('diff.applySuggestionHint')}</div>
+                      <div className="text-xs text-muted-foreground">{t('diff.applySuggestionHint')}</div>
                       <Button
                         size="sm"
                         variant="outline"
@@ -566,8 +538,8 @@ export function DataCleaner({
               <div className={emptyStateClass}>
                 <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
                 <div>
-                  <div className="font-medium text-foreground/72">{t('diff.noIssueHint')}</div>
-                  <div className="text-muted-foreground/62">执行智能清洗后，如果规则命中或出现风险提示，会在这里汇总。</div>
+                  <div className="font-medium text-foreground">{t('diff.noIssueHint')}</div>
+                  <div>执行清洗后，规则命中和风险提示会显示在这里。</div>
                 </div>
               </div>
             )}
@@ -577,14 +549,14 @@ export function DataCleaner({
             ) : null}
 
             {typeof lastPreview?.diff_unified === 'string' && lastPreview.diff_unified.trim() ? (
-              <div className="overflow-hidden rounded-lg border border-border/60 bg-background/40">
-                <div className="flex items-center justify-between border-b border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="overflow-hidden rounded-md border border-border bg-background">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
                   <span>{t('diff.unifiedDiff')}</span>
                   {lastPreview.diff_truncated ? (
-                    <span className="text-[11px] text-muted-foreground">{t('diff.truncated')}</span>
+                    <span className="text-xs text-muted-foreground">{t('diff.truncated')}</span>
                   ) : null}
                 </div>
-                <pre className="overflow-x-auto whitespace-pre p-3 font-mono text-[11px] leading-relaxed">
+                <pre className="overflow-x-auto whitespace-pre p-3 font-mono text-xs leading-relaxed">
 {lastPreview.diff_unified}
                 </pre>
               </div>
@@ -592,8 +564,8 @@ export function DataCleaner({
               <div className={emptyStateClass}>
                 <TextCursorInput className="mt-0.5 size-3.5 shrink-0 text-info" />
                 <div>
-                  <div className="font-medium text-foreground/72">{t('diff.noDiffHint')}</div>
-                  <div className="text-muted-foreground/62">当前还没有生成可比较的清洗结果，点击上方执行后会展示统一 diff。</div>
+                  <div className="font-medium text-foreground">{t('diff.noDiffHint')}</div>
+                  <div>执行一次清洗后，这里会显示文本改动。</div>
                 </div>
               </div>
             )}
