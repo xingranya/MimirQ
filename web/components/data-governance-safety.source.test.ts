@@ -28,4 +28,8 @@ describe('数据治理正文安全门禁', () => {
     expect(panelSource).toContain('governance: state')
     expect(panelSource).toContain('savedGovernanceState')
   })
+
+  it('切换文档时重新建立治理工具实例', () => {
+    expect(panelSource).toContain('key={`${selectedFileId}:${activeTab}`}')
+  })
 })

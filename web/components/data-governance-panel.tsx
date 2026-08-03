@@ -2577,7 +2577,7 @@ export function DataGovernancePanel() {
 
                     {/* 工具内容区 */}
                     <div
-                      key={activeTab}
+                      key={`${selectedFileId}:${activeTab}`}
                       data-governance-tool-scroll="true"
                       className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-2 custom-scrollbar"
                     >
