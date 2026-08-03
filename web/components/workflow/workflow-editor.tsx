@@ -153,12 +153,12 @@ function buildEditorNodes(graph: GraphData, workflowLayout: JsonRecord | null | 
       targetPosition: Position.Left,
       style: {
         width: 208,
-        borderRadius: 18,
+        borderRadius: 6,
         border: `1px solid ${color}`,
-        background: `${color}18`,
+        background: 'hsl(var(--card))',
         color: 'hsl(var(--foreground))',
-        boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)',
-        fontSize: 12,
+        boxShadow: 'none',
+        fontSize: 14,
         fontWeight: 600,
         padding: 12,
       },
@@ -190,7 +190,7 @@ function buildEditorEdges(
       type: 'smoothstep',
       markerEnd: { type: MarkerType.ArrowClosed },
       style: { strokeWidth: 1.5, stroke: '#64748b' },
-      labelStyle: { fill: '#475569', fontSize: 11, fontWeight: 600 },
+      labelStyle: { fill: '#475569', fontSize: 12, fontWeight: 600 },
     }]
   })
 }
@@ -264,7 +264,7 @@ export function WorkflowEditor({
   }, [onNodeSelect])
 
   return (
-    <div className="h-full w-full bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.12),transparent_38%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))]">
+    <div className="h-full w-full bg-background">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -280,7 +280,7 @@ export function WorkflowEditor({
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={24} size={1} color="rgba(100, 116, 139, 0.25)" />
-        <Controls className="!bg-card/95 !border !border-border/70 !rounded-xl overflow-hidden shadow-sm" showInteractive={false} />
+        <Controls className="!overflow-hidden !rounded-md !border !border-border !bg-card !shadow-none" showInteractive={false} />
       </ReactFlow>
     </div>
   )
