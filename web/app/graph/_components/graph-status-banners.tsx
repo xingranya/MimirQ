@@ -30,13 +30,13 @@ type GraphModeBannerProps = Readonly<{
 function GraphModeBanner({ toneClassName, dismissLabel, onDismiss, children }: GraphModeBannerProps) {
   return (
     <div
-      className={`pointer-events-auto absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full px-4 py-2 shadow-lg animate-in fade-in slide-in-from-top-4 motion-reduce:animate-none ${toneClassName}`}
+      className={`pointer-events-auto absolute left-1/2 top-[calc(100%+0.5rem)] flex w-[calc(100vw-1rem)] max-w-xl -translate-x-1/2 items-center justify-between gap-2 rounded-md px-3 py-2 animate-in fade-in slide-in-from-top-2 motion-reduce:animate-none sm:w-auto ${toneClassName}`}
     >
       {children}
       <IconButton
         label={dismissLabel}
         onClick={onDismiss}
-        className="ml-2 h-7 w-7 rounded-full hover:bg-current/10"
+        className="ml-2 h-8 w-8 shrink-0 rounded-md hover:bg-current/10"
       >
         <X className="w-4 h-4" />
       </IconButton>
@@ -84,7 +84,7 @@ export function GraphStatusBanners({
           onDismiss={onExitConnectMode}
         >
           <LinkIcon className="w-4 h-4" />
-          <span className="text-sm font-medium">正在连接: {connectSourceLabel} ... 请点击目标节点</span>
+          <span className="text-sm font-medium">正在连接：{connectSourceLabel}，请选择目标节点</span>
         </GraphModeBanner>
       ) : null}
 
@@ -96,7 +96,7 @@ export function GraphStatusBanners({
         >
           <Lightbulb className="w-4 h-4" />
           <span className="text-sm font-medium">
-            推理路径演示中... ({currentStepIndex + 1}/{explainStepCount})
+            推理路径演示中（{currentStepIndex + 1}/{explainStepCount}）
           </span>
         </GraphModeBanner>
       ) : null}

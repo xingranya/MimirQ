@@ -106,15 +106,15 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
 
   return (
     <div className="absolute bottom-4 left-4 z-10 md:bottom-8 md:left-8">
-      <div className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-md backdrop-blur-sm md:max-w-[340px]">
+      <div className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-card md:max-w-[340px]">
           <button
             type="button"
             onClick={() => setCollapsed(prev => !prev)}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 text-[11px] font-semibold uppercase text-muted-foreground hover:text-foreground transition-colors"
+            className="flex w-full items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
           >
             <span>图例</span>
             <span className="flex items-center gap-1.5">
-              <span className="text-[11px] font-normal normal-case opacity-70">
+              <span className="text-xs font-normal opacity-70">
                 {entityTypes.length}{edgeKinds.length ? ` / ${edgeKinds.length}` : ''}
               </span>
               {collapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -124,7 +124,7 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
           <div className="px-3.5 pb-3 pt-0.5 space-y-3 max-h-[180px] overflow-y-auto overscroll-contain no-scrollbar">
             {entityTypes.length > 0 && (
               <div>
-                <div className="text-[11px] font-medium text-muted-foreground mb-2 uppercase">节点类型</div>
+                <div className="mb-2 text-xs font-medium text-muted-foreground">节点类型</div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {entityTypes.map(({ type, color, count }) => {
                     const isActive = activeTypeFilters.length === 0 || activeTypeFilters.includes(type)
@@ -144,7 +144,7 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
                           style={{ backgroundColor: color }}
                         />
                         <span className="text-foreground/80 whitespace-nowrap">{type}</span>
-                        <span className="text-muted-foreground text-[11px]">{count}</span>
+                        <span className="text-xs text-muted-foreground">{count}</span>
                       </button>
                     )
                   })}
@@ -153,13 +153,13 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
             )}
             {edgeKinds.length > 0 && (
               <div>
-                <div className="text-[11px] font-medium text-muted-foreground mb-2 uppercase">关系类型</div>
+                <div className="mb-2 text-xs font-medium text-muted-foreground">关系类型</div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {edgeKinds.map(({ kind, label, color, count }) => (
                     <div key={kind} className="flex items-center gap-1.5 text-xs" title={`${kind} (${count})`}>
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-black/5" style={{ backgroundColor: color }} />
                       <span className="text-foreground/80 whitespace-nowrap">{label}</span>
-                      <span className="text-muted-foreground text-[11px]">{count}</span>
+                      <span className="text-xs text-muted-foreground">{count}</span>
                     </div>
                   ))}
                 </div>

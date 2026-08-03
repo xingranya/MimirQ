@@ -1,8 +1,8 @@
 'use client'
 
-import type { ChangeEventHandler, ReactNode, RefObject } from 'react'
+import { useRef, type ChangeEventHandler, type ReactNode, type RefObject } from 'react'
 
-import { BarChart3, FileCode, FileText, Filter, GitCompare, MoreHorizontal, Network, RefreshCw, Share2, Link as LinkIcon, Wrench } from 'lucide-react'
+import { BarChart3, FileCode, FileText, Filter, GitCompare, MoreHorizontal, Network, RefreshCw, Search, Share2, Link as LinkIcon, Wrench } from 'lucide-react'
 
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
@@ -142,6 +142,7 @@ export function GraphPageHeader({
   manualKgFileInputRef,
   onManualKgFileUpload,
 }: GraphPageHeaderProps) {
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null)
   let liveControls: ReactNode = null
   if (dataSource === 'live') {
     liveControls = (
@@ -185,7 +186,7 @@ export function GraphPageHeader({
                 共现 {minSharedEvents}+
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" align="center" className="max-w-[240px] text-[11px] leading-5">
+            <TooltipContent side="bottom" align="center" className="max-w-[240px] text-xs leading-5">
               共现阈值。仅保留至少在 {minSharedEvents} 个事件中共同出现的关系连线；点击可在 1-4 之间切换。
             </TooltipContent>
           </Tooltip>
@@ -251,6 +252,38 @@ export function GraphPageHeader({
       />
 
       <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-2">
+        {searchOpen ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0 border-border bg-background md:hidden"
+                aria-label="搜索图谱"
+              >
+                <Search className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[min(360px,calc(100vw-1rem))] p-3 md:hidden"
+              onOpenAutoFocus={(event) => {
+                event.preventDefault()
+                mobileSearchInputRef.current?.focus()
+              }}
+            >
+              <GraphSearchOverlay
+                open
+                inputRef={mobileSearchInputRef}
+                searchTerm={searchTerm}
+                highlightedMatchCount={highlightedMatchCount}
+                onSearchTermChange={onSearchTermChange}
+              />
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
         {liveControls}
 
         <Popover>
@@ -263,7 +296,7 @@ export function GraphPageHeader({
               <MoreHorizontal className="h-4 w-4" />
               <span className="hidden sm:inline">图谱工具</span>
               {activeGraphFilterCount > 0 ? (
-                <span className="ml-0.5 rounded bg-info/12 px-1.5 py-0.5 text-[10px] font-semibold text-info">
+                <span className="ml-0.5 rounded bg-info/12 px-1.5 py-0.5 text-xs font-semibold text-info">
                   {activeGraphFilterCount}
                 </span>
               ) : null}
@@ -273,8 +306,8 @@ export function GraphPageHeader({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-foreground">图谱工具</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  KG JSON/JSONL 是唯一外部图谱导入方式
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  支持导入图谱 JSON 或 JSONL 文件
                 </div>
               </div>
               <div className="rounded-md border border-border bg-muted/45 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
@@ -294,7 +327,7 @@ export function GraphPageHeader({
                 <Network className="h-4 w-4 shrink-0" />
                 <span className="min-w-0">
                   <span className="block text-[13px] font-semibold leading-4">导入 KG JSON / JSONL</span>
-                  <span className="mt-0.5 block text-[11px] font-normal leading-4 text-muted-foreground">
+                  <span className="mt-0.5 block text-xs font-normal leading-4 text-muted-foreground">
                     实体、关系、证据入库并自动关联事件
                   </span>
                 </span>

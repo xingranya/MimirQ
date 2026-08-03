@@ -32,6 +32,7 @@ import {
 import { OperationResultPanel } from '@/components/ops/operation-result-panel'
 import { kgApi, type KGNetworkEdge, type KGNetworkRequest } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
+import { useIsMobile } from '@/hooks/use-media-query'
 import type { GraphData } from '@/lib/graph-parser'
 import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
 import { detachPromise } from '@/lib/utils'
@@ -40,6 +41,7 @@ type KgNetworkAnalysisPanelProps = Readonly<{
   nodes: GraphData['nodes']
   links: GraphData['links']
   selectedNodeId?: string | null
+  hidden?: boolean
 }>
 
 type ResultState = {
@@ -100,7 +102,9 @@ export function KgNetworkAnalysisPanel({
   nodes,
   links,
   selectedNodeId,
+  hidden = false,
 }: KgNetworkAnalysisPanelProps) {
+  const isMobile = useIsMobile()
   const keyboardMoveStep = 24
   const edges = useMemo(() => toNetworkEdges(links), [links])
   const selectedNode = useMemo(
@@ -157,10 +161,11 @@ export function KgNetworkAnalysisPanel({
   const dragStateRef = useRef<PanelDragState>(null)
 
   useEffect(() => {
-    if (globalThis.window.matchMedia('(max-width: 767px)').matches) {
+    if (isMobile) {
       setCollapsed(true)
+      setPanelOffset({ x: 0, y: 0 })
     }
-  }, [])
+  }, [isMobile])
 
   const request: KGNetworkRequest = {
     edges,
@@ -271,13 +276,18 @@ export function KgNetworkAnalysisPanel({
     }
   }
 
+  if (hidden) return null
+
   if (collapsed) {
     return (
-      <div className="absolute left-4 top-20 z-20 transition-transform duration-150 md:left-auto md:right-[6.75rem] md:top-24" style={panelDragStyle}>
+      <div
+        className="absolute left-3 top-20 z-20 transition-transform duration-150 md:left-auto md:right-[6.75rem] md:top-24"
+        style={isMobile ? undefined : panelDragStyle}
+      >
         <Button
           type="button"
           variant="outline"
-          className="h-10 gap-2 rounded-full border-border/60 bg-card/90 px-3 text-xs font-semibold shadow-soft backdrop-blur-md"
+          className="h-10 gap-2 rounded-md border-border bg-card px-3 text-xs font-semibold"
           aria-label="展开图谱统计栏"
           aria-expanded="false"
           aria-controls="kg-network-analysis-panel"
@@ -285,7 +295,7 @@ export function KgNetworkAnalysisPanel({
         >
           <PanelRightOpen className="h-4 w-4 text-primary" />
           <span>统计</span>
-          <span className="rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+          <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             {nodes.length}/{links.length}
           </span>
         </Button>
@@ -297,20 +307,20 @@ export function KgNetworkAnalysisPanel({
     <div
       id="kg-network-analysis-panel"
       data-draggable-kg-analysis-panel="true"
-      className="absolute right-[6.75rem] top-24 z-20 w-[286px] space-y-3 will-change-transform"
-      style={panelDragStyle}
+      className="fixed inset-x-2 bottom-2 z-20 max-h-[calc(100dvh-5.5rem)] space-y-3 overflow-y-auto rounded-lg border border-border bg-background p-2 md:absolute md:inset-x-auto md:bottom-auto md:right-[6.75rem] md:top-24 md:w-[286px] md:overflow-visible md:border-0 md:bg-transparent md:p-0"
+      style={isMobile ? undefined : panelDragStyle}
     >
-      <section className="rounded-2xl border border-border/60 bg-card/92 p-4 shadow-soft backdrop-blur-md">
+      <section className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-info-foreground shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
               <BarChart3 className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <div className="text-sm font-semibold text-foreground">
                 统计信息
               </div>
-              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+              <p className="mt-0.5 text-xs leading-4 text-muted-foreground">
                 数据概览与交互信息
               </p>
             </div>
@@ -318,7 +328,7 @@ export function KgNetworkAnalysisPanel({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              className="flex h-8 w-8 cursor-grab items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary active:cursor-grabbing"
+              className="hidden h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing md:flex"
               aria-label="拖动图谱统计栏"
               title="拖动图谱统计栏"
               aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Home"
@@ -334,7 +344,7 @@ export function KgNetworkAnalysisPanel({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="收起图谱统计栏"
               aria-expanded="true"
               aria-controls="kg-network-analysis-panel"
@@ -345,7 +355,7 @@ export function KgNetworkAnalysisPanel({
           </div>
         </div>
 
-        <div className="rounded-xl border border-dashed border-border/70 bg-background/72 p-3">
+        <div className="rounded-md border border-dashed border-border bg-muted/30 p-3">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
             <MousePointer2 className="h-3.5 w-3.5 text-primary" />
             选中单元
@@ -358,7 +368,7 @@ export function KgNetworkAnalysisPanel({
               >
                 {selectedNode.label || selectedNode.id}
               </div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {getNodeType(selectedNode)}
               </div>
             </div>
@@ -370,7 +380,7 @@ export function KgNetworkAnalysisPanel({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border/60 bg-card/92 p-4 shadow-soft backdrop-blur-md">
+      <section className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
@@ -378,7 +388,7 @@ export function KgNetworkAnalysisPanel({
               筛选器控制
             </div>
           </div>
-          <div className="rounded-full bg-muted/55 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <div className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {nodes.length} / {links.length}
           </div>
         </div>
@@ -412,12 +422,12 @@ export function KgNetworkAnalysisPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-9 w-full gap-2 rounded-xl border-border/60 bg-card/92 text-xs font-semibold shadow-soft backdrop-blur-sm"
+            className="h-9 w-full gap-2 rounded-md border-border bg-card text-xs font-semibold"
             disabled={edges.length === 0}
           >
             <Network className="h-4 w-4" />
             网络分析
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="text-xs tabular-nums text-muted-foreground">
               {edges.length}
             </span>
           </Button>
@@ -427,36 +437,36 @@ export function KgNetworkAnalysisPanel({
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <GitBranch className="h-4 w-4 text-info" />
-                KG Network API
+                网络分析
               </div>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                使用当前图谱画布的边作为输入，直接调用后端网络分析接口。
+                基于当前画布中的节点和关系执行路径、中心性与社区分析。
               </p>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-3">
-              <Field label="Start">
+              <Field label="起点">
                 <Input
                   value={startId}
                   onChange={(event) => setStartId(event.target.value)}
                   className="h-8 font-mono text-xs"
                 />
               </Field>
-              <Field label="Target">
+              <Field label="终点">
                 <Input
                   value={targetId}
                   onChange={(event) => setTargetId(event.target.value)}
                   className="h-8 font-mono text-xs"
                 />
               </Field>
-              <Field label="Node">
+              <Field label="节点">
                 <Input
                   value={nodeId}
                   onChange={(event) => setNodeId(event.target.value)}
                   className="h-8 font-mono text-xs"
                 />
               </Field>
-              <Field label="Max hops">
+              <Field label="最大跳数">
                 <Input
                   value={String(maxHops)}
                   onChange={(event) =>
@@ -468,7 +478,7 @@ export function KgNetworkAnalysisPanel({
                   inputMode="numeric"
                 />
               </Field>
-              <Field label="Top K">
+              <Field label="结果数量">
                 <Input
                   value={String(topK)}
                   onChange={(event) =>
@@ -480,7 +490,7 @@ export function KgNetworkAnalysisPanel({
                   inputMode="numeric"
                 />
               </Field>
-              <Field label="Centrality">
+              <Field label="中心性算法">
                 <Select
                   value={algorithm}
                   onValueChange={(value) =>
@@ -515,7 +525,7 @@ export function KgNetworkAnalysisPanel({
                 }
               >
                 <Network className="h-3.5 w-3.5" />
-                K-hop
+                K 跳邻居
               </Button>
               <Button
                 variant="outline"
@@ -627,7 +637,7 @@ function MetricGroup({
 }: Readonly<{ title: string; children: ReactNode }>) {
   return (
     <div>
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="mb-2 text-xs font-semibold text-foreground">
         {title}
       </div>
       <div className="space-y-1.5">{children}</div>
@@ -651,7 +661,7 @@ function MetricRow({
           {label}
         </span>
       </div>
-      <span className="font-mono text-[11px] text-muted-foreground">
+      <span className="text-xs tabular-nums text-muted-foreground">
         {count}
       </span>
     </div>
@@ -664,7 +674,7 @@ function Field({
 }: Readonly<{ label: string; children: ReactNode }>) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] font-medium text-muted-foreground">
+      <Label className="text-xs font-medium text-muted-foreground">
         {label}
       </Label>
       {children}

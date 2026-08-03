@@ -70,6 +70,11 @@ export function GraphPageBody({
   nodeDetailPanelProps,
   linkDetailPanelProps,
 }: GraphPageBodyProps) {
+  const hasDetailPanelOpen =
+    nodeDetailPanelProps.open || linkDetailPanelProps.open
+  const hasMobileCanvasPanelOpen =
+    hasDetailPanelOpen || explainabilityOpen
+
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1">
       <GraphCanvas {...canvasProps} />
@@ -77,12 +82,14 @@ export function GraphPageBody({
       <GraphContextMenu {...contextMenuProps} />
 
       {legendVisible ? (
-        <GraphLegend
-          nodes={legendNodes}
-          links={legendLinks}
-          activeTypeFilters={activeTypeFilters}
-          onToggleTypeFilter={onToggleTypeFilter}
-        />
+        <div className={hasMobileCanvasPanelOpen ? 'max-md:hidden' : undefined}>
+          <GraphLegend
+            nodes={legendNodes}
+            links={legendLinks}
+            activeTypeFilters={activeTypeFilters}
+            onToggleTypeFilter={onToggleTypeFilter}
+          />
+        </div>
       ) : null}
 
       <GraphExplainabilityPanel
@@ -96,14 +103,15 @@ export function GraphPageBody({
         nodes={networkAnalysisNodes}
         links={networkAnalysisLinks}
         selectedNodeId={networkAnalysisSelectedNodeId}
+        hidden={hasMobileCanvasPanelOpen}
       />
 
       {showPendingDocs ? (
         <div className="absolute bottom-20 left-1/2 z-20 -translate-x-1/2">
           <div aria-live="polite" className="flex items-center gap-2 rounded-md border border-primary/20 bg-background px-3 py-1.5">
-            <span className="text-[11px] font-medium text-primary">KG 构建中</span>
-            <span className="text-[11px] text-muted-foreground">待处理文档</span>
-            <span className="text-[11px] font-mono text-foreground">{pendingDocCount}</span>
+            <span className="text-xs font-medium text-primary">图谱构建中</span>
+            <span className="text-xs text-muted-foreground">待处理文档</span>
+            <span className="text-xs tabular-nums text-foreground">{pendingDocCount}</span>
           </div>
         </div>
       ) : null}
@@ -118,7 +126,9 @@ export function GraphPageBody({
         </div>
       ) : null}
 
-      <GraphFloatingControls {...floatingControlsProps} />
+      <div className={hasMobileCanvasPanelOpen ? 'max-md:hidden' : undefined}>
+        <GraphFloatingControls {...floatingControlsProps} />
+      </div>
 
       <GraphNodeDetailPanel {...nodeDetailPanelProps} />
 

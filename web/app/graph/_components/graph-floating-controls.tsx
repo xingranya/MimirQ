@@ -85,7 +85,7 @@ export function GraphFloatingControls({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-10 w-10 rounded-xl border border-border/60 bg-card/92 text-muted-foreground shadow-soft backdrop-blur-sm hover:bg-card hover:text-foreground"
+        className="h-10 w-10 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
         title={isCollapsed ? '展开工具栏' : '收起工具栏'}
         aria-label={isCollapsed ? '展开工具栏' : '收起工具栏'}
         aria-expanded={!isCollapsed}
@@ -105,7 +105,7 @@ export function GraphFloatingControls({
           isCollapsed ? 'w-0 translate-x-2 opacity-0 pointer-events-none' : 'w-[3.125rem] translate-x-0 opacity-100'
         )}
       >
-        <div className="flex w-[3.125rem] flex-col gap-1 rounded-xl border border-border/60 bg-card/92 p-1.5 shadow-soft backdrop-blur-sm">
+        <div className="flex w-[3.125rem] flex-col gap-1 rounded-md border border-border bg-card p-1.5">
           <Button variant="ghost" size="icon" onClick={onZoomIn} className="rounded-lg" title="放大" aria-label="放大">
             <ZoomIn className="w-5 h-5" />
           </Button>
@@ -198,7 +198,7 @@ export function GraphFloatingControls({
               </Button>
             </PopoverTrigger>
             <PopoverContent side="left" align="end" className="w-64 p-2">
-              <div className="px-1.5 py-1 text-[11px] font-semibold text-muted-foreground uppercase">Export</div>
+              <div className="px-1.5 py-1 text-xs font-semibold text-muted-foreground">导出</div>
               <div className="grid grid-cols-2 gap-2 p-1">
                 <Button type="button" size="sm" variant="outline" className="h-8" onClick={onExportPngDownload}>
                   PNG
@@ -217,7 +217,7 @@ export function GraphFloatingControls({
                   Copy SVG
                 </Button>
               </div>
-              <div className="px-2 pb-1 text-[11px] text-muted-foreground">当前视图：{viewMode === '3d' ? '3D' : '2D'}</div>
+              <div className="px-2 pb-1 text-xs text-muted-foreground">当前视图：{viewMode === '3d' ? '3D' : '2D'}</div>
             </PopoverContent>
           </Popover>
         </div>
