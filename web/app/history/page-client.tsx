@@ -557,16 +557,13 @@ function HistoryPageContent({
                   </div>
                 </div>
                 
-                <div className="relative group">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
-                  <input
-                    maxLength={500}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('searchPlaceholder')}
-                    className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </div>
+                <input
+                  maxLength={500}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('searchPlaceholder')}
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
 
                 <div className="flex items-center gap-1 px-0.5 pb-0.5">
                   {([
@@ -653,7 +650,7 @@ function HistoryPageContent({
                     )}
                   </Button>
                 ) : (
-                  <span className="text-[11px] text-muted-foreground/45">已显示全部历史</span>
+                  <span className="text-xs text-muted-foreground">已显示全部历史</span>
                 )}
               </div>
             </>);
@@ -723,12 +720,12 @@ function HistoryPageContent({
                             <h2 className="truncate text-base font-medium text-foreground/92  leading-tight md:text-lg">
                               {displayConversation.title || t("untitledConversation")}
                             </h2>
-                            <div className="flex items-center gap-1 mt-0.5 tabular-nums">
-                              <span className="inline-flex items-center rounded-md bg-muted/30 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground/50 border border-border/10">
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                              <span>
                                 {t("messageCount", { count: displayConversation.message_count })}
                               </span>
-                              <span className="text-muted-foreground/20 text-[11px] leading-none px-0.5">•</span>
-                              <span suppressHydrationWarning className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground/50 border border-border/10">
+                              <span className="text-border">·</span>
+                              <span suppressHydrationWarning>
                                 {formatDate(displayConversation.created_at, locale)}
                               </span>
                             </div>
@@ -740,7 +737,7 @@ function HistoryPageContent({
                             size="sm"
                             onClick={handleEvaluateConversation}
                             aria-label="进行对话分析评测"
-                            className="h-8 gap-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
+                            className="h-8 gap-1.5 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground motion-reduce:transition-none"
                           >
                             <BarChart3 className="size-3.5" />
                             分析评测
@@ -750,7 +747,7 @@ function HistoryPageContent({
                             size="sm"
                             onClick={() => setIsTraceOpen(true)}
                             aria-label="查看数据追踪"
-                            className="h-8 gap-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
+                            className="h-8 gap-1.5 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground motion-reduce:transition-none"
                           >
                             <Route className="size-3.5" />
                             数据追踪
@@ -878,56 +875,13 @@ function HistoryMainEmptyState() {
             {descriptionLines[1]}
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <Button asChild className="h-10 rounded-md px-5 text-[13px] font-medium">
+          <div className="mt-6">
+            <Button asChild className="h-10 rounded-md px-5 text-sm font-medium">
               <Link href="/">
                 <Plus className="h-4 w-4" />
                 {t('startNewConversation')}
               </Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-10 rounded-md border-border bg-background px-4 text-xs font-medium text-foreground shadow-none hover:bg-muted hover:text-foreground"
-            >
-              <Link href="/evaluations">
-                <BarChart3 className="h-3.5 w-3.5" />
-                {t('evaluateConversation')}
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-10 rounded-md border-border bg-background px-4 text-xs font-medium text-foreground shadow-none hover:bg-muted hover:text-foreground"
-            >
-              <Link href="/observability">
-                <Route className="h-3.5 w-3.5" />
-                {t('ragTrace')}
-              </Link>
-            </Button>
-          </div>
-
-          <div className="mt-7 grid w-full max-w-lg gap-4 border-t border-border pt-4 text-left sm:grid-cols-3">
-            {[
-              ['答案留存', '保存对话结论'],
-              ['证据回看', '追溯引用来源'],
-              ['评测追踪', '连接质量诊断'],
-            ].map(([title, desc]) => (
-              <div
-                key={title}
-                className="px-1 py-2"
-              >
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-foreground/82">
-                  <span className="size-1.5 rounded-full bg-primary" />
-                  {title}
-                </div>
-                <p className="mt-1 text-[11px] leading-4 text-muted-foreground/70">
-                  {desc}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -1011,10 +965,8 @@ export function ConversationItem({
       <motion.button
         type="button"
         onClick={onSelect}
-        whileHover={{ scale: 1.01, y: -0.5 }}
-        whileTap={{ scale: 0.99 }}
         className={cn(
-          'relative flex w-full flex-col gap-0.5 overflow-hidden rounded-md border border-transparent px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+          'relative flex w-full flex-col gap-1 overflow-hidden rounded-md border border-transparent py-2 pl-3 pr-12 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 motion-reduce:transition-none',
           isSelected 
             ? 'border-primary/20 bg-primary/10 text-primary'
             : 'bg-transparent text-foreground/80 hover:bg-muted/60 hover:text-foreground'
@@ -1038,12 +990,12 @@ export function ConversationItem({
           <time
             suppressHydrationWarning
             dateTime={conversation.last_message_at || conversation.updated_at || conversation.created_at}
-            className="text-[9px] font-medium uppercase  text-muted-foreground/30 pt-1.5 tabular-nums group-hover:text-muted-foreground/50 transition-colors shrink-0"
+            className="shrink-0 pt-0.5 text-xs font-medium text-muted-foreground tabular-nums"
           >
             {formatRelativeTime(conversation.last_message_at || conversation.updated_at, locale, t('justNow'))}
           </time>
         </div>
-        <div className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground/40 tabular-nums">
+        <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground tabular-nums">
           <span className="shrink-0">{t('messageCount', { count: conversation.message_count })}</span>
           <span className="text-muted-foreground/20">/</span>
           <p className="truncate flex-1 font-normal  text-muted-foreground/50 lowercase">
@@ -1053,8 +1005,10 @@ export function ConversationItem({
       </motion.button>
 
       <div className={cn(
-        "absolute right-3 top-1/2 -translate-y-1/2 transition-all duration-200 flex items-center",
-        showDeleteConfirm ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        "absolute right-2 top-1/2 flex -translate-y-1/2 items-center transition-opacity duration-200 motion-reduce:transition-none",
+        showDeleteConfirm
+          ? "opacity-100"
+          : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
       )}>
         {showDeleteConfirm ? (
           <div className="flex items-center gap-1.5 animate-fade-in-up">
@@ -1167,29 +1121,6 @@ function hasAnswerLineageEvidence(message: Message): boolean {
 
   const docsReturned = metadata.docs_returned
   return typeof docsReturned === 'number' && Number.isFinite(docsReturned) && docsReturned > 0
-}
-
-function HistoryMessageRoleBadge({
-  role,
-}: Readonly<{
-  role: Message['role']
-}>) {
-  const t = useTranslations('History')
-  const isUser = role === 'user'
-
-  return (
-    <div
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium',
-        isUser
-          ? 'border-primary/15 bg-primary/10 text-primary'
-          : 'border-border/60 bg-background/90 text-foreground/80'
-      )}
-    >
-      <span className={cn('h-1.5 w-1.5 rounded-full', isUser ? 'bg-primary' : 'bg-info')} />
-      <span>{isUser ? t('speakerQuestion') : t('speakerAnswer')}</span>
-    </div>
-  )
 }
 
 function getConversationGroupTone() {

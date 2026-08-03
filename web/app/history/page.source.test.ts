@@ -1,4 +1,4 @@
-// Source contract check only; this is not behavior coverage.
+// 仅检查源码契约，不替代行为测试。
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -53,8 +53,16 @@ describe('history route source', () => {
   it('suppresses hydration drift for selected-conversation created-at chips', () => {
     const client = fs.readFileSync(path.resolve(__dirname, 'page-client.tsx'), 'utf8')
 
-    expect(client).toContain('<span suppressHydrationWarning className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground/50 border border-border/10">')
+    expect(client).toContain('<span suppressHydrationWarning>')
     expect(client).toContain('{formatDate(displayConversation.created_at, locale)}')
+  })
+
+  it('keeps conversation actions reachable on touch screens without covering content', () => {
+    const client = fs.readFileSync(path.resolve(__dirname, 'page-client.tsx'), 'utf8')
+
+    expect(client).toContain('py-2 pl-3 pr-12')
+    expect(client).toContain('opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100')
+    expect(client).toContain("label={t('deleteConversation')}")
   })
 
   it('suppresses hydration drift for sidebar conversation-group labels', () => {

@@ -1,4 +1,4 @@
-// Source contract check only; this is not behavior coverage.
+// 仅检查源码契约，不替代行为测试。
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -11,10 +11,8 @@ describe('history page empty state', () => {
     const messages = readMessageCatalogSource(path.resolve(__dirname, '../..'))
 
     expect(src).toContain("t('startNewConversation')")
-    expect(src).toContain("t('evaluateConversation')")
-    expect(src).toContain("t('ragTrace')")
-    expect(src).toContain('<Link href="/evaluations">')
-    expect(src).toContain('<Link href="/observability">')
+    expect(src).not.toContain('<Link href="/evaluations">')
+    expect(src).not.toContain('<Link href="/observability">')
     expect(src).toContain('function HistorySidebarEmptyState')
     expect(src).toContain('function HistoryMainEmptyState')
     expect(src).toContain('data-history-empty-archive="true"')
@@ -26,7 +24,7 @@ describe('history page empty state', () => {
     expect(src).toContain("t('historyEmptyDescription')")
     expect(src).toContain('border-y border-border bg-background px-8 py-12 text-center')
     expect(src).toContain('grid size-14 place-items-center rounded-md bg-muted text-foreground')
-    expect(src).toContain('className="h-10 rounded-md px-5 text-[13px] font-medium"')
+    expect(src).toContain('className="h-10 rounded-md px-5 text-sm font-medium"')
     expect(src).not.toContain('gradient')
     expect(src).not.toContain('blur-3xl')
     expect(messages).toContain("startNewConversation: '发起新对话'")
