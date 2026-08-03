@@ -61,4 +61,15 @@ describe('全局界面层级', () => {
     expect(popoverSource).toContain('collisionPadding = 8')
     expect(popoverSource).toContain('max-w-[calc(100vw-1rem)]')
   })
+
+  it('要求 Dialog 在窄屏内保留可滚动的视口边界', () => {
+    const dialogSource = readFileSync(
+      resolve(__dirname, '../components/ui/dialog.tsx'),
+      'utf8'
+    )
+
+    expect(dialogSource).toContain('max-h-[calc(100dvh-1.5rem)]')
+    expect(dialogSource).toContain('overflow-y-auto')
+    expect(dialogSource).toContain('size-11')
+  })
 })
