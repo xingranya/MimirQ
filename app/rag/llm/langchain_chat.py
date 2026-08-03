@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import ConfigDict, Field, PrivateAttr
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.rag.core.http import httpx_trust_env
 from app.rag.core.logging import get_logger
 from app.rag.llm.factory import _resolve_fallback_specs
@@ -334,9 +334,13 @@ def build_chat_model_from_config(
     cfg = dict(model_config or {})
     model_name = str(cfg.get("model") or settings.LLM_MODEL or "").strip()
     base_url = normalize_openai_compatible_base_url(cfg.get("base_url") or settings.LLM_API_BASE)
+    api_key = resolve_openai_compatible_api_key(
+        api_key=cfg.get("api_key") or settings.LLM_API_KEY,
+        base_url=base_url,
+    )
     timeout = cfg.get("timeout", settings.LLM_TIMEOUT)
     common_kwargs = {
-        "api_key": cfg.get("api_key") or settings.LLM_API_KEY,
+        "api_key": api_key,
         "base_url": base_url,
         "temperature": cfg.get("temperature", settings.LLM_TEMPERATURE),
         "streaming": bool(streaming),
@@ -357,9 +361,11 @@ def build_chat_model_from_config(
         if not fallback_model_name or fallback_model_name in seen_models:
             continue
         fallback_kwargs = dict(common_kwargs)
-        fallback_kwargs["api_key"] = spec.get("api_key") or fallback_kwargs["api_key"]
-        fallback_kwargs["base_url"] = normalize_openai_compatible_base_url(
-            spec.get("base_url") or fallback_kwargs["base_url"]
+        fallback_base_url = normalize_openai_compatible_base_url(spec.get("base_url") or base_url)
+        fallback_kwargs["base_url"] = fallback_base_url
+        fallback_kwargs["api_key"] = resolve_openai_compatible_api_key(
+            api_key=spec.get("api_key") or cfg.get("api_key") or settings.LLM_API_KEY,
+            base_url=fallback_base_url,
         )
         fallback_kwargs["temperature"] = spec.get("temperature", fallback_kwargs["temperature"])
         fallback_kwargs["timeout"] = spec.get("timeout", fallback_kwargs["timeout"])

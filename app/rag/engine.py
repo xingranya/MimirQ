@@ -19,6 +19,7 @@ from langchain_openai import ChatOpenAI
 from app.api.schemas.chat import ChatRAGConfig
 from app.core.config import settings
 from app.core.http_client import get_http_client_pool
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.core.pii_redaction import pii_redaction_enabled, redact_text
 from app.core.token_utils import num_tokens_from_string, truncate
 from app.core.utils import parse_csv
@@ -1236,7 +1237,11 @@ Requirements:
                 heuristic_fallback_enabled = bool(
                     getattr(settings, "QUERY_DECOMPOSITION_HEURISTIC_FALLBACK_ENABLED", True)
                 )
-                llm_api_key = str(getattr(settings, "LLM_API_KEY", "") or "").strip()
+                llm_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+                llm_api_key = resolve_openai_compatible_api_key(
+                    api_key=getattr(settings, "LLM_API_KEY", None),
+                    base_url=llm_base_url,
+                )
 
                 # If LLM credentials are missing, skip LLM decomposition entirely and fall back
                 # to a deterministic heuristic splitter (when enabled).

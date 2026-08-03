@@ -23,6 +23,7 @@ from uuid import UUID
 from langchain_core.documents import Document
 
 from app.core.config import settings
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.core.token_utils import num_tokens_from_string
 from app.core.utils import parse_csv
 from app.query.normalize import normalize_query
@@ -448,7 +449,11 @@ def _query_decomposition_settings(enabled: bool | None) -> tuple[bool, int, int,
     dq_max_chars = max(0, _safe_int(settings.QUERY_DECOMPOSITION_MAX_CHARS))
     dq_enabled = bool(settings.ENABLE_QUERY_DECOMPOSITION) if enabled is None else bool(enabled)
     heuristic_enabled = bool(getattr(settings, "QUERY_DECOMPOSITION_HEURISTIC_FALLBACK_ENABLED", True))
-    llm_api_key = str(getattr(settings, "LLM_API_KEY", "") or "").strip()
+    llm_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    llm_api_key = resolve_openai_compatible_api_key(
+        api_key=getattr(settings, "LLM_API_KEY", None),
+        base_url=llm_base_url,
+    )
     return dq_enabled, dq_n, dq_min_chars, dq_max_chars, heuristic_enabled, llm_api_key
 
 

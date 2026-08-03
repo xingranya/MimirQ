@@ -27,6 +27,7 @@ from app.api.schemas.table_store import (
 )
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.document import Document as DBDocument
 from app.rag.core.logging import get_logger
 from app.rag.preprocessing.pii_anonymizer import anonymize_pii
@@ -69,6 +70,17 @@ _DETAIL_INVALID_TABLE_ID = "invalid table_id"
 _DETAIL_TABLE_NOT_FOUND = "table not found"
 
 router = APIRouter(responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+
+
+def _llm_credentials_available() -> bool:
+    """判断当前模型配置能否用于已鉴权或本地免鉴权端点。"""
+    base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    return bool(
+        resolve_openai_compatible_api_key(
+            api_key=getattr(settings, "LLM_API_KEY", None),
+            base_url=base_url,
+        )
+    )
 
 
 def _member_role(member: object) -> str:
@@ -674,7 +686,7 @@ def ask_dataset_table(
 ):
     if not tag_enabled():
         raise HTTPException(status_code=400, detail="TABLE_NL2SQL_ENABLED=false")
-    has_llm_key = bool(str(getattr(settings, "LLM_API_KEY", "") or "").strip())
+    has_llm_key = _llm_credentials_available()
     deterministic_ok = bool(getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_ONLY", False)) or bool(
         getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_FALLBACK_ENABLED", True)
     )
@@ -869,7 +881,7 @@ def lotus_sem_filter_dataset_table(
 ):
     if not bool(getattr(settings, "TABLE_LOTUS_ENABLED", False)):
         raise HTTPException(status_code=400, detail="TABLE_LOTUS_ENABLED=false")
-    if not str(getattr(settings, "LLM_API_KEY", "") or "").strip():
+    if not _llm_credentials_available():
         raise HTTPException(status_code=400, detail="LLM_API_KEY is not configured")
 
     dataset = DatasetService.get_dataset(db, tenant_id, dataset_id)

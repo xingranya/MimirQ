@@ -563,6 +563,7 @@ def test_hybrid_search_singleflight_only_uses_behavior_hash_in_cache_key(
     for name, value in {
         "RETRIEVAL_CANDIDATE_SINGLEFLIGHT_ENABLED": True,
         "RETRIEVAL_CANDIDATE_CACHE_ENABLED": False,
+        "RERANK_CONDITIONAL_ENABLED": False,
         "SEMANTIC_CACHE_ENABLED": False,
     }.items():
         monkeypatch.setattr(retriever_module.settings, name, value, raising=False)
@@ -583,6 +584,20 @@ def test_hybrid_search_singleflight_only_uses_behavior_hash_in_cache_key(
     monkeypatch.setattr(HybridRetriever, "_search_lexical_db", lambda self, **kwargs: [], raising=True)  # noqa: ANN001,ARG005
     monkeypatch.setattr(HybridRetriever, "_search_sparse", lambda self, **kwargs: [], raising=True)  # noqa: ANN001,ARG005
     monkeypatch.setattr(retriever_module, "emit_stream_event", lambda *args, **kwargs: None, raising=True)
+    monkeypatch.setattr(
+        retriever_module,
+        "get_reranker",
+        lambda _provider: SimpleNamespace(
+            rerank=lambda **kwargs: SimpleNamespace(
+                ordered_ids=[candidate.id for candidate in kwargs["candidates"]],
+                score_map={candidate.id: 0.9 for candidate in kwargs["candidates"]},
+                elapsed_sec=0.0,
+                model_used="stub",
+                provider="stub",
+            )
+        ),
+        raising=True,
+    )
     monkeypatch.setattr(
         retriever_module,
         "get_vector_store",

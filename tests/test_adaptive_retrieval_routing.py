@@ -44,6 +44,7 @@ def test_engine_routes_retrieval_params_by_complexity_thresholds(monkeypatch: py
     from app.core.config import settings
     from app.rag.engine import RAGEngine
 
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", True, raising=False)
     monkeypatch.setattr(settings, "ADAPTIVE_RETRIEVAL_ROUTING_ENABLED", True, raising=False)
     monkeypatch.setattr(settings, "ADAPTIVE_RETRIEVAL_SIMPLE_THRESHOLD", 80.0, raising=False)
     monkeypatch.setattr(settings, "ADAPTIVE_RETRIEVAL_SIMPLE_TOP_K", 7, raising=False)
@@ -74,6 +75,7 @@ async def test_engine_applies_adaptive_retrieval_overrides_to_streaming_path(
     from app.core.config import settings
     from app.rag.engine import RAGEngine
 
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", True, raising=False)
     monkeypatch.setattr(settings, "ENABLE_QUERY_REWRITE", False, raising=False)
     monkeypatch.setattr(settings, "ENABLE_HYDE", False, raising=False)
     monkeypatch.setattr(settings, "ENABLE_QUERY_DECOMPOSITION", False, raising=False)

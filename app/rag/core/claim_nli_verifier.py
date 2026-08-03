@@ -7,7 +7,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.http_client import get_http_client_pool
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 
 logger = logging.getLogger("mimirq.claim_nli")
 
@@ -117,6 +117,10 @@ def verify_claim_with_nli(
         or getattr(settings, "RAG_CLAIM_NLI_VERIFIER_API_BASE", "")
         or getattr(settings, "LLM_API_BASE", "")
         or ""
+    )
+    resolved_api_key = resolve_openai_compatible_api_key(
+        api_key=resolved_api_key,
+        base_url=resolved_api_base,
     )
     resolved_timeout = float(
         timeout_sec

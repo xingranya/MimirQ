@@ -11,7 +11,7 @@ from langchain_core.documents import Document
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.rag.core.http import httpx_trust_env
 from app.rag.retrieval.source_labels import derive_document_title, maybe_build_source_identification_answer
 
@@ -129,13 +129,14 @@ async def preflight_model_provider_fast() -> tuple[bool, str | None]:
 
     api_key = str(getattr(settings, "LLM_API_KEY", "") or "").strip()
     model = str(getattr(settings, "LLM_MODEL", "") or "").strip()
-    api_base = str(getattr(settings, "LLM_API_BASE", "") or "").strip()
+    api_base = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", ""))
+    api_key = resolve_openai_compatible_api_key(api_key=api_key, base_url=api_base)
     if not api_key or not model or not api_base:
         mark_model_provider_unavailable()
         return False, "LLM_API_KEY/LLM_API_BASE/LLM_MODEL is not configured"
 
     try:
-        base_url = normalize_openai_compatible_base_url(api_base).rstrip("/")
+        base_url = api_base.rstrip("/")
         timeout = httpx.Timeout(1.5, connect=1.0, read=1.5, write=1.0, pool=0.5)
         async with httpx.AsyncClient(trust_env=httpx_trust_env(), timeout=timeout) as client:
             response = await client.post(

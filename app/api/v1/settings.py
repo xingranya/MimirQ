@@ -35,6 +35,11 @@ from app.core.config import (
 )
 from app.core.database import get_db
 from app.core.jwt_inspect import format_unix_ts_utc, try_get_jwt_exp
+from app.core.openai_compat import (
+    is_local_openai_compatible_base_url,
+    normalize_openai_compatible_base_url,
+    resolve_openai_compatible_api_key,
+)
 from app.services.navigation_visibility import normalize_navigation_modules, serialize_navigation_modules
 from app.services.rbac_service import TenantPermissions, ensure_tenant_permission
 
@@ -251,6 +256,26 @@ async def _validate_public_base_url(base_url: str) -> _ValidatedFetchTarget:
         else:
             detail = "api_base host not allowed"
         raise HTTPException(status_code=400, detail=detail) from exc
+
+
+def _configured_local_llm_target(base_url: str) -> _ValidatedFetchTarget | None:
+    """仅允许服务端已配置的本地模型地址绕过公网地址校验。"""
+    configured_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    if base_url != configured_base_url or not is_local_openai_compatible_base_url(base_url):
+        return None
+
+    parsed = urlparse(base_url)
+    host = str(parsed.hostname or "").strip()
+    if not host:
+        return None
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    rendered_host = f"[{host}]" if ":" in host else host
+    return _ValidatedFetchTarget(
+        raw=base_url,
+        connect_url=base_url,
+        host=host,
+        host_header=f"{rendered_host}:{port}",
+    )
 
 
 class FeatureFlags(BaseModel):
@@ -2071,7 +2096,7 @@ async def get_system_status(
 
 
 class TestLLMRequest(BaseModel):
-    api_key: str
+    api_key: str = ""
     api_base: str = Field(default_factory=_default_llm_api_base)
     model: str
     temperature: float = 0.0
@@ -2092,19 +2117,24 @@ async def test_llm_connection(
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
 
-    from app.core.openai_compat import normalize_openai_compatible_base_url
     from app.rag.core.http import httpx_trust_env
     from app.rag.core.logging import get_logger
 
     logger = get_logger("settings.llm_test")
 
-    if not request.api_key.strip():
+    normalized_base_url = normalize_openai_compatible_base_url(request.api_base)
+    resolved_api_key = resolve_openai_compatible_api_key(
+        api_key=request.api_key,
+        base_url=normalized_base_url,
+    )
+    if not resolved_api_key:
         raise HTTPException(status_code=400, detail="api_key is required")
     if not request.model.strip():
         raise HTTPException(status_code=400, detail="model is required")
 
-    normalized_base_url = normalize_openai_compatible_base_url(request.api_base)
-    validated_target = await _validate_public_base_url(normalized_base_url)
+    validated_target = _configured_local_llm_target(normalized_base_url)
+    if validated_target is None:
+        validated_target = await _validate_public_base_url(normalized_base_url)
     trust_env = httpx_trust_env(logger=logger)
     timeout = float(request.timeout) if request.timeout else 20.0
 
@@ -2114,7 +2144,7 @@ async def test_llm_connection(
             async with http_async_client:
                 llm = ChatOpenAI(
                     model=request.model,
-                    api_key=request.api_key,
+                    api_key=resolved_api_key,
                     base_url=validated_target.connect_url,
                     temperature=float(request.temperature or 0.0),
                     streaming=False,

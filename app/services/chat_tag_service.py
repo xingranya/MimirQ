@@ -27,6 +27,7 @@ from langchain_core.documents import Document
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.document import Document as DBDocument
 from app.rag.policy.must_recall import normalize_source_keys
 from app.services.table_sql_fingerprint import fingerprint_sql
@@ -130,7 +131,13 @@ def _enabled_reason() -> tuple[bool, str]:
     if not bool(getattr(settings, "TABLE_LLM_ALLOW_RESULT_EGRESS", False)):
         # Chat will inject query results into the LLM context; treat this as "result egress".
         return False, "TABLE_LLM_ALLOW_RESULT_EGRESS=false"
-    has_llm_key = bool(str(getattr(settings, "LLM_API_KEY", "") or "").strip())
+    llm_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    has_llm_key = bool(
+        resolve_openai_compatible_api_key(
+            api_key=getattr(settings, "LLM_API_KEY", None),
+            base_url=llm_base_url,
+        )
+    )
     deterministic_ok = bool(getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_ONLY", False)) or bool(
         getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_FALLBACK_ENABLED", True)
     )

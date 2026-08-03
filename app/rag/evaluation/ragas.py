@@ -24,7 +24,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from app.core.config import settings
 from app.core.constants import NON_CRITICAL_EXCEPTION_LOG_MESSAGE
 from app.core.database import SessionLocal
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.chat import Conversation, Message
 from app.models.document import Document as DBDocument
 from app.models.document import DocumentChunk
@@ -1481,10 +1481,11 @@ def _build_llm_and_embeddings():
     """
 
     http_client, http_async_client = _build_http_clients()
+    base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
     llm = ChatOpenAI(
         model=settings.LLM_MODEL,
-        api_key=settings.LLM_API_KEY,
-        base_url=normalize_openai_compatible_base_url(settings.LLM_API_BASE),
+        api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+        base_url=base_url,
         temperature=0.0,
         streaming=False,
         timeout=settings.LLM_TIMEOUT,
@@ -1506,8 +1507,11 @@ def _build_llm_and_embeddings():
             dimension=None,
         )
     else:
-        api_key = settings.EMBEDDING_API_KEY or settings.LLM_API_KEY
         base_url = normalize_openai_compatible_base_url(settings.EMBEDDING_API_BASE or settings.LLM_API_BASE)
+        api_key = resolve_openai_compatible_api_key(
+            api_key=settings.EMBEDDING_API_KEY or settings.LLM_API_KEY,
+            base_url=base_url,
+        )
         embeddings = OpenAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
             api_key=api_key,

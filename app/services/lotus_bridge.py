@@ -27,7 +27,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.rag.core.code_fence import extract_first_code_fence
 
 
@@ -45,7 +45,11 @@ def lotus_available() -> LotusAvailability:
     """
     if not bool(getattr(settings, "TABLE_LOTUS_ENABLED", False)):
         return LotusAvailability(ok=False, reason="TABLE_LOTUS_ENABLED=false")
-    if not str(getattr(settings, "LLM_API_KEY", "") or "").strip():
+    base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    if not resolve_openai_compatible_api_key(
+        api_key=getattr(settings, "LLM_API_KEY", None),
+        base_url=base_url,
+    ):
         return LotusAvailability(ok=False, reason="LLM_API_KEY is not configured")
     if not bool(getattr(settings, "TABLE_LLM_ALLOW_ROW_EGRESS", False)):
         return LotusAvailability(ok=False, reason="TABLE_LLM_ALLOW_ROW_EGRESS=false")
@@ -56,10 +60,14 @@ def _build_llm(*, temperature: float = 0.0) -> ChatOpenAI:
     model_name = (getattr(settings, "LLM_MODEL_FAST", None) or getattr(settings, "LLM_MODEL", None) or "").strip()
     if not model_name:
         model_name = "gpt-5.4-mini"
+    base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
     return ChatOpenAI(
         model=model_name,
-        api_key=getattr(settings, "LLM_API_KEY", None),
-        base_url=normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None)),
+        api_key=resolve_openai_compatible_api_key(
+            api_key=getattr(settings, "LLM_API_KEY", None),
+            base_url=base_url,
+        ),
+        base_url=base_url,
         temperature=float(temperature),
         timeout=float(getattr(settings, "LLM_TIMEOUT", 60) or 60),
         max_retries=int(getattr(settings, "LLM_MAX_RETRIES", 2) or 2),

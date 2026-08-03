@@ -84,3 +84,38 @@ async def test_mock_preflight_ignores_a_previous_real_provider_outage(monkeypatc
 
     assert await chat_execution_runtime.preflight_model_provider_fast() == (True, None)
     assert chat_execution_runtime._MODEL_PROVIDER_UNAVAILABLE_UNTIL == 0.0
+
+
+@pytest.mark.asyncio
+async def test_local_provider_preflight_accepts_empty_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_headers: dict[str, str] = {}
+
+    class SuccessfulResponse:
+        status_code = 200
+        text = ""
+
+    class SuccessfulAsyncClient:
+        def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003, ARG002
+            pass
+
+        async def __aenter__(self):  # noqa: ANN204
+            return self
+
+        async def __aexit__(self, *args) -> None:  # noqa: ANN002
+            return None
+
+        async def post(self, _url: str, *, headers: dict[str, str], json: dict) -> SuccessfulResponse:  # noqa: ARG002
+            captured_headers.update(headers)
+            return SuccessfulResponse()
+
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "LLM_API_KEY", "", raising=False)
+    monkeypatch.setattr(settings, "LLM_API_BASE", "http://ollama:11434/v1", raising=False)
+    monkeypatch.setattr(settings, "LLM_MODEL", "qwen3:8b", raising=False)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_AVAILABLE_UNTIL", 0.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_UNAVAILABLE_UNTIL", 0.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_CIRCUIT_KEY", "")
+    monkeypatch.setattr(chat_execution_runtime.httpx, "AsyncClient", SuccessfulAsyncClient)
+
+    assert await chat_execution_runtime.preflight_model_provider_fast() == (True, None)
+    assert captured_headers["Authorization"] == "Bearer local-endpoint-no-auth"

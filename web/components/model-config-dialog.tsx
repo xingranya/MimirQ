@@ -19,6 +19,7 @@ import { ProviderIcon } from '@/components/provider-icon'
 import { cn } from '@/lib/utils'
 import { settingsApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
+import { isLocalOpenAICompatibleBaseUrl } from '@/lib/openai-compatible'
 import type { ModelProvider, ProviderConfig } from '@/types/models'
 
 interface ModelConfigDialogProps {
@@ -75,6 +76,9 @@ export function ModelConfigDialog({
   const modelId = `${idPrefix}-model`
   const temperatureId = `${idPrefix}-temperature`
   const maxTokensId = `${idPrefix}-maxTokens`
+  const effectiveApiBase = config.apiBase || (provider ? getDefaultApiBase(provider.id) : '')
+  const apiKeyOptional = provider?.id === 'ollama' || isLocalOpenAICompatibleBaseUrl(effectiveApiBase)
+  const canSubmit = Boolean(config.model && (config.apiKey || apiKeyOptional))
 
   useEffect(() => {
     const modelOptions = provider
@@ -126,7 +130,7 @@ export function ModelConfigDialog({
         setTestResult({ success: false, message: '目前仅支持测试聊天模型连接' })
         return
       }
-      if (!config.apiKey) {
+      if (!config.apiKey && !apiKeyOptional) {
         setTestResult({ success: false, message: '请先填写 API Key' })
         return
       }
@@ -136,8 +140,8 @@ export function ModelConfigDialog({
       }
 
       const result = await settingsApi.testLLM({
-        api_key: config.apiKey,
-        api_base: config.apiBase || getDefaultApiBase(provider.id),
+        api_key: config.apiKey || '',
+        api_base: effectiveApiBase,
         model: config.model,
         temperature: config.temperature,
         timeout: config.timeout,
@@ -176,7 +180,7 @@ export function ModelConfigDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor={apiKeyId} className="text-sm font-medium text-foreground">
-                API Key <span className="text-destructive ml-1">*</span>
+                API Key {!apiKeyOptional && <span className="text-destructive ml-1">*</span>}
               </Label>
               <a
                 href={getProviderDocsUrl(provider.id)}
@@ -193,7 +197,7 @@ export function ModelConfigDialog({
                 type={showApiKey ? 'text' : 'password'}
                 value={config.apiKey}
                 onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                placeholder={`输入 ${provider.name} API Key`}
+                placeholder={apiKeyOptional ? '本地免鉴权服务可留空' : `输入 ${provider.name} API Key`}
                 className="pr-10 font-mono"
               />
               <button
@@ -318,7 +322,7 @@ export function ModelConfigDialog({
             <Button
               variant="outline"
               onClick={handleTest}
-              disabled={!config.apiKey || !config.model || isTesting}
+              disabled={!canSubmit || isTesting}
               className="flex-1 rounded-xl h-11"
             >
               {isTesting ? (
@@ -332,7 +336,7 @@ export function ModelConfigDialog({
             </Button>
             <Button 
               onClick={handleSave} 
-              disabled={!config.apiKey || !config.model}
+              disabled={!canSubmit}
               className="flex-1 rounded-xl h-11"
             >
               <Save className="size-4 mr-2" />

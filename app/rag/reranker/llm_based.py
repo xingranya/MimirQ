@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.chunk import Document
 from app.rag.core.http import httpx_trust_env
 from app.rag.reranker.base import DocumentReranker
@@ -228,14 +228,15 @@ class LLMReranker(DocumentReranker):
 
         model_name = settings.RERANKER_MODEL or settings.LLM_MODEL_FAST or settings.LLM_MODEL
         http_client, http_async_client = _build_http_clients()
+        base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
 
         self.model_used = model_name
         self.llm_weight = resolve_llm_reranker_weight(tenant_id=None, query_type=None)
         self.fallback_score = _clamp_score(getattr(settings, "RERANKER_LLM_FALLBACK_SCORE", 0.5), default=0.5)
         self._llm = ChatOpenAI(
             model=model_name,
-            api_key=settings.LLM_API_KEY,
-            base_url=normalize_openai_compatible_base_url(settings.LLM_API_BASE),
+            api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+            base_url=base_url,
             temperature=float(settings.RERANKER_TEMPERATURE or 0.0),
             streaming=False,
             timeout=settings.LLM_TIMEOUT,

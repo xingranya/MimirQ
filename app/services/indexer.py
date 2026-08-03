@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.core.config import settings
 from app.core.constants import EmbeddingProviders
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.dataset import Dataset as DBDataset
 from app.models.document import Document as DBDocument
 from app.models.document import DocumentChunk
@@ -668,10 +669,11 @@ def _invoke_contextual_summary_llm(
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_openai import ChatOpenAI
 
+    base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
     llm = ChatOpenAI(
         model=settings.LLM_MODEL,
-        api_key=settings.LLM_API_KEY,
-        base_url=settings.LLM_API_BASE,
+        api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+        base_url=base_url,
         temperature=0,
         timeout=max(5, int(getattr(settings, "LLM_TIMEOUT", 60) or 60)),
         max_retries=0,

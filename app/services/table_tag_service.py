@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.rag.core.code_fence import extract_first_code_fence
 from app.rag.core.logging import get_logger
 from app.services.table_join_stats import build_join_statistics_snapshot
@@ -78,10 +78,14 @@ def _build_llm(*, temperature: float = 0.0) -> ChatOpenAI:
     model_name = (getattr(settings, "LLM_MODEL_FAST", None) or getattr(settings, "LLM_MODEL", None) or "").strip()
     if not model_name:
         model_name = "gpt-5.4-mini"
+    base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
     return ChatOpenAI(
         model=model_name,
-        api_key=getattr(settings, "LLM_API_KEY", None),
-        base_url=normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None)),
+        api_key=resolve_openai_compatible_api_key(
+            api_key=getattr(settings, "LLM_API_KEY", None),
+            base_url=base_url,
+        ),
+        base_url=base_url,
         temperature=float(temperature),
         timeout=float(getattr(settings, "LLM_TIMEOUT", 60) or 60),
         max_retries=int(getattr(settings, "LLM_MAX_RETRIES", 2) or 2),
@@ -1308,7 +1312,11 @@ def generate_sql_for_table_with_metadata(
     """
     deterministic_only = bool(getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_ONLY", False))
     deterministic_fallback = bool(getattr(settings, "TABLE_NL2SQL_DETERMINISTIC_FALLBACK_ENABLED", True))
-    llm_key = str(getattr(settings, "LLM_API_KEY", "") or "").strip()
+    llm_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
+    llm_key = resolve_openai_compatible_api_key(
+        api_key=getattr(settings, "LLM_API_KEY", None),
+        base_url=llm_base_url,
+    )
 
     schema_link = score_schema_link_diagnostics(
         question=question,

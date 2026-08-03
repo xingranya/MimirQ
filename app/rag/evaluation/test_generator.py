@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.core.secure_random import secure_random_float01, secure_sample
 from app.models.chat import Conversation, Message
 from app.models.document import Document as DBDocument
@@ -461,10 +461,11 @@ def generate_questions_from_documents(
 
     http_client, http_async_client = _build_testgen_http_clients()
     try:
+        base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
         llm = ChatOpenAI(
             model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
-            base_url=normalize_openai_compatible_base_url(settings.LLM_API_BASE),
+            api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+            base_url=base_url,
             temperature=0.7,
             timeout=settings.LLM_TIMEOUT,
             http_client=http_client,
@@ -625,10 +626,11 @@ def generate_questions_from_conversations(
     # Prepare LLM.
     http_client, http_async_client = _build_testgen_http_clients()
     try:
+        base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
         llm = ChatOpenAI(
             model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
-            base_url=normalize_openai_compatible_base_url(settings.LLM_API_BASE),
+            api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+            base_url=base_url,
             temperature=0.7,
             timeout=settings.LLM_TIMEOUT,
             http_client=http_client,

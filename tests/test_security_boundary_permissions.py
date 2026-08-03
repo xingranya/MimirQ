@@ -215,6 +215,42 @@ def test_llm_test_passes_pinned_base_url_and_host_sni_to_chatopenai(monkeypatch:
     assert async_request.extensions["sni_hostname"] == "api.example.com"
 
 
+def test_llm_test_accepts_empty_key_only_for_configured_local_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def ainvoke(self, _messages: object) -> object:
+            return SimpleNamespace(content="1")
+
+    async def unexpected_public_validation(_base_url: str) -> object:
+        raise AssertionError("已配置的本地端点不应进入公网地址校验")
+
+    monkeypatch.setattr(settings, "LLM_API_BASE", "http://ollama:11434/v1", raising=False)
+    monkeypatch.setattr(settings_api, "_ensure_settings_writable", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(settings_api, "_validate_public_base_url", unexpected_public_validation)
+    monkeypatch.setattr(langchain_openai, "ChatOpenAI", FakeChatOpenAI)
+
+    response = asyncio.run(
+        settings_api.test_llm_connection(
+            settings_api.TestLLMRequest(
+                api_key="",
+                api_base="http://ollama:11434/v1",
+                model="qwen3:8b",
+            ),
+            tenant_id=uuid4(),
+            account_id="owner",
+            db=object(),
+        )
+    )
+
+    assert response == {"success": True, "message": "1"}
+    assert captured["api_key"] == "local-endpoint-no-auth"
+    assert captured["base_url"] == "http://ollama:11434/v1"
+
+
 def test_scim_create_user_maps_membership_unique_race_to_conflict(monkeypatch) -> None:
     tenant_id = uuid4()
 

@@ -24253,7 +24253,10 @@ export interface components {
         };
         /** TestLLMRequest */
         TestLLMRequest: {
-            /** Api Key */
+            /**
+             * Api Key
+             * @default
+             */
             api_key: string;
             /** Api Base */
             api_base?: string;

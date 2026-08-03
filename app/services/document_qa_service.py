@@ -21,7 +21,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.openai_compat import normalize_openai_compatible_base_url
+from app.core.openai_compat import normalize_openai_compatible_base_url, resolve_openai_compatible_api_key
 from app.models.document import Document as DBDocument
 from app.models.document import DocumentChunk, DocumentParsedContent
 from app.rag.core.logging import get_logger
@@ -152,7 +152,8 @@ def extract_qa_pairs_from_text(text: str, *, max_pairs: int) -> list[QAPair]:
 
 
 def _llm_enabled() -> bool:
-    return bool((settings.LLM_API_KEY or "").strip())
+    base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
+    return bool(resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url))
 
 
 def _generate_pairs(source_text: str, *, num_pairs: int, prefer_llm: bool) -> tuple[str, list[QAPair]]:
@@ -219,10 +220,11 @@ Return JSON:
   ]
 }}"""
 
+    base_url = normalize_openai_compatible_base_url(settings.LLM_API_BASE)
     llm = ChatOpenAI(
         model=(settings.LLM_MODEL_FAST or settings.LLM_MODEL),
-        api_key=settings.LLM_API_KEY,
-        base_url=normalize_openai_compatible_base_url(settings.LLM_API_BASE),
+        api_key=resolve_openai_compatible_api_key(api_key=settings.LLM_API_KEY, base_url=base_url),
+        base_url=base_url,
         temperature=0.2,
         timeout=int(getattr(settings, "LLM_TIMEOUT", 60) or 60),
     )
