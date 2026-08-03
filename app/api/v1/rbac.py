@@ -8,10 +8,12 @@ Notes:
 """
 
 
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_account_id
@@ -19,7 +21,10 @@ from app.api.dependencies.tenant import get_tenant_id
 from app.api.schemas.rbac import (
     TenantAccessOut,
     TenantInvitationCreateRequest,
+    TenantInvitationListResponse,
     TenantInvitationOut,
+    TenantInvitationRevokeResponse,
+    TenantInvitationSummary,
     TenantMemberDeleteResponse,
     TenantMemberListResponse,
     TenantMemberOut,
@@ -32,12 +37,18 @@ from app.models.dataset import DatasetPermission
 from app.models.document import DocumentPermission
 from app.models.tenant import TenantMember
 from app.models.tenant_group import TenantGroupMember
+from app.models.tenant_invitation import TenantInvitation
 from app.services.audit_log_service import audit_log_event
 from app.services.dataset_service import DatasetService
 from app.services.navigation_visibility import navigation_user_visible_modules_from_settings
 from app.services.rbac_service import TenantPermissions, all_tenant_permissions, ensure_tenant_permission, role_allows
-from app.services.tenant_invitation_service import TenantInvitationTokenError, issue_tenant_invitation_token
-from app.services.user_service import UserService
+from app.services.tenant_invitation_service import (
+    TenantInvitationStateError,
+    TenantInvitationTokenError,
+    issue_tenant_invitation_token,
+    revoke_tenant_invitation,
+    tenant_invitation_status,
+)
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
     400: {"description": "Bad Request"},
@@ -48,6 +59,22 @@ _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
 }
 
 router = APIRouter(responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+
+
+def _invitation_summary(invitation: TenantInvitation) -> TenantInvitationSummary:
+    return TenantInvitationSummary(
+        id=invitation.id,
+        email=invitation.email,
+        role=invitation.role,
+        invited_by=invitation.invited_by,
+        status=tenant_invitation_status(invitation),
+        expires_at=invitation.expires_at,
+        used_at=invitation.used_at,
+        used_by_user_id=invitation.used_by_user_id,
+        revoked_at=invitation.revoked_at,
+        revoked_by=invitation.revoked_by,
+        created_at=invitation.created_at,
+    )
 
 
 def _lock_active_admin_members(db: Session, tenant_id: UUID) -> list[TenantMember]:
@@ -117,6 +144,54 @@ def list_tenant_members(
     return TenantMemberListResponse(total=total, items=[TenantMemberOut.model_validate(it) for it in items])
 
 
+@router.get(
+    "/invitations",
+    response_model=TenantInvitationListResponse,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
+def list_tenant_invitations(
+    invitation_status: Annotated[
+        Literal["pending", "used", "revoked", "expired", "all"],
+        Query(alias="status"),
+    ] = "pending",
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TenantInvitationListResponse:
+    """列出当前租户的邀请状态，不返回邀请令牌。"""
+    ensure_tenant_permission(
+        db,
+        tenant_id,
+        account_id,
+        TenantPermissions.SETTINGS_WRITE,
+        detail="没有权限查看成员邀请",
+    )
+
+    query = db.query(TenantInvitation).filter(TenantInvitation.tenant_id == tenant_id)
+    if invitation_status == "pending":
+        query = query.filter(
+            TenantInvitation.used_at.is_(None),
+            TenantInvitation.revoked_at.is_(None),
+            TenantInvitation.expires_at > datetime.now(UTC),
+        )
+    elif invitation_status == "used":
+        query = query.filter(TenantInvitation.used_at.is_not(None))
+    elif invitation_status == "revoked":
+        query = query.filter(TenantInvitation.revoked_at.is_not(None))
+    elif invitation_status == "expired":
+        query = query.filter(
+            TenantInvitation.used_at.is_(None),
+            TenantInvitation.revoked_at.is_(None),
+            TenantInvitation.expires_at <= datetime.now(UTC),
+        )
+
+    total = int(query.count())
+    invitations = query.order_by(TenantInvitation.created_at.desc()).limit(limit).all()
+    return TenantInvitationListResponse(total=total, items=[_invitation_summary(item) for item in invitations])
+
+
 @router.post(
     "/invitations",
     response_model=TenantInvitationOut,
@@ -141,34 +216,104 @@ def create_tenant_invitation(
     )
 
     email = str(payload.email).strip().lower()
-    if UserService.get_by_email(db, email):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该邮箱已有账号，无法重复邀请")
-
     try:
-        token, expires_at = issue_tenant_invitation_token(
+        token, invitation, superseded_count = issue_tenant_invitation_token(
+            db,
             tenant_id=tenant_id,
             email=email,
             role=payload.role,
             invited_by=account_id,
         )
+        audit_log_event(
+            db,
+            tenant_id=tenant_id,
+            actor_id=account_id,
+            action="rbac.member.invitation.create",
+            resource_type="tenant_invitation",
+            resource_id=str(invitation.id),
+            details={
+                "role": payload.role,
+                "expires_at": invitation.expires_at.isoformat(),
+                "superseded_count": superseded_count,
+            },
+        )
+        db.commit()
+    except TenantInvitationStateError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="该邮箱已有账号，无法重复邀请") from exc
     except TenantInvitationTokenError as exc:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="邀请功能尚未正确配置") from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邀请创建发生冲突，请重试") from exc
+    except Exception:
+        db.rollback()
+        raise
 
-    audit_log_event(
-        db,
-        tenant_id=tenant_id,
-        actor_id=account_id,
-        action="rbac.member.invitation.create",
-        resource_type="tenant_invitation",
-        details={"role": payload.role, "expires_at": expires_at.isoformat()},
-    )
-    db.commit()
     response.headers["Cache-Control"] = "no-store"
     return TenantInvitationOut(
+        id=invitation.id,
         email=email,
         role=payload.role,
         token=token,
-        expires_at=expires_at,
+        expires_at=invitation.expires_at,
+    )
+
+
+@router.delete(
+    "/invitations/{invitation_id}",
+    response_model=TenantInvitationRevokeResponse,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
+def delete_tenant_invitation(
+    invitation_id: UUID,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TenantInvitationRevokeResponse:
+    """撤销当前租户尚未消费的邀请。"""
+    ensure_tenant_permission(
+        db,
+        tenant_id,
+        account_id,
+        TenantPermissions.SETTINGS_WRITE,
+        detail="没有权限撤销成员邀请",
+    )
+
+    try:
+        invitation, changed = revoke_tenant_invitation(
+            db,
+            tenant_id=tenant_id,
+            invitation_id=invitation_id,
+            revoked_by=account_id,
+        )
+        if changed:
+            audit_log_event(
+                db,
+                tenant_id=tenant_id,
+                actor_id=account_id,
+                action="rbac.member.invitation.revoke",
+                resource_type="tenant_invitation",
+                resource_id=str(invitation.id),
+                details={"role": invitation.role},
+            )
+        db.commit()
+    except LookupError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="邀请不存在") from exc
+    except TenantInvitationStateError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="已使用的邀请不能撤销") from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return TenantInvitationRevokeResponse(
+        invitation_id=invitation.id,
+        revoked=changed,
+        revoked_at=invitation.revoked_at,
     )
 
 

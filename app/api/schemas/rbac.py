@@ -1,5 +1,6 @@
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -94,7 +95,33 @@ class TenantInvitationCreateRequest(BaseModel):
 
 
 class TenantInvitationOut(BaseModel):
+    id: UUID
     email: EmailStr
     role: str
     token: str
     expires_at: datetime
+
+
+class TenantInvitationSummary(BaseModel):
+    id: UUID
+    email: EmailStr
+    role: str
+    invited_by: str
+    status: Literal["pending", "used", "revoked", "expired"]
+    expires_at: datetime
+    used_at: datetime | None = None
+    used_by_user_id: str | None = None
+    revoked_at: datetime | None = None
+    revoked_by: str | None = None
+    created_at: datetime
+
+
+class TenantInvitationListResponse(BaseModel):
+    total: int = 0
+    items: list[TenantInvitationSummary] = Field(default_factory=list)
+
+
+class TenantInvitationRevokeResponse(BaseModel):
+    invitation_id: UUID
+    revoked: bool
+    revoked_at: datetime

@@ -113,7 +113,7 @@ class UserService:
         tenant_id: UUID,
         role: str,
     ) -> User:
-        """按已验证的邀请创建本地账号与租户成员关系。"""
+        """在调用方事务内创建受邀账号与租户成员关系。"""
         normalized_role = str(role or "").strip().lower()
         allowed_roles = {
             UserRoles.ADMIN,
@@ -140,17 +140,15 @@ class UserService:
             username=username,
             password=password,
         )
-        db.add(
-            TenantMember(
-                tenant_id=tenant_id,
-                user_id=str(user.id),
-                role=normalized_role,
-                is_active=True,
-                is_current=True,
-            )
+        member = TenantMember(
+            tenant_id=tenant_id,
+            user_id=str(user.id),
+            role=normalized_role,
+            is_active=True,
+            is_current=True,
         )
-        db.commit()
-        db.refresh(user)
+        db.add(member)
+        db.flush()
         return user
 
     @staticmethod

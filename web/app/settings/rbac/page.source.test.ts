@@ -12,4 +12,11 @@ describe('成员管理页面源码契约', () => {
     expect(source).toContain('邀请公司成员')
     expect(source).toContain('globalThis.navigator.clipboard.writeText(inviteLink)')
   })
+
+  it('展示待处理邀请并支持按邀请 ID 撤销', () => {
+    expect(source).toContain('rbacApi.listTenantInvitations')
+    expect(source).toContain('rbacApi.revokeTenantInvitation')
+    expect(source).toContain('待处理邀请')
+    expect(source).toContain('撤销邀请')
+  })
 })

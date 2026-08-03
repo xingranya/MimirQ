@@ -15,6 +15,7 @@ from app.models.ingest_dead_letter import IngestDeadLetter
 from app.models.prompt_template import PromptTemplate
 from app.models.tenant import Tenant, TenantMember
 from app.models.tenant_group import TenantGroup, TenantGroupMember
+from app.models.tenant_invitation import TenantInvitation
 from app.models.user import User
 from app.rag.kg.models import KgEntity, KgEventEntity, KgSourceEvent
 
@@ -25,6 +26,7 @@ __all__ = [
     "Message",
     "Tenant",
     "TenantMember",
+    "TenantInvitation",
     "TenantGroup",
     "TenantGroupMember",
     "Dataset",

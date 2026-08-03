@@ -83,6 +83,7 @@ export const queryKeys = {
   },
   rbac: {
     members: (params?: QueryParams) => ['rbac', 'members', params] as const,
+    invitations: (params?: QueryParams) => ['rbac', 'invitations', params] as const,
   },
   access: {
     current: ['access', 'current'] as const,

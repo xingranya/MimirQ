@@ -5,6 +5,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -14,6 +15,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.tenant import Tenant, TenantMember
+from app.models.tenant_invitation import TenantInvitation
 from app.models.user import User
 from app.services.user_service import UserService
 
@@ -24,7 +26,10 @@ def _build_auth_test_client():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    Base.metadata.create_all(engine, tables=[User.__table__, Tenant.__table__, TenantMember.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[User.__table__, Tenant.__table__, TenantMember.__table__, TenantInvitation.__table__],
+    )
     test_session = sessionmaker(bind=engine)
 
     def _get_test_db():
@@ -38,6 +43,22 @@ def _build_auth_test_client():
     app.include_router(auth_module.router, prefix="/auth")
     app.dependency_overrides[auth_module.get_db] = _get_test_db
     return engine, test_session, app
+
+
+def _configure_invitation_auth(monkeypatch, tenant_id) -> None:
+    monkeypatch.setattr(settings, "AUTH_MODE", "jwt", raising=False)
+    monkeypatch.setattr(settings, "ALGORITHM", "HS256", raising=False)
+    monkeypatch.setattr(settings, "SECRET_KEY", "k" * 40, raising=False)
+    monkeypatch.setattr(settings, "SECRET_KEY_FALLBACKS", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_ISSUER", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_AUDIENCE", "", raising=False)
+    monkeypatch.setattr(settings, "JWT_TENANT_CLAIM", "tenant_id", raising=False)
+    monkeypatch.setattr(settings, "JWT_ENFORCE_TENANT_HEADER_MATCH", False, raising=False)
+    monkeypatch.setattr(settings, "JWT_GROUPS_SYNC_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "JWT_TENANT_MEMBER_AUTO_PROVISION_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "DEFAULT_TENANT_ID", str(tenant_id), raising=False)
+    monkeypatch.setattr(settings, "INITIAL_REGISTRATION_TOKEN", "", raising=False)
+    monkeypatch.setattr(settings, "MEMBER_INVITATION_TTL_SEC", 604800, raising=False)
 
 
 def test_local_account_bootstrap_login_and_me(monkeypatch) -> None:
@@ -112,19 +133,7 @@ def test_local_account_bootstrap_login_and_me(monkeypatch) -> None:
 
 def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> None:
     tenant_id = uuid4()
-    monkeypatch.setattr(settings, "AUTH_MODE", "jwt", raising=False)
-    monkeypatch.setattr(settings, "ALGORITHM", "HS256", raising=False)
-    monkeypatch.setattr(settings, "SECRET_KEY", "k" * 40, raising=False)
-    monkeypatch.setattr(settings, "SECRET_KEY_FALLBACKS", "", raising=False)
-    monkeypatch.setattr(settings, "JWT_ISSUER", "", raising=False)
-    monkeypatch.setattr(settings, "JWT_AUDIENCE", "", raising=False)
-    monkeypatch.setattr(settings, "JWT_TENANT_CLAIM", "tenant_id", raising=False)
-    monkeypatch.setattr(settings, "JWT_ENFORCE_TENANT_HEADER_MATCH", False, raising=False)
-    monkeypatch.setattr(settings, "JWT_GROUPS_SYNC_ENABLED", False, raising=False)
-    monkeypatch.setattr(settings, "JWT_TENANT_MEMBER_AUTO_PROVISION_ENABLED", False, raising=False)
-    monkeypatch.setattr(settings, "DEFAULT_TENANT_ID", str(tenant_id), raising=False)
-    monkeypatch.setattr(settings, "INITIAL_REGISTRATION_TOKEN", "", raising=False)
-    monkeypatch.setattr(settings, "MEMBER_INVITATION_TTL_SEC", 604800, raising=False)
+    _configure_invitation_auth(monkeypatch, tenant_id)
     monkeypatch.setattr(auth_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
     monkeypatch.setattr(rbac_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
 
@@ -164,6 +173,34 @@ def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> 
             assert accepted.status_code == 201, accepted.text
             assert accepted.json()["user"]["email"] == "member@example.com"
 
+            revocable = client.post(
+                "/rbac/invitations",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"email": "revoked@example.com", "role": "viewer"},
+            )
+            assert revocable.status_code == 201, revocable.text
+            pending = client.get(
+                "/rbac/invitations",
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            assert pending.status_code == 200, pending.text
+            assert [item["id"] for item in pending.json()["items"]] == [revocable.json()["id"]]
+            revoked = client.delete(
+                f"/rbac/invitations/{revocable.json()['id']}",
+                headers={"Authorization": f"Bearer {owner_token}"},
+            )
+            assert revoked.status_code == 200, revoked.text
+            assert revoked.json()["revoked"] is True
+            revoked_acceptance = client.post(
+                "/auth/invitations/accept",
+                json={
+                    "token": revocable.json()["token"],
+                    "username": "revoked-member",
+                    "password": "member-password",
+                },
+            )
+            assert revoked_acceptance.status_code == 409
+
             replayed = client.post(
                 "/auth/invitations/accept",
                 json={
@@ -172,7 +209,7 @@ def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> 
                     "password": "member-password",
                 },
             )
-            assert replayed.status_code == 400
+            assert replayed.status_code == 409
 
         with test_session() as db:
             member_user = db.query(User).filter(User.email == "member@example.com").one()
@@ -183,6 +220,114 @@ def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> 
             )
             assert membership.role == "editor"
             assert membership.is_current is True
+            invitation_record = (
+                db.query(TenantInvitation)
+                .filter(TenantInvitation.email == "member@example.com")
+                .one()
+            )
+            assert invitation_record.used_at is not None
+            assert invitation_record.used_by_user_id == str(member_user.id)
+    finally:
+        engine.dispose()
+
+
+def test_invitation_accept_rolls_back_when_audit_fails(monkeypatch) -> None:
+    tenant_id = uuid4()
+    _configure_invitation_auth(monkeypatch, tenant_id)
+    monkeypatch.setattr(rbac_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+
+    engine, test_session, app = _build_auth_test_client()
+    app.include_router(rbac_module.router, prefix="/rbac")
+
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            owner = client.post(
+                "/auth/register",
+                json={
+                    "email": "owner@example.com",
+                    "username": "owner",
+                    "password": "correct-horse-battery-staple",
+                },
+            )
+            owner_token = owner.json()["token"]["access_token"]
+            invitation = client.post(
+                "/rbac/invitations",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"email": "member@example.com", "role": "editor"},
+            )
+            monkeypatch.setattr(
+                auth_module,
+                "audit_log_event",
+                lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("audit unavailable")),
+                raising=True,
+            )
+
+            accepted = client.post(
+                "/auth/invitations/accept",
+                json={
+                    "token": invitation.json()["token"],
+                    "username": "member",
+                    "password": "member-password",
+                },
+            )
+            assert accepted.status_code == 500
+
+        with test_session() as db:
+            assert db.query(User).count() == 1
+            assert db.query(TenantMember).count() == 1
+            assert db.query(TenantInvitation).one().used_at is None
+    finally:
+        engine.dispose()
+
+
+def test_invitation_accept_maps_concurrent_identity_conflict_to_409(monkeypatch) -> None:
+    tenant_id = uuid4()
+    _configure_invitation_auth(monkeypatch, tenant_id)
+    monkeypatch.setattr(auth_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+    monkeypatch.setattr(rbac_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+
+    engine, test_session, app = _build_auth_test_client()
+    app.include_router(rbac_module.router, prefix="/rbac")
+
+    try:
+        with TestClient(app) as client:
+            owner = client.post(
+                "/auth/register",
+                json={
+                    "email": "owner@example.com",
+                    "username": "owner",
+                    "password": "correct-horse-battery-staple",
+                },
+            )
+            owner_token = owner.json()["token"]["access_token"]
+            invitation = client.post(
+                "/rbac/invitations",
+                headers={"Authorization": f"Bearer {owner_token}"},
+                json={"email": "member@example.com", "role": "viewer"},
+            )
+            monkeypatch.setattr(
+                auth_module.UserService,
+                "create_invited_user",
+                lambda *args, **kwargs: (_ for _ in ()).throw(
+                    IntegrityError("INSERT users", {}, RuntimeError("uq_users_email"))
+                ),
+                raising=True,
+            )
+
+            accepted = client.post(
+                "/auth/invitations/accept",
+                json={
+                    "token": invitation.json()["token"],
+                    "username": "member",
+                    "password": "member-password",
+                },
+            )
+            assert accepted.status_code == 409
+            assert accepted.json()["detail"] == "邮箱或用户名已被使用"
+
+        with test_session() as db:
+            assert db.query(User).count() == 1
+            assert db.query(TenantInvitation).one().used_at is None
     finally:
         engine.dispose()
 

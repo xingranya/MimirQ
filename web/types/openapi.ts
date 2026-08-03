@@ -6455,7 +6455,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Tenant Invitations
+         * @description 列出当前租户的邀请状态，不返回邀请令牌。
+         */
+        get: operations["list_tenant_invitations_api_v1_rbac_invitations_get"];
         put?: never;
         /**
          * Create Tenant Invitation
@@ -6463,6 +6467,26 @@ export interface paths {
          */
         post: operations["create_tenant_invitation_api_v1_rbac_invitations_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rbac/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tenant Invitation
+         * @description 撤销当前租户尚未消费的邀请。
+         */
+        delete: operations["delete_tenant_invitation_api_v1_rbac_invitations__invitation_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -16593,6 +16617,11 @@ export interface components {
              */
             max_hops: number;
             /**
+             * Max Paths
+             * @default 500
+             */
+            max_paths: number;
+            /**
              * Top K
              * @default 10
              */
@@ -23921,8 +23950,23 @@ export interface components {
              */
             role: string;
         };
+        /** TenantInvitationListResponse */
+        TenantInvitationListResponse: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Items */
+            items?: components["schemas"]["TenantInvitationSummary"][];
+        };
         /** TenantInvitationOut */
         TenantInvitationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /**
              * Email
              * Format: email
@@ -23937,6 +23981,61 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** TenantInvitationRevokeResponse */
+        TenantInvitationRevokeResponse: {
+            /**
+             * Invitation Id
+             * Format: uuid
+             */
+            invitation_id: string;
+            /** Revoked */
+            revoked: boolean;
+            /**
+             * Revoked At
+             * Format: date-time
+             */
+            revoked_at: string;
+        };
+        /** TenantInvitationSummary */
+        TenantInvitationSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Role */
+            role: string;
+            /** Invited By */
+            invited_by: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "used" | "revoked" | "expired";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Used At */
+            used_at?: string | null;
+            /** Used By User Id */
+            used_by_user_id?: string | null;
+            /** Revoked At */
+            revoked_at?: string | null;
+            /** Revoked By */
+            revoked_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** TenantMemberDeleteResponse */
         TenantMemberDeleteResponse: {
@@ -50765,6 +50864,77 @@ export interface operations {
             };
         };
     };
+    list_tenant_invitations_api_v1_rbac_invitations_get: {
+        parameters: {
+            query?: {
+                status?: "pending" | "used" | "revoked" | "expired" | "all";
+                limit?: number;
+            };
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantInvitationListResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range Not Satisfiable */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_tenant_invitation_api_v1_rbac_invitations_post: {
         parameters: {
             query?: never;
@@ -50789,6 +50959,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantInvitationOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range Not Satisfiable */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tenant_invitation_api_v1_rbac_invitations__invitation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
+            path: {
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantInvitationRevokeResponse"];
                 };
             };
             /** @description Bad Request */

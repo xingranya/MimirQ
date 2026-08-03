@@ -6,6 +6,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Copy,
   ListChecks,
   Loader2,
@@ -48,7 +49,7 @@ import {
 import { formatApiError } from '@/lib/api-errors'
 import { TENANT_PERMISSIONS, tenantAccessAllows } from '@/lib/tenant-permissions'
 import { cn } from '@/lib/utils'
-import { rbacApi, type TenantMember } from '@/lib/api'
+import { rbacApi, type TenantInvitation, type TenantMember } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SamlOpsPanel } from '@/components/settings/saml-ops-panel'
@@ -86,6 +87,7 @@ const ROLE_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [7, 10, 20, 50]
 const RBAC_MEMBERS_PARAMS = { limit: 500 } as const
+const RBAC_INVITATIONS_PARAMS = { status: 'pending', limit: 100 } as const
 const CARD_CLASS =
   'rounded-[1.15rem] border border-border/60 bg-card/86 shadow-[0_10px_28px_hsl(var(--primary)/0.045)]'
 const RBAC_FIELD_LABEL_CLASS =
@@ -200,6 +202,7 @@ function SettingsRbacPageContent() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
+  const [inviteId, setInviteId] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [inviteExpiresAt, setInviteExpiresAt] = useState('')
   const [inviteCopied, setInviteCopied] = useState(false)
@@ -230,6 +233,16 @@ function SettingsRbacPageContent() {
   const canManageMembers = tenantAccessAllows(
     tenantAccessQuery.data,
     TENANT_PERMISSIONS.SETTINGS_WRITE
+  )
+  const invitationsQuery = useQuery({
+    queryKey: queryKeys.rbac.invitations(RBAC_INVITATIONS_PARAMS),
+    enabled: canManageMembers,
+    retry: false,
+    queryFn: () => rbacApi.listTenantInvitations(RBAC_INVITATIONS_PARAMS),
+  })
+  const pendingInvitations = useMemo<TenantInvitation[]>(
+    () => invitationsQuery.data?.items || [],
+    [invitationsQuery.data?.items]
   )
   const totalMembers = Number(membersQuery.data?.total ?? members.length)
   const loading = membersQuery.isFetching
@@ -382,16 +395,38 @@ function SettingsRbacPageContent() {
       rbacApi.createTenantInvitation({
         email: inviteEmail.trim(),
         role: inviteRole,
-      }),
+    }),
     onSuccess: (invitation) => {
       const token = encodeURIComponent(invitation.token)
+      setInviteId(invitation.id)
       setInviteLink(`${globalThis.location.origin}/auth/invite#token=${token}`)
       setInviteExpiresAt(invitation.expires_at)
       setInviteCopied(false)
       toast.success('邀请链接已生成')
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.rbac.invitations(RBAC_INVITATIONS_PARAMS),
+      })
     },
     onError: (err: unknown) => {
       toast.error(formatApiError(err, '生成邀请链接失败'))
+    },
+  })
+
+  const revokeInvitationMutation = useMutation({
+    mutationFn: (invitationId: string) =>
+      rbacApi.revokeTenantInvitation(invitationId),
+    onSuccess: (_result, invitationId) => {
+      toast.success('邀请已撤销')
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.rbac.invitations(RBAC_INVITATIONS_PARAMS),
+      })
+      if (invitationId === inviteId) {
+        setInviteOpen(false)
+        resetInvitationForm()
+      }
+    },
+    onError: (err: unknown) => {
+      toast.error(formatApiError(err, '撤销邀请失败'))
     },
   })
 
@@ -412,6 +447,7 @@ function SettingsRbacPageContent() {
   function resetInvitationForm(): void {
     setInviteEmail('')
     setInviteRole('viewer')
+    setInviteId('')
     setInviteLink('')
     setInviteExpiresAt('')
     setInviteCopied(false)
@@ -578,6 +614,22 @@ function SettingsRbacPageContent() {
                     >
                       {inviteLink ? '完成' : '取消'}
                     </Button>
+                    {inviteLink && inviteId ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="rounded-md"
+                        disabled={revokeInvitationMutation.isPending}
+                        onClick={() => revokeInvitationMutation.mutate(inviteId)}
+                      >
+                        {revokeInvitationMutation.isPending ? (
+                          <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
+                        ) : (
+                          <Trash2 className="mr-2 size-4" />
+                        )}
+                        撤销链接
+                      </Button>
+                    ) : null}
                     {!inviteLink ? (
                       <Button
                         type="submit"
@@ -603,6 +655,7 @@ function SettingsRbacPageContent() {
               disabled={loading}
               onClick={() => {
                 membersQuery.refetch()
+                invitationsQuery.refetch()
               }}
             >
               <RefreshCw
@@ -639,6 +692,7 @@ function SettingsRbacPageContent() {
                 disabled={loading}
                 onClick={() => {
                   membersQuery.refetch()
+                  invitationsQuery.refetch()
                 }}
               >
                 <RefreshCw
@@ -955,6 +1009,83 @@ function SettingsRbacPageContent() {
               </div>
             </div>
           </section>
+
+          {canManageMembers ? (
+            <section className="overflow-hidden rounded-lg border border-border bg-background">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">待处理邀请</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    链接只在创建时展示，可在成员加入前随时撤销
+                  </p>
+                </div>
+                <Badge variant="outline" className="rounded-md px-2 py-1 text-xs shadow-none">
+                  {pendingInvitations.length} 条
+                </Badge>
+              </div>
+              {pendingInvitations.length ? (
+                <div className="divide-y divide-border">
+                  {pendingInvitations.map((invitation) => {
+                    const invitationId = String(invitation.id)
+                    const roleLabel =
+                      ROLE_OPTIONS.find((role) => role.key === invitation.role)?.label || invitation.role
+                    const revoking =
+                      revokeInvitationMutation.isPending &&
+                      revokeInvitationMutation.variables === invitationId
+                    return (
+                      <div
+                        key={invitationId}
+                        className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_140px_190px_40px] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {invitation.email}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            由 {invitation.invited_by} 创建
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="w-fit rounded-md px-2 py-1 text-xs shadow-none">
+                          {roleLabel}
+                        </Badge>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock3 className="size-3.5" />
+                          {fmtDateTime(invitation.expires_at)}
+                        </div>
+                        <ConfirmDialog
+                          title="撤销邀请？"
+                          description={`撤销后，${invitation.email} 将无法再通过该链接加入`}
+                          confirmLabel="确认撤销"
+                          confirmDisabled={revokeInvitationMutation.isPending}
+                          onConfirm={() => revokeInvitationMutation.mutate(invitationId)}
+                        >
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="size-8 rounded-md text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            disabled={revokeInvitationMutation.isPending}
+                            aria-label={`撤销 ${invitation.email} 的邀请`}
+                            title="撤销邀请"
+                          >
+                            {revoking ? (
+                              <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                          </Button>
+                        </ConfirmDialog>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  当前没有待处理邀请
+                </div>
+              )}
+            </section>
+          ) : null}
 
           <ScimProvisioningPanel />
           <SamlOpsPanel />

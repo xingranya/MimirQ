@@ -15,6 +15,9 @@ import type { TenantAccess } from '@/lib/tenant-permissions'
 export type TenantMember = OpenApiSchema<'TenantMemberOut'>
 export type TenantMemberListResponse = OpenApiSchema<'TenantMemberListResponse'>
 export type TenantMemberDeleteResponse = OpenApiSchema<'TenantMemberDeleteResponse'>
+export type TenantInvitation = OpenApiSchema<'TenantInvitationSummary'>
+export type TenantInvitationListResponse = OpenApiSchema<'TenantInvitationListResponse'>
+export type TenantInvitationRevokeResponse = OpenApiSchema<'TenantInvitationRevokeResponse'>
 
 export const rbacApi = {
   async getCurrentTenantAccess(): Promise<TenantAccess> {
@@ -31,6 +34,18 @@ export const rbacApi = {
     payload: OpenApiSchema<'TenantInvitationCreateRequest'>
   ): Promise<OpenApiSchema<'TenantInvitationOut'>> {
     const { data } = await apiClient.post('/rbac/invitations', payload)
+    return data
+  },
+
+  async listTenantInvitations(
+    params: { status?: 'pending' | 'used' | 'revoked' | 'expired' | 'all'; limit?: number } = {}
+  ): Promise<TenantInvitationListResponse> {
+    const { data } = await apiClient.get('/rbac/invitations', { params })
+    return data
+  },
+
+  async revokeTenantInvitation(invitationId: string): Promise<TenantInvitationRevokeResponse> {
+    const { data } = await apiClient.delete(`/rbac/invitations/${encodeURIComponent(invitationId)}`)
     return data
   },
 

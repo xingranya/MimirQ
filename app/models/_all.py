@@ -35,5 +35,6 @@ from app.models import prompt_template as _prompt_template  # noqa: F401
 from app.models import rag_config_template as _rag_config_template  # noqa: F401
 from app.models import tenant as _tenant  # noqa: F401
 from app.models import tenant_group as _tenant_group  # noqa: F401
+from app.models import tenant_invitation as _tenant_invitation  # noqa: F401
 from app.models import user as _user  # noqa: F401
 from app.rag.kg import models as _kg_models  # noqa: F401
