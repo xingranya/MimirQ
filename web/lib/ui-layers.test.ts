@@ -5,13 +5,15 @@ import { describe, expect, it } from 'vitest'
 import { UI_LAYER_CLASS } from './ui-layers'
 
 describe('全局界面层级', () => {
-  it('按文档面板、导航、弹层、模态框、通知和沉浸层递增', () => {
+  it('按文档面板、导航、模态框、上下文弹层、通知和沉浸层递增', () => {
     const values = Object.values(UI_LAYER_CLASS).map((className) =>
       Number(className.replace('z-', ''))
     )
 
     expect(values).toEqual([30, 40, 50, 60, 70, 80, 90, 100])
     expect(new Set(values).size).toBe(values.length)
+    expect(UI_LAYER_CLASS.contextual).toBe('z-80')
+    expect(UI_LAYER_CLASS.modal).toBe('z-70')
   })
 
   it('要求关键浮层组件复用统一层级契约', () => {
