@@ -61,11 +61,11 @@ export type BatchProfileFile = {
 }
 
 export const SALES_PANEL_CLASS =
-  'rounded-[1rem] border border-border/55 bg-background/92 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.12)]'
+  'rounded-md border border-border bg-card'
 export const SALES_PANEL_INSET_CLASS =
-  'rounded-[0.9rem] border border-border/50 bg-background/82'
+  'rounded-md border border-border bg-background'
 export const SALES_SUMMARY_STRIP_CLASS =
-  'overflow-hidden rounded-[1rem] border border-border/55 bg-background/72 shadow-[0_12px_28px_-24px_rgba(15,23,42,0.1)]'
+  'overflow-hidden rounded-md border border-border bg-border'
 
 export function resolveThroughputRowsSource(
   hasBackendRows: boolean,

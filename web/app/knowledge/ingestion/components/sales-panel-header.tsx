@@ -22,26 +22,26 @@ export function SalesPanelHeader({
   title,
 }: Readonly<SalesPanelHeaderProps>) {
   return (
-    <div className="flex min-h-[1.5rem] items-start justify-between gap-3">
+    <div className="flex min-h-8 items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="flex min-h-4 items-center gap-1.5 text-[10px] font-medium tracking-[-0.01em] text-foreground">
-          <Icon className={cn('h-3 w-3 shrink-0', iconTone)} />
+        <div className="flex min-h-5 items-center gap-2 text-sm font-semibold text-foreground">
+          <Icon className={cn('size-4 shrink-0', iconTone)} aria-hidden="true" />
           <span className="truncate">{title}</span>
         </div>
         {subtitle ? (
-          <div className="mt-0.5 pl-[18px] text-[8px] leading-3 text-muted-foreground">
+          <div className="mt-1 pl-6 text-xs leading-5 text-muted-foreground">
             {subtitle}
           </div>
         ) : null}
       </div>
-      {actionLabel ? (
+      {actionLabel && onAction ? (
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex min-h-4 shrink-0 items-center gap-0.5 text-[8px] font-medium text-info transition-colors hover:text-info"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-primary transition-colors hover:bg-muted"
         >
           <span>{actionLabel}</span>
-          <ChevronRight className="h-3 w-3" />
+          <ChevronRight className="size-3.5" aria-hidden="true" />
         </button>
       ) : null}
     </div>

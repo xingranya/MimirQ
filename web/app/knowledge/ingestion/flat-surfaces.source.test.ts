@@ -18,6 +18,14 @@ const executionMonitorLoadingSource = readFileSync(
   resolve(__dirname, 'components/loading-wireframe.tsx'),
   'utf8'
 )
+const salesPanelHeaderSource = readFileSync(
+  resolve(__dirname, 'components/sales-panel-header.tsx'),
+  'utf8'
+)
+const presentationSource = readFileSync(
+  resolve(__dirname, 'presentation.ts'),
+  'utf8'
+)
 const ingestionDetailSource = readFileSync(
   resolve(__dirname, '../../../components/ingestion/ingestion-detail-dialog.tsx'),
   'utf8'
@@ -123,5 +131,21 @@ describe('入库与数据治理扁平化视觉契约', () => {
     expect(ingestionDetailSource).not.toContain('shadow-strong')
     expect(ingestionDetailSource).not.toContain('shadow-inner')
     expect(ingestionDetailSource).not.toContain('shadow-sm')
+  })
+
+  it('销售预检使用可读字号、扁平面板和窄屏表格', () => {
+    expect(executionMonitorSource).toContain('预检摘要')
+    expect(executionMonitorSource).toContain('min-w-[720px]')
+    expect(executionMonitorSource).toContain('min-w-[680px]')
+    expect(executionMonitorSource).not.toContain('radial-gradient')
+    expect(executionMonitorSource).not.toContain('rounded-[')
+    expect(executionMonitorSource).not.toContain('shadow-[')
+    expect(executionMonitorSource).not.toMatch(/text-\[(?:7|8|9|10|11)px\]/)
+    expect(presentationSource).toContain("'rounded-md border border-border bg-card'")
+  })
+
+  it('销售预检面板只在操作可用时显示操作入口', () => {
+    expect(salesPanelHeaderSource).toContain('actionLabel && onAction')
+    expect(salesPanelHeaderSource).not.toMatch(/text-\[(?:7|8|9|10|11)px\]/)
   })
 })
