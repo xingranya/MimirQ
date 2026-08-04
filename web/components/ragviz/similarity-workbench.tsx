@@ -178,7 +178,7 @@ export function RagvizSimilarityWorkbench() {
   )
   const collectionsLoading = collectionsQuery.isFetching
   const collectionsError = collectionsQuery.error
-    ? getErrorMessage(collectionsQuery.error, '加载 collections 失败')
+    ? getErrorMessage(collectionsQuery.error, '加载相似度数据源失败')
     : ''
   const refreshCollections = () => {
     collectionsQuery.refetch()
@@ -206,11 +206,11 @@ export function RagvizSimilarityWorkbench() {
     const ys = ySelections.map((y) => y.trim()).filter(Boolean)
 
     if (xs.length === 0) {
-      toast.error('请至少选择一个横坐标 Collection')
+      toast.error('请至少选择一个横轴数据源')
       return
     }
     if (ys.length === 0) {
-      toast.error('请至少选择一个纵坐标 Collection')
+      toast.error('请至少选择一个纵轴数据源')
       return
     }
     const emptySelections: SelectOption[] = []
@@ -223,7 +223,7 @@ export function RagvizSimilarityWorkbench() {
 
     if (emptySelections.length > 0) {
       toast.error(
-        `所选 Collection 没有数据：${emptySelections
+        `所选数据源没有数据：${emptySelections
           .map((option) => option.label)
           .join('、')}`
       )
@@ -278,7 +278,7 @@ export function RagvizSimilarityWorkbench() {
         } catch (error: unknown) {
           const msg = getErrorMessage(error, '计算失败')
           toast.error(
-            `${resolveCollectionLabel(x)} vs ${resolveCollectionLabel(y)}：${msg}`
+            `${resolveCollectionLabel(x)} 对 ${resolveCollectionLabel(y)}：${msg}`
           )
         } finally {
           done += 1
@@ -438,7 +438,7 @@ export function RagvizSimilarityWorkbench() {
   )
 
   useEffect(() => {
-    // Match Kumi: entering difference mode resets sliders to [-1, 1].
+    // 进入差值模式时，将筛选范围重置为 [-1, 1]。
     if (isDifferenceMode) {
       setTempSimilarityRange({ min: -1, max: 1 })
       setTempTopK({ value: 0, axis: 'x' })
@@ -496,7 +496,7 @@ export function RagvizSimilarityWorkbench() {
   const effectiveMask = useMemo(() => {
     if (!displayMatrix || !primaryEntry) return null
 
-    // Exclusive mode: only use the editing matrix config.
+    // 独占模式只使用当前正在编辑的矩阵配置。
     if (exclusiveIndex !== null && activeVisualConfig) {
       return computeFinalMask(
         displayMatrix,
@@ -505,8 +505,7 @@ export function RagvizSimilarityWorkbench() {
       )
     }
 
-    // Apply-filter mode: OR masks of selected matrices (based on their own configs),
-    // then AND with temporary filter (applied on the displayed matrix).
+    // 应用筛选器时，先合并各矩阵的掩码，再叠加当前显示矩阵的临时筛选。
     let mask: boolean[][] | null = null
     const primaryShape = matrixShape(primaryEntry)
 
@@ -860,7 +859,7 @@ export function RagvizSimilarityWorkbench() {
   const toggleApplyData = (index: number) => {
     if (index < 0 || index >= results.length) return
 
-    // If enabling data on a different matrix while exclusive is active, exit exclusive first.
+    // 独占模式下切换数据矩阵时，先退出独占模式。
     if (exclusiveIndex !== null && exclusiveIndex !== index) {
       exitExclusiveMode()
     }
@@ -871,7 +870,7 @@ export function RagvizSimilarityWorkbench() {
       if (!current) return prev
 
       if (current.applyData) {
-        // Turning off.
+        // 关闭当前差值矩阵。
         if (index === subtractIndex) {
           next[index] = { ...current, applyData: false }
           setSubtractIndex(null)
@@ -885,7 +884,7 @@ export function RagvizSimilarityWorkbench() {
         return next
       }
 
-      // Turning on: ensure shape consistency.
+      // 启用差值矩阵前先校验形状一致性。
       if (primaryIndex !== null) {
         const primary = results[primaryIndex]
         const candidate = results[index]
@@ -896,7 +895,7 @@ export function RagvizSimilarityWorkbench() {
       }
 
       if (primaryIndex === null) {
-        // No primary -> set as primary.
+        // 尚无主矩阵时，将当前矩阵设为主矩阵。
         setPrimaryIndex(index)
         setSubtractIndex(null)
         return next.map((s, i) => ({ ...s, applyData: i === index }))
@@ -914,7 +913,7 @@ export function RagvizSimilarityWorkbench() {
         }))
       }
 
-      // Replace subtract.
+      // 替换当前差值矩阵。
       setSubtractIndex(index)
       return next.map((s, i) => ({
         ...s,
@@ -957,7 +956,7 @@ export function RagvizSimilarityWorkbench() {
     })
   }
 
-  // Persist UI layout.
+  // 持久化工作台布局。
   useEffect(() => {
     try {
       const payload = {
@@ -973,7 +972,7 @@ export function RagvizSimilarityWorkbench() {
         JSON.stringify(payload)
       )
     } catch {
-      // ignore
+      // 本地布局不可用时使用默认值。
     }
   }, [
     isLeftSidebarCollapsed,
@@ -1001,7 +1000,7 @@ export function RagvizSimilarityWorkbench() {
       if (typeof parsed.isRightSidebarCollapsed === 'boolean')
         setIsRightSidebarCollapsed(parsed.isRightSidebarCollapsed)
     } catch {
-      // ignore
+      // 本地布局不可用时使用默认值。
     }
   }, [])
 
@@ -1171,19 +1170,19 @@ export function RagvizSimilarityWorkbench() {
   }, [displayLabels, displayMatrix, selectedCellDetails])
 
   return (
-    <div className="relative flex h-full min-w-0 w-full overflow-hidden bg-[radial-gradient(circle_at_50%_-12%,hsl(var(--primary)/0.10),transparent_34%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--surface-2)/0.34))]">
+    <div className="relative flex h-full min-w-0 w-full overflow-hidden bg-background">
       {hasCompactOverlay ? (
         <button
           type="button"
-          className="absolute inset-0 z-10 cursor-default bg-foreground/[0.04] backdrop-blur-[1px]"
+          className="absolute inset-0 z-10 cursor-default bg-foreground/10"
           aria-label="关闭侧栏"
           onClick={() => setCompactSidebar(null)}
         />
       ) : null}
 
-      {/* Left section */}
+      {/* 左侧工具区 */}
       <div className="relative z-20 flex h-full shrink-0">
-        <div className="relative z-30 flex w-12 flex-col items-center border-r border-border/34 bg-card/46 py-2 shadow-[8px_0_24px_-28px_hsl(var(--foreground)/0.22)] backdrop-blur-xl">
+        <div className="relative z-30 flex w-12 flex-col items-center border-r border-border bg-card py-2">
           <div className="flex flex-col gap-1">
             <IconBtn
               active={isLeftSidebarOpen && leftTopPanel === 'dataSource'}
@@ -1223,10 +1222,10 @@ export function RagvizSimilarityWorkbench() {
         <div
           ref={leftSidebarRef}
           className={cn(
-            'flex h-full max-w-[calc(100vw-7rem)] flex-col overflow-hidden border-r border-border/34 backdrop-blur-xl transition-[width,opacity] duration-200 ease-out',
+            'flex h-full max-w-[calc(100vw-7rem)] flex-col overflow-hidden border-r border-border bg-card transition-[width,opacity] duration-200 ease-out',
             isCompactLeftSidebar
-              ? 'absolute inset-y-0 left-12 z-20 bg-card/95 shadow-[18px_0_42px_-24px_rgba(15,23,42,0.35)]'
-              : 'relative bg-card/42',
+              ? 'absolute inset-y-0 left-12 z-20 shadow-sm'
+              : 'relative',
             isLeftSidebarOpen
               ? 'opacity-100'
               : 'pointer-events-none opacity-0'
@@ -1253,13 +1252,13 @@ export function RagvizSimilarityWorkbench() {
 
           <div className="flex flex-col overflow-hidden">
             <div
-              className="border-b border-border/34 bg-card/40 p-3.5"
+              className="border-b border-border bg-card p-3.5"
               style={leftTopStyle}
             >
               {leftTopPanel === 'dataSource' ? (
                 <Panel
                   title="数据源配置"
-                  subtitle="选择横/纵坐标 collections，计算两侧相似度。"
+                  subtitle="选择横轴和纵轴数据源，计算两侧相似度。"
                   rightSlot={
                     <Button
                       variant="ghost"
@@ -1279,17 +1278,17 @@ export function RagvizSimilarityWorkbench() {
                     </Button>
                   }
                 >
-                  <div className="overflow-hidden rounded-[1.35rem] border border-border/38 bg-card/68 shadow-[0_18px_42px_-36px_hsl(var(--foreground)/0.28),inset_0_1px_0_hsl(var(--card)/0.68)]">
-                    <div className="border-b border-border/32 bg-muted/[0.12] px-3.5 py-3">
+                  <div className="overflow-hidden rounded-md border border-border bg-card">
+                    <div className="border-b border-border bg-muted/30 px-3.5 py-3">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.9rem] border border-primary/14 bg-primary/[0.07] text-primary">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Grid3X3 className="size-4" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/58">
-                            Matrix Setup
+                          <div className="text-xs font-medium text-muted-foreground">
+                            矩阵范围
                           </div>
-                          <div className="mt-0.5 text-[14px] font-semibold leading-4 text-foreground/88">
+                          <div className="mt-0.5 text-sm font-semibold leading-4 text-foreground">
                             矩阵设置
                           </div>
                         </div>
@@ -1297,20 +1296,20 @@ export function RagvizSimilarityWorkbench() {
                     </div>
 
                     {collectionsError ? (
-                      <div className="m-4 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                      <div className="m-4 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                         {collectionsError}
                       </div>
                     ) : null}
 
                     <div>
                       <AxisConfigCard
-                        eyebrow="X Axis"
-                        title="横坐标 Collection"
+                        eyebrow="横轴"
+                        title="横轴数据源"
                         badge="横向对比"
                         badgeClassName="border-primary/20 bg-primary/10 text-primary"
                       >
                         <CollectionSelectorBlock
-                          label="横坐标 Collection"
+                          label="横轴数据源"
                           showLabel={false}
                           selections={xSelections}
                           onChange={setXSelections}
@@ -1326,13 +1325,13 @@ export function RagvizSimilarityWorkbench() {
                       </AxisConfigCard>
 
                       <AxisConfigCard
-                        eyebrow="Y Axis"
-                        title="纵坐标 Collection"
+                        eyebrow="纵轴"
+                        title="纵轴数据源"
                         badge="纵向对比"
                         badgeClassName="border-success/20 bg-success/10 text-success"
                       >
                         <CollectionSelectorBlock
-                          label="纵坐标 Collection"
+                          label="纵轴数据源"
                           showLabel={false}
                           selections={ySelections}
                           onChange={setYSelections}
@@ -1350,7 +1349,7 @@ export function RagvizSimilarityWorkbench() {
 
                     <div className="px-3.5 pb-3.5 pt-2">
                       <Button
-                        className="h-9 w-full rounded-full bg-primary text-primary-foreground shadow-[0_14px_28px_-20px_hsl(var(--primary)/0.62)] hover:bg-primary/92"
+                        className="h-9 w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                         onClick={calculateSimilarity}
                         disabled={isCalculating}
                       >
@@ -1391,7 +1390,7 @@ export function RagvizSimilarityWorkbench() {
                               key={`${r.xCollectionId}__${r.yCollectionId}`}
                               value={idx}
                             >
-                              {idx + 1}. {r.xCollectionLabel} vs{' '}
+                              {idx + 1}. {r.xCollectionLabel} 对{' '}
                               {r.yCollectionLabel}
                             </option>
                           ))
@@ -1432,7 +1431,7 @@ export function RagvizSimilarityWorkbench() {
                       className="hidden"
                       onChange={(e) => {
                         detachPromise(importFiles(e.target.files))
-                        // Reset so selecting the same file again still triggers onChange.
+                        // 清空文件值，确保再次选择同一文件时仍会触发变更。
                         e.currentTarget.value = ''
                       }}
                     />
@@ -1443,21 +1442,20 @@ export function RagvizSimilarityWorkbench() {
 
             <button
               type="button"
-              aria-label="Resize left split"
+              aria-label="调整左侧上下分区高度"
               className="h-2 cursor-row-resize bg-border/28 hover:bg-primary/14"
               onMouseDown={(e) => startResizeSplit('left', e)}
             />
 
-            <div className="overflow-auto overscroll-contain bg-card/30 p-3.5 no-scrollbar">
+            <div className="overflow-auto overscroll-contain bg-card p-3.5 no-scrollbar">
               <Panel title="图表选择与控制">
                 {results.length === 0 ? (
-                  <div className="rounded-[1.25rem] border border-border/34 bg-card/58 p-3.5 text-center shadow-[inset_0_1px_0_hsl(var(--card)/0.55)]">
-                    <div className="text-[13px] font-semibold text-foreground/84">
+                  <div className="rounded-md border border-border bg-card p-3.5 text-center">
+                    <div className="text-[13px] font-semibold text-foreground">
                       等待矩阵结果
                     </div>
-                    <p className="mt-1 text-[11px] leading-4 text-muted-foreground/64">
-                      先在上方选择两个
-                      collections，再生成热力图并在这里切换主图、筛选器和独占模式。
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      先在上方选择两个数据源，再生成热力图并在这里切换主图、筛选器和独占模式。
                     </p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       <EmptyControlTile
@@ -1476,7 +1474,7 @@ export function RagvizSimilarityWorkbench() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       提示：应用数据=显示/差值；应用筛选器=合并筛选条件(可多选)；独占模式=锁定编辑该图
                     </p>
                     <div className="space-y-2">
@@ -1500,11 +1498,11 @@ export function RagvizSimilarityWorkbench() {
                               <div className="text-xs font-medium truncate">
                                 {entry.xCollectionLabel}{' '}
                                 <span className="text-muted-foreground">
-                                  vs
+                                  对
                                 </span>{' '}
                                 {entry.yCollectionLabel}
                               </div>
-                              <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span>
                                   {matrixShape(entry).rows}×
                                   {matrixShape(entry).cols}
@@ -1532,7 +1530,7 @@ export function RagvizSimilarityWorkbench() {
                                 variant={btn?.applyData ? 'default' : 'outline'}
                                 size="icon"
                                 title="应用数据"
-                                aria-label={`将 ${entry.xCollectionLabel} vs ${entry.yCollectionLabel} 设为显示数据矩阵`}
+                                aria-label={`将 ${entry.xCollectionLabel} 对 ${entry.yCollectionLabel} 设为显示数据矩阵`}
                                 onClick={() => toggleApplyData(idx)}
                               >
                                 <Eye className="size-4" />
@@ -1543,7 +1541,7 @@ export function RagvizSimilarityWorkbench() {
                                 }
                                 size="icon"
                                 title="应用筛选器"
-                                aria-label={`将 ${entry.xCollectionLabel} vs ${entry.yCollectionLabel} 的筛选条件加入当前视图`}
+                                aria-label={`将 ${entry.xCollectionLabel} 对 ${entry.yCollectionLabel} 的筛选条件加入当前视图`}
                                 onClick={() => toggleApplyFilter(idx)}
                               >
                                 <Filter className="size-4" />
@@ -1554,8 +1552,8 @@ export function RagvizSimilarityWorkbench() {
                                 title="独占模式"
                                 aria-label={
                                   btn?.exclusive
-                                    ? `退出 ${entry.xCollectionLabel} vs ${entry.yCollectionLabel} 的独占编辑模式`
-                                    : `将 ${entry.xCollectionLabel} vs ${entry.yCollectionLabel} 设为独占编辑矩阵`
+                                    ? `退出 ${entry.xCollectionLabel} 对 ${entry.yCollectionLabel} 的独占编辑模式`
+                                    : `将 ${entry.xCollectionLabel} 对 ${entry.yCollectionLabel} 设为独占编辑矩阵`
                                 }
                                 onClick={() =>
                                   btn?.exclusive
@@ -1578,7 +1576,7 @@ export function RagvizSimilarityWorkbench() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* 主工作区 */}
       <div className="h-full min-w-0 flex-1 overflow-hidden bg-transparent">
         <div className="h-full w-full flex flex-col">
           <div className="px-4 pb-3 pt-5 sm:px-5 xl:px-6 2xl:px-8 2xl:pt-6">
@@ -1595,20 +1593,20 @@ export function RagvizSimilarityWorkbench() {
               }
               iconImage="rag-visualization"
               icon={Grid3X3}
-              iconColor="text-info"
+              iconColor="text-primary"
               badge="RAG"
               compact
               className="p-0"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex items-center rounded-2xl border border-border/70 bg-card p-1 shadow-subtle">
+                <div className="inline-flex items-center rounded-md border border-border bg-card p-1">
                   <Button
                     variant={mainView === 'heatmap' ? 'default' : 'outline'}
                     size="sm"
                     className={cn(
-                      'rounded-xl',
+                      'rounded-sm',
                       mainView === 'heatmap' &&
-                        'bg-info text-primary-foreground hover:bg-info/90'
+                        'bg-primary text-primary-foreground hover:bg-primary/90'
                     )}
                     onClick={() => setMainView('heatmap')}
                   >
@@ -1617,7 +1615,7 @@ export function RagvizSimilarityWorkbench() {
                   <Button
                     variant={mainView === 'diagnostics' ? 'default' : 'outline'}
                     size="sm"
-                    className="rounded-xl"
+                    className="rounded-sm"
                     onClick={() => setMainView('diagnostics')}
                     disabled={
                       !primaryEntry || !displayLabels || isDifferenceMode
@@ -1643,15 +1641,20 @@ export function RagvizSimilarityWorkbench() {
                           key={scheme.key}
                           type="button"
                           className={cn(
-                            'h-3 w-7 rounded-full border transition',
+                            'flex size-8 items-center justify-center rounded-md border transition-colors',
                             scheme.key === colorScheme
-                              ? 'border-primary'
-                              : 'border-border hover:border-primary/50'
+                              ? 'border-primary bg-primary/10'
+                              : 'border-transparent hover:border-border hover:bg-muted'
                           )}
                           title={scheme.label}
+                          aria-label={`使用${scheme.label}配色`}
                           onClick={() => setColorScheme(scheme.key)}
-                          style={{ backgroundImage: scheme.preview }}
-                        />
+                        >
+                          <span
+                            className="h-3 w-5 rounded-full border border-border/50"
+                            style={{ backgroundImage: scheme.preview }}
+                          />
+                        </button>
                       ))}
                     </div>
                     <ChevronDown className="size-3.5 text-muted-foreground" />
@@ -1673,9 +1676,9 @@ export function RagvizSimilarityWorkbench() {
                 {heatmapSummaryMetrics.map((metric) => (
                   <div
                     key={metric.label}
-                    className="rounded-[1.1rem] border border-border/34 bg-card/58 px-4 py-3 text-center shadow-[inset_0_1px_0_hsl(var(--card)/0.55)]"
+                    className="rounded-md border border-border bg-card px-4 py-3 text-center"
                   >
-                    <div className="text-[11px] font-medium text-muted-foreground">
+                    <div className="text-xs font-medium text-muted-foreground">
                       {metric.label}
                     </div>
                     <div
@@ -1708,9 +1711,9 @@ export function RagvizSimilarityWorkbench() {
         </div>
       </div>
 
-      {/* Right section */}
+      {/* 右侧工具区 */}
       <div className="relative z-20 flex h-full shrink-0">
-        <div className="relative z-30 flex w-12 flex-col items-center border-l border-border/34 bg-card/46 py-2 shadow-[-8px_0_24px_-28px_hsl(var(--foreground)/0.22)] backdrop-blur-xl">
+        <div className="relative z-30 flex w-12 flex-col items-center border-l border-border bg-card py-2">
           <div className="flex flex-col gap-1">
             <IconBtn
               active={
@@ -1748,10 +1751,10 @@ export function RagvizSimilarityWorkbench() {
         <div
           ref={rightSidebarRef}
           className={cn(
-            'flex h-full max-w-[calc(100vw-7rem)] flex-col overflow-hidden border-l border-border/34 backdrop-blur-xl transition-[width,opacity] duration-200 ease-out',
+            'flex h-full max-w-[calc(100vw-7rem)] flex-col overflow-hidden border-l border-border bg-card transition-[width,opacity] duration-200 ease-out',
             isCompactRightSidebar
-              ? 'absolute inset-y-0 right-12 z-20 bg-card/95 shadow-[-18px_0_42px_-24px_rgba(15,23,42,0.35)]'
-              : 'relative bg-card/42',
+              ? 'absolute inset-y-0 right-12 z-20 shadow-sm'
+              : 'relative',
             isRightSidebarOpen
               ? 'opacity-100'
               : 'pointer-events-none opacity-0'
@@ -1778,7 +1781,7 @@ export function RagvizSimilarityWorkbench() {
 
           <div className="flex flex-col overflow-hidden">
             <div
-              className="border-b border-border/34 bg-card/40 p-3.5"
+              className="border-b border-border bg-card p-3.5"
               style={rightTopStyle}
             >
               {rightTopPanel === 'statistics' ? (
@@ -1789,29 +1792,29 @@ export function RagvizSimilarityWorkbench() {
                         <RightEmptyInfoCard
                           title="选中单元"
                           icon={<Grid3X3 className="size-5" />}
-                          description="点击热力图任意单元后，在这里查看坐标、相似度和 Top 相关项。"
+                          description="点击热力图任意单元后，在这里查看坐标、相似度和最相关项目。"
                         />
                       )
                     } else if (isDifferenceMode && differenceStats) {
                       return (
                         <StatsGrid>
                           <StatsItem
-                            label="True Positive"
+                            label="真正例"
                             value={differenceStats.truePositive}
                             tone="success"
                           />
                           <StatsItem
-                            label="True Negative"
+                            label="真负例"
                             value={differenceStats.trueNegative}
                             tone="muted"
                           />
                           <StatsItem
-                            label="False Positive"
+                            label="假正例"
                             value={differenceStats.falsePositive}
                             tone="warning"
                           />
                           <StatsItem
-                            label="False Negative"
+                            label="假负例"
                             value={differenceStats.falseNegative}
                             tone="danger"
                           />
@@ -1863,14 +1866,14 @@ export function RagvizSimilarityWorkbench() {
                   {mainView === 'heatmap' && primaryEntry ? (
                     <div className="mt-4 border-t border-sidebar-border/60 pt-4">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        <div className="text-xs font-medium text-muted-foreground">
                           选中单元
                         </div>
                         {selectedCellDetails ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[11px]"
+                            className="h-7 px-2 text-xs"
                             onClick={() => setSelectedCell(null)}
                           >
                             清除
@@ -1880,10 +1883,10 @@ export function RagvizSimilarityWorkbench() {
 
                       {selectedCellDetails ? (
                         <div className="space-y-2">
-                          <div className="rounded-[1.2rem] border border-border/34 bg-card/62 p-3 shadow-[inset_0_1px_0_hsl(var(--card)/0.55)]">
+                          <div className="rounded-md border border-border bg-card p-3">
                             <div className="grid grid-cols-2 gap-3">
                               <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-muted-foreground">
+                                <div className="text-xs font-medium text-muted-foreground">
                                   X（列）
                                 </div>
                                 <div className="mt-1 truncate text-sm font-semibold text-foreground">
@@ -1891,7 +1894,7 @@ export function RagvizSimilarityWorkbench() {
                                 </div>
                               </div>
                               <div className="min-w-0">
-                                <div className="text-[11px] font-medium text-muted-foreground">
+                                <div className="text-xs font-medium text-muted-foreground">
                                   Y（行）
                                 </div>
                                 <div className="mt-1 truncate text-sm font-semibold text-foreground">
@@ -1902,7 +1905,7 @@ export function RagvizSimilarityWorkbench() {
 
                             <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
                               <div>
-                                <div className="text-[11px] font-medium text-muted-foreground">
+                                <div className="text-xs font-medium text-muted-foreground">
                                   {isDifferenceMode ? '差值' : '相似度'}
                                 </div>
                                 <div
@@ -1920,7 +1923,7 @@ export function RagvizSimilarityWorkbench() {
                               </div>
                               <div
                                 className={cn(
-                                  'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]',
+                                  'inline-flex items-center rounded-full border px-2 py-0.5 text-xs',
                                   selectedCellDetails.isVisible
                                     ? 'border-success/25 bg-success/10 text-success'
                                     : 'border-warning/25 bg-warning/10 text-warning'
@@ -1964,20 +1967,19 @@ export function RagvizSimilarityWorkbench() {
                           {selectedCellNeighbors ? (
                             <div className="space-y-2 pt-1">
                               <RelatedListCard
-                                title={`Top 相关（Y 轴 · ${selectedCellDetails.yLabel}）`}
+                                title={`最相关（Y 轴 · ${selectedCellDetails.yLabel}）`}
                                 items={selectedCellNeighbors.topX}
                               />
                               <RelatedListCard
-                                title={`Top 相关（X 轴 · ${selectedCellDetails.xLabel}）`}
+                                title={`最相关（X 轴 · ${selectedCellDetails.xLabel}）`}
                                 items={selectedCellNeighbors.topY}
                               />
                             </div>
                           ) : null}
                         </div>
                       ) : (
-                        <div className="rounded-[1.1rem] border border-dashed border-border/36 bg-card/54 p-4 text-xs leading-5 text-muted-foreground/70">
-                          点击热力图任意单元后，在这里查看坐标、相似度和 Top
-                          相关项。
+                        <div className="rounded-md border border-dashed border-border bg-card p-4 text-xs leading-5 text-muted-foreground">
+                          点击热力图任意单元后，在这里查看坐标、相似度和最相关项目。
                         </div>
                       )}
                     </div>
@@ -1990,12 +1992,12 @@ export function RagvizSimilarityWorkbench() {
 
             <button
               type="button"
-              aria-label="Resize right split"
+              aria-label="调整右侧上下分区高度"
               className="h-2 cursor-row-resize bg-border/28 hover:bg-primary/14"
               onMouseDown={(e) => startResizeSplit('right', e)}
             />
 
-            <div className="overflow-auto overscroll-contain bg-card/30 p-3.5 no-scrollbar">
+            <div className="overflow-auto overscroll-contain bg-card p-3.5 no-scrollbar">
               {rightBottomPanel === 'filters' ? (
                 <Panel title="筛选器控制">
                   {primaryEntry ? (
@@ -2178,7 +2180,7 @@ export function RagvizSimilarityWorkbench() {
                             纵轴Top-K
                           </Button>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           当前：Top-{uiTopK.value}（
                           {(() => {
                             if (uiTopK.value === 0) {

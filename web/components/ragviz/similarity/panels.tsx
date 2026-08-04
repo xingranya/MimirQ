@@ -93,7 +93,7 @@ function SimilarityDiagnosticsPanel({
 
   return (
     <div className="flex h-full items-center justify-center px-6">
-      <div className="rounded-2xl border border-dashed border-sidebar-border/60 bg-muted/30 px-6 py-8 text-center">
+      <div className="rounded-md border border-dashed border-border bg-muted/30 px-6 py-8 text-center">
         <div className="text-sm font-semibold text-foreground">
           向量诊断暂不可用
         </div>
@@ -124,17 +124,17 @@ function SimilarityHeatmapPanel({
 }>) {
   return (
     <div className="h-full overflow-auto p-4">
-      <section className="flex min-h-[560px] flex-col overflow-hidden rounded-[1.75rem] border border-border/38 bg-card/76 shadow-[0_24px_70px_-58px_hsl(var(--foreground)/0.42),inset_0_1px_0_hsl(var(--card)/0.7)]">
-        <div className="flex items-center justify-between gap-3 border-b border-border/34 bg-muted/[0.10] px-4 py-3">
+      <section className="flex min-h-[560px] flex-col overflow-hidden rounded-md border border-border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-foreground">
               {primaryEntry.xCollectionLabel}（X 轴）
             </div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
+            <div className="mt-0.5 text-xs text-muted-foreground">
               {displayLabels.xLabels.length} 项 × {displayLabels.yLabels.length} 项
             </div>
           </div>
-          <div className="rounded-full border border-border/34 bg-background/44 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/70">
+          <div className="rounded-sm border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
             点击单元格查看右侧统计
           </div>
         </div>

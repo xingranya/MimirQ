@@ -14,13 +14,13 @@ export type SelectOption = {
 }
 
 const similaritySelectClass =
-  'h-9 w-full appearance-none rounded-[0.9rem] border border-border/38 bg-background/58 px-3 pr-9 text-[12px] font-medium text-foreground/84 shadow-[inset_0_1px_0_hsl(var(--card)/0.62),0_10px_24px_-22px_hsl(var(--foreground)/0.28)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary/26 hover:bg-background/76 focus:border-primary/38 focus:shadow-[inset_0_1px_0_hsl(var(--card)/0.72),0_0_0_4px_hsl(var(--primary)/0.10)]'
+  'h-9 w-full appearance-none rounded-md border border-border bg-background px-3 pr-9 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20'
 export const similarityInputClass =
-  'h-9 w-full rounded-[0.9rem] border border-border/38 bg-background/58 px-3 text-[12px] font-medium text-foreground/84 shadow-[inset_0_1px_0_hsl(var(--card)/0.62),0_10px_24px_-22px_hsl(var(--foreground)/0.28)] outline-none transition-[border-color,box-shadow,background-color] hover:border-primary/26 hover:bg-background/76 focus:border-primary/38 focus:shadow-[inset_0_1px_0_hsl(var(--card)/0.72),0_0_0_4px_hsl(var(--primary)/0.10)]'
+  'h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20'
 const similarityIconControlClass =
-  'h-9 w-9 rounded-[0.9rem] border-border/38 bg-background/58 text-muted-foreground shadow-[inset_0_1px_0_hsl(var(--card)/0.62),0_10px_24px_-22px_hsl(var(--foreground)/0.28)] hover:border-primary/30 hover:bg-background/76 hover:text-primary'
+  'size-9 rounded-md border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-primary'
 export const similarityNativeSelectClass =
-  'h-9 w-full rounded-[0.9rem] border border-border/38 bg-background/58 px-3 text-[12px] font-medium text-foreground/84 shadow-[inset_0_1px_0_hsl(var(--card)/0.62)] outline-none focus:border-primary/38 focus:ring-4 focus:ring-primary/10'
+  'h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20'
 
 export function isEmptyCollectionOption(option: SelectOption) {
   return typeof option.count === 'number' && option.count <= 0
@@ -49,16 +49,16 @@ export function AxisConfigCard({
     <section className="border-b border-border/28 px-3.5 py-3.5 last:border-b-0">
       <div className="mb-2.5 flex items-start justify-between gap-2.5">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/72">
+          <div className="text-xs font-medium text-primary">
             {eyebrow}
           </div>
-          <div className="mt-0.5 text-[13px] font-semibold leading-4 text-foreground/86">
+          <div className="mt-0.5 text-[13px] font-semibold leading-4 text-foreground">
             {title}
           </div>
         </div>
         <span
           className={cn(
-            'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
+            'inline-flex shrink-0 items-center rounded-sm border px-2 py-0.5 text-xs font-medium',
             badgeClassName
           )}
         >
@@ -96,7 +96,7 @@ export function CollectionSelectorBlock({
   return (
     <div className="space-y-1.5">
       {showLabel ? (
-        <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-foreground/72">
+        <div className="text-xs font-medium text-foreground">
           {label}
         </div>
       ) : null}
@@ -113,7 +113,7 @@ export function CollectionSelectorBlock({
                   onChange(next)
                 }}
               >
-                <option value="">请选择...</option>
+                <option value="">请选择</option>
                 {options.map((opt) => (
                   <option
                     key={opt.value}
@@ -135,7 +135,7 @@ export function CollectionSelectorBlock({
                 variant="outline"
                 size="icon"
                 title="添加"
-                aria-label={`为${label}添加一个 Collection 选择器`}
+                aria-label={`为${label}添加一个数据源选择器`}
                 className={similarityIconControlClass}
                 onClick={() => onChange([...selections, ''])}
               >
@@ -177,10 +177,10 @@ export function NumberField({
   return (
     <div className="space-y-1.5 block">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+        <div className="text-xs font-medium text-muted-foreground">
           {label}
         </div>
-        <div className="text-[10.5px] font-medium text-muted-foreground/58">
+        <div className="text-xs font-medium text-muted-foreground">
           {min}-{max}
         </div>
       </div>
