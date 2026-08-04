@@ -59,6 +59,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { NavigationVisibilityGate } from '@/components/auth/navigation-visibility-gate'
@@ -73,8 +75,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageSkeleton } from '@/components/ui/page-skeleton'
 
-// 场景化分类：每个 Tab 对应一组 category 字符串前缀/精确值。
-// 与 app/rag/llm/prompts/builtin_library.py 中的 category 字段保持一致。
+// 场景分类与内置提示词的 category 字段保持一致。
 const SCENARIO_DEFINITIONS: Array<{
   value: string
   label: string
@@ -98,7 +99,7 @@ const SCENARIO_DEFINITIONS: Array<{
   },
   {
     value: 'kg',
-    label: 'KG',
+    label: '图谱',
     match: (c) =>
       c === 'kg_extract' ||
       c === 'kg_canonicalize' ||
@@ -106,7 +107,7 @@ const SCENARIO_DEFINITIONS: Array<{
   },
   {
     value: 'chunk_meta',
-    label: 'Chunk 元数据',
+    label: '分块元数据',
     match: (c) => c === 'chunk_meta',
   },
   {
@@ -120,6 +121,33 @@ const SCENARIO_DEFINITIONS: Array<{
     match: (c) => typeof c === 'string' && c.startsWith('vertical_'),
   },
 ]
+
+const CATEGORY_LABELS: Record<string, string> = {
+  rag_answer: '问答',
+  rag_query_rewrite: '查询改写',
+  rag_post_retrieval: '检索后处理',
+  kg_extract: '图谱抽取',
+  kg_canonicalize: '实体规范化',
+  kg_verbalize: '图谱表述',
+  chunk_meta: '分块元数据',
+  llm_judge: '模型评审',
+  testset_generation: '测试集生成',
+}
+
+function getCategoryLabel(category: string | null | undefined): string {
+  const value = String(category || '').trim()
+  if (!value) return '未分类'
+  return CATEGORY_LABELS[value] || value
+}
+
+function getVisiblePageNumbers(currentPage: number, totalPages: number): number[] {
+  const count = Math.min(5, totalPages)
+  const start = Math.min(
+    Math.max(1, currentPage - Math.floor(count / 2)),
+    Math.max(1, totalPages - count + 1)
+  )
+  return Array.from({ length: count }, (_, index) => start + index)
+}
 
 export default function PromptsPage() {
   return (
@@ -142,10 +170,10 @@ function PromptsPageContent() {
   const [deleteTemplateTarget, setDeleteTemplateTarget] =
     useState<PromptTemplate | null>(null)
 
-  // Batch selection
+  // 批量选择。
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // Filter & Search
+  // 筛选和搜索。
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -153,8 +181,12 @@ function PromptsPageContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [syncingBuiltins, setSyncingBuiltins] = useState(false)
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [batchAction, setBatchAction] = useState<
+    'activate' | 'deactivate' | 'delete' | null
+  >(null)
 
-  // Form state
+  // 表单草稿。
   const [formData, setFormData] = useState<PromptTemplateCreate>({
     name: '',
     description: '',
@@ -181,7 +213,7 @@ function PromptsPageContent() {
   const refreshTemplates = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.prompts.all })
 
-  // Get unique categories
+  // 当前租户下已使用的分类。
   const categories = useMemo(() => {
     const cats = new Set(
       templates
@@ -194,10 +226,9 @@ function PromptsPageContent() {
     return Array.from(cats)
   }, [templates])
 
-  // Filtered templates
+  // 按搜索、场景、分类和状态筛选。
   const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
         const matchesSearch =
@@ -208,7 +239,6 @@ function PromptsPageContent() {
         if (!matchesSearch) return false
       }
 
-      // Scenario filter (top-level Tabs)
       if (scenarioFilter !== 'all') {
         const def = SCENARIO_DEFINITIONS.find(
           (d) => d.value === scenarioFilter
@@ -216,12 +246,10 @@ function PromptsPageContent() {
         if (def && !def.match(template.category)) return false
       }
 
-      // Category filter
       if (categoryFilter !== 'all' && template.category !== categoryFilter) {
         return false
       }
 
-      // Status filter
       if (statusFilter === 'active' && !template.is_active) return false
       if (statusFilter === 'inactive' && template.is_active) return false
 
@@ -229,7 +257,7 @@ function PromptsPageContent() {
     })
   }, [templates, searchQuery, scenarioFilter, categoryFilter, statusFilter])
 
-  // 每个场景 Tab 的模板数(只算同名空间内可见模板，用于 Badge 显示)
+  // 每个场景的模板数量。
   const scenarioCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const def of SCENARIO_DEFINITIONS) {
@@ -256,7 +284,10 @@ function PromptsPageContent() {
     return filteredTemplates.slice(start, start + pageSize)
   }, [filteredTemplates, pageSize, safeCurrentPage])
   const currentPageIds = useMemo(
-    () => paginatedTemplates.map((template) => template.id),
+    () =>
+      paginatedTemplates
+        .filter((template) => !template.is_system)
+        .map((template) => template.id),
     [paginatedTemplates]
   )
   const allCurrentPageSelected =
@@ -272,6 +303,20 @@ function PromptsPageContent() {
     setCurrentPage(1)
   }, [searchQuery, scenarioFilter, categoryFilter, statusFilter, pageSize])
 
+  useEffect(() => {
+    const writableIds = new Set(
+      templates
+        .filter((template) => !template.is_system)
+        .map((template) => template.id)
+    )
+    setSelectedIds((previous) => {
+      const next = new Set(
+        Array.from(previous).filter((id) => writableIds.has(id))
+      )
+      return next.size === previous.size ? previous : next
+    })
+  }, [templates])
+
   const formatDateTime = (value?: string) => {
     if (!value) return '-'
     const date = new Date(value)
@@ -280,7 +325,7 @@ function PromptsPageContent() {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
   }
 
-  // Batch selection handlers
+  // 批量选择。
   const handleSelectAll = () => {
     if (allCurrentPageSelected) {
       setSelectedIds((prev) => {
@@ -310,6 +355,7 @@ function PromptsPageContent() {
   const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return
 
+    setBatchAction('delete')
     try {
       await Promise.all(
         Array.from(selectedIds).map((id) => promptTemplateApi.delete(id))
@@ -320,12 +366,15 @@ function PromptsPageContent() {
     } catch (error) {
       toast.error(formatApiError(error, '批量删除失败'))
       reportClientError('Failed to batch delete prompt templates', error)
+    } finally {
+      setBatchAction(null)
     }
   }
 
   const handleBatchActivate = async (activate: boolean) => {
     if (selectedIds.size === 0) return
 
+    setBatchAction(activate ? 'activate' : 'deactivate')
     try {
       await Promise.all(
         Array.from(selectedIds).map((id) =>
@@ -340,6 +389,8 @@ function PromptsPageContent() {
     } catch (error) {
       toast.error(formatApiError(error, '批量操作失败'))
       reportClientError('Failed to batch update prompt templates', error)
+    } finally {
+      setBatchAction(null)
     }
   }
 
@@ -377,12 +428,34 @@ function PromptsPageContent() {
   }
 
   const handleSave = async () => {
+    const name = formData.name.trim()
+    const content = formData.content.trim()
+    if (!name || !content) {
+      toast.error('请填写模板名称和内容')
+      return
+    }
+
+    const payload: PromptTemplateCreate = {
+      ...formData,
+      name,
+      content,
+      description: formData.description?.trim() || '',
+      category: formData.category?.trim() || '',
+      variables: Array.from(
+        new Set((formData.variables || []).map((item) => item.trim()).filter(Boolean))
+      ),
+      tags: Array.from(
+        new Set((formData.tags || []).map((item) => item.trim()).filter(Boolean))
+      ),
+    }
+
+    setSavingTemplate(true)
     try {
       if (editingTemplate) {
-        await promptTemplateApi.update(editingTemplate.id, formData)
+        await promptTemplateApi.update(editingTemplate.id, payload)
         toast.success('模板已更新')
       } else {
-        await promptTemplateApi.create(formData)
+        await promptTemplateApi.create(payload)
         toast.success('模板已创建')
       }
       setDialogOpen(false)
@@ -390,6 +463,8 @@ function PromptsPageContent() {
     } catch (error) {
       toast.error(formatApiError(error, '保存失败'))
       reportClientError('Failed to save prompt template', error)
+    } finally {
+      setSavingTemplate(false)
     }
   }
 
@@ -446,69 +521,47 @@ function PromptsPageContent() {
     <AppFrame>
       <AnalysisPageShell
         title="提示词模板"
-        badge="模板管理"
         icon={Wand2}
         iconImage="prompts"
         iconColor="text-primary"
-        description="管理对话、KG 与评测模板，保障稳定输出"
+        description="管理对话、图谱和评测使用的提示词模板。"
         size="full"
         actions={
-          <div className="grid grid-cols-4 gap-2 xl:min-w-[520px]">
-            {[
-              { label: '总数', value: templates.length, tone: 'slate' },
-              { label: '启用', value: activeCount, tone: 'blue' },
-              { label: '停用', value: inactiveCount, tone: 'slate' },
-              {
-                label: '待验证',
-                value: pendingValidationCount,
-                tone: 'slate',
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className={cn(
-                  'rounded-xl border bg-card/80 px-3 py-2 shadow-sm',
-                  item.tone === 'blue'
-                    ? 'border-primary/30'
-                    : 'border-border/60'
-                )}
-              >
-                <div
-                  className={cn(
-                    'text-[11px] font-semibold',
-                    item.tone === 'blue' ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
-                  {item.label}
-                </div>
-                <div className="mt-1 text-[20px] font-semibold leading-none tabular-nums text-foreground">
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
+          <Button
+            onClick={handleCreate}
+            className="h-10 gap-2 rounded-md px-4 text-sm font-semibold"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            创建模板
+          </Button>
         }
         bodyGutter="none"
         bodyClassName="!pb-0"
         bodyContainerClassName="max-w-none"
       >
-        <div className="min-h-0 space-y-4 bg-transparent px-6 pb-4">
+        <div className="min-h-0 space-y-4 bg-transparent px-4 pb-4 md:px-6">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>共 {templates.length} 个模板</span>
+            <span>{activeCount} 个已启用</span>
+            <span>{inactiveCount} 个已停用</span>
+            <span>{pendingValidationCount} 个尚未使用</span>
+          </div>
           <Tabs
             value={scenarioFilter}
             onValueChange={setScenarioFilter}
             className="w-full"
           >
-            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-border/60 bg-card p-1.5 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+            <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-md border border-border bg-muted/30 p-1">
               {SCENARIO_DEFINITIONS.map((def) => (
                 <TabsTrigger
                   key={def.value}
                   value={def.value}
-                  className="h-9 gap-1.5 rounded-lg px-3 text-[13px] font-medium data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                  className="h-9 gap-1.5 rounded-sm px-3 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:ring-1 data-[state=active]:ring-border"
                 >
                   <span>{def.label}</span>
                   <Badge
                     variant="secondary"
-                    className="h-5 min-w-[1.5rem] justify-center rounded-md bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                    className="h-5 min-w-6 justify-center rounded-sm bg-muted px-1.5 text-xs font-semibold text-muted-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
                     data-active={scenarioFilter === def.value}
                   >
                     {scenarioCounts[def.value] ?? 0}
@@ -518,34 +571,34 @@ function PromptsPageContent() {
             </TabsList>
           </Tabs>
 
-          <section className="rounded-xl border border-border/60 bg-card shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-            <div className="flex flex-col gap-3 border-b border-border/60 p-4 xl:flex-row xl:items-center">
+          <section className="border-y border-border bg-background">
+            <div className="flex flex-col gap-3 border-b border-border py-4 xl:flex-row xl:items-center">
               <SearchInput
                 value={searchQuery}
                 onValueChange={setSearchQuery}
                 placeholder="搜索模板名称、描述、内容或标签..."
                 containerClassName="min-w-0 flex-1"
-                inputClassName="h-10 rounded-lg border-border/60 bg-card text-[13px]"
+                inputClassName="h-10 rounded-md border-border bg-background text-sm"
               />
               <div className="grid grid-cols-2 gap-3 md:flex md:items-center">
                 <Select
                   value={categoryFilter}
                   onValueChange={setCategoryFilter}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-lg border-border/60 bg-card text-[13px] md:w-[150px]">
+                  <SelectTrigger className="h-10 w-full rounded-md border-border bg-background text-sm md:w-[160px]">
                     <SelectValue placeholder="所有分类" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">所有分类</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat} value={cat}>
-                        {cat}
+                        {getCategoryLabel(cat)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-10 w-full rounded-lg border-border/60 bg-card text-[13px] md:w-[150px]">
+                  <SelectTrigger className="h-10 w-full rounded-md border-border bg-background text-sm md:w-[150px]">
                     <SelectValue placeholder="所有状态" />
                   </SelectTrigger>
                   <SelectContent>
@@ -555,18 +608,11 @@ function PromptsPageContent() {
                   </SelectContent>
                 </Select>
                 <Button
-                  onClick={handleCreate}
-                  className="h-10 gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-semibold text-info-foreground hover:bg-primary"
-                >
-                  <Plus className="size-4" />
-                  创建模板
-                </Button>
-                <Button
                   type="button"
                   variant="outline"
                   onClick={handleSyncBuiltins}
                   disabled={syncingBuiltins}
-                  className="h-10 gap-1.5 rounded-lg border-primary/20 bg-primary/10 px-3 text-[13px] font-semibold text-primary hover:bg-primary/15 hover:text-primary disabled:opacity-60"
+                  className="h-10 gap-1.5 rounded-md border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
                 >
                   <Wand2 className="size-4" />
                   {syncingBuiltins ? '同步中' : '同步内置模板'}
@@ -575,47 +621,35 @@ function PromptsPageContent() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="group h-10 justify-between rounded-lg border-border/60 !bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--muted)/0.55))] px-2.5 text-left !text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:!bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--muted)/0.78))] hover:!text-foreground data-[state=open]:border-primary/30 data-[state=open]:!bg-[linear-gradient(180deg,hsl(var(--card)),hsl(var(--muted)/0.78))] data-[state=open]:!text-foreground md:w-[286px]"
+                      className="group h-10 justify-between rounded-md border-border bg-background px-3 text-left text-sm text-foreground shadow-none hover:bg-muted data-[state=open]:border-primary/40 md:w-[220px]"
                     >
-                      <span className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary transition-colors group-hover:bg-primary/10">
+                      <span className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                         <Wand2 className="size-3.5" />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex min-w-0 items-center gap-1.5 leading-4">
-                          <span className="truncate text-[13px] font-semibold text-foreground">
-                            场景绑定
-                          </span>
-                          <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0 text-[9px] font-semibold leading-4 text-primary">
-                            KG
-                          </span>
-                        </span>
-                        <span className="block truncate text-[11px] font-normal leading-4 text-muted-foreground">
-                          抽取 · 召回 · 关系治理
-                        </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        图谱场景配置
                       </span>
                       <ChevronDown className="ml-2 size-4 shrink-0 text-muted-foreground/70 transition-transform group-data-[state=open]:rotate-180 group-data-[state=open]:text-primary" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
                     align="end"
-                    className="max-h-[76vh] w-[540px] overflow-y-auto rounded-2xl border-border bg-card p-0 shadow-[0_18px_50px_rgba(15,23,42,0.14)]"
+                    className="max-h-[76vh] w-[min(520px,calc(100vw-2rem))] overflow-y-auto rounded-md border-border bg-background p-0 shadow-md"
                   >
-                    <div className="border-b border-border/50 bg-[linear-gradient(180deg,hsl(var(--muted)/0.6),hsl(var(--card)))] px-4 py-3">
+                    <div className="border-b border-border bg-background px-4 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-[13px] font-semibold text-foreground">
-                            场景绑定
+                          <div className="text-sm font-semibold text-foreground">
+                            图谱场景配置
                           </div>
-                          <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                            把提示词模板绑定到 KG 抽取、对话召回和关系治理。
+                          <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                            为图谱抽取和关系治理选择提示词模板。
                           </div>
                         </div>
-                        <span className="rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-                          低频配置
-                        </span>
+                        <span className="text-xs text-muted-foreground">高级设置</span>
                       </div>
                     </div>
-                    <div className="space-y-3 bg-muted/40 p-3">
+                    <div className="space-y-3 bg-background p-3">
                       <KgExtractPromptSettings templates={templates} />
                       <KgPredicateOntologySettings />
                     </div>
@@ -625,10 +659,10 @@ function PromptsPageContent() {
             </div>
 
             {selectedIds.size > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-info/20 bg-info/5 px-4 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-info/20 bg-info/5 px-3 py-2.5 md:px-4">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={true} onCheckedChange={handleSelectAll} />
-                  <span className="text-[12px] font-medium text-info">
+                  <span className="text-xs font-medium text-info">
                     已选择 {selectedIds.size} 个模板
                   </span>
                 </div>
@@ -636,25 +670,28 @@ function PromptsPageContent() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 rounded-md border-info/30 bg-card px-2.5 text-[11px] text-info hover:bg-info/10"
+                    className="h-8 rounded-md border-info/30 bg-background px-2.5 text-xs text-info hover:bg-info/10"
                     onClick={() => handleBatchActivate(true)}
+                    disabled={batchAction !== null}
                   >
-                    批量启用
+                    {batchAction === 'activate' ? '启用中' : '批量启用'}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 rounded-md border-border bg-card px-2.5 text-[11px] text-foreground/85 hover:bg-muted/50"
+                    className="h-8 rounded-md border-border bg-background px-2.5 text-xs text-foreground hover:bg-muted"
                     onClick={() => handleBatchActivate(false)}
+                    disabled={batchAction !== null}
                   >
-                    批量停用
+                    {batchAction === 'deactivate' ? '停用中' : '批量停用'}
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="h-7 rounded-md px-2.5 text-[11px]"
+                        className="h-8 rounded-md px-2.5 text-xs"
+                        disabled={batchAction !== null}
                       >
                         <Trash2 className="mr-1 size-3" />
                         批量删除
@@ -671,8 +708,11 @@ function PromptsPageContent() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBatchDelete}>
-                          删除
+                        <AlertDialogAction
+                          onClick={handleBatchDelete}
+                          disabled={batchAction !== null}
+                        >
+                          {batchAction === 'delete' ? '删除中' : '删除'}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -692,7 +732,17 @@ function PromptsPageContent() {
                     icon={MessageSquare}
                     title="提示词模板加载失败"
                     description={templateLoadError}
-                  />
+                  >
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 rounded-md"
+                      onClick={() => templatesQuery.refetch()}
+                    >
+                      <RefreshCw className="mr-2 size-4" aria-hidden="true" />
+                      重新加载
+                    </Button>
+                  </EmptyState>
                 )
               }
 
@@ -710,7 +760,7 @@ function PromptsPageContent() {
                     {templates.length === 0 ? (
                       <Button
                         onClick={handleCreate}
-                        className="h-8 rounded-lg bg-primary px-3 text-xs text-info-foreground hover:bg-primary"
+                        className="h-9 rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
                       >
                         <Plus className="mr-2 size-4" />
                         创建第一个模板
@@ -722,34 +772,40 @@ function PromptsPageContent() {
 
               return (
                 <>
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[1080px]">
-                      <div className="grid grid-cols-[40px_minmax(220px,1fr)_78px_62px_130px_136px_350px] items-center border-b border-border/60 bg-muted/40 px-4 py-3 text-[12px] font-semibold text-muted-foreground">
+                  <div>
+                    <div>
+                      <div className="grid grid-cols-[32px_minmax(0,1fr)] items-center gap-x-2 border-b border-border bg-muted/40 px-3 py-3 text-xs font-semibold text-muted-foreground lg:grid-cols-[40px_minmax(220px,1fr)_90px_64px_130px_136px_184px] lg:px-4">
                         <Checkbox
                           checked={allCurrentPageSelected}
                           onCheckedChange={handleSelectAll}
                         />
                         <div>模板</div>
-                        <div>分类</div>
-                        <div>使用</div>
-                        <div>变量</div>
-                        <div>更新时间</div>
-                        <div>操作</div>
+                        <div className="hidden lg:block">分类</div>
+                        <div className="hidden lg:block">使用</div>
+                        <div className="hidden lg:block">变量</div>
+                        <div className="hidden lg:block">更新时间</div>
+                        <div className="hidden lg:block">操作</div>
                       </div>
-                      <div className="max-h-[calc(100vh-360px)] divide-y divide-border/50 overflow-y-auto">
+                      <div className="max-h-[calc(100vh-360px)] divide-y divide-border overflow-y-auto">
                         {paginatedTemplates.map((template) => (
                           <div
                             key={template.id}
                             className={cn(
-                              'grid grid-cols-[40px_minmax(220px,1fr)_78px_62px_130px_136px_350px] items-center px-4 py-2 text-[13px] transition-colors hover:bg-muted/40',
+                              'grid grid-cols-[32px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 px-3 py-3 text-sm transition-colors hover:bg-muted/40 lg:grid-cols-[40px_minmax(220px,1fr)_90px_64px_130px_136px_184px] lg:px-4',
                               selectedIds.has(template.id) && 'bg-info/5'
                             )}
                           >
                             <div>
                               <Checkbox
                                 checked={selectedIds.has(template.id)}
+                                disabled={template.is_system}
                                 onCheckedChange={() =>
                                   handleSelectOne(template.id)
+                                }
+                                aria-label={
+                                  template.is_system
+                                    ? `${template.name} 是系统模板，不能批量操作`
+                                    : `选择模板 ${template.name}`
                                 }
                               />
                             </div>
@@ -765,7 +821,7 @@ function PromptsPageContent() {
                                 <Badge
                                   variant="outline"
                                   className={cn(
-                                    'h-5 px-1.5 text-[11px]',
+                                    'h-5 px-1.5 text-xs',
                                     template.is_active
                                       ? activeStatusBadgeClass
                                       : inactiveStatusBadgeClass
@@ -774,17 +830,17 @@ function PromptsPageContent() {
                                   {template.is_active ? '启用' : '停用'}
                                 </Badge>
                               </div>
-                              <div className="mt-1 truncate text-[12px] text-muted-foreground">
+                              <div className="mt-1 truncate text-xs text-muted-foreground">
                                 {template.description || '无描述'}
                               </div>
                             </button>
-                            <div className="text-muted-foreground">
-                              {template.category || '-'}
+                            <div className="hidden text-muted-foreground lg:block">
+                              {getCategoryLabel(template.category)}
                             </div>
-                            <div className="tabular-nums text-muted-foreground">
+                            <div className="hidden tabular-nums text-muted-foreground lg:block">
                               {template.usage_count}
                             </div>
-                            <div className="flex min-w-0 flex-wrap gap-1">
+                            <div className="hidden min-w-0 flex-wrap gap-1 lg:flex">
                               {template.variables.length > 0 ? (
                                 <>
                                   {template.variables
@@ -793,13 +849,13 @@ function PromptsPageContent() {
                                       <Badge
                                         key={variable}
                                         variant="secondary"
-                                        className="h-6 rounded-md bg-muted px-2 font-mono text-[11px] font-medium text-foreground/85"
+                                        className="h-6 rounded-md bg-muted px-2 font-mono text-xs font-medium text-foreground/85"
                                       >
                                         {`{${variable}}`}
                                       </Badge>
                                     ))}
                                   {template.variables.length > 2 ? (
-                                    <span className="text-[11px] text-muted-foreground/70">
+                                    <span className="text-xs text-muted-foreground/70">
                                       +{template.variables.length - 2}
                                     </span>
                                   ) : null}
@@ -808,63 +864,68 @@ function PromptsPageContent() {
                                 <span className="text-muted-foreground/70">-</span>
                               )}
                             </div>
-                            <div className="tabular-nums text-muted-foreground">
+                            <div className="hidden tabular-nums text-muted-foreground lg:block">
                               {formatDateTime(template.updated_at)}
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="col-start-2 flex flex-wrap items-center gap-1.5 lg:col-start-auto">
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
-                                className="h-7 rounded-lg border-border px-2 text-[11px]"
+                                className="h-8 w-8 rounded-md border-border"
                                 onClick={() => handlePreview(template)}
+                                aria-label={`预览模板 ${template.name}`}
+                                title="预览"
                               >
-                                <Eye className="mr-1 size-3" />
-                                预览
+                                <Eye className="size-4" aria-hidden="true" />
                               </Button>
                               {template.is_system ? null : (
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
-                                  className="h-7 rounded-lg border-border px-2 text-[11px]"
+                                  className="h-8 w-8 rounded-md border-border"
                                   onClick={() => handleEdit(template)}
+                                  aria-label={`编辑模板 ${template.name}`}
+                                  title="编辑"
                                 >
-                                  <Edit className="mr-1 size-3" />
-                                  编辑
+                                  <Edit className="size-4" aria-hidden="true" />
                                 </Button>
                               )}
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
-                                className="h-7 rounded-lg border-border px-2 text-[11px]"
+                                className="h-8 w-8 rounded-md border-border"
                                 onClick={() => handleDuplicate(template)}
+                                aria-label={`复制模板 ${template.name}`}
+                                title="复制"
                               >
-                                <Copy className="mr-1 size-3" />
-                                复制
+                                <Copy className="size-4" aria-hidden="true" />
                               </Button>
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
-                                className="h-7 rounded-lg border-border px-2 text-[11px]"
+                                className="h-8 w-8 rounded-md border-border"
                                 onClick={() => handleToggleActive(template)}
+                                aria-label={`${template.is_active ? '停用' : '启用'}模板 ${template.name}`}
+                                title={template.is_active ? '停用' : '启用'}
                               >
                                 {template.is_active ? (
-                                  <X className="mr-1 size-3" />
+                                  <X className="size-4" aria-hidden="true" />
                                 ) : (
-                                  <Check className="mr-1 size-3" />
+                                  <Check className="size-4" aria-hidden="true" />
                                 )}
-                                {template.is_active ? '停用' : '启用'}
                               </Button>
                               {template.is_system ? null : (
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
-                                  className="h-7 rounded-lg border-destructive/20 px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  className="h-8 w-8 rounded-md border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                   onClick={() =>
                                     setDeleteTemplateTarget(template)
                                   }
+                                  aria-label={`删除模板 ${template.name}`}
+                                  title="删除"
                                 >
-                                  <Trash2 className="mr-1 size-3" />
-                                  删除
+                                  <Trash2 className="size-4" aria-hidden="true" />
                                 </Button>
                               )}
                             </div>
@@ -874,14 +935,14 @@ function PromptsPageContent() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3 text-[13px] text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col gap-3 border-t border-border px-3 py-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between md:px-4">
                     <div>共 {filteredTemplates.length} 条</div>
                     <div className="flex flex-wrap items-center justify-end gap-3">
                       <Select
                         value={String(pageSize)}
                         onValueChange={(value) => setPageSize(Number(value))}
                       >
-                        <SelectTrigger className="h-9 w-[112px] rounded-lg border-border bg-card text-[13px]">
+                      <SelectTrigger className="h-9 w-[112px] rounded-md border-border bg-background text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -896,6 +957,8 @@ function PromptsPageContent() {
                         variant="outline"
                         size="sm"
                         className="h-9 w-9 rounded-lg border-border p-0"
+                        aria-label="上一页"
+                        title="上一页"
                         disabled={safeCurrentPage <= 1}
                         onClick={() =>
                           setCurrentPage((page) => Math.max(1, page - 1))
@@ -903,10 +966,7 @@ function PromptsPageContent() {
                       >
                         <ChevronLeft className="size-4" />
                       </Button>
-                      {Array.from(
-                        { length: Math.min(4, totalPages) },
-                        (_, index) => index + 1
-                      ).map((page) => (
+                      {getVisiblePageNumbers(safeCurrentPage, totalPages).map((page) => (
                         <Button
                           key={page}
                           variant={
@@ -914,9 +974,9 @@ function PromptsPageContent() {
                           }
                           size="sm"
                           className={cn(
-                            'h-9 w-9 rounded-lg p-0 text-[13px]',
+                            'h-9 w-9 rounded-md p-0 text-sm',
                             safeCurrentPage === page
-                              ? 'bg-primary text-info-foreground hover:bg-primary'
+                              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                               : 'border-border bg-card text-muted-foreground'
                           )}
                           onClick={() => setCurrentPage(page)}
@@ -928,6 +988,8 @@ function PromptsPageContent() {
                         variant="outline"
                         size="sm"
                         className="h-9 w-9 rounded-lg border-border p-0"
+                        aria-label="下一页"
+                        title="下一页"
                         disabled={safeCurrentPage >= totalPages}
                         onClick={() =>
                           setCurrentPage((page) =>
@@ -939,6 +1001,10 @@ function PromptsPageContent() {
                       </Button>
                       <span>前往</span>
                       <Input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        aria-label="页码"
                         value={String(safeCurrentPage)}
                         onChange={(event) => {
                           const value = Number(event.target.value)
@@ -949,7 +1015,7 @@ function PromptsPageContent() {
                           )
                             setCurrentPage(value)
                         }}
-                        className="h-9 w-16 rounded-lg border-border text-center text-[13px]"
+                        className="h-9 w-16 rounded-md border-border text-center text-sm"
                       />
                       <span>页</span>
                     </div>
@@ -992,9 +1058,9 @@ function PromptsPageContent() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Preview Dialog */}
+        {/* 模板预览。 */}
         <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto overscroll-contain rounded-2xl border border-border/60 bg-card no-scrollbar">
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto overscroll-contain rounded-md border border-border bg-background no-scrollbar">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {previewTemplate?.name}
@@ -1004,7 +1070,7 @@ function PromptsPageContent() {
                 {previewTemplate?.is_active ? (
                   <Badge
                     variant="outline"
-                    className={cn('h-5 text-[11px]', activeStatusBadgeClass)}
+                    className={cn('h-5 text-xs', activeStatusBadgeClass)}
                   >
                     <Check className="mr-1 size-3" />
                     启用
@@ -1012,7 +1078,7 @@ function PromptsPageContent() {
                 ) : (
                   <Badge
                     variant="outline"
-                    className={cn('h-5 text-[11px]', inactiveStatusBadgeClass)}
+                    className={cn('h-5 text-xs', inactiveStatusBadgeClass)}
                   >
                     <X className="mr-1 size-3" />
                     停用
@@ -1026,16 +1092,16 @@ function PromptsPageContent() {
 
             {previewTemplate && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-sm font-medium">分类</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {previewTemplate.category || '无'}
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {getCategoryLabel(previewTemplate.category)}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">使用次数</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {previewTemplate.usage_count}
                     </p>
                   </div>
@@ -1043,7 +1109,7 @@ function PromptsPageContent() {
 
                 <div>
                   <Label className="text-sm font-medium">支持的变量</Label>
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="mt-2 flex flex-wrap gap-1">
                     {previewTemplate.variables.length > 0 ? (
                       previewTemplate.variables.map((v) => (
                         <Badge key={v} variant="secondary">
@@ -1059,7 +1125,7 @@ function PromptsPageContent() {
                 {previewTemplate.tags.length > 0 && (
                   <div>
                     <Label className="text-sm font-medium">标签</Label>
-                    <div className="flex flex-wrap gap-1 mt-2">
+                    <div className="mt-2 flex flex-wrap gap-1">
                       {previewTemplate.tags.map((tag) => (
                         <Badge key={tag} variant="outline">
                           {tag}
@@ -1071,8 +1137,8 @@ function PromptsPageContent() {
 
                 <div>
                   <Label className="text-sm font-medium">模板内容</Label>
-                  <div className="mt-2 p-4 bg-muted/60 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap font-mono">
+                  <div className="mt-2 rounded-md bg-muted/60 p-4">
+                    <pre className="whitespace-pre-wrap font-mono text-sm">
                       {previewTemplate.content}
                     </pre>
                   </div>
@@ -1089,7 +1155,7 @@ function PromptsPageContent() {
                     handleEdit(previewTemplate)
                   }}
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="mr-2 h-4 w-4" />
                   编辑
                 </Button>
               )}
@@ -1103,29 +1169,34 @@ function PromptsPageContent() {
           </DialogContent>
         </Dialog>
 
-        {/* Create/Edit Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-border/60 bg-card no-scrollbar">
+        {/* 创建或编辑模板。 */}
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            if (!savingTemplate) setDialogOpen(open)
+          }}
+        >
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto overscroll-contain rounded-md border border-border bg-background no-scrollbar">
             <DialogHeader>
-              <DialogTitle className="text-[15px] font-semibold">
+              <DialogTitle className="text-base font-semibold">
                 {editingTemplate ? '编辑模板' : '创建新模板'}
               </DialogTitle>
               <DialogDescription>
-                创建或编辑提示词模板，支持使用变量如 {'{context}'},{' '}
-                {'{question}'}, {'{history}'}
+                可在模板中使用 {'{context}'}、{'{question}'}、{'{history}'} 等变量。
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">名称 *</Label>
+                <Label htmlFor="name">名称（必填）</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="例如: 法律顾问助手"
+                  placeholder="例如：法律顾问助手"
+                  className="h-10 rounded-md"
                 />
               </div>
 
@@ -1137,38 +1208,39 @@ function PromptsPageContent() {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  placeholder="简短描述这个模板的用途"
+                  placeholder="简要说明模板用途"
+                  className="h-10 rounded-md"
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">分类</Label>
+                <Label htmlFor="category">分类标识</Label>
                 <Input
                   id="category"
                   value={formData.category}
                   onChange={(e) =>
                     setFormData({ ...formData, category: e.target.value })
                   }
-                  placeholder="例如: legal, technical, casual"
-                  className="h-9"
+                  placeholder="例如：rag_answer"
+                  className="h-10 rounded-md"
                 />
               </div>
 
               <div>
-                <Label htmlFor="content">模板内容 *</Label>
+                <Label htmlFor="content">模板内容（必填）</Label>
                 <Textarea
                   id="content"
                   value={formData.content}
                   onChange={(e) =>
                     setFormData({ ...formData, content: e.target.value })
                   }
-                  placeholder="输入提示词模板内容，使用 {context}, {question}, {history} 等变量"
-                  className="min-h-[300px] font-mono text-sm"
+                  placeholder="输入提示词内容，可使用 {context}、{question}、{history} 等变量"
+                  className="min-h-[300px] rounded-md font-mono text-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="variables">支持的变量 (逗号分隔)</Label>
+                <Label htmlFor="variables">支持的变量（用逗号分隔）</Label>
                 <Input
                   id="variables"
                   value={formData.variables?.join(', ')}
@@ -1181,12 +1253,13 @@ function PromptsPageContent() {
                         .filter(Boolean),
                     })
                   }
-                  placeholder="context, question, history, format_instructions"
+                  placeholder="context, question, history"
+                  className="h-10 rounded-md"
                 />
               </div>
 
               <div>
-                <Label htmlFor="tags">标签 (逗号分隔)</Label>
+                <Label htmlFor="tags">标签（用逗号分隔）</Label>
                 <Input
                   id="tags"
                   value={formData.tags?.join(', ')}
@@ -1199,20 +1272,35 @@ function PromptsPageContent() {
                         .filter(Boolean),
                     })
                   }
-                  placeholder="expert, concise, formal"
+                  placeholder="专业, 简洁, 正式"
+                  className="h-10 rounded-md"
                 />
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={savingTemplate}
+              >
                 取消
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!formData.name || !formData.content}
+                disabled={
+                  savingTemplate ||
+                  !formData.name.trim() ||
+                  !formData.content.trim()
+                }
               >
-                保存
+                {savingTemplate ? (
+                  <Loader2
+                    className="mr-2 size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {savingTemplate ? '保存中' : '保存'}
               </Button>
             </DialogFooter>
           </DialogContent>

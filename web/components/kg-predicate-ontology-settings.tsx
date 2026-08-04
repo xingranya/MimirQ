@@ -15,13 +15,6 @@ import type {
   KGPredicateOntologyUpdateRequest,
 } from '@/types'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -175,7 +168,7 @@ export function KgPredicateOntologySettings() {
   const saveForm = () => {
     const predicate = formPredicate.trim()
     if (!predicate) {
-      toast.error('请输入谓词 key（snake_case）')
+      toast.error('请输入谓词标识')
       return
     }
 
@@ -216,34 +209,34 @@ export function KgPredicateOntologySettings() {
   }
 
   return (
-    <Card
+    <section
       className={cn(
-        'overflow-hidden rounded-xl border-border/60 bg-card shadow-none',
+        'overflow-hidden rounded-md border border-border bg-background',
         loading ? 'opacity-60' : ''
       )}
     >
-      <CardHeader className="space-y-1 border-b border-border/50 bg-muted/40 p-3">
+      <div className="space-y-1 border-b border-border bg-muted/30 p-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-[13px] font-semibold text-foreground">
-            KG 谓词治理
-          </CardTitle>
-          <span className="rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+          <h3 className="text-sm font-semibold text-foreground">
+            图谱关系治理
+          </h3>
+          <span className="text-xs font-medium text-success">
             关系白名单
           </span>
         </div>
-        <CardDescription className="text-[11px] leading-4 text-muted-foreground">
+        <p className="text-xs leading-5 text-muted-foreground">
           限定关系抽取可输出的谓词，减少关系漂移和脏数据。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 p-3">
+        </p>
+      </div>
+      <div className="space-y-3 p-3">
         {kgEnabled === false ? (
           <>
             <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5">
               <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-warning">
+                <div className="text-sm font-semibold text-warning">
                   知识图谱未启用
                 </div>
-                <div className="mt-0.5 text-[11px] leading-4 text-warning">
+                <div className="mt-0.5 text-xs leading-5 text-warning">
                   启用后才能维护关系白名单。
                 </div>
               </div>
@@ -253,18 +246,18 @@ export function KgPredicateOntologySettings() {
                 variant="outline"
                 onClick={refreshStatus}
                 disabled={loading || saving}
-                className="h-7 shrink-0 gap-1.5 rounded-md border-warning/30 bg-card px-2.5 text-[11px] text-warning hover:bg-warning/10"
+                className="h-8 shrink-0 gap-1.5 rounded-md border-warning/30 bg-background px-2.5 text-xs text-warning hover:bg-warning/10"
               >
                 <RefreshCw className="w-3 h-3" />
                 检查状态
               </Button>
             </div>
 
-            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3">
-              <div className="text-[12px] font-semibold text-foreground">
+            <div className="rounded-md border border-border bg-muted/30 p-3">
+              <div className="text-sm font-semibold text-foreground">
                 当前不可编辑
               </div>
-              <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
                 请先在系统设置中开启知识图谱能力，再返回这里配置谓词治理规则。
               </div>
             </div>
@@ -272,7 +265,7 @@ export function KgPredicateOntologySettings() {
         ) : (
           <>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 共 {rows.length} 条，已启用{' '}
                 {rows.filter((r) => r.is_enabled).length} 条
               </div>
@@ -282,16 +275,16 @@ export function KgPredicateOntologySettings() {
                 variant="outline"
                 onClick={refreshStatus}
                 disabled={loading || saving}
-                className="h-7 gap-1.5 rounded-md px-2.5 text-[11px]"
+                className="h-8 gap-1.5 rounded-md px-2.5 text-xs"
               >
                 <RefreshCw className="w-3 h-3" />
                 刷新
               </Button>
             </div>
 
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/40 p-3">
+            <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[12px] font-semibold text-foreground">
+                <div className="text-sm font-semibold text-foreground">
                   {editingId ? '编辑谓词' : '新增谓词'}
                 </div>
                 <div className="flex items-center gap-2">
@@ -301,7 +294,7 @@ export function KgPredicateOntologySettings() {
                     variant="outline"
                     onClick={resetForm}
                     disabled={saving}
-                    className="h-7 rounded-md px-2.5 text-[11px]"
+                    className="h-8 rounded-md px-2.5 text-xs"
                   >
                     重置
                   </Button>
@@ -310,7 +303,7 @@ export function KgPredicateOntologySettings() {
                     size="sm"
                     onClick={saveForm}
                     disabled={saving || !hasForm}
-                    className="h-7 gap-1.5 rounded-md px-2.5 text-[11px]"
+                    className="h-8 gap-1.5 rounded-md px-2.5 text-xs"
                   >
                     {editingId ? (
                       <Save className="w-3 h-3" />
@@ -326,25 +319,25 @@ export function KgPredicateOntologySettings() {
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="kg-onto-predicate"
-                    className="text-[11px] font-medium text-muted-foreground"
+                    className="text-xs font-medium text-foreground"
                   >
-                    谓词 key
+                    谓词标识
                   </Label>
                   <Input
                     id="kg-onto-predicate"
                     value={formPredicate}
                     onChange={(e) => setFormPredicate(e.target.value)}
                     placeholder="例如：works_for"
-                    className="h-8 font-mono text-[12px]"
+                    className="h-9 rounded-md font-mono text-sm"
                   />
-                  <div className="text-[11px] text-muted-foreground">
-                    系统会自动归一化为 snake_case。
+                  <div className="text-xs text-muted-foreground">
+                    系统会自动整理为小写英文和下划线格式。
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="kg-onto-display"
-                    className="text-[11px] font-medium text-muted-foreground"
+                    className="text-xs font-medium text-foreground"
                   >
                     展示名称
                   </Label>
@@ -352,14 +345,14 @@ export function KgPredicateOntologySettings() {
                     id="kg-onto-display"
                     value={formDisplayName}
                     onChange={(e) => setFormDisplayName(e.target.value)}
-                    placeholder="例如：Works For / 就职于"
-                    className="h-8 text-[12px]"
+                    placeholder="例如：就职于"
+                    className="h-9 rounded-md text-sm"
                   />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label
                     htmlFor="kg-onto-desc"
-                    className="text-[11px] font-medium text-muted-foreground"
+                    className="text-xs font-medium text-foreground"
                   >
                     说明
                   </Label>
@@ -367,16 +360,16 @@ export function KgPredicateOntologySettings() {
                     id="kg-onto-desc"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
-                    placeholder="用于解释该 predicate 的语义与方向性"
-                    className="h-8 text-[12px]"
+                    placeholder="说明这条关系的含义和方向"
+                    className="h-9 rounded-md text-sm"
                   />
                 </div>
                 <div className="flex items-center justify-between gap-2 md:col-span-2">
-                  <div className="text-[12px]">
+                  <div className="text-sm">
                     <div className="font-semibold text-foreground">
                       启用该谓词
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       关闭后抽取结果不会写入该关系。
                     </div>
                   </div>
@@ -388,14 +381,14 @@ export function KgPredicateOntologySettings() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-border/60">
-              <div className="grid grid-cols-[1fr_auto] gap-2 bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
+            <div className="overflow-hidden rounded-md border border-border">
+              <div className="grid grid-cols-[1fr_auto] gap-2 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
                 <div>谓词</div>
                 <div>状态</div>
               </div>
               <div className="divide-y divide-border/50">
                 {rows.length === 0 ? (
-                  <div className="p-3 text-[11px] text-muted-foreground">
+                  <div className="p-3 text-xs text-muted-foreground">
                     暂无条目。可先添加常用关系，如
                     alias_of、part_of、works_for。
                   </div>
@@ -415,7 +408,7 @@ export function KgPredicateOntologySettings() {
                           </span>
                           {r.display_name ? (
                             <span
-                              className="truncate text-[11px] text-muted-foreground"
+                              className="truncate text-xs text-muted-foreground"
                               title={r.display_name}
                             >
                               {r.display_name}
@@ -424,7 +417,7 @@ export function KgPredicateOntologySettings() {
                         </div>
                         {r.description ? (
                           <div
-                            className="truncate text-[11px] text-muted-foreground"
+                            className="truncate text-xs text-muted-foreground"
                             title={r.description}
                           >
                             {r.description}
@@ -436,7 +429,7 @@ export function KgPredicateOntologySettings() {
                             size="sm"
                             variant="outline"
                             onClick={() => startEdit(r)}
-                            className="h-7 gap-1 px-2 text-[11px]"
+                            className="h-8 gap-1 rounded-md px-2 text-xs"
                           >
                             <Edit className="w-3 h-3" />
                             编辑
@@ -446,7 +439,7 @@ export function KgPredicateOntologySettings() {
                             size="sm"
                             variant="outline"
                             onClick={() => requestDelete(r)}
-                            className="h-7 gap-1 px-2 text-[11px] hover:bg-destructive/10 hover:text-destructive"
+                            className="h-8 gap-1 rounded-md px-2 text-xs hover:bg-destructive/10 hover:text-destructive"
                           >
                             <Trash2 className="w-3 h-3" />
                             删除
@@ -467,7 +460,7 @@ export function KgPredicateOntologySettings() {
             </div>
           </>
         )}
-      </CardContent>
+      </div>
 
       <AlertDialog
         open={deleteOpen}
@@ -484,7 +477,7 @@ export function KgPredicateOntologySettings() {
               <span className="font-mono">
                 {deleteTarget?.predicate || '-'}
               </span>
-              <span>。此操作不可撤销（但可以重新创建）。</span>
+              <span>。删除后，如需使用需要重新创建。</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -495,6 +488,6 @@ export function KgPredicateOntologySettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </section>
   )
 }
