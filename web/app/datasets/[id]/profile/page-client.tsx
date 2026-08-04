@@ -48,6 +48,10 @@ import {
 import { datasetApi, documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { reportClientError } from '@/lib/client-logging'
+import {
+  createDocumentBatchOutcome,
+  formatDocumentBatchOutcome,
+} from '@/lib/document-batch-outcome'
 import { queryKeys } from '@/lib/query-keys'
 import { cn, formatFileSize, formatDate, detachPromise } from '@/lib/utils'
 
@@ -644,9 +648,20 @@ export default function DatasetProfilePage() {
         if (scope === 'single') {
           setFindingRetryingIds((prev) => ({ ...prev, [docIds[0]]: true }))
         }
-        await documentApi.batchRetry({ document_ids: docIds, force: true, skip_if_unchanged: false })
-        toast.success(`已触发重试：${docIds.length} 个文档`)
-        detachPromise(refreshProfileOverview())
+        const result = await documentApi.batchRetry({
+          document_ids: docIds,
+          force: true,
+          skip_if_unchanged: false,
+        })
+        const outcome = createDocumentBatchOutcome(docIds, result, 'queued')
+        const message = formatDocumentBatchOutcome(outcome, {
+          successVerb: '已提交重试',
+          completeFailure: '所选文档均未能提交重试',
+        })
+        if (outcome.status === 'error') toast.error(message)
+        else if (outcome.status === 'warning') toast.warning(message)
+        else toast.success(message)
+        if (outcome.succeeded > 0) detachPromise(refreshProfileOverview())
       } catch (e) {
         toast.error(formatApiError(e, '触发重试失败'))
       } finally {

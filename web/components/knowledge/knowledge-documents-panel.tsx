@@ -133,6 +133,7 @@ type KnowledgeDocumentsPanelProps = {
 
   selectedDocIds: string[]
   setSelectedDocIds: (value: string[]) => void
+  onDocumentsChanged?: () => void | Promise<void>
   selectedSet: Set<string>
   allVisibleSelected: boolean
   toggleSelectAllVisible: () => void
@@ -274,6 +275,7 @@ export function KnowledgeDocumentsPanel({
   onPageChange,
   selectedDocIds,
   setSelectedDocIds,
+  onDocumentsChanged,
   selectedSet,
   allVisibleSelected,
   toggleSelectAllVisible,
@@ -764,6 +766,8 @@ export function KnowledgeDocumentsPanel({
               selectedDocumentIds={selectedDocIds}
               datasetId={selectedDatasetId}
               datasets={datasets}
+              onSelectedDocumentIdsChange={setSelectedDocIds}
+              onDocumentsChanged={onDocumentsChanged}
             />
           </div>
         </SheetContent>

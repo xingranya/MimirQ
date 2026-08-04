@@ -8,6 +8,7 @@ import type {
   DocumentAccessUpdateRequest,
   DocumentBatchAccessUpdateRequest,
   DocumentBatchAccessUpdateResponse,
+  DocumentBatchDeleteResponse,
   DocumentBatchLifecycleResponse,
   DocumentBatchMoveRequest,
   DocumentBatchMoveResponse,
@@ -485,7 +486,7 @@ export const documentApi = {
 
   async batchDelete(
     document_ids: string[]
-  ): Promise<{ deleted: number; not_found?: string[]; denied?: string[] }> {
+  ): Promise<DocumentBatchDeleteResponse> {
     return openapiRequest({
       path: '/api/v1/documents/batch-delete',
       method: 'post',

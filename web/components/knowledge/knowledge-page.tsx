@@ -71,6 +71,11 @@ import { Link, useRouter } from '@/i18n/navigation'
 import { documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { buildChunkPreviewDocumentHref } from '@/lib/chunk-preview-links'
+import {
+  createDocumentBatchOutcome,
+  formatDocumentBatchOutcome,
+  type DocumentBatchOutcome,
+} from '@/lib/document-batch-outcome'
 import { cn, detachPromise, formatFileSize } from '@/lib/utils'
 import { useDocumentView } from '@/store/document-view'
 import { resolveKnowledgeDocumentGridColumns } from '@/components/knowledge/knowledge-layout'
@@ -83,6 +88,25 @@ const KNOWLEDGE_WORKBENCH_SURFACE_CLASS =
   'border-border bg-background shadow-none'
 const DOCUMENTS_PAGE_SIZE = 20
 type TabKey = 'documents' | 'retrieval' | 'settings'
+
+const LIFECYCLE_BATCH_COPY = {
+  enable: { successVerb: '已启用', completeFailure: '未能启用所选文档' },
+  disable: { successVerb: '已禁用', completeFailure: '未能禁用所选文档' },
+  archive: { successVerb: '已归档', completeFailure: '未能归档所选文档' },
+  unarchive: { successVerb: '已取消归档', completeFailure: '未能取消所选文档的归档' },
+} as const
+
+function showBatchOutcome(outcome: DocumentBatchOutcome, message: string) {
+  if (outcome.status === 'error') {
+    toast.error(message)
+    return
+  }
+  if (outcome.status === 'warning') {
+    toast.warning(message)
+    return
+  }
+  toast.success(message)
+}
 
 export default function KnowledgePage() {
   const t = useTranslations('KnowledgePage')
@@ -602,9 +626,18 @@ export default function KnowledgePage() {
           archive: documentApi.batchArchive,
           unarchive: documentApi.batchUnarchive,
         }[action]
-        await lifecycleAction(selectedDocIds)
-        toast.success(t(`toasts.batchLifecycleSuccess.${action}`))
-        await loadDocuments()
+        const result = await lifecycleAction(selectedDocIds)
+        const outcome = createDocumentBatchOutcome(
+          selectedDocIds,
+          result,
+          'updated'
+        )
+        setSelectedDocIds(outcome.remainingIds)
+        showBatchOutcome(
+          outcome,
+          formatDocumentBatchOutcome(outcome, LIFECYCLE_BATCH_COPY[action])
+        )
+        if (outcome.succeeded > 0) await loadDocuments()
       } catch (err) {
         toast.error(formatApiError(err, t('toasts.batchLifecycleFailed')))
       } finally {
@@ -619,15 +652,26 @@ export default function KnowledgePage() {
 
     setBatchReingestWorking(true)
     try {
-      await documentApi.batchReingest({
+      const result = await documentApi.batchReingest({
         document_ids: selectedDocIds,
         replace: false,
         force: true,
         skip_if_unchanged: false,
       })
-      toast.success(t('toasts.batchReingestSuccess'))
-      setSelectedDocIds([])
-      await loadDocuments()
+      const outcome = createDocumentBatchOutcome(
+        selectedDocIds,
+        result,
+        'queued'
+      )
+      setSelectedDocIds(outcome.remainingIds)
+      showBatchOutcome(
+        outcome,
+        formatDocumentBatchOutcome(outcome, {
+          successVerb: '已提交重新入库',
+          completeFailure: '所选文档均未能提交重新入库',
+        })
+      )
+      if (outcome.succeeded > 0) await loadDocuments()
     } catch (err) {
       toast.error(formatApiError(err, t('toasts.batchReingestFailed')))
     } finally {
@@ -640,9 +684,21 @@ export default function KnowledgePage() {
 
     setBatchDeleting(true)
     try {
-      await documentApi.batchDelete(selectedDocIds)
-      setSelectedDocIds([])
-      await loadDocuments()
+      const result = await documentApi.batchDelete(selectedDocIds)
+      const outcome = createDocumentBatchOutcome(
+        selectedDocIds,
+        result,
+        'deleted'
+      )
+      setSelectedDocIds(outcome.remainingIds)
+      showBatchOutcome(
+        outcome,
+        formatDocumentBatchOutcome(outcome, {
+          successVerb: '已删除',
+          completeFailure: '未能删除所选文档',
+        })
+      )
+      if (outcome.succeeded > 0) await loadDocuments()
     } catch (err) {
       toast.error(formatApiError(err, t('toasts.batchDeleteFailed')))
     } finally {
@@ -1254,6 +1310,7 @@ export default function KnowledgePage() {
               onPageChange={setDocumentsPage}
               selectedDocIds={selectedDocIds}
               setSelectedDocIds={setSelectedDocIds}
+              onDocumentsChanged={loadDocuments}
               selectedSet={selectedSet}
               allVisibleSelected={allVisibleSelected}
               toggleSelectAllVisible={toggleSelectAllVisible}

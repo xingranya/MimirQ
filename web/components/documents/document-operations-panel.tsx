@@ -11,10 +11,21 @@ import { Panel } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
+import {
+  createDocumentBatchOutcome,
+  formatDocumentBatchOutcome,
+} from '@/lib/document-batch-outcome'
 import { cn, detachPromise } from '@/lib/utils'
 import type { Dataset } from '@/types'
 
 const NO_TARGET_DATASET = '__none__'
+
+type OperationResult = {
+  title: string
+  payload: unknown
+  status: 'success' | 'warning'
+  summary?: string
+}
 
 function prettyJson(value: unknown) {
   try {
@@ -58,15 +69,19 @@ export function DocumentOperationsPanel({
   selectedDocumentIds,
   datasetId,
   datasets = [],
+  onSelectedDocumentIdsChange,
+  onDocumentsChanged,
 }: Readonly<{
   selectedDocumentIds: string[]
   datasetId?: string | null
   datasets?: Dataset[]
+  onSelectedDocumentIdsChange?: (documentIds: string[]) => void
+  onDocumentsChanged?: () => void | Promise<void>
 }>) {
   const [targetDatasetId, setTargetDatasetId] = useState('')
   const [resultDetailsOpen, setResultDetailsOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [result, setResult] = useState<{ title: string; payload: unknown } | null>(null)
+  const [result, setResult] = useState<OperationResult | null>(null)
 
   const ids = selectedDocumentIds
   const firstDocumentId = ids[0] || ''
@@ -82,13 +97,15 @@ export function DocumentOperationsPanel({
   )
   const targetDatasetValue = targetDatasetId.trim() || NO_TARGET_DATASET
   const selectedScopeLabel = ids.length ? `${ids.length} 个文档` : '未勾选文档'
-  const resultSummary = result ? formatResultSummary(result.payload) : null
+  const resultSummary = result
+    ? result.summary || formatResultSummary(result.payload)
+    : null
 
   async function runAction(key: string, title: string, action: () => Promise<unknown>) {
     setBusy(key)
     try {
       const payload = await action()
-      setResult({ title, payload })
+      setResult({ title, payload, status: 'success' })
       setResultDetailsOpen(false)
       toast.success(`${title}完成`)
     } catch (error) {
@@ -98,56 +115,100 @@ export function DocumentOperationsPanel({
     }
   }
 
+  async function runBatchMove() {
+    const targetId = targetDatasetId.trim()
+    if (!ids.length || !targetId) return
+
+    setBusy('move')
+    try {
+      const payload = await documentApi.batchMove({
+        document_ids: ids,
+        target_dataset_id: targetId,
+      })
+      const outcome = createDocumentBatchOutcome(ids, payload, 'moved')
+      const summary = formatDocumentBatchOutcome(outcome, {
+        successVerb: '已移动',
+        completeFailure: '未能移动所选文档',
+      })
+
+      setResultDetailsOpen(false)
+      if (outcome.status === 'error') {
+        setResult(null)
+        toast.error(summary)
+        return
+      }
+
+      setResult({ title: '批量移动', payload, status: outcome.status, summary })
+      onSelectedDocumentIdsChange?.(outcome.remainingIds)
+      if (outcome.status === 'warning') toast.warning(summary)
+      else toast.success(summary)
+      if (outcome.succeeded > 0) await onDocumentsChanged?.()
+    } catch (error) {
+      toast.error(formatApiError(error, '批量移动失败'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <Panel
       padding="none"
-      className="overflow-hidden border-border/50 bg-[linear-gradient(135deg,hsl(var(--card)/0.92),hsl(var(--surface-2)/0.58))] shadow-[0_14px_36px_-30px_hsl(var(--primary)/0.28)] ring-1 ring-card/70 dark:border-border/60 dark:bg-card/88 dark:ring-white/5"
+      className="overflow-hidden border-border bg-background shadow-none"
     >
-      <div className="flex flex-col gap-2 border-b border-border/50 px-3 py-2.5 lg:flex-row lg:items-start lg:justify-between dark:border-border/60">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl border border-info/18 bg-info/[0.08] text-info shadow-[inset_0_1px_0_hsl(var(--card)/0.86)] dark:border-info/25 dark:bg-info/10 dark:text-info">
-            <FileJson className="size-4" />
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <FileJson className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[13px] font-semibold leading-none tracking-[-0.01em] text-foreground">文档高级操作</div>
-              <span className="rounded-full border border-info/18 bg-info/[0.07] px-2 py-0.5 text-[10px] font-semibold leading-none text-info dark:border-info/25 dark:bg-info/10 dark:text-info">
-                使用当前知识库和勾选文档
+              <h2 className="text-sm font-semibold leading-5 text-foreground">
+                文档运维工具
+              </h2>
+              <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                当前选择
               </span>
             </div>
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-              仅保留可直接执行的安全操作：统计、解析内容、重复文件、生命周期元数据和批量移动。
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              查看文档状态和解析结果，或把勾选的文档移动到其他知识库。
             </p>
           </div>
         </div>
-        <div className="flex h-7 shrink-0 items-center gap-2 rounded-full border border-border/50 bg-background/72 px-2.5 text-[11px] text-muted-foreground shadow-[inset_0_1px_0_hsl(var(--card)/0.82)] dark:border-border/60 dark:bg-muted/20">
-          {busy ? <Loader2 className="size-3.5 animate-spin text-info motion-reduce:animate-none" /> : <span className="size-1.5 rounded-full bg-success" />}
+        <div className="flex h-9 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground">
+          {busy ? (
+            <Loader2 className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+          ) : (
+            <span className="size-2 rounded-full bg-success" aria-hidden="true" />
+          )}
           <span>{busy ? '执行中' : '待操作'}</span>
         </div>
       </div>
 
-      <div className="grid gap-2 px-3 py-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(250px,0.58fr)]">
-        <div className="rounded-[15px] border border-border/48 bg-card/66 p-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.78)] dark:border-border/60 dark:bg-background/35">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="text-[11px] font-semibold leading-none text-foreground/84">当前作用域</div>
-            <div className="rounded-full bg-muted/45 px-2 py-0.5 text-[10px] text-muted-foreground">
-              无需手填 ID
-            </div>
+      <div className="grid gap-5 border-b border-border px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.55fr)]">
+        <section aria-labelledby="document-operation-scope">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 id="document-operation-scope" className="text-sm font-medium text-foreground">
+              当前范围
+            </h3>
+            <span className="text-xs text-muted-foreground">自动使用当前选择</span>
           </div>
-          <div className="grid gap-1.5 md:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <ContextItem label="知识库" value={currentDatasetLabel} subValue={effectiveDatasetId || '全局范围'} />
             <ContextItem label="文档范围" value={selectedScopeLabel} subValue={firstDocumentId ? `默认文档 ${firstDocumentId.slice(0, 8)}` : '先在列表勾选文档'} />
-            <ContextItem label="批量来源" value="当前勾选" subValue="无需手填文档 ID" />
+            <ContextItem label="批量来源" value="当前勾选" subValue="无需填写文档编号" />
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-[15px] border border-border/48 bg-card/66 p-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.78)] dark:border-border/60 dark:bg-background/35">
+        <section aria-labelledby="document-operation-target">
+          <h3 id="document-operation-target" className="mb-3 text-sm font-medium text-foreground">
+            移动目标
+          </h3>
           <Field label="移动到知识库">
             <Select
               value={targetDatasetValue}
               onValueChange={(value) => setTargetDatasetId(value === NO_TARGET_DATASET ? '' : value)}
             >
-              <SelectTrigger className="h-8 rounded-xl border-border/55 bg-background/78 text-[12px] shadow-none dark:border-border/60 dark:bg-background/70">
+              <SelectTrigger className="h-10 rounded-md border-border bg-background text-sm shadow-none">
                 <SelectValue placeholder="选择目标知识库" />
               </SelectTrigger>
               <SelectContent>
@@ -162,20 +223,21 @@ export function DocumentOperationsPanel({
                 ))}
               </SelectContent>
             </Select>
-            <div className="mt-1.5 rounded-lg bg-muted/30 px-2 py-1 text-[10px] leading-4 text-muted-foreground dark:bg-muted/20">
-              仅批量移动需要选择目标库；只读操作会自动使用当前知识库。
-            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              只有批量移动需要选择目标知识库，其他操作使用当前范围。
+            </p>
           </Field>
-        </div>
+        </section>
       </div>
 
-      <div className="px-3 pb-2.5">
-        <div className="rounded-[15px] border border-border/48 bg-muted/[0.14] p-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.74)] dark:border-border/60 dark:bg-muted/10">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="text-[11px] font-semibold leading-none text-foreground/84">操作区</div>
-            <div className="text-[10px] text-muted-foreground">按当前作用域自动带入参数</div>
+      <section className="px-4 py-4" aria-labelledby="document-operation-actions">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h3 id="document-operation-actions" className="text-sm font-medium text-foreground">
+              可用操作
+            </h3>
+            <span className="text-xs text-muted-foreground">参数会从当前范围自动带入</span>
           </div>
-          <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.52fr)]">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.5fr)]">
             <ActionGroup icon={FileText} title="读取 / 诊断" description="只读操作，不改变文档。">
               <ActionButton icon={FileJson} busy={busy === 'stats'} disabled={Boolean(busy)} label="文档统计" onClick={() => runAction('stats', '文档统计', () => documentApi.stats({ dataset_id: effectiveDatasetId || undefined }))} />
               <ActionButton icon={FileJson} busy={busy === 'parsed'} disabled={Boolean(busy) || !firstDocumentId} label="查看解析内容" onClick={() => runAction('parsed', '解析内容', () => documentApi.getParsedContent(firstDocumentId, { max_chars: 20_000 }))} />
@@ -183,32 +245,52 @@ export function DocumentOperationsPanel({
               <ActionButton icon={FileJson} busy={busy === 'lifecycle'} disabled={Boolean(busy) || !firstDocumentId} label="生命周期元数据" onClick={() => runAction('lifecycle', '生命周期元数据', () => documentApi.getLifecycleMetadata(firstDocumentId))} />
             </ActionGroup>
             <ActionGroup icon={FolderInput} title="批量变更" description="仅使用当前勾选文档。">
-              <ActionButton icon={FolderInput} busy={busy === 'move'} disabled={Boolean(busy) || ids.length === 0 || !targetDatasetId.trim()} label="批量移动" onClick={() => runAction('move', '批量移动', () => documentApi.batchMove({ document_ids: ids, target_dataset_id: targetDatasetId.trim() }))} />
+              <ActionButton icon={FolderInput} busy={busy === 'move'} disabled={Boolean(busy) || ids.length === 0 || !targetDatasetId.trim()} label="批量移动" onClick={runBatchMove} />
             </ActionGroup>
           </div>
-        </div>
-      </div>
+      </section>
 
       {result ? (
-        <div className="mx-3 mb-3 overflow-hidden rounded-[15px] border border-success/22 bg-[linear-gradient(135deg,hsl(var(--success)/0.08),hsl(var(--card)/0.70))] shadow-[inset_0_1px_0_hsl(var(--card)/0.72)] dark:bg-success/[0.06]">
-          <div className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 gap-2.5">
-              <span className="mt-1 size-2 shrink-0 rounded-full bg-success shadow-[0_0_0_4px_hsl(var(--success)/0.12)]" />
+        <div
+          role="status"
+          className={cn(
+            'mx-4 mb-4 overflow-hidden rounded-md border bg-background',
+            result.status === 'warning' ? 'border-warning/40' : 'border-success/35'
+          )}
+        >
+          <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <span
+                className={cn(
+                  'mt-1.5 size-2 shrink-0 rounded-full',
+                  result.status === 'warning' ? 'bg-warning' : 'bg-success'
+                )}
+                aria-hidden="true"
+              />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-[12px] font-semibold text-foreground">{result.title}已完成</div>
-                  <span className="rounded-full border border-success/22 bg-card/68 px-2 py-0.5 text-[10px] font-medium text-success dark:bg-success/10 dark:text-success">
-                    完成
+                  <p className="text-sm font-semibold text-foreground">
+                    {result.title}{result.status === 'warning' ? '部分完成' : '已完成'}
+                  </p>
+                  <span
+                    className={cn(
+                      'rounded-md border px-2 py-1 text-xs font-medium',
+                      result.status === 'warning'
+                        ? 'border-warning/35 bg-warning/10 text-warning-foreground'
+                        : 'border-success/30 bg-success/10 text-success'
+                    )}
+                  >
+                    {result.status === 'warning' ? '部分完成' : '完成'}
                   </span>
                 </div>
-                <div className="mt-1 text-[12px] leading-5 text-muted-foreground">{resultSummary}</div>
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">{resultSummary}</p>
               </div>
             </div>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-7 shrink-0 rounded-full border border-success/18 bg-card/58 px-2.5 text-[11px] font-medium text-success hover:bg-card/86 dark:bg-success/10 dark:text-success"
+              className="h-9 shrink-0 rounded-md px-3 text-xs"
               aria-expanded={resultDetailsOpen}
               onClick={() => setResultDetailsOpen((open) => !open)}
             >
@@ -216,7 +298,7 @@ export function DocumentOperationsPanel({
             </Button>
           </div>
           {resultDetailsOpen ? (
-            <pre className={cn('max-h-56 overflow-auto border-t border-success/16 bg-background/78 p-2.5 text-[11px] leading-5 dark:bg-background/80', 'whitespace-pre-wrap break-words')}>
+            <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words border-t border-border bg-muted/30 p-3 text-xs leading-5 text-foreground">
               {prettyJson(result.payload)}
             </pre>
           ) : null}
@@ -228,8 +310,10 @@ export function DocumentOperationsPanel({
 
 function Field({ label, children }: Readonly<{ label: string; children: ReactNode }>) {
   return (
-    <div className="space-y-1">
-      <Label className="text-[11px] font-semibold leading-none text-foreground/74 dark:text-muted-foreground">{label}</Label>
+    <div className="space-y-2">
+      <Label className="text-xs font-medium leading-5 text-foreground">
+        {label}
+      </Label>
       {children}
     </div>
   )
@@ -245,14 +329,14 @@ function ContextItem({
   subValue: string
 }>) {
   return (
-    <div className="min-w-0 rounded-xl border border-border/45 bg-background/70 px-2.5 py-2 shadow-[inset_0_1px_0_hsl(var(--card)/0.74)] dark:border-border/60 dark:bg-background/45">
-      <div className="text-[10px] font-medium leading-none text-muted-foreground/62">{label}</div>
-      <div className="mt-1.5 truncate text-[12px] font-semibold leading-none text-foreground/90" title={value}>
+    <div className="min-w-0 border-l border-border pl-3">
+      <p className="text-xs font-medium leading-5 text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-medium leading-5 text-foreground" title={value}>
         {value}
-      </div>
-      <div className="mt-1 truncate text-[10px] leading-none text-muted-foreground/72" title={subValue}>
+      </p>
+      <p className="truncate text-xs leading-5 text-muted-foreground" title={subValue}>
         {subValue}
-      </div>
+      </p>
     </div>
   )
 }
@@ -269,17 +353,19 @@ function ActionGroup({
   title: string
 }>) {
   return (
-    <section className="rounded-[15px] border border-border/45 bg-card/70 p-2.5 shadow-[inset_0_1px_0_hsl(var(--card)/0.76)] dark:border-border/60 dark:bg-background/35">
-      <div className="mb-2.5 flex items-start gap-2">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/28 text-muted-foreground dark:border-border/60 dark:bg-muted/20 dark:text-muted-foreground">
-          <Icon className="size-3.5" />
+    <section>
+      <div className="mb-3 flex items-start gap-2">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <Icon className="size-4" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <div className="text-[12px] font-semibold leading-none text-foreground/90">{title}</div>
-          <div className="mt-1 text-[10px] leading-[14px] text-muted-foreground">{description}</div>
+          <h4 className="text-sm font-medium leading-5 text-foreground">{title}</h4>
+          <p className="text-xs leading-5 text-muted-foreground">{description}</p>
         </div>
       </div>
-      <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">{children}</div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+        {children}
+      </div>
     </section>
   )
 }
@@ -298,8 +384,18 @@ function ActionButton({
   onClick: () => Promise<void>
 }>) {
   return (
-    <Button size="sm" variant="ghost" className="h-8 justify-start gap-1.5 rounded-xl border border-border/50 bg-background/74 px-2.5 text-[12px] font-medium text-foreground/78 shadow-[inset_0_1px_0_hsl(var(--card)/0.74)] hover:border-info/24 hover:bg-card/92 hover:text-foreground hover:shadow-sm disabled:border-border/35 disabled:bg-muted/25 disabled:text-muted-foreground/45 disabled:opacity-100 dark:border-border/60 dark:bg-background/45 dark:text-muted-foreground dark:hover:bg-muted/45 dark:hover:text-foreground" disabled={disabled} onClick={() => detachPromise(onClick())}>
-      {busy ? <Loader2 className="size-3.5 animate-spin text-info motion-reduce:animate-none" /> : <Icon className="size-3.5" />}
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-9 justify-start gap-2 rounded-md px-3 text-xs font-medium"
+      disabled={disabled}
+      onClick={() => detachPromise(onClick())}
+    >
+      {busy ? (
+        <Loader2 className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+      ) : (
+        <Icon className="size-4" aria-hidden="true" />
+      )}
       {label}
     </Button>
   )

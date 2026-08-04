@@ -7,6 +7,7 @@ import type { JsonObject, LooseString } from './common'
 export type DocumentStats = import('./backend').DocumentStats
 export type DocumentBatchLifecycleRequest = import('./backend').DocumentBatchLifecycleRequest
 export type DocumentBatchLifecycleResponse = import('./backend').DocumentBatchLifecycleResponse
+export type DocumentBatchDeleteResponse = import('./backend').DocumentBatchDeleteResponse
 export type DocumentBatchRetryRequest = import('./backend').DocumentBatchRetryRequest
 export type DocumentBatchReingestRequest = import('./backend').DocumentBatchReingestRequest
 export type DocumentBatchRetryResponse = import('./backend').DocumentBatchRetryResponse

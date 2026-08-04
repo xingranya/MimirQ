@@ -66,6 +66,7 @@ export type DocumentBatchUploadSuccess = OpenApiSchema<'DocumentBatchUploadSucce
 export type DocumentBatchUploadFailure = OpenApiSchema<'DocumentBatchUploadFailure'>
 export type DocumentBatchLifecycleRequest = OpenApiSchema<'DocumentBatchLifecycleRequest'>
 export type DocumentBatchLifecycleResponse = OpenApiSchema<'DocumentBatchLifecycleResponse'>
+export type DocumentBatchDeleteResponse = OpenApiSchema<'DocumentBatchDeleteResponse'>
 export type DocumentBatchRetryRequest = OpenApiSchema<'DocumentBatchRetryRequest'>
 export type DocumentBatchRetryResponse = OpenApiSchema<'DocumentBatchRetryResponse'>
 export type DocumentBatchReingestRequest = OpenApiSchema<'DocumentBatchReingestRequest'>
