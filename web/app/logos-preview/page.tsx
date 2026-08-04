@@ -1,9 +1,5 @@
-/**
- * Logo 预览页面 - 用于测试和查看所有品牌图标
- */
 import { AppFrame } from '@/components/app-frame'
 import { ProviderIcon } from '@/components/provider-icon'
-import { Card, CardContent } from '@/components/ui/card'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { Grid3X3 } from 'lucide-react'
 
@@ -26,172 +22,106 @@ const providers = [
   { id: 'jina-reranker', name: 'Jina Reranker', color: '#8B5CF6' },
   { id: 'local-embedding', name: '本地 Embedding', color: '#10B981' },
   { id: 'local-reranker', name: '本地 Reranker', color: '#F97316' },
-]
+] as const
+
+const sizeOptions = [
+  { size: 'size-6', label: '24px' },
+  { size: 'size-8', label: '32px' },
+  { size: 'size-12', label: '48px' },
+  { size: 'size-16', label: '64px' },
+] as const
+
+const backgroundOptions = [
+  { label: '浅色背景', className: 'border-border bg-background' },
+  { label: '灰色背景', className: 'border-border bg-muted' },
+  { label: '深色背景', className: 'border-neutral-700 bg-neutral-950' },
+] as const
 
 export default function LogosPreviewPage() {
   return (
     <AppFrame>
       <PageScaffold
-        title="品牌 Logo 预览"
-        badge="LOGOS"
+        title="供应商图标"
         icon={Grid3X3}
-        iconColor="text-accent"
-        description="查看所有模型提供商的图标展示与适配效果"
+        iconColor="text-primary"
+        description="检查模型与重排服务图标在常用尺寸和不同背景下的显示效果。"
+        size="full"
+        compact
       >
+        <div
+          className="overflow-hidden rounded-md border border-border bg-card"
+          data-provider-icon-catalog="true"
+        >
+          <section aria-labelledby="provider-icons-title">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <h2 id="provider-icons-title" className="text-base font-semibold text-foreground">
+                图标目录
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">共 {providers.length} 个供应商与本地服务。</p>
+            </div>
 
-        {/* Logo 网格 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {providers.map((provider) => (
-            <Card
-              key={provider.id}
-              className="rounded-xl border border-border bg-card shadow-soft hover:shadow-strong transition-shadow"
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center text-center">
-                  {/* Logo 大尺寸 */}
-                  <div className="w-24 h-24 flex items-center justify-center mb-4 rounded-lg bg-muted/40 border border-border/60">
-                    <ProviderIcon providerId={provider.id} className="w-16 h-16" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+              {providers.map((provider) => (
+                <div
+                  key={provider.id}
+                  className="flex min-w-0 items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:[&:nth-child(odd)]:border-r xl:[&:nth-child(odd)]:border-r-0 xl:[&:not(:nth-child(3n))]:border-r"
+                >
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+                    <ProviderIcon providerId={provider.id} className="size-7" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">
-                    {provider.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-3">{provider.id}</p>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-6 h-6 rounded border border-border"
-                      style={{ backgroundColor: provider.color }}
-                    />
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {provider.color}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-medium text-foreground">{provider.name}</h3>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{provider.id}</p>
+                  </div>
+                  <span
+                    className="size-4 shrink-0 rounded-sm border border-border"
+                    style={{ backgroundColor: provider.color }}
+                    title={provider.color}
+                    aria-label={`${provider.name} 品牌色 ${provider.color}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="border-t border-border" aria-labelledby="provider-sizes-title">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <h2 id="provider-sizes-title" className="text-base font-semibold text-foreground">
+                尺寸检查
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">使用 OpenAI 图标核对常用显示尺寸。</p>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
+              {sizeOptions.map((option) => (
+                <div key={option.label} className="flex min-h-28 flex-col items-center justify-center gap-3 bg-card p-4">
+                  <ProviderIcon providerId="openai" className={option.size} />
+                  <span className="text-xs text-muted-foreground">{option.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="border-t border-border" aria-labelledby="provider-backgrounds-title">
+            <div className="border-b border-border px-4 py-3 sm:px-5">
+              <h2 id="provider-backgrounds-title" className="text-base font-semibold text-foreground">
+                背景检查
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">确认图标在常用界面底色上清晰可辨。</p>
+            </div>
+            <div className="grid grid-cols-1 gap-px bg-border md:grid-cols-3">
+              {backgroundOptions.map((option) => (
+                <div key={option.label} className="bg-card p-4 sm:p-5">
+                  <h3 className="mb-3 text-sm font-medium text-foreground">{option.label}</h3>
+                  <div className={`flex min-h-24 flex-wrap items-center gap-3 rounded-md border p-4 ${option.className}`}>
+                    {providers.slice(0, 9).map((provider) => (
+                      <ProviderIcon key={provider.id} providerId={provider.id} className="size-8" />
+                    ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              ))}
+            </div>
+          </section>
         </div>
-
-        {/* 不同尺寸预览 */}
-        <Card className="rounded-xl border border-border bg-card shadow-soft">
-          <CardContent className="p-8">
-          <h2 className="text-2xl font-bold text-foreground mb-6">
-            尺寸对比
-          </h2>
-          <div className="space-y-8">
-            {[
-              { size: 'w-6 h-6', label: '小 (24px)', px: '24px' },
-              { size: 'w-8 h-8', label: '中 (32px)', px: '32px' },
-              { size: 'w-12 h-12', label: '大 (48px)', px: '48px' },
-              { size: 'w-16 h-16', label: '特大 (64px)', px: '64px' },
-            ].map((sizeConfig) => (
-              <div key={sizeConfig.size}>
-                <h3 className="text-sm font-medium text-foreground/80 mb-3">
-                  {sizeConfig.label}
-                </h3>
-                <div className="flex items-center gap-4 flex-wrap">
-                  {providers.map((provider) => (
-                    <div
-                      key={provider.id}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      <div className="p-2 bg-muted/40 border border-border/60 rounded-lg">
-                        <ProviderIcon
-                          providerId={provider.id}
-                          className={sizeConfig.size}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {provider.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          </CardContent>
-        </Card>
-
-        {/* 背景对比 */}
-        <Card className="mt-6 rounded-xl border border-border bg-card shadow-soft">
-          <CardContent className="p-8">
-          <h2 className="text-2xl font-bold text-foreground mb-6">
-            背景对比
-          </h2>
-          <div className="grid grid-cols-3 gap-6">
-            {/* 白色背景 */}
-            <div>
-              <h3 className="text-sm font-medium text-foreground/80 mb-3">
-                白色背景
-              </h3>
-              <div className="bg-background p-4 rounded-lg border border-border">
-                <div className="flex flex-wrap gap-3">
-                  {providers.map((provider) => (
-                    <ProviderIcon
-                      key={provider.id}
-                      providerId={provider.id}
-                      className="w-10 h-10"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 灰色背景 */}
-            <div>
-              <h3 className="text-sm font-medium text-foreground/80 mb-3">
-                灰色背景
-              </h3>
-              <div className="bg-muted/60 p-4 rounded-lg border border-border/60">
-                <div className="flex flex-wrap gap-3">
-                  {providers.map((provider) => (
-                    <ProviderIcon
-                      key={provider.id}
-                      providerId={provider.id}
-                      className="w-10 h-10"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 深色背景 */}
-            <div>
-              <h3 className="text-sm font-medium text-foreground/80 mb-3">
-                深色背景
-              </h3>
-              <div className="bg-foreground p-4 rounded-lg border border-border/60">
-                <div className="flex flex-wrap gap-3">
-                  {providers.map((provider) => (
-                    <ProviderIcon
-                      key={provider.id}
-                      providerId={provider.id}
-                      className="w-10 h-10"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          </CardContent>
-        </Card>
-
-        {/* 说明 */}
-        <Card className="mt-6 rounded-xl border border-border bg-card shadow-soft">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              使用说明
-            </h3>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• ProviderIcon 优先使用 LobeHub SVG：<code className="bg-muted px-1 rounded">/public/logos/lobehub/</code></li>
-              <li>• 旧资源兜底：<code className="bg-muted px-1 rounded">/public/logos/</code>（PNG/SVG）</li>
-              <li>• 同步脚本：<code className="bg-muted px-1 rounded">node web/scripts/sync-lobehub-icons.mjs</code></li>
-              <li>• 组件: <code className="bg-muted px-1 rounded">&lt;ProviderIcon providerId=&quot;openai&quot; /&gt;</code></li>
-              <li>• 建议尺寸: 24px (小)、32px (中)、48px (大)</li>
-              <li>• 如需替换,访问 <code className="bg-muted px-1 rounded">/public/logos/README.md</code> 查看指南</li>
-            </ul>
-          </CardContent>
-        </Card>
       </PageScaffold>
     </AppFrame>
   )
