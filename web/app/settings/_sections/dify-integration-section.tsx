@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Copy, Database, KeyRound, Link2, PlugZap, RefreshCw, Trash2 } from 'lucide-react'
 
 import { SettingsSwitch } from '@/components/settings/settings-switch'
@@ -92,6 +92,8 @@ export function DifyIntegrationSection({
   const [datasetsLoading, setDatasetsLoading] = useState(false)
   const [origin, setOrigin] = useState('')
   const [copied, setCopied] = useState(false)
+  const datasetsRequestRef = useRef(0)
+  const datasetsLoadingRef = useRef(false)
 
   const endpointPath = difyExternalKnowledge.endpoint_path || '/api/v1/integrations/dify/retrieval'
   const endpointUrl = `${origin}${endpointPath}`
@@ -113,27 +115,33 @@ export function DifyIntegrationSection({
     setOrigin(globalThis.window.location.origin)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    async function loadDatasets() {
-      setDatasetsLoading(true)
-      setDatasetsError('')
-      try {
-        const items = await datasetApi.listAll()
-        if (cancelled) return
-        setDatasets(items)
-        setSelectedDatasetIds((prev) => prev.filter((id) => items.some((dataset) => dataset.id === id)))
-      } catch {
-        if (!cancelled) setDatasetsError('数据集加载失败，请刷新后重试')
-      } finally {
-        if (!cancelled) setDatasetsLoading(false)
-      }
-    }
-    void loadDatasets()
-    return () => {
-      cancelled = true
+  const loadDatasets = useCallback(async () => {
+    if (datasetsLoadingRef.current) return
+    datasetsLoadingRef.current = true
+    const requestId = datasetsRequestRef.current + 1
+    datasetsRequestRef.current = requestId
+    setDatasetsLoading(true)
+    setDatasetsError('')
+
+    try {
+      const items = await datasetApi.listAll()
+      if (requestId !== datasetsRequestRef.current) return
+      setDatasets(items)
+      setSelectedDatasetIds((prev) => prev.filter((id) => items.some((dataset) => dataset.id === id)))
+    } catch {
+      if (requestId === datasetsRequestRef.current) setDatasetsError('数据集加载失败，请重试')
+    } finally {
+      datasetsLoadingRef.current = false
+      if (requestId === datasetsRequestRef.current) setDatasetsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    void loadDatasets()
+    return () => {
+      datasetsRequestRef.current += 1
+    }
+  }, [loadDatasets])
 
   useEffect(() => {
     if (selectedDatasets.length > 0) setKnowledgeId(buildKnowledgeId(selectedDatasets))
@@ -261,8 +269,18 @@ export function DifyIntegrationSection({
               </div>
             ) : null}
             {datasetsError ? (
-              <div className="col-span-full rounded-[12px] border border-warning/25 bg-warning/10 px-3 py-2 text-[12px] text-warning">
-                {datasetsError}
+              <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-warning/25 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+                <span>{datasetsError}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-[6px] border-warning/30 bg-background px-2.5 text-[12px] text-foreground hover:bg-warning/10"
+                  disabled={datasetsLoading}
+                  onClick={() => void loadDatasets()}
+                >
+                  <RefreshCw className={cn('size-3.5', datasetsLoading && 'animate-spin')} />
+                  重新加载
+                </Button>
               </div>
             ) : null}
             {!datasetsLoading && datasets.length === 0 && !datasetsError ? (
