@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   ArrowUpRight,
   BarChart3,
   Clock3,
@@ -124,14 +125,29 @@ function UsageMetric({
 function UsageDatasetCell({
   datasetId,
   datasetName,
+  labelsUnavailable,
 }: Readonly<{
   datasetId: string
   datasetName: string
+  labelsUnavailable: boolean
 }>) {
-  const displayName = datasetName || (datasetId ? '已删除或无权访问' : '未关联数据集')
-  const status = datasetName ? 'active' : datasetId ? 'unavailable' : 'unbound'
+  const displayName =
+    datasetName ||
+    (datasetId
+      ? labelsUnavailable
+        ? '数据集名称加载失败'
+        : '已删除或无权访问'
+      : '未关联数据集')
+  const status = datasetName
+    ? 'active'
+    : datasetId
+      ? labelsUnavailable
+        ? 'load_error'
+        : 'unavailable'
+      : 'unbound'
   const statusLabel = {
     active: '可查看',
+    load_error: '名称待重试',
     unavailable: '不可访问',
     unbound: '未关联',
   }[status]
@@ -147,6 +163,8 @@ function UsageDatasetCell({
             'shrink-0 rounded-md border px-1.5 py-0.5 text-xs',
             status === 'active'
               ? 'border-success/25 bg-success/10 text-success'
+              : status === 'load_error'
+                ? 'border-destructive/25 bg-destructive/10 text-destructive'
               : status === 'unavailable'
                 ? 'border-warning/25 bg-warning/10 text-warning'
                 : 'border-border bg-muted text-muted-foreground'
@@ -165,11 +183,13 @@ function UsageDatasetCell({
 function DatasetLink({
   datasetId,
   datasetName,
+  allowUnknownDataset,
 }: Readonly<{
   datasetId: string
   datasetName: string
+  allowUnknownDataset: boolean
 }>) {
-  if (!datasetId || !datasetName) {
+  if (!datasetId || (!datasetName && !allowUnknownDataset)) {
     return <span className="text-xs text-muted-foreground">不可查看</span>
   }
 
@@ -181,6 +201,50 @@ function DatasetLink({
       查看数据集
       <ArrowUpRight className="size-3.5" aria-hidden="true" />
     </Link>
+  )
+}
+
+function UsageQueryError({
+  error,
+  fallback,
+  title,
+  onRetry,
+}: Readonly<{
+  error: unknown
+  fallback: string
+  title: string
+  onRetry: () => void
+}>) {
+  if (!error) return null
+
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 border-b border-destructive/25 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        <AlertTriangle
+          className="mt-0.5 size-4 shrink-0 text-destructive"
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-destructive">{title}</p>
+          <p className="mt-0.5 text-xs text-destructive/85">
+            {formatApiError(error, fallback)}
+          </p>
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 shrink-0 rounded-md border-destructive/25 bg-background text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={onRetry}
+      >
+        <RefreshCw className="size-3.5" aria-hidden="true" />
+        重试
+      </Button>
+    </div>
   )
 }
 
@@ -221,15 +285,15 @@ function UsagePageContent() {
     placeholderData: (previousData) => previousData,
   })
 
-  const costQuery = useQuery<ChatCostUsageSummary | null>({
+  const costQuery = useQuery<ChatCostUsageSummary>({
     queryKey: queryKeys.usage.cost(windowParams),
-    queryFn: () => usageApi.getChatCostUsageSummary(windowParams).catch(() => null),
+    queryFn: () => usageApi.getChatCostUsageSummary(windowParams),
     placeholderData: (previousData) => previousData,
   })
 
-  const quotaQuery = useQuery<ChatTokenQuotaStatus | null>({
+  const quotaQuery = useQuery<ChatTokenQuotaStatus>({
     queryKey: queryKeys.usage.quota,
-    queryFn: () => usageApi.getChatTokenQuotaStatus().catch(() => null),
+    queryFn: () => usageApi.getChatTokenQuotaStatus(),
     staleTime: 60 * 1000,
   })
 
@@ -258,9 +322,12 @@ function UsagePageContent() {
     costQuery.isFetching ||
     quotaQuery.isFetching ||
     datasetLabelsQuery.isFetching
-  const loadErrorMessage = summaryQuery.error
-    ? formatApiError(summaryQuery.error, '用量数据加载失败，请稍后重试')
-    : ''
+  const hasLoadError = Boolean(
+    summaryQuery.error ||
+      costQuery.error ||
+      quotaQuery.error ||
+      datasetLabelsQuery.error
+  )
 
   const rows = useMemo(() => {
     const list = summary?.by_dataset || []
@@ -279,12 +346,18 @@ function UsagePageContent() {
   const averageRetrievalTime = cost
     ? cost.total_retrieval_elapsed_sec / Math.max(1, cost.total_assistant_messages || 0)
     : null
-  const quotaStatus = quota?.enabled
-    ? quota.exceeded
-      ? '已超出上限'
-      : '额度正常'
-    : '未启用'
-  const dataStatus = loading
+  const quotaStatus = quotaQuery.error && !quota
+    ? '聊天配额读取失败'
+    : quota?.enabled
+      ? quota.exceeded
+        ? '已超出上限'
+        : '额度正常'
+      : quota
+        ? '未启用'
+        : '暂无配额数据'
+  const dataStatus = hasLoadError
+    ? '部分数据加载失败'
+    : loading
     ? summary
       ? '正在更新'
       : '正在加载'
@@ -322,6 +395,8 @@ function UsagePageContent() {
                       'rounded-md border px-2 py-0.5 text-xs',
                       summary
                         ? 'border-success/25 bg-success/10 text-success'
+                        : hasLoadError
+                          ? 'border-destructive/25 bg-destructive/10 text-destructive'
                         : 'border-border bg-muted text-muted-foreground'
                     )}
                   >
@@ -365,51 +440,114 @@ function UsagePageContent() {
               </div>
             </div>
 
-            {loadErrorMessage ? (
-              <div role="alert" className="border-b border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {loadErrorMessage}
-              </div>
-            ) : null}
+            <UsageQueryError
+              error={summaryQuery.error}
+              fallback="用量数据加载失败，请稍后重试"
+              title="对话用量加载失败"
+              onRetry={() => void summaryQuery.refetch()}
+            />
+            <UsageQueryError
+              error={quotaQuery.error}
+              fallback="聊天配额加载失败，请稍后重试"
+              title="聊天配额加载失败"
+              onRetry={() => void quotaQuery.refetch()}
+            />
 
             <dl className="grid grid-cols-2 gap-px bg-border lg:grid-cols-3 2xl:grid-cols-6">
               <UsageMetric
                 icon={UserRound}
                 label="回答令牌"
-                value={formatNumber(summary?.total_assistant_tokens)}
+                value={
+                  summaryQuery.error && !summary
+                    ? '加载失败'
+                    : summaryQuery.isFetching && !summary
+                      ? '正在加载'
+                      : formatNumber(summary?.total_assistant_tokens)
+                }
                 detail="AI 回答产生的令牌"
               />
               <UsageMetric
                 icon={Coins}
                 label="模型总令牌"
-                value={formatNumber(cost?.total_llm_total_tokens)}
+                value={
+                  costQuery.error && !cost
+                    ? '加载失败'
+                    : costQuery.isFetching && !cost
+                      ? '正在加载'
+                      : formatNumber(cost?.total_llm_total_tokens)
+                }
                 detail="模型请求估算值"
               />
               <UsageMetric
                 icon={Database}
                 label="向量化令牌"
-                value={formatNumber(cost?.total_embedding_query_tokens)}
+                value={
+                  costQuery.error && !cost
+                    ? '加载失败'
+                    : costQuery.isFetching && !cost
+                      ? '正在加载'
+                      : formatNumber(cost?.total_embedding_query_tokens)
+                }
                 detail="检索查询消耗"
               />
               <UsageMetric
                 icon={Timer}
                 label="平均检索耗时"
-                value={formatSec(averageRetrievalTime)}
+                value={
+                  costQuery.error && !cost
+                    ? '加载失败'
+                    : costQuery.isFetching && !cost
+                      ? '正在加载'
+                      : cost
+                        ? formatSec(averageRetrievalTime)
+                        : '暂无数据'
+                }
                 detail="每条助手消息"
               />
               <UsageMetric
                 icon={Clock3}
                 label="聊天配额"
-                value={quota?.enabled ? formatNumber(quota.remaining) : '未启用'}
+                value={
+                  quotaQuery.error && !quota
+                    ? '加载失败'
+                    : quotaQuery.isFetching && !quota
+                      ? '正在加载'
+                      : quota?.enabled
+                        ? formatNumber(quota.remaining)
+                        : quota
+                          ? '未启用'
+                          : '暂无数据'
+                }
                 detail={quotaStatus}
               />
               <UsageMetric
                 icon={MessageSquareText}
                 label="助手消息"
-                value={formatNumber(summary?.total_assistant_messages)}
+                value={
+                  summaryQuery.error && !summary
+                    ? '加载失败'
+                    : summaryQuery.isFetching && !summary
+                      ? '正在加载'
+                      : formatNumber(summary?.total_assistant_messages)
+                }
                 detail="统计期内消息数"
               />
             </dl>
           </section>
+
+          {datasetLabelsQuery.error ? (
+            <section className="overflow-hidden rounded-md border border-border bg-card">
+              <UsageQueryError
+                error={datasetLabelsQuery.error}
+                fallback="数据集名称加载失败，请稍后重试"
+                title="数据集名称加载失败"
+                onRetry={() => void datasetLabelsQuery.refetch()}
+              />
+              <p className="px-4 py-3 text-sm text-muted-foreground">
+                用量数据仍可按数据集编号核对，名称恢复后会自动替换。
+              </p>
+            </section>
+          ) : null}
 
           <div className="grid gap-6 2xl:grid-cols-2">
             <section aria-labelledby="dataset-usage-title" className="min-w-0 rounded-md border border-border bg-card">
@@ -440,16 +578,28 @@ function UsagePageContent() {
                         return (
                           <tr key={datasetId || 'unbound'} className="hover:bg-muted/50">
                             <td className="px-4 py-3">
-                              <UsageDatasetCell datasetId={datasetId} datasetName={datasetName} />
+                              <UsageDatasetCell
+                                datasetId={datasetId}
+                                datasetName={datasetName}
+                                labelsUnavailable={Boolean(datasetLabelsQuery.error)}
+                              />
                             </td>
                             <td className={TABLE_NUMBER_CLASS}>{formatNumber(row.assistant_messages)}</td>
                             <td className={TABLE_NUMBER_CLASS}>{formatNumber(row.assistant_tokens)}</td>
                             <td className="whitespace-nowrap px-4 py-3 text-right">
-                              <DatasetLink datasetId={datasetId} datasetName={datasetName} />
+                              <DatasetLink
+                                datasetId={datasetId}
+                                datasetName={datasetName}
+                                allowUnknownDataset={Boolean(datasetLabelsQuery.error)}
+                              />
                             </td>
                           </tr>
                         )
                       })
+                    ) : summaryQuery.error && !summary ? (
+                      <EmptyTableRow colSpan={4}>对话用量加载失败，请在上方重试。</EmptyTableRow>
+                    ) : summaryQuery.isFetching && !summary ? (
+                      <EmptyTableRow colSpan={4}>正在加载对话用量...</EmptyTableRow>
                     ) : (
                       <EmptyTableRow colSpan={4}>统计期内还没有可显示的对话用量。</EmptyTableRow>
                     )}
@@ -468,6 +618,12 @@ function UsagePageContent() {
                   汇总模型、向量化与检索耗时，{formatWindow(cost?.window_start, cost?.window_end)}。
                 </p>
               </div>
+              <UsageQueryError
+                error={costQuery.error}
+                fallback="成本数据加载失败，请稍后重试"
+                title="成本数据加载失败"
+                onRetry={() => void costQuery.refetch()}
+              />
               <div className="max-h-[440px] overflow-auto">
                 <table className="w-full min-w-[720px] text-left">
                   <thead className="sticky top-0 z-10 bg-muted">
@@ -487,7 +643,11 @@ function UsagePageContent() {
                         return (
                           <tr key={datasetId || 'unbound-cost'} className="hover:bg-muted/50">
                             <td className="px-4 py-3">
-                              <UsageDatasetCell datasetId={datasetId} datasetName={datasetName} />
+                              <UsageDatasetCell
+                                datasetId={datasetId}
+                                datasetName={datasetName}
+                                labelsUnavailable={Boolean(datasetLabelsQuery.error)}
+                              />
                             </td>
                             <td className={TABLE_NUMBER_CLASS}>{formatNumber(row.llm_total_tokens)}</td>
                             <td className={TABLE_NUMBER_CLASS}>{formatNumber(row.embedding_query_tokens)}</td>
@@ -495,11 +655,19 @@ function UsagePageContent() {
                               {formatSec(row.retrieval_elapsed_sec_sum / Math.max(1, row.assistant_messages || 0))}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-right">
-                              <DatasetLink datasetId={datasetId} datasetName={datasetName} />
+                              <DatasetLink
+                                datasetId={datasetId}
+                                datasetName={datasetName}
+                                allowUnknownDataset={Boolean(datasetLabelsQuery.error)}
+                              />
                             </td>
                           </tr>
                         )
                       })
+                    ) : costQuery.error && !cost ? (
+                      <EmptyTableRow colSpan={5}>成本数据加载失败，请重试。</EmptyTableRow>
+                    ) : costQuery.isFetching && !cost ? (
+                      <EmptyTableRow colSpan={5}>正在加载成本数据...</EmptyTableRow>
                     ) : (
                       <EmptyTableRow colSpan={5}>统计期内还没有可显示的成本数据。</EmptyTableRow>
                     )}

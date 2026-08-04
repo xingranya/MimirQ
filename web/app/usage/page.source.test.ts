@@ -29,9 +29,15 @@ describe('用量与配额页面源码契约', () => {
   it('为加载失败和空数据提供可见反馈', () => {
     expect(pageSource).toContain('role="alert"')
     expect(pageSource).toContain('用量数据加载失败，请稍后重试')
+    expect(pageSource).toContain('成本数据加载失败')
+    expect(pageSource).toContain('聊天配额加载失败')
+    expect(pageSource).toContain('数据集名称加载失败')
+    expect(pageSource).toContain('部分数据加载失败')
+    expect(pageSource).toContain('正在加载成本数据')
     expect(pageSource).toContain('统计期内还没有可显示的对话用量。')
     expect(pageSource).toContain('统计期内还没有可显示的成本数据。')
     expect(quotaSource).toContain('暂时没有配额数据，请刷新后重试。')
+    expect(pageSource).not.toContain('.catch(() => null)')
   })
 
   it('使用自然中文描述用量和配额', () => {
