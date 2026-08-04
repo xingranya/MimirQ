@@ -1,65 +1,59 @@
 import { useTranslations } from 'next-intl'
 
-import { Skeleton } from "@/components/ui/skeleton"
-import { AppBackground } from "@/components/ui/app-background"
+import { Skeleton } from '@/components/ui/skeleton'
 
-const NAV_SKELETON_KEYS = ["nav-1", "nav-2", "nav-3", "nav-4", "nav-5", "nav-6", "nav-7", "nav-8", "nav-9"]
-const CARD_SKELETON_KEYS = ["card-1", "card-2", "card-3", "card-4", "card-5", "card-6"]
+const NAV_SKELETON_KEYS = ['nav-1', 'nav-2', 'nav-3', 'nav-4', 'nav-5', 'nav-6']
+const CONTENT_ROW_KEYS = ['row-1', 'row-2', 'row-3', 'row-4', 'row-5', 'row-6']
 
+/** 渲染与应用壳层尺寸一致的全局加载骨架。 */
 export default function Loading() {
   const t = useTranslations('RouteBoundaries')
 
   return (
-    <div className="relative flex h-dvh overflow-hidden bg-background" role="status" aria-live="polite">
-      <AppBackground />
+    <div className="flex h-dvh overflow-hidden bg-background" role="status" aria-live="polite">
+      <aside className="hidden w-56 flex-col border-r border-border bg-card p-3 md:flex">
+        <div className="flex items-center gap-3 border-b border-border pb-3">
+          <Skeleton className="size-8 rounded-md" />
+          <Skeleton className="h-4 w-24 rounded-sm" />
+        </div>
 
-      <div className="relative z-10 flex h-full w-full overflow-hidden">
-        {/* Left navigation skeleton (desktop only) */}
-        <aside className="hidden md:flex w-[280px] flex-col border-r border-border p-4">
-          <div className="flex items-center gap-3 pb-4">
-            <Skeleton className="h-9 w-9 rounded-xl" />
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-2 w-16" />
-            </div>
+        <Skeleton className="mt-3 h-9 rounded-md" />
+
+        <div className="mt-4 space-y-2">
+          {NAV_SKELETON_KEYS.map((key) => (
+            <Skeleton key={key} className="h-9 rounded-md" />
+          ))}
+        </div>
+
+        <Skeleton className="mt-auto h-10 rounded-md" />
+      </aside>
+
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6"
+      >
+        <div className="mx-auto max-w-6xl">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48 rounded-sm" />
+            <Skeleton className="h-4 w-full max-w-md rounded-sm" />
           </div>
 
-          <Skeleton className="h-11 rounded-2xl" />
-
-          <div className="mt-5 space-y-2">
-            {NAV_SKELETON_KEYS.map((key) => (
-              <Skeleton key={key} className="h-9 rounded-lg" />
+          <div className="mt-6 overflow-hidden rounded-md border border-border bg-card">
+            {CONTENT_ROW_KEYS.map((key) => (
+              <div key={key} className="flex items-center gap-3 border-b border-border p-4 last:border-b-0">
+                <Skeleton className="size-9 shrink-0 rounded-md" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/5 rounded-sm" />
+                  <Skeleton className="h-3 w-3/5 rounded-sm" />
+                </div>
+              </div>
             ))}
           </div>
 
-          <div className="mt-auto pt-4">
-            <Skeleton className="h-14 rounded-xl" />
-          </div>
-        </aside>
-
-        {/* Main content skeleton */}
-        <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar p-6">
-          <div className="max-w-5xl space-y-6">
-            <div className="space-y-3">
-              <Skeleton className="h-7 w-56" />
-              <Skeleton className="h-4 w-[420px] max-w-full" />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {CARD_SKELETON_KEYS.map((key) => (
-                <Skeleton key={key} className="h-28 rounded-xl" />
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-44 rounded-xl" />
-            </div>
-          </div>
-
-          <span className="sr-only">{t("loading.pageSr")}</span>
-        </main>
-      </div>
+          <span className="sr-only">{t('loading.pageSr')}</span>
+        </div>
+      </main>
     </div>
   )
 }
