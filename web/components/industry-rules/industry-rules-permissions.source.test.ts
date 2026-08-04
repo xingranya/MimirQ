@@ -33,22 +33,32 @@ describe('行业规则权限契约', () => {
   })
 
   it('只读账号不能编辑、保存或接受规则候选', () => {
-    expect(workbenchSource).toContain('readOnly={!canManageRules}')
-    expect(workbenchSource).toContain('disabled={!canManageRules || savingGlossary}')
-    expect(workbenchSource).toContain('disabled={!canManageRules || savingPatterns}')
-    expect(workbenchSource).toContain('disabled={!canManageRules || savingIntents}')
-    expect(workbenchSource).toContain('disabled={!canManageRules || !selectedSuggestionCount}')
+    expect(workbenchSource).toContain(
+      '!canManageRules || draftUnavailable || savingGlossary'
+    )
+    expect(workbenchSource).toContain(
+      '!canManageRules || draftUnavailable || savingPatterns'
+    )
+    expect(workbenchSource).toContain(
+      '!canManageRules || draftUnavailable || savingIntents'
+    )
+    expect(workbenchSource).toContain('readOnly={glossaryEditingDisabled}')
+    expect(workbenchSource).toContain('readOnly={patternsEditingDisabled}')
+    expect(workbenchSource).toContain('readOnly={intentsEditingDisabled}')
+    expect(workbenchSource).toContain('disabled={glossaryEditingDisabled}')
+    expect(workbenchSource).toContain('disabled={patternsEditingDisabled}')
+    expect(workbenchSource).toContain('disabled={intentsEditingDisabled}')
     expect(workbenchSource).toContain(
       '当前账号可查看、预览和导出规则，只有平台所有者可以修改。'
     )
     expect(functionBody('setGlossaryEntry')).toContain(
-      'if (!canManageRules) return'
+      'if (glossaryEditingDisabled) return'
     )
     expect(functionBody('setPatternEntry')).toContain(
-      'if (!canManageRules) return'
+      'if (patternsEditingDisabled) return'
     )
     expect(functionBody('setIntentEntry')).toContain(
-      'if (!canManageRules) return'
+      'if (intentsEditingDisabled) return'
     )
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Check,
   Database,
@@ -18,12 +18,14 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { useRouter } from '@/i18n/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageScaffold } from '@/components/ui/page-scaffold'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
 import {
   Select,
   SelectContent,
@@ -33,34 +35,33 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatApiError } from '@/lib/api-errors'
+import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import {
   datasetApi,
   industryRulesApi,
   type IndustryRulesetDetail,
+  type IndustryRulesetDetailResponse,
 } from '@/lib/api'
+import {
+  buildGlossaryPayload,
+  buildIntentsPayload,
+  buildPatternsPayload,
+  glossaryDraftFingerprint,
+  glossaryDraftValidationError,
+  industryRulesDraftFingerprints,
+  intentsDraftFingerprint,
+  intentsDraftValidationError,
+  patternsDraftFingerprint,
+  patternsDraftValidationError,
+  type GlossaryEntry,
+  type IndustryRulesDraftFingerprints,
+  type IntentEntry,
+  type PatternEntry,
+} from '@/lib/industry-rules-draft'
+import { createLatestAsyncRequest } from '@/lib/latest-async-request'
 import { queryKeys } from '@/lib/query-keys'
 import { randomBase36Id } from '@/lib/secure-random'
 import { cn, detachPromise } from '@/lib/utils'
-
-type GlossaryEntry = {
-  id: string
-  term: string
-  aliasesText: string
-}
-
-type PatternEntry = {
-  id: string
-  markersText: string
-  followup: string
-  enabled: boolean
-}
-
-type IntentEntry = {
-  id: string
-  name: string
-  keywordsText: string
-  route: string
-}
 
 type GlossarySuggestion = {
   token: string
@@ -78,6 +79,10 @@ type ResultSummary = {
   title: string
   detail: string
 }
+
+type PendingRuleAction =
+  | { type: 'switch-ruleset'; ruleset: string }
+  | { type: 'refresh' }
 
 function makeLocalId(prefix: string, seed?: string): string {
   const suffix =
@@ -99,17 +104,10 @@ function textList(value: unknown): string[] {
   return value.map((item) => textValue(item)).filter(Boolean)
 }
 
-function splitCommaText(value: string): string[] {
-  return value
-    .split(/[,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function glossaryEntriesFromDetail(
-  detail: IndustryRulesetDetail
+function glossaryEntriesFromPayload(
+  glossary: Record<string, string[]>
 ): GlossaryEntry[] {
-  return Object.entries(detail.glossary || {})
+  return Object.entries(glossary)
     .sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
     .map(([term, aliases]) => ({
       id: makeLocalId('glossary', term),
@@ -118,10 +116,10 @@ function glossaryEntriesFromDetail(
     }))
 }
 
-function patternEntriesFromDetail(
-  detail: IndustryRulesetDetail
+function patternEntriesFromPayload(
+  patterns: Array<Record<string, unknown>>
 ): PatternEntry[] {
-  return (detail.patterns || []).map((item, index) => {
+  return patterns.map((item, index) => {
     const record = asRecord(item)
     const markers = textList(record.markers ?? record.keywords)
     return {
@@ -133,8 +131,10 @@ function patternEntriesFromDetail(
   })
 }
 
-function intentEntriesFromDetail(detail: IndustryRulesetDetail): IntentEntry[] {
-  return (detail.intents || []).map((item, index) => {
+function intentEntriesFromPayload(
+  intents: Array<Record<string, unknown>>
+): IntentEntry[] {
+  return intents.map((item, index) => {
     const record = asRecord(item)
     return {
       id: makeLocalId('intent', `${index}`),
@@ -145,40 +145,12 @@ function intentEntriesFromDetail(detail: IndustryRulesetDetail): IntentEntry[] {
   })
 }
 
-function buildGlossaryPayload(
-  entries: GlossaryEntry[]
-): Record<string, string[]> {
-  const out: Record<string, string[]> = {}
-  for (const entry of entries) {
-    const term = entry.term.trim()
-    if (!term) continue
-    out[term] = splitCommaText(entry.aliasesText)
+function draftEntriesFromDetail(detail: IndustryRulesetDetail) {
+  return {
+    glossaryEntries: glossaryEntriesFromPayload(detail.glossary || {}),
+    patternEntries: patternEntriesFromPayload(detail.patterns || []),
+    intentEntries: intentEntriesFromPayload(detail.intents || []),
   }
-  return out
-}
-
-function buildPatternsPayload(
-  entries: PatternEntry[]
-): Array<Record<string, unknown>> {
-  return entries
-    .map((entry) => ({
-      markers: splitCommaText(entry.markersText),
-      followup: entry.followup.trim(),
-      enabled: entry.enabled,
-    }))
-    .filter((entry) => Array.isArray(entry.markers) && entry.markers.length > 0)
-}
-
-function buildIntentsPayload(
-  entries: IntentEntry[]
-): Array<Record<string, unknown>> {
-  return entries
-    .map((entry) => ({
-      name: entry.name.trim(),
-      keywords: splitCommaText(entry.keywordsText),
-      route: entry.route.trim() || 'default',
-    }))
-    .filter((entry) => textValue(entry.name))
 }
 
 function suggestionRowsFromPayload(payload: unknown): GlossarySuggestion[] {
@@ -212,15 +184,26 @@ const DENSE_BUTTON =
   'h-8 rounded-lg border-border bg-card px-2.5 text-[12px] font-semibold text-foreground/85 hover:bg-primary/10 hover:text-primary'
 
 export function IndustryRulesWorkbench() {
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const hydratedRulesetRef = useRef<string | null>(null)
+  const hydratedDetailVersionRef = useRef(0)
+  const previewRequests = useMemo(() => createLatestAsyncRequest(), [])
   const [selectedRuleset, setSelectedRuleset] = useState('')
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [searchValue, setSearchValue] = useState('')
   const [previewQuery, setPreviewQuery] = useState('授权报错怎么办')
+  const [pendingRuleAction, setPendingRuleAction] =
+    useState<PendingRuleAction | null>(null)
+  const [savedFingerprints, setSavedFingerprints] =
+    useState<IndustryRulesDraftFingerprints | null>(null)
 
   const [previewing, setPreviewing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [savingGlossary, setSavingGlossary] = useState(false)
   const [savingPatterns, setSavingPatterns] = useState(false)
   const [savingIntents, setSavingIntents] = useState(false)
+  const savingRules = savingGlossary || savingPatterns || savingIntents
 
   const [glossaryEntries, setGlossaryEntries] = useState<GlossaryEntry[]>([])
   const [patternEntries, setPatternEntries] = useState<PatternEntry[]>([])
@@ -235,6 +218,7 @@ export function IndustryRulesWorkbench() {
     Record<string, boolean>
   >({})
   const [preview, setPreview] = useState<RewritePreviewState | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const [result, setResult] = useState<ResultSummary | null>(null)
 
   const rulesetsQuery = useQuery({
@@ -247,7 +231,7 @@ export function IndustryRulesWorkbench() {
   })
   const rulesetDetailQuery = useQuery({
     queryKey: queryKeys.industryRules.ruleset(selectedRuleset),
-    enabled: Boolean(selectedRuleset.trim()),
+    enabled: Boolean(selectedRuleset.trim()) && !savingRules,
     queryFn: () => industryRulesApi.getRuleset(selectedRuleset.trim()),
   })
   const glossarySuggestionsQuery = useQuery({
@@ -277,35 +261,162 @@ export function IndustryRulesWorkbench() {
   const metaError = rulesetsQuery.error || datasetsQuery.error
   const loadingRuleset = rulesetDetailQuery.isFetching
   const loadingSuggestions = glossarySuggestionsQuery.isFetching
+  const draftUnavailable =
+    savedFingerprints === null || !selectedRuleset.trim() || refreshing
+  const glossaryEditingDisabled =
+    !canManageRules || draftUnavailable || savingGlossary
+  const patternsEditingDisabled =
+    !canManageRules || draftUnavailable || savingPatterns
+  const intentsEditingDisabled =
+    !canManageRules || draftUnavailable || savingIntents
+  const currentFingerprints = useMemo(
+    () =>
+      industryRulesDraftFingerprints({
+        glossaryEntries,
+        patternEntries,
+        intentEntries,
+      }),
+    [glossaryEntries, intentEntries, patternEntries]
+  )
+  const dirtySections = useMemo(
+    () => ({
+      glossary:
+        savedFingerprints !== null &&
+        currentFingerprints.glossary !== savedFingerprints.glossary,
+      patterns:
+        savedFingerprints !== null &&
+        currentFingerprints.patterns !== savedFingerprints.patterns,
+      intents:
+        savedFingerprints !== null &&
+        currentFingerprints.intents !== savedFingerprints.intents,
+    }),
+    [currentFingerprints, savedFingerprints]
+  )
+  const dirtySectionCount = Object.values(dirtySections).filter(Boolean).length
+  const hasUnsavedChanges = dirtySectionCount > 0
+  const navigate = useCallback((href: string) => router.push(href), [router])
+  const navigationGuard = useUnsavedNavigationGuard({
+    enabled: hasUnsavedChanges,
+    onNavigate: navigate,
+  })
+  const cancelNavigation = navigationGuard.cancelNavigation
 
-  const refreshMeta = () => {
-    rulesetsQuery.refetch()
-    datasetsQuery.refetch()
+  const hydrateRulesetDraft = useCallback(
+    (detail: IndustryRulesetDetail, detailVersion = 0) => {
+      const nextDraft = draftEntriesFromDetail(detail)
+      setGlossaryEntries(nextDraft.glossaryEntries)
+      setPatternEntries(nextDraft.patternEntries)
+      setIntentEntries(nextDraft.intentEntries)
+      setSavedFingerprints(industryRulesDraftFingerprints(nextDraft))
+      hydratedRulesetRef.current = detail.name
+      hydratedDetailVersionRef.current = detailVersion
+    },
+    []
+  )
+
+  const resetRulesetDraft = useCallback(() => {
+    setGlossaryEntries([])
+    setPatternEntries([])
+    setIntentEntries([])
+    setSavedFingerprints(null)
+    hydratedRulesetRef.current = null
+    hydratedDetailVersionRef.current = 0
+  }, [])
+
+  const applyRulesetSelection = useCallback(
+    (rulesetName: string) => {
+      const nextRuleset = rulesetName.trim()
+      if (!nextRuleset) return
+      resetRulesetDraft()
+      setSelectedRuleset(nextRuleset)
+      setGlossarySuggestions([])
+      setSelectedSuggestionTokens({})
+      setDismissedSuggestionTokens({})
+      setResult(null)
+      setPreview(null)
+      setPreviewError(null)
+    },
+    [resetRulesetDraft]
+  )
+
+  const handleRulesetSelection = useCallback(
+    (rulesetName: string) => {
+      if (rulesetName === selectedRuleset) return
+      if (hasUnsavedChanges) {
+        setPendingRuleAction({
+          type: 'switch-ruleset',
+          ruleset: rulesetName,
+        })
+        return
+      }
+      applyRulesetSelection(rulesetName)
+    },
+    [applyRulesetSelection, hasUnsavedChanges, selectedRuleset]
+  )
+
+  const updateCachedRuleset = useCallback(
+    (rulesetName: string, patch: Partial<IndustryRulesetDetail>) => {
+      queryClient.setQueryData<IndustryRulesetDetailResponse>(
+        queryKeys.industryRules.ruleset(rulesetName),
+        (current) => {
+          if (!current || current.ruleset.name !== rulesetName) return current
+          return {
+            ...current,
+            ruleset: { ...current.ruleset, ...patch },
+          }
+        }
+      )
+    },
+    [queryClient]
+  )
+
+  const refreshWorkspace = async () => {
+    if (savingRules || refreshing) return
+    setRefreshing(true)
+    const activeRuleset = selectedRuleset.trim()
+    const cachedDetail = rulesetDetailQuery.data?.ruleset
+    if (cachedDetail?.name === activeRuleset) {
+      hydrateRulesetDraft(cachedDetail, rulesetDetailQuery.dataUpdatedAt)
+    } else {
+      resetRulesetDraft()
+    }
+    hydratedRulesetRef.current = null
+    hydratedDetailVersionRef.current = 0
+    try {
+      const detailRequest = activeRuleset
+        ? rulesetDetailQuery.refetch()
+        : Promise.resolve(null)
+      const suggestionsRequest =
+        activeRuleset && selectedDatasetId.trim()
+          ? glossarySuggestionsQuery.refetch()
+          : Promise.resolve(null)
+      const [, , detailResult] = await Promise.all([
+        rulesetsQuery.refetch(),
+        datasetsQuery.refetch(),
+        detailRequest,
+        suggestionsRequest,
+      ])
+      if (
+        detailResult?.data?.ruleset?.name === activeRuleset &&
+        selectedRuleset === activeRuleset
+      ) {
+        hydrateRulesetDraft(
+          detailResult.data.ruleset,
+          detailResult.dataUpdatedAt
+        )
+      }
+    } finally {
+      setRefreshing(false)
+    }
   }
 
-  const runPreview = async (query: string, rulesetName: string) => {
-    const q = query.trim()
-    const ruleset = rulesetName.trim()
-    if (!q || !ruleset) {
-      setPreview(null)
+  const requestWorkspaceRefresh = () => {
+    if (savingRules || refreshing) return
+    if (hasUnsavedChanges) {
+      setPendingRuleAction({ type: 'refresh' })
       return
     }
-    setPreviewing(true)
-    try {
-      const payload = await industryRulesApi.previewRewrite({
-        ruleset,
-        query: q,
-      })
-      setPreview({
-        originalQuery: payload.original_query,
-        expandedQuery: payload.expanded_query,
-        changed: payload.changed,
-      })
-    } catch (error) {
-      toast.error(formatApiError(error, '改写预览失败'))
-    } finally {
-      setPreviewing(false)
-    }
+    detachPromise(refreshWorkspace())
   }
 
   useEffect(() => {
@@ -326,8 +437,8 @@ export function IndustryRulesWorkbench() {
 
   useEffect(() => {
     if (!selectedRuleset && rulesets[0]?.name)
-      setSelectedRuleset(rulesets[0].name)
-  }, [rulesets, selectedRuleset])
+      applyRulesetSelection(rulesets[0].name)
+  }, [applyRulesetSelection, rulesets, selectedRuleset])
 
   useEffect(() => {
     if (!selectedDatasetId && datasets[0]?.id)
@@ -335,11 +446,22 @@ export function IndustryRulesWorkbench() {
   }, [datasets, selectedDatasetId])
 
   useEffect(() => {
-    if (!rulesetDetailQuery.data?.ruleset) return
-    setGlossaryEntries(glossaryEntriesFromDetail(rulesetDetailQuery.data.ruleset))
-    setPatternEntries(patternEntriesFromDetail(rulesetDetailQuery.data.ruleset))
-    setIntentEntries(intentEntriesFromDetail(rulesetDetailQuery.data.ruleset))
-  }, [rulesetDetailQuery.data])
+    const detail = rulesetDetailQuery.data?.ruleset
+    if (!detail || detail.name !== selectedRuleset || hasUnsavedChanges) return
+    if (
+      hydratedRulesetRef.current === detail.name &&
+      hydratedDetailVersionRef.current === rulesetDetailQuery.dataUpdatedAt
+    ) {
+      return
+    }
+    hydrateRulesetDraft(detail, rulesetDetailQuery.dataUpdatedAt)
+  }, [
+    hasUnsavedChanges,
+    hydrateRulesetDraft,
+    rulesetDetailQuery.data,
+    rulesetDetailQuery.dataUpdatedAt,
+    selectedRuleset,
+  ])
 
   useEffect(() => {
     if (!glossarySuggestionsQuery.data) return
@@ -349,20 +471,51 @@ export function IndustryRulesWorkbench() {
   }, [glossarySuggestionsQuery.data])
 
   useEffect(() => {
-    if (!selectedRuleset.trim() || !previewQuery.trim()) {
-      setPreview(null)
+    previewRequests.invalidate()
+    setPreviewing(false)
+    setPreview(null)
+    setPreviewError(null)
+    const ruleset = selectedRuleset.trim()
+    const query = previewQuery.trim()
+    if (!ruleset || !query) {
       return
     }
     const timer = globalThis.window.setTimeout(() => {
-      detachPromise(runPreview(previewQuery, selectedRuleset))
+      setPreviewing(true)
+      detachPromise(
+        (async () => {
+          const outcome = await previewRequests.run(() =>
+            industryRulesApi.previewRewrite({ ruleset, query })
+          )
+          if (outcome.status === 'stale') return
+          if (!outcome.ok) {
+            const message = formatApiError(outcome.error, '改写预览失败')
+            setPreview(null)
+            setPreviewError(message)
+            toast.error(message)
+            setPreviewing(false)
+            return
+          }
+          setPreviewError(null)
+          setPreview({
+            originalQuery: outcome.value.original_query,
+            expandedQuery: outcome.value.expanded_query,
+            changed: outcome.value.changed,
+          })
+          setPreviewing(false)
+        })()
+      )
     }, 280)
-    return () => globalThis.window.clearTimeout(timer)
-  }, [previewQuery, selectedRuleset])
+    return () => {
+      globalThis.window.clearTimeout(timer)
+      previewRequests.invalidate()
+    }
+  }, [previewQuery, previewRequests, selectedRuleset])
 
-  const selectedRulesetSummary = useMemo(
-    () => rulesets.find((item) => item.name === selectedRuleset) || null,
-    [rulesets, selectedRuleset]
-  )
+  useEffect(() => {
+    if (!hasUnsavedChanges) cancelNavigation()
+  }, [cancelNavigation, hasUnsavedChanges])
+
   const selectedDataset = useMemo(
     () =>
       datasets.find((item) => String(item.id) === selectedDatasetId) || null,
@@ -391,28 +544,28 @@ export function IndustryRulesWorkbench() {
   ).length
 
   const setGlossaryEntry = (id: string, patch: Partial<GlossaryEntry>) => {
-    if (!canManageRules) return
+    if (glossaryEditingDisabled) return
     setGlossaryEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const setPatternEntry = (id: string, patch: Partial<PatternEntry>) => {
-    if (!canManageRules) return
+    if (patternsEditingDisabled) return
     setPatternEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const setIntentEntry = (id: string, patch: Partial<IntentEntry>) => {
-    if (!canManageRules) return
+    if (intentsEditingDisabled) return
     setIntentEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const addGlossarySuggestion = (token: string) => {
-    if (!canManageRules) return
+    if (glossaryEditingDisabled) return
     const term = token.trim()
     if (!term) return
     setGlossaryEntries((prev) => {
@@ -426,7 +579,7 @@ export function IndustryRulesWorkbench() {
   }
 
   const acceptSelectedSuggestions = () => {
-    if (!canManageRules) return
+    if (glossaryEditingDisabled) return
     for (const token of selectedMapValues(selectedSuggestionTokens)) {
       addGlossarySuggestion(token)
     }
@@ -438,19 +591,46 @@ export function IndustryRulesWorkbench() {
       toast.error('当前账号只有查看权限')
       return
     }
+    if (draftUnavailable || savingGlossary) return
     const ruleset = selectedRuleset.trim()
-    if (!ruleset) return
+    if (!ruleset || !dirtySections.glossary) return
+    const validationError = glossaryDraftValidationError(glossaryEntries)
+    if (validationError) {
+      toast.error(`${validationError}，请补充后再保存`)
+      return
+    }
+    const glossary = buildGlossaryPayload(glossaryEntries)
+    const submittedFingerprint = currentFingerprints.glossary
+    const savedEntries = glossaryEntriesFromPayload(glossary)
+    const savedFingerprint = glossaryDraftFingerprint(savedEntries)
     setSavingGlossary(true)
     try {
-      const payload = await industryRulesApi.updateGlossary(ruleset, {
-        glossary: buildGlossaryPayload(glossaryEntries),
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
       })
+      const payload = await industryRulesApi.updateGlossary(ruleset, {
+        glossary,
+      })
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
+      })
+      updateCachedRuleset(ruleset, {
+        glossary,
+        glossary_count: Object.keys(glossary).length,
+      })
+      setSavedFingerprints((current) =>
+        current ? { ...current, glossary: savedFingerprint } : current
+      )
+      setGlossaryEntries((current) =>
+        glossaryDraftFingerprint(current) === submittedFingerprint
+          ? savedEntries
+          : current
+      )
       setResult({
         title: '已保存术语',
-        detail: `${ruleset} · 更新 ${String(payload.updated_count || glossaryEntries.length)} 条术语`,
+        detail: `${ruleset} · 更新 ${String(payload.updated_count)} 条术语`,
       })
       toast.success('术语已保存')
-      await rulesetDetailQuery.refetch()
     } catch (error) {
       toast.error(formatApiError(error, '保存术语失败'))
     } finally {
@@ -463,19 +643,46 @@ export function IndustryRulesWorkbench() {
       toast.error('当前账号只有查看权限')
       return
     }
+    if (draftUnavailable || savingPatterns) return
     const ruleset = selectedRuleset.trim()
-    if (!ruleset) return
+    if (!ruleset || !dirtySections.patterns) return
+    const validationError = patternsDraftValidationError(patternEntries)
+    if (validationError) {
+      toast.error(`${validationError}，请补充后再保存`)
+      return
+    }
+    const patterns = buildPatternsPayload(patternEntries)
+    const submittedFingerprint = currentFingerprints.patterns
+    const savedEntries = patternEntriesFromPayload(patterns)
+    const savedFingerprint = patternsDraftFingerprint(savedEntries)
     setSavingPatterns(true)
     try {
-      const payload = await industryRulesApi.updatePatterns(ruleset, {
-        patterns: buildPatternsPayload(patternEntries),
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
       })
+      const payload = await industryRulesApi.updatePatterns(ruleset, {
+        patterns,
+      })
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
+      })
+      updateCachedRuleset(ruleset, {
+        patterns,
+        pattern_count: patterns.length,
+      })
+      setSavedFingerprints((current) =>
+        current ? { ...current, patterns: savedFingerprint } : current
+      )
+      setPatternEntries((current) =>
+        patternsDraftFingerprint(current) === submittedFingerprint
+          ? savedEntries
+          : current
+      )
       setResult({
         title: '已保存问题模式',
-        detail: `${ruleset} · 更新 ${String(payload.updated_count || patternEntries.length)} 条模式`,
+        detail: `${ruleset} · 更新 ${String(payload.updated_count)} 条模式`,
       })
       toast.success('问题模式已保存')
-      await rulesetDetailQuery.refetch()
     } catch (error) {
       toast.error(formatApiError(error, '保存问题模式失败'))
     } finally {
@@ -488,19 +695,46 @@ export function IndustryRulesWorkbench() {
       toast.error('当前账号只有查看权限')
       return
     }
+    if (draftUnavailable || savingIntents) return
     const ruleset = selectedRuleset.trim()
-    if (!ruleset) return
+    if (!ruleset || !dirtySections.intents) return
+    const validationError = intentsDraftValidationError(intentEntries)
+    if (validationError) {
+      toast.error(`${validationError}，请补充后再保存`)
+      return
+    }
+    const intents = buildIntentsPayload(intentEntries)
+    const submittedFingerprint = currentFingerprints.intents
+    const savedEntries = intentEntriesFromPayload(intents)
+    const savedFingerprint = intentsDraftFingerprint(savedEntries)
     setSavingIntents(true)
     try {
-      const payload = await industryRulesApi.updateIntents(ruleset, {
-        intents: buildIntentsPayload(intentEntries),
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
       })
+      const payload = await industryRulesApi.updateIntents(ruleset, {
+        intents,
+      })
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.industryRules.ruleset(ruleset),
+      })
+      updateCachedRuleset(ruleset, {
+        intents,
+        intent_count: intents.length,
+      })
+      setSavedFingerprints((current) =>
+        current ? { ...current, intents: savedFingerprint } : current
+      )
+      setIntentEntries((current) =>
+        intentsDraftFingerprint(current) === submittedFingerprint
+          ? savedEntries
+          : current
+      )
       setResult({
         title: '已保存意图分类',
-        detail: `${ruleset} · 更新 ${String(payload.updated_count || intentEntries.length)} 条意图`,
+        detail: `${ruleset} · 更新 ${String(payload.updated_count)} 条意图`,
       })
       toast.success('意图分类已保存')
-      await rulesetDetailQuery.refetch()
     } catch (error) {
       toast.error(formatApiError(error, '保存意图分类失败'))
     } finally {
@@ -524,6 +758,26 @@ export function IndustryRulesWorkbench() {
     anchor.download = `${selectedRuleset || 'industry-rules'}.json`
     anchor.click()
     globalThis.window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  const cancelPendingAction = () => {
+    setPendingRuleAction(null)
+    cancelNavigation()
+  }
+
+  const confirmPendingAction = () => {
+    if (savingRules) return
+    const action = pendingRuleAction
+    setPendingRuleAction(null)
+    if (action?.type === 'switch-ruleset') {
+      applyRulesetSelection(action.ruleset)
+      return
+    }
+    if (action?.type === 'refresh') {
+      detachPromise(refreshWorkspace())
+      return
+    }
+    navigationGuard.confirmNavigation()
   }
 
   return (
@@ -557,6 +811,11 @@ export function IndustryRulesWorkbench() {
                   {!rulesetsQuery.isLoading && !canManageRules ? (
                     <Badge variant="outline">只读</Badge>
                   ) : null}
+                  {hasUnsavedChanges ? (
+                    <Badge variant="outline">
+                      {dirtySectionCount} 组修改未保存
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="mt-2 max-w-[640px] text-[13px] font-medium leading-6 text-muted-foreground">
                   {canManageRules
@@ -576,8 +835,10 @@ export function IndustryRulesWorkbench() {
                   </Label>
                   <Select
                     value={selectedRuleset}
-                    onValueChange={setSelectedRuleset}
-                    disabled={loadingMeta || loadingRuleset}
+                    onValueChange={handleRulesetSelection}
+                    disabled={
+                      loadingMeta || loadingRuleset || savingRules || refreshing
+                    }
                   >
                     <SelectTrigger
                       id="industry-rules-ruleset"
@@ -605,7 +866,7 @@ export function IndustryRulesWorkbench() {
                   <Select
                     value={selectedDatasetId}
                     onValueChange={setSelectedDatasetId}
-                    disabled={loadingMeta}
+                    disabled={loadingMeta || refreshing}
                   >
                     <SelectTrigger
                       id="industry-rules-dataset"
@@ -636,18 +897,13 @@ export function IndustryRulesWorkbench() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline" className="bg-card font-semibold">
-                    术语{' '}
-                    {selectedRulesetSummary?.glossary_count ??
-                      glossaryEntries.length}
+                    术语 {glossaryEntries.length}
                   </Badge>
                   <Badge variant="outline" className="bg-card font-semibold">
-                    模式{' '}
-                    {selectedRulesetSummary?.pattern_count ??
-                      patternEntries.length}
+                    模式 {patternEntries.length}
                   </Badge>
                   <Badge variant="outline" className="bg-card font-semibold">
-                    意图{' '}
-                    {selectedRulesetSummary?.intent_count ?? intentEntries.length}
+                    意图 {intentEntries.length}
                   </Badge>
                   <Badge variant="outline" className="bg-card font-semibold">
                     候选 {visibleGlossarySuggestions.length}
@@ -662,10 +918,16 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
-                    disabled={loadingMeta || loadingRuleset}
-                    onClick={refreshMeta}
+                    aria-label="刷新工作台"
+                    disabled={
+                      loadingMeta ||
+                      loadingRuleset ||
+                      savingRules ||
+                      refreshing
+                    }
+                    onClick={requestWorkspaceRefresh}
                   >
-                    {loadingMeta ? (
+                    {loadingMeta || loadingRuleset || refreshing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <RefreshCw className="h-4 w-4" />
@@ -737,7 +999,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
-                    disabled={!canManageRules}
+                    disabled={glossaryEditingDisabled}
                     onClick={() =>
                       setGlossaryEntries((prev) => [
                         ...prev,
@@ -754,7 +1016,10 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={!canManageRules || savingGlossary}
+                    disabled={
+                      glossaryEditingDisabled ||
+                      !dirtySections.glossary
+                    }
                     onClick={() => detachPromise(saveGlossary())}
                   >
                     {savingGlossary ? (
@@ -762,7 +1027,11 @@ export function IndustryRulesWorkbench() {
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
-                    保存术语
+                    {savingGlossary
+                      ? '保存中…'
+                      : dirtySections.glossary
+                        ? '保存术语'
+                        : '术语已保存'}
                   </Button>
                 </div>
               </div>
@@ -786,7 +1055,8 @@ export function IndustryRulesWorkbench() {
                         <td className="px-4 py-3">
                           <Input
                             value={entry.term}
-                            readOnly={!canManageRules}
+                            aria-label="术语名称"
+                            readOnly={glossaryEditingDisabled}
                             onChange={(event) =>
                               setGlossaryEntry(entry.id, {
                                 term: event.target.value,
@@ -799,7 +1069,8 @@ export function IndustryRulesWorkbench() {
                         <td className="px-4 py-3">
                           <Input
                             value={entry.aliasesText}
-                            readOnly={!canManageRules}
+                            aria-label="术语别名"
+                            readOnly={glossaryEditingDisabled}
                             onChange={(event) =>
                               setGlossaryEntry(entry.id, {
                                 aliasesText: event.target.value,
@@ -816,7 +1087,7 @@ export function IndustryRulesWorkbench() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            disabled={!canManageRules}
+                            disabled={glossaryEditingDisabled}
                             className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                             aria-label="删除术语"
                             onClick={() =>
@@ -854,7 +1125,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
-                    disabled={!canManageRules}
+                    disabled={patternsEditingDisabled}
                     onClick={() =>
                       setPatternEntries((prev) => [
                         ...prev,
@@ -872,7 +1143,10 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={!canManageRules || savingPatterns}
+                    disabled={
+                      patternsEditingDisabled ||
+                      !dirtySections.patterns
+                    }
                     onClick={() => detachPromise(savePatterns())}
                   >
                     {savingPatterns ? (
@@ -880,7 +1154,11 @@ export function IndustryRulesWorkbench() {
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
-                    保存模式
+                    {savingPatterns
+                      ? '保存中…'
+                      : dirtySections.patterns
+                        ? '保存模式'
+                        : '模式已保存'}
                   </Button>
                 </div>
               </div>
@@ -894,7 +1172,8 @@ export function IndustryRulesWorkbench() {
                     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_120px_56px]">
                       <Input
                         value={entry.markersText}
-                        readOnly={!canManageRules}
+                        aria-label="问题模式触发词"
+                        readOnly={patternsEditingDisabled}
                         onChange={(event) =>
                           setPatternEntry(entry.id, {
                             markersText: event.target.value,
@@ -905,7 +1184,8 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.followup}
-                        readOnly={!canManageRules}
+                        aria-label="问题模式澄清话术"
+                        readOnly={patternsEditingDisabled}
                         onChange={(event) =>
                           setPatternEntry(entry.id, {
                             followup: event.target.value,
@@ -916,7 +1196,7 @@ export function IndustryRulesWorkbench() {
                       />
                       <label className="flex items-center gap-2 rounded-lg border border-border px-3 text-[13px] font-medium text-muted-foreground">
                         <Checkbox
-                          disabled={!canManageRules}
+                          disabled={patternsEditingDisabled}
                           checked={entry.enabled}
                           onCheckedChange={(value) =>
                             setPatternEntry(entry.id, {
@@ -929,7 +1209,7 @@ export function IndustryRulesWorkbench() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        disabled={!canManageRules}
+                        disabled={patternsEditingDisabled}
                         className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="删除问题模式"
                         onClick={() =>
@@ -960,7 +1240,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
-                    disabled={!canManageRules}
+                    disabled={intentsEditingDisabled}
                     onClick={() =>
                       setIntentEntries((prev) => [
                         ...prev,
@@ -978,7 +1258,10 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={!canManageRules || savingIntents}
+                    disabled={
+                      intentsEditingDisabled ||
+                      !dirtySections.intents
+                    }
                     onClick={() => detachPromise(saveIntents())}
                   >
                     {savingIntents ? (
@@ -986,7 +1269,11 @@ export function IndustryRulesWorkbench() {
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
-                    保存意图
+                    {savingIntents
+                      ? '保存中…'
+                      : dirtySections.intents
+                        ? '保存意图'
+                        : '意图已保存'}
                   </Button>
                 </div>
               </div>
@@ -1000,7 +1287,8 @@ export function IndustryRulesWorkbench() {
                     <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_180px_56px]">
                       <Input
                         value={entry.name}
-                        readOnly={!canManageRules}
+                        aria-label="意图名称"
+                        readOnly={intentsEditingDisabled}
                         onChange={(event) =>
                           setIntentEntry(entry.id, { name: event.target.value })
                         }
@@ -1009,7 +1297,8 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.keywordsText}
-                        readOnly={!canManageRules}
+                        aria-label="意图关键词"
+                        readOnly={intentsEditingDisabled}
                         onChange={(event) =>
                           setIntentEntry(entry.id, {
                             keywordsText: event.target.value,
@@ -1020,7 +1309,8 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.route}
-                        readOnly={!canManageRules}
+                        aria-label="意图路由"
+                        readOnly={intentsEditingDisabled}
                         onChange={(event) =>
                           setIntentEntry(entry.id, {
                             route: event.target.value,
@@ -1032,7 +1322,7 @@ export function IndustryRulesWorkbench() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        disabled={!canManageRules}
+                        disabled={intentsEditingDisabled}
                         className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="删除意图"
                         onClick={() =>
@@ -1082,6 +1372,13 @@ export function IndustryRulesWorkbench() {
                 <div className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   正在计算改写预览…
+                </div>
+              ) : previewError ? (
+                <div
+                  role="alert"
+                  className="text-[13px] font-medium leading-5 text-destructive"
+                >
+                  {previewError}，请稍后重试。
                 </div>
               ) : preview ? (
                 <div className="space-y-3 text-[13px]">
@@ -1172,7 +1469,10 @@ export function IndustryRulesWorkbench() {
               <Button
                 variant="outline"
                 className={DENSE_BUTTON}
-                disabled={!canManageRules || !selectedSuggestionCount}
+                disabled={
+                  glossaryEditingDisabled ||
+                  !selectedSuggestionCount
+                }
                 onClick={acceptSelectedSuggestions}
               >
                 <Check className="h-3.5 w-3.5" />
@@ -1187,7 +1487,7 @@ export function IndustryRulesWorkbench() {
                 >
                   <div className="flex items-start gap-2">
                     <Checkbox
-                      disabled={!canManageRules}
+                      disabled={glossaryEditingDisabled}
                       checked={selectedSuggestionTokens[entry.token] === true}
                       onCheckedChange={(value) =>
                         setSelectedSuggestionTokens((prev) => ({
@@ -1211,7 +1511,7 @@ export function IndustryRulesWorkbench() {
                   <div className="mt-3 flex gap-2">
                     <Button
                       variant="outline"
-                      disabled={!canManageRules}
+                      disabled={glossaryEditingDisabled}
                       className="h-8 flex-1 rounded-lg border-border bg-card px-2.5 text-[12px] font-semibold hover:bg-primary/10 hover:text-primary"
                       onClick={() => addGlossarySuggestion(entry.token)}
                     >
@@ -1220,7 +1520,7 @@ export function IndustryRulesWorkbench() {
                     </Button>
                     <Button
                       variant="ghost"
-                      disabled={!canManageRules}
+                      disabled={glossaryEditingDisabled}
                       className="h-8 rounded-lg px-2.5 text-[12px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() =>
                         setDismissedSuggestionTokens((prev) => ({
@@ -1256,6 +1556,22 @@ export function IndustryRulesWorkbench() {
           ) : null}
         </aside>
       </div>
+      <UnsavedChangesDialog
+        open={
+          pendingRuleAction !== null || navigationGuard.navigationPending
+        }
+        onOpenChange={(open) => {
+          if (!open) cancelPendingAction()
+        }}
+        onDiscard={confirmPendingAction}
+        discardDisabled={savingRules}
+        title="放弃未保存的规则修改？"
+        description={
+          savingRules
+            ? '规则正在保存，请等待保存完成后再离开、刷新或切换规则集。'
+            : '术语、问题模式或意图分类尚未保存。继续后，本次修改将丢失。'
+        }
+      />
     </PageScaffold>
   )
 }

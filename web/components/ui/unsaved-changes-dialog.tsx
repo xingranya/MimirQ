@@ -15,6 +15,7 @@ type UnsavedChangesDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDiscard: () => void
+  discardDisabled?: boolean
   title?: string
   description?: string
 }
@@ -23,6 +24,7 @@ export function UnsavedChangesDialog({
   open,
   onOpenChange,
   onDiscard,
+  discardDisabled = false,
   title = '放弃未保存的修改？',
   description = '当前修改尚未保存。继续后，这些修改将丢失。',
 }: Readonly<UnsavedChangesDialogProps>) {
@@ -35,7 +37,9 @@ export function UnsavedChangesDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>继续编辑</AlertDialogCancel>
-          <AlertDialogAction onClick={onDiscard}>放弃修改</AlertDialogAction>
+          <AlertDialogAction disabled={discardDisabled} onClick={onDiscard}>
+            放弃修改
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
