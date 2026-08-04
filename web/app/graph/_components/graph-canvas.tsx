@@ -20,6 +20,7 @@ import { GraphLoadingIndicator } from '@/components/graph/graph-loading-indicato
 import { GraphViewer, type GraphViewerRef, type LayoutMode } from '@/components/graph/graph-viewer'
 import type { KnowledgeGraph3DRef } from '@/components/graph/force-graph-3d'
 import { Button } from '@/components/ui/button'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { reportClientWarning } from '@/lib/client-logging'
@@ -131,6 +132,7 @@ type GraphCanvasProps = Readonly<{
   showEdgeLabels: boolean
   layoutMode: LayoutMode
   isLoading: boolean
+  loadError: string | null
   hasActiveScope: boolean
   onNodeClick: (node: GraphNodeLike) => void
   onNodeRightClick: (node: GraphNodeLike, event: MouseEvent) => void
@@ -139,6 +141,7 @@ type GraphCanvasProps = Readonly<{
   onBackgroundClick: () => void
   onBackgroundRightClick: (event: MouseEvent) => void
   onOpenGraphPicker: () => void
+  onRetryLoad: () => void
   onTriggerManualKgUpload: () => void
 }>
 
@@ -176,6 +179,7 @@ export function GraphCanvas({
   showEdgeLabels,
   layoutMode,
   isLoading,
+  loadError,
   hasActiveScope,
   onNodeClick,
   onNodeRightClick,
@@ -184,6 +188,7 @@ export function GraphCanvas({
   onBackgroundClick,
   onBackgroundRightClick,
   onOpenGraphPicker,
+  onRetryLoad,
   onTriggerManualKgUpload,
 }: GraphCanvasProps) {
   const [isSemanticListVisible, setIsSemanticListVisible] = useState(viewMode === '3d')
@@ -467,7 +472,7 @@ export function GraphCanvas({
         className="absolute inset-0 z-0"
         style={getCanvasBackdropStyle(isDark)}
       />
-      {graphRenderData.nodes.length > 0 ? (
+      {!loadError && graphRenderData.nodes.length > 0 ? (
         <>
           {viewMode === '3d' ? (
             graphViewportWidth > 0 && graphViewportHeight > 0 ? (
@@ -719,6 +724,13 @@ export function GraphCanvas({
                 <Skeleton className="h-3 w-2/3" />
               </div>
             </div>
+          ) : loadError ? (
+            <QueryErrorState
+              className="w-full max-w-xl bg-background"
+              title="无法加载当前图谱"
+              description={loadError}
+              onRetry={onRetryLoad}
+            />
           ) : (
             <section className="mx-auto flex w-full max-w-[36rem] flex-col items-center justify-center px-4 py-10 text-center md:px-8 md:py-14">
               <div className="mb-5 flex items-center justify-center">

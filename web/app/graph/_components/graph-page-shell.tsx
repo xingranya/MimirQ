@@ -139,6 +139,7 @@ export function GraphPageShell({
             showEdgeLabels: state.showEdgeLabels,
             layoutMode: state.layoutMode,
             isLoading: state.isLoading,
+            loadError: dataLoading.loadError,
             hasActiveScope: state.scope.hasScope,
             onNodeClick: interactionModes.handleNodeClick,
             onNodeRightClick: pageActions.handleNodeRightClick,
@@ -147,6 +148,9 @@ export function GraphPageShell({
             onBackgroundClick: pageActions.handleBackgroundClick,
             onBackgroundRightClick: pageActions.handleBackgroundRightClick,
             onOpenGraphPicker: () => setGraphScopePickerOpen(true),
+            onRetryLoad: () => {
+              detachPromise(dataLoading.retryInitialData())
+            },
             onTriggerManualKgUpload: dataLoading.triggerManualKgUpload,
           }}
           contextMenuProps={{

@@ -90,4 +90,12 @@ describe('图谱面板响应式与视觉契约', () => {
     expect(legendSource).not.toContain('Directed Edge')
     expect(legendSource).not.toContain('Event Edge')
   })
+
+  it('图谱读取失败时展示可恢复的独立错误状态', () => {
+    expect(canvasSource).toContain('loadError: string | null')
+    expect(canvasSource).toContain('title="无法加载当前图谱"')
+    expect(canvasSource).toContain('description={loadError}')
+    expect(canvasSource).toContain('onRetry={onRetryLoad}')
+    expect(canvasSource).toContain('QueryErrorState')
+  })
 })

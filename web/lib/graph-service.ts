@@ -1,9 +1,6 @@
 import { GraphData, GraphNode } from '@/lib/graph-parser'
 import { kgApi, metaApi } from '@/lib/api'
 
-// Small delay for empty live graph loading so UI transitions remain stable.
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -39,29 +36,19 @@ export class GraphService {
       return { nodes: [], links: [] }
     }
 
-    // Try KG live graph first; when no KG data is available, return an empty graph so the
-    // UI can clearly communicate "no result in current scope" instead of showing demo data.
-    try {
-      const data = await kgApi.getGraph({
-        document_ids: options.documentIds,
-        dataset_id: options.datasetId,
-        pipeline_hash: options.pipelineHash,
-        include_entity_links: options.includeEntityLinks,
-        include_relation_links: options.includeRelationLinks,
-        min_shared_events: options.minSharedEvents,
-        max_entity_links: options.maxEntityLinks,
-      })
-      const nodes = Array.isArray(data?.nodes) ? data.nodes : []
-      const links = Array.isArray(data?.links) ? data.links : []
-      if (nodes.length > 0) {
-        return cloneGraphData({ nodes, links })
-      }
-    } catch {
-      // ignore and return empty graph below
-    }
-
-    await delay(200) // keep a tiny delay for UI consistency
-    return { nodes: [], links: [] }
+    // 接口成功返回空数组才表示当前范围没有图谱；权限或网络异常必须交给调用方处理。
+    const data = await kgApi.getGraph({
+      document_ids: options.documentIds,
+      dataset_id: options.datasetId,
+      pipeline_hash: options.pipelineHash,
+      include_entity_links: options.includeEntityLinks,
+      include_relation_links: options.includeRelationLinks,
+      min_shared_events: options.minSharedEvents,
+      max_entity_links: options.maxEntityLinks,
+    })
+    const nodes = Array.isArray(data?.nodes) ? data.nodes : []
+    const links = Array.isArray(data?.links) ? data.links : []
+    return cloneGraphData({ nodes, links })
   }
 
   /**
