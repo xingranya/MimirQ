@@ -197,6 +197,7 @@ export interface DifyExternalKnowledgeConfig {
 }
 
 export interface SystemSettings {
+  writable: boolean
   feature_flags: FeatureFlags
   kg: KGConfig
   llm: LLMConfig

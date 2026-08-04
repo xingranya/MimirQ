@@ -36,6 +36,7 @@ vi.mock('@/lib/api', () => ({
 import { useSettingsPageState } from './use-settings-page-state'
 
 const settingsSnapshot = {
+  writable: true,
   llm: {
     api_key: '',
     api_base: '',
@@ -219,6 +220,54 @@ describe('设置页保存校验', () => {
         }),
       })
     )
+    hook.unmount()
+  })
+
+  it('只读账号不能产生设置草稿或保存请求', async () => {
+    mocks.getSettings.mockResolvedValue({ ...settingsSnapshot, writable: false })
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.toggleFeature('kg_enabled'))
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 10 }))
+    await act(async () => hook.result.current.saveSettings())
+
+    expect(hook.result.current.settingsWritable).toBe(false)
+    expect(hook.result.current.hasChanges).toBe(false)
+    expect(mocks.updateSettings).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('功能开关切回原值后清除草稿', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.toggleFeature('kg_enabled'))
+    expect(hook.result.current.hasChanges).toBe(true)
+    expect(hook.result.current.editedFeatureFlags).toEqual({ kg_enabled: true })
+
+    act(() => hook.result.current.toggleFeature('kg_enabled'))
+    expect(hook.result.current.hasChanges).toBe(false)
+    expect(hook.result.current.editedFeatureFlags).toBeUndefined()
+    hook.unmount()
+  })
+
+  it('功能开关保存时补全后端所需字段', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.toggleFeature('kg_enabled'))
+    await act(async () => hook.result.current.saveSettings())
+
+    const submitted = mocks.updateSettings.mock.calls[0]?.[0]
+    expect(submitted?.feature_flags).toEqual(
+      expect.objectContaining({
+        kg_enabled: true,
+        deepdoc_enabled: false,
+        magicpdf_enabled: false,
+      })
+    )
+    expect(Object.keys(submitted?.feature_flags ?? {})).toHaveLength(11)
     hook.unmount()
   })
 })

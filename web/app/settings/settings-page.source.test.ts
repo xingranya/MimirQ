@@ -63,6 +63,13 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).toContain('放弃未保存的修改？')
   })
 
+  it('按后端写能力进入只读模式', () => {
+    expect(settingsPageSource).toContain('settingsWritable={state.settingsWritable}')
+    expect(settingsPageSource).toContain('只有系统所有者可以修改')
+    expect(settingsPageSource.match(/<fieldset disabled={!settingsWritable}/g)).toHaveLength(5)
+    expect(settingsPageSource).toContain('if (!settingsWritable) return null')
+  })
+
   it('保存失败保持可见并允许再次保存', () => {
     const saveSettingsSource = settingsStateSource.slice(
       settingsStateSource.indexOf('const saveSettings = async'),

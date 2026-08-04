@@ -58,6 +58,9 @@ type UrlIngestSettings = NonNullable<SystemSettings['url_ingest']>
 type GovernanceSettings = NonNullable<SystemSettings['governance']>
 type DifyExternalKnowledgeSettings = NonNullable<SystemSettings['dify_external_knowledge']>
 type MinIOSettings = NonNullable<SystemSettings['minio']>
+type EditedSystemSettings = Omit<Partial<SystemSettings>, 'feature_flags'> & {
+  feature_flags?: Partial<FeatureFlags>
+}
 
 function mergeConfig<T extends object>(current: T, patch: Partial<T>): T {
   return {
@@ -416,7 +419,15 @@ export function useSettingsPageState() {
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null)
   const saveMessageTimeoutRef = useRef<number | null>(null)
   const [lastUpdatedKeys, setLastUpdatedKeys] = useState<string[]>([])
-  const [editedSettings, setEditedSettings] = useState<Partial<SystemSettings>>({})
+  const [editedSettings, setEditedSettings] = useState<EditedSystemSettings>({})
+  const settingsWritable = settings?.writable === true
+
+  const editSettings = (
+    updater: (current: EditedSystemSettings) => EditedSystemSettings
+  ) => {
+    if (!settingsWritable) return
+    setEditedSettings(updater)
+  }
 
   const [ltrModels, setLtrModels] = useState<LTRModelInfo[]>([])
   const [ltrLoading, setLtrLoading] = useState(false)
@@ -609,7 +620,26 @@ export function useSettingsPageState() {
   const saveSettings = async () => {
     if (Object.keys(editedSettings).length === 0) return
 
-    const validationIssue = validateSettingsChanges(editedSettings)
+    if (!settingsWritable) {
+      setSaveMessage({ type: 'error', text: '当前账号只能查看系统设置。' })
+      return
+    }
+
+    const { feature_flags: editedFeatureFlags, ...otherEditedSettings } = editedSettings
+    const pendingSettings: Partial<SystemSettings> = {
+      ...otherEditedSettings,
+      ...(editedFeatureFlags
+        ? {
+            feature_flags: mergeWithDefaults(
+              DEFAULT_FEATURE_FLAGS,
+              settings?.feature_flags,
+              editedFeatureFlags
+            ),
+          }
+        : {}),
+    }
+
+    const validationIssue = validateSettingsChanges(pendingSettings)
     if (validationIssue) {
       setSaveMessage({
         type: 'error',
@@ -626,7 +656,7 @@ export function useSettingsPageState() {
       saveMessageTimeoutRef.current = null
     }
     try {
-      const result = await settingsApi.update(editedSettings)
+      const result = await settingsApi.update(pendingSettings)
       setSaveMessage(createSettingsSaveSuccessMessage())
       setLastUpdatedKeys(result.updated_keys || [])
       await loadSettings()
@@ -643,31 +673,39 @@ export function useSettingsPageState() {
   }
 
   const toggleFeature = (key: keyof FeatureFlags) => {
-    setEditedSettings((prev) => {
-      const currentFlags = mergeWithDefaults(
+    editSettings((prev) => {
+      const persistedFlags = mergeWithDefaults(
         DEFAULT_FEATURE_FLAGS,
         settings?.feature_flags,
-        prev.feature_flags
+        undefined
       )
-      return {
-        ...prev,
-        feature_flags: {
-          ...currentFlags,
-          [key]: !currentFlags[key],
-        },
+      const nextFlags = { ...(prev.feature_flags ?? {}) }
+      const currentValue = nextFlags[key] ?? persistedFlags[key]
+      const nextValue = !currentValue
+      if (nextValue === persistedFlags[key]) {
+        delete nextFlags[key]
+      } else {
+        nextFlags[key] = nextValue
       }
+      const nextSettings = { ...prev }
+      if (Object.keys(nextFlags).length === 0) {
+        delete nextSettings.feature_flags
+      } else {
+        nextSettings.feature_flags = nextFlags
+      }
+      return nextSettings
     })
   }
 
   const getFeatureValue = (key: keyof FeatureFlags): boolean => {
     if (editedSettings.feature_flags && key in editedSettings.feature_flags) {
-      return editedSettings.feature_flags[key]
+      return editedSettings.feature_flags[key] ?? false
     }
     return settings?.feature_flags?.[key] ?? false
   }
 
   const updateObservability = (patch: Partial<ObservabilityConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       observability: mergeConfig(
         mergeWithDefaults(DEFAULT_OBSERVABILITY, settings?.observability, prev.observability),
@@ -677,7 +715,7 @@ export function useSettingsPageState() {
   }
 
   const updateSafety = (patch: Partial<SafetyConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       safety: mergeConfig(
         mergeWithDefaults(DEFAULT_SAFETY, settings?.safety, prev.safety),
@@ -687,7 +725,7 @@ export function useSettingsPageState() {
   }
 
   const updateLangGraph = (patch: Partial<LangGraphConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       langgraph: mergeConfig(
         mergeWithDefaults(DEFAULT_LANGGRAPH, settings?.langgraph, prev.langgraph),
@@ -697,7 +735,7 @@ export function useSettingsPageState() {
   }
 
   const updateNavigation = (patch: Partial<NavigationConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       navigation: mergeConfig(
         mergeWithDefaults(DEFAULT_NAVIGATION, settings?.navigation, prev.navigation),
@@ -707,7 +745,7 @@ export function useSettingsPageState() {
   }
 
   const updateDifyExternalKnowledge = (patch: Partial<DifyExternalKnowledgeSettings>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       dify_external_knowledge: mergeConfig(
         mergeWithDefaults(
@@ -721,28 +759,28 @@ export function useSettingsPageState() {
   }
 
   const updateChat = (patch: Partial<ChatConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       chat: mergeConfig(mergeWithDefaults(DEFAULT_CHAT, settings?.chat, prev.chat), patch),
     }))
   }
 
   const updateCache = (patch: Partial<CacheConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       cache: mergeConfig(mergeWithDefaults(DEFAULT_CACHE, settings?.cache, prev.cache), patch),
     }))
   }
 
   const updateMinIO = (patch: Partial<MinIOSettings>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       minio: mergeConfig(mergeWithDefaults(DEFAULT_MINIO, settings?.minio, prev.minio), patch),
     }))
   }
 
   const updateMagicPDF = (patch: Partial<MagicPDFConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       magicpdf: mergeConfig(
         mergeWithDefaults(DEFAULT_MAGICPDF, settings?.magicpdf, prev.magicpdf),
@@ -752,7 +790,7 @@ export function useSettingsPageState() {
   }
 
   const updateMinerU = (patch: Partial<MinerUConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       mineru: mergeConfig(
         mergeWithDefaults(DEFAULT_MINERU, settings?.mineru, prev.mineru),
@@ -762,7 +800,7 @@ export function useSettingsPageState() {
   }
 
   const updateEtl4Llm = (patch: Partial<Etl4LlmConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       etl4llm: mergeConfig(
         mergeWithDefaults(DEFAULT_ETL4LLM, settings?.etl4llm, prev.etl4llm),
@@ -772,14 +810,14 @@ export function useSettingsPageState() {
   }
 
   const updateMarker = (patch: Partial<MarkerConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       marker: mergeConfig(mergeWithDefaults(DEFAULT_MARKER, settings?.marker, prev.marker), patch),
     }))
   }
 
   const updatePaddleVL = (patch: Partial<PaddleVLConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       paddle_vl: mergeConfig(
         mergeWithDefaults(DEFAULT_PADDLE_VL, settings?.paddle_vl, prev.paddle_vl),
@@ -789,7 +827,7 @@ export function useSettingsPageState() {
   }
 
   const updateTextIn = (patch: Partial<TextInConfig>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       textin: mergeConfig(
         mergeWithDefaults(DEFAULT_TEXTIN, settings?.textin, prev.textin),
@@ -799,7 +837,7 @@ export function useSettingsPageState() {
   }
 
   const updateRag = (patch: Partial<RagSettings>) => {
-    setEditedSettings((prev) => {
+    editSettings((prev) => {
       const nextRag = mergeConfig(
         mergeWithDefaults(DEFAULT_RAG, settings?.rag, prev.rag),
         patch
@@ -816,7 +854,7 @@ export function useSettingsPageState() {
   }
 
   const updateUrlIngest = (patch: Partial<UrlIngestSettings>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       url_ingest: mergeConfig(
         mergeWithDefaults(DEFAULT_URL_INGEST, settings?.url_ingest, prev.url_ingest),
@@ -826,7 +864,7 @@ export function useSettingsPageState() {
   }
 
   const updateGovernance = (patch: Partial<GovernanceSettings>) => {
-    setEditedSettings((prev) => ({
+    editSettings((prev) => ({
       ...prev,
       governance: mergeConfig(
         mergeWithDefaults(DEFAULT_GOVERNANCE, settings?.governance, prev.governance),
@@ -839,11 +877,16 @@ export function useSettingsPageState() {
   const hasChanges = dirtySectionCount > 0
 
   const handleConfigure = (provider: ModelProvider) => {
+    if (!settingsWritable) return
     setSelectedProvider(provider)
     setDialogOpen(true)
   }
 
   const handleSaveConfig = async (providerId: string, config: ProviderConfig) => {
+    if (!settingsWritable) {
+      setSaveMessage({ type: 'error', text: '当前账号只能查看系统设置。' })
+      return
+    }
     const provider = providers.find((item) => item.id === providerId)
     if (!provider) return
 
@@ -954,6 +997,7 @@ export function useSettingsPageState() {
     saveMessage,
     saveSettings,
     saving,
+    settingsWritable,
     selectedProvider,
     setDialogOpen,
     setLtrUploadManifestFile,

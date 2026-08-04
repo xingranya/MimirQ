@@ -79,6 +79,7 @@ type ChunkStrategyPreference = ReturnType<typeof useChunkStrategyPreference>
 type SettingsContentProps = {
   state: SettingsPageState
   isAdmin: boolean
+  settingsWritable: boolean
   parserBackend: ParserBackendPreference['parserBackend']
   setParserBackend: ParserBackendPreference['setParserBackend']
   chunkStrategy: ChunkStrategyPreference['chunkStrategy']
@@ -154,7 +155,12 @@ function UnsavedSettingsDialog({
   )
 }
 
-function SettingsSaveBar({ state }: Readonly<{ state: SettingsPageState }>) {
+function SettingsSaveBar({
+  state,
+  settingsWritable,
+}: Readonly<{ state: SettingsPageState; settingsWritable: boolean }>) {
+  if (!settingsWritable) return null
+
   return (
     <div
       data-testid="settings-save-bar"
@@ -487,6 +493,14 @@ function SettingsPageContent() {
             {state.saveMessage ? (
               <SettingsSaveFeedback message={state.saveMessage} />
             ) : null}
+            {!state.loading && !state.settingsWritable ? (
+              <Alert className="rounded-lg border-border bg-muted/40 shadow-none">
+                <AlertTitle>只读模式</AlertTitle>
+                <AlertDescription className="text-foreground/80">
+                  当前账号可以查看系统设置，只有系统所有者可以修改。
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </div>
         }
         actions={
@@ -524,19 +538,23 @@ function SettingsPageContent() {
             <SettingsContent
               state={state}
               isAdmin={isAdmin}
+              settingsWritable={state.settingsWritable}
               parserBackend={parserBackend}
               setParserBackend={setParserBackend}
               chunkStrategy={chunkStrategy}
               setChunkStrategy={setChunkStrategy}
             />
-            <SettingsSaveBar state={state} />
+            <SettingsSaveBar
+              state={state}
+              settingsWritable={state.settingsWritable}
+            />
           </>
         )}
       </PageScaffold>
 
       <ModelConfigDialog
         provider={state.selectedProvider}
-        open={state.dialogOpen}
+        open={state.dialogOpen && state.settingsWritable}
         onClose={() => state.setDialogOpen(false)}
         onSave={state.handleSaveConfig}
       />
@@ -562,6 +580,7 @@ function SettingsPageContent() {
 function SettingsContent({
   state,
   isAdmin,
+  settingsWritable,
   parserBackend,
   setParserBackend,
   chunkStrategy,
@@ -695,83 +714,89 @@ function SettingsContent({
                     />
                   ) : null}
                 </SettingsSubsection>
-                <SettingsSubsection title="运行控制" advanced>
-                  <RuntimeControlsSection
-                    chat={state.chatMerged}
-                    updateChat={state.updateChat}
-                    cache={state.cacheMerged}
-                    updateCache={state.updateCache}
-                    safety={state.safetyMerged}
-                    updateSafety={state.updateSafety}
-                    langgraph={state.langGraphMerged}
-                    updateLangGraph={state.updateLangGraph}
-                  />
-                </SettingsSubsection>
+                <fieldset disabled={!settingsWritable} className="contents">
+                  <SettingsSubsection title="运行控制" advanced>
+                    <RuntimeControlsSection
+                      chat={state.chatMerged}
+                      updateChat={state.updateChat}
+                      cache={state.cacheMerged}
+                      updateCache={state.updateCache}
+                      safety={state.safetyMerged}
+                      updateSafety={state.updateSafety}
+                      langgraph={state.langGraphMerged}
+                      updateLangGraph={state.updateLangGraph}
+                    />
+                  </SettingsSubsection>
+                </fieldset>
               </SettingsSectionFrame>
             ) : null}
 
             {visibleSectionIdSet.has('settings-models') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-models']}>
-                <SettingsSubsection title="模型接入">
-                  <ModelProvidersSection
-                    groupedProviders={state.groupedProviders}
-                    onConfigure={state.handleConfigure}
-                  />
-                </SettingsSubsection>
-                {isAdmin ? (
-                  <SettingsSubsection title="对象存储" advanced>
-                    <ObjectStorageSection
-                      minio={state.minioMerged}
-                      updateMinIO={state.updateMinIO}
+                <fieldset disabled={!settingsWritable} className="contents">
+                  <SettingsSubsection title="模型接入">
+                    <ModelProvidersSection
+                      groupedProviders={state.groupedProviders}
+                      onConfigure={state.handleConfigure}
                     />
                   </SettingsSubsection>
-                ) : null}
-                {isAdmin ? (
-                  <SettingsSubsection title="Dify 接入" advanced>
-                    <DifyIntegrationSection
-                      difyExternalKnowledge={state.difyExternalKnowledgeMerged}
-                      updateDifyExternalKnowledge={state.updateDifyExternalKnowledge}
-                    />
-                  </SettingsSubsection>
-                ) : null}
+                  {isAdmin ? (
+                    <SettingsSubsection title="对象存储" advanced>
+                      <ObjectStorageSection
+                        minio={state.minioMerged}
+                        updateMinIO={state.updateMinIO}
+                      />
+                    </SettingsSubsection>
+                  ) : null}
+                  {isAdmin ? (
+                    <SettingsSubsection title="Dify 接入" advanced>
+                      <DifyIntegrationSection
+                        difyExternalKnowledge={state.difyExternalKnowledgeMerged}
+                        updateDifyExternalKnowledge={state.updateDifyExternalKnowledge}
+                      />
+                    </SettingsSubsection>
+                  ) : null}
+                </fieldset>
               </SettingsSectionFrame>
             ) : null}
 
             {visibleSectionIdSet.has('settings-knowledge') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-knowledge']}>
-                <SettingsSubsection title="高级解析">
-                  <ParserServicesSection
-                    mineru={state.mineruMerged}
-                    etl4llm={state.etl4llmMerged}
-                    marker={state.markerMerged}
-                    paddleVl={state.paddleVlMerged}
-                    textIn={state.textInMerged}
-                    magicPdf={state.magicPdfMerged}
-                    updateMinerU={state.updateMinerU}
-                    updateEtl4Llm={state.updateEtl4Llm}
-                    updateMarker={state.updateMarker}
-                    updatePaddleVL={state.updatePaddleVL}
-                    updateTextIn={state.updateTextIn}
-                    updateMagicPDF={state.updateMagicPDF}
-                  />
-                </SettingsSubsection>
-                <SettingsSubsection title="数据治理">
-                  <GovernanceSection
-                    isGovernanceEnabled={state.isGovernanceEnabled}
-                    isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
-                    isSecretsRedactEnabled={state.isSecretsRedactEnabled}
-                    isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
-                    updateGovernance={state.updateGovernance}
-                  />
-                </SettingsSubsection>
-                {isAdmin ? (
-                  <SettingsSubsection title="URL 采集" advanced>
-                    <UrlIngestSection
-                      urlIngest={state.urlIngestMerged}
-                      updateUrlIngest={state.updateUrlIngest}
+                <fieldset disabled={!settingsWritable} className="contents">
+                  <SettingsSubsection title="高级解析">
+                    <ParserServicesSection
+                      mineru={state.mineruMerged}
+                      etl4llm={state.etl4llmMerged}
+                      marker={state.markerMerged}
+                      paddleVl={state.paddleVlMerged}
+                      textIn={state.textInMerged}
+                      magicPdf={state.magicPdfMerged}
+                      updateMinerU={state.updateMinerU}
+                      updateEtl4Llm={state.updateEtl4Llm}
+                      updateMarker={state.updateMarker}
+                      updatePaddleVL={state.updatePaddleVL}
+                      updateTextIn={state.updateTextIn}
+                      updateMagicPDF={state.updateMagicPDF}
                     />
                   </SettingsSubsection>
-                ) : null}
+                  <SettingsSubsection title="数据治理">
+                    <GovernanceSection
+                      isGovernanceEnabled={state.isGovernanceEnabled}
+                      isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
+                      isSecretsRedactEnabled={state.isSecretsRedactEnabled}
+                      isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
+                      updateGovernance={state.updateGovernance}
+                    />
+                  </SettingsSubsection>
+                  {isAdmin ? (
+                    <SettingsSubsection title="URL 采集" advanced>
+                      <UrlIngestSection
+                        urlIngest={state.urlIngestMerged}
+                        updateUrlIngest={state.updateUrlIngest}
+                      />
+                    </SettingsSubsection>
+                  ) : null}
+                </fieldset>
                 <SettingsSubsection title="行业规则" advanced>
                   <IndustryRulesSection />
                 </SettingsSubsection>
@@ -780,42 +805,44 @@ function SettingsContent({
 
             {visibleSectionIdSet.has('settings-retrieval') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-retrieval']}>
-                <SettingsSubsection title="RAG 配置">
-                  <RagSection
-                    rag={state.ragMerged}
-                    updateRag={state.updateRag}
-                    ltrAvailable={state.ltrModels.some((model) => model.active)}
-                  />
-                </SettingsSubsection>
-                <SettingsSubsection title="检索增强" advanced>
-                  <RetrievalEnhancementSection state={state} />
-                  <FeatureFlagsSection
-                    editedFeatureFlags={state.editedFeatureFlags}
-                    getFeatureValue={state.getFeatureValue}
-                    toggleFeature={state.toggleFeature}
-                  />
-                </SettingsSubsection>
-                <SettingsSubsection title="LTR 模型" advanced>
-                  <LtrModelRegistrySection
-                    ltrError={state.ltrError}
-                    ltrMessage={state.ltrMessage}
-                    ltrUploading={state.ltrUploading}
-                    ltrUploadReady={state.ltrUploadReady}
-                    ltrUploadResetKey={state.ltrUploadResetKey}
-                    ltrLoading={state.ltrLoading}
-                    ltrBusyModelId={state.ltrBusyModelId}
-                    ltrModels={state.ltrModels}
-                    onRegister={state.registerLtrModel}
-                    onRefreshList={state.refreshLtrModels}
-                    onRollback={state.rollbackLtrModel}
-                    onActivate={state.activateLtrModel}
-                    onModelFileChange={state.setLtrUploadModelFile}
-                    onManifestFileChange={state.setLtrUploadManifestFile}
-                    formatBytes={state.formatBytes}
-                    formatTime={state.formatTime}
-                    shortId={state.shortId}
-                  />
-                </SettingsSubsection>
+                <fieldset disabled={!settingsWritable} className="contents">
+                  <SettingsSubsection title="RAG 配置">
+                    <RagSection
+                      rag={state.ragMerged}
+                      updateRag={state.updateRag}
+                      ltrAvailable={state.ltrModels.some((model) => model.active)}
+                    />
+                  </SettingsSubsection>
+                  <SettingsSubsection title="检索增强" advanced>
+                    <RetrievalEnhancementSection state={state} />
+                    <FeatureFlagsSection
+                      editedFeatureFlags={state.editedFeatureFlags}
+                      getFeatureValue={state.getFeatureValue}
+                      toggleFeature={state.toggleFeature}
+                    />
+                  </SettingsSubsection>
+                  <SettingsSubsection title="LTR 模型" advanced>
+                    <LtrModelRegistrySection
+                      ltrError={state.ltrError}
+                      ltrMessage={state.ltrMessage}
+                      ltrUploading={state.ltrUploading}
+                      ltrUploadReady={state.ltrUploadReady}
+                      ltrUploadResetKey={state.ltrUploadResetKey}
+                      ltrLoading={state.ltrLoading}
+                      ltrBusyModelId={state.ltrBusyModelId}
+                      ltrModels={state.ltrModels}
+                      onRegister={state.registerLtrModel}
+                      onRefreshList={state.refreshLtrModels}
+                      onRollback={state.rollbackLtrModel}
+                      onActivate={state.activateLtrModel}
+                      onModelFileChange={state.setLtrUploadModelFile}
+                      onManifestFileChange={state.setLtrUploadManifestFile}
+                      formatBytes={state.formatBytes}
+                      formatTime={state.formatTime}
+                      shortId={state.shortId}
+                    />
+                  </SettingsSubsection>
+                </fieldset>
               </SettingsSectionFrame>
             ) : null}
 
@@ -829,22 +856,24 @@ function SettingsContent({
                     setChunkStrategy={setChunkStrategy}
                   />
                 </SettingsSubsection>
-                {isAdmin ? (
-                  <SettingsSubsection title="导航权限" advanced>
-                    <NavigationVisibilitySection
-                      navigation={state.navigationMerged}
-                      updateNavigation={state.updateNavigation}
-                    />
-                  </SettingsSubsection>
-                ) : null}
-                {isAdmin ? (
-                  <SettingsSubsection title="可观测性" advanced>
-                    <ObservabilitySection
-                      observability={state.observabilityMerged}
-                      updateObservability={state.updateObservability}
-                    />
-                  </SettingsSubsection>
-                ) : null}
+                <fieldset disabled={!settingsWritable} className="contents">
+                  {isAdmin ? (
+                    <SettingsSubsection title="导航权限" advanced>
+                      <NavigationVisibilitySection
+                        navigation={state.navigationMerged}
+                        updateNavigation={state.updateNavigation}
+                      />
+                    </SettingsSubsection>
+                  ) : null}
+                  {isAdmin ? (
+                    <SettingsSubsection title="可观测性" advanced>
+                      <ObservabilitySection
+                        observability={state.observabilityMerged}
+                        updateObservability={state.updateObservability}
+                      />
+                    </SettingsSubsection>
+                  ) : null}
+                </fieldset>
               </SettingsSectionFrame>
             ) : null}
           </div>

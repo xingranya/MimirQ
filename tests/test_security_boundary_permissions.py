@@ -76,6 +76,7 @@ def test_global_settings_write_requires_default_tenant_owner(monkeypatch) -> Non
     with pytest.raises(HTTPException) as admin:
         settings_api._ensure_settings_writable(object(), default_tenant_id, "admin")
     assert admin.value.status_code == 403
+    assert settings_api._settings_writable(object(), default_tenant_id, "admin") is False
 
     monkeypatch.setattr(
         settings_api,
@@ -83,6 +84,7 @@ def test_global_settings_write_requires_default_tenant_owner(monkeypatch) -> Non
         lambda *_args, **_kwargs: SimpleNamespace(role="owner"),
     )
     settings_api._ensure_settings_writable(object(), default_tenant_id, "owner")
+    assert settings_api._settings_writable(object(), default_tenant_id, "owner") is True
 
 
 def test_llm_api_base_rejects_hostname_resolving_to_private_ip(monkeypatch: pytest.MonkeyPatch) -> None:

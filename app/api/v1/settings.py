@@ -293,6 +293,15 @@ def _ensure_settings_writable(db: Session, tenant_id: UUID, account_id: str) -> 
         raise HTTPException(status_code=403, detail="No permission to manage system settings")
 
 
+def _settings_writable(db: Session, tenant_id: UUID, account_id: str) -> bool:
+    """返回当前成员是否可以修改全局系统设置。"""
+    try:
+        _ensure_settings_writable(db, tenant_id, account_id)
+    except HTTPException:
+        return False
+    return True
+
+
 async def _validate_public_base_url(base_url: str) -> _ValidatedFetchTarget:
     try:
         return await _validated_fetch_target(base_url, enforce_allowlists=False)
@@ -625,6 +634,7 @@ class DifyExternalKnowledgeConfig(BaseModel):
 
 class SystemSettings(BaseModel):
     """Full system config."""
+    writable: bool = False
     feature_flags: FeatureFlags
     kg: KGConfig
     llm: LLMConfig
@@ -1354,6 +1364,7 @@ def get_settings(
     """Get current system config."""
     _ensure_settings_readable(db, tenant_id, account_id)
     return SystemSettings(
+        writable=_settings_writable(db, tenant_id, account_id),
         feature_flags=FeatureFlags(
             kg_enabled=settings.KG_ENABLED,
             deepdoc_enabled=settings.DEEPDOC_ENABLED,
