@@ -24,7 +24,7 @@ import { IconButton } from '@/components/ui/icon-button'
 import { StatusBadge, type StatusBadgeStatus } from '@/components/ui/status-badge'
 import { documentApi, kgApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
-import { reportClientError, reportClientWarning } from '@/lib/client-logging'
+import { reportClientError } from '@/lib/client-logging'
 import { getChunkStrategyLabel } from '@/lib/chunk-strategies'
 import { buildTagsPatch, getUserTagsFromDocument, normalizeTags } from '@/lib/document-user-tags'
 import { getParserLabel } from '@/lib/parser-options'
@@ -268,16 +268,9 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
     enabled: open,
   })
 
-  const accessQuery = useQuery<DocumentAccessInfo | null>({
+  const accessQuery = useQuery<DocumentAccessInfo>({
     queryKey: accessQueryKey,
-    queryFn: async () => {
-      try {
-        return await documentApi.getAccess(initialDocument.id)
-      } catch (err) {
-        reportClientWarning('Load document access error', err)
-        return null
-      }
-    },
+    queryFn: () => documentApi.getAccess(initialDocument.id),
     enabled: open,
   })
 
@@ -326,6 +319,12 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
   const docError = detailQuery.error ? formatApiError(detailQuery.error, t('errors.loadDetailFailed')) : null
   const versionsError = versionsQuery.error ? formatApiError(versionsQuery.error, t('errors.loadVersionsFailed')) : null
   const timelineError = timelineQuery.error ? formatApiError(timelineQuery.error, t('errors.loadTimelineFailed')) : null
+  const accessError = accessQuery.error
+    ? formatApiError(accessQuery.error, '文档权限加载失败')
+    : accessQuery.isSuccess && !accessInfo
+      ? '接口未返回文档权限信息。请重新加载。'
+      : null
+  const accessReady = Boolean(accessInfo) && !accessError
 
   const persistedTags = useMemo(() => getUserTagsFromDocument(detail || initialDocument), [detail, initialDocument])
   const [optimisticTags, applyOptimisticTags] = useOptimistic(
@@ -871,6 +870,10 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
 
   const [, saveAccessAction, isSavingAccess] = useActionState(async (_state: SaveActionState, formData: FormData): Promise<SaveActionState> => {
     if (!displayDoc?.id) return 'skipped'
+    if (!accessInfo || accessQuery.error) {
+      toast.error('文档权限尚未加载，无法保存。请重新加载后再试。')
+      return 'failed'
+    }
 
     const nextAccessMode = normalizeAccessMode(formData.get('access_mode'))
     const nextAccessGroupIds =
@@ -916,13 +919,18 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
 
   const handleAccessDialogOpenChange = useCallback((next: boolean) => {
     if (!next && isSavingAccess) return
-    if (next) {
-      setAccessMode(effectiveAccessMode)
-      setAccessMembersText((accessInfo?.partial_member_list || []).join('\n'))
-      setAccessGroupIds((accessInfo?.partial_group_list || []).map(String))
+    if (next && !accessInfo && !accessQuery.isFetching) {
+      accessQuery.refetch()
     }
     setAccessDialogOpen(next)
-  }, [accessInfo?.partial_group_list, accessInfo?.partial_member_list, effectiveAccessMode, isSavingAccess])
+  }, [accessInfo, accessQuery, isSavingAccess])
+
+  useEffect(() => {
+    if (!accessDialogOpen || !accessInfo || accessQuery.error) return
+    setAccessMode(effectiveAccessMode)
+    setAccessMembersText((accessInfo.partial_member_list || []).join('\n'))
+    setAccessGroupIds((accessInfo.partial_group_list || []).map(String))
+  }, [accessDialogOpen, accessInfo, accessQuery.error, effectiveAccessMode])
 
   const handleVersionsRefresh = useCallback(() => {
     versionsQuery.refetch()
@@ -1157,6 +1165,12 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
                 onAccessGroupIdsChange={setAccessGroupIds}
                 accessMembersText={accessMembersText}
                 onAccessMembersTextChange={setAccessMembersText}
+                accessReady={accessReady}
+                accessLoading={accessQuery.isFetching && !accessInfo}
+                accessError={accessError}
+                onRetry={() => {
+                  accessQuery.refetch()
+                }}
                 action={saveAccessAction}
               />
 

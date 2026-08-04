@@ -7,6 +7,7 @@ import { useFormStatus } from 'react-dom'
 import { GroupChipsInput } from '@/components/groups/group-chips-input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import type { DocumentAccessMode } from '@/types'
@@ -21,15 +22,19 @@ interface DocumentAccessDialogProps {
   onAccessGroupIdsChange: (value: string[]) => void
   accessMembersText: string
   onAccessMembersTextChange: (value: string) => void
+  accessReady: boolean
+  accessLoading: boolean
+  accessError: string | null
+  onRetry: () => void
   action: (payload: FormData) => void
 }
 
-function DocumentAccessSaveButton() {
+function DocumentAccessSaveButton({ disabled }: Readonly<{ disabled: boolean }>) {
   const t = useTranslations('DocumentAccessDialog')
   const { pending } = useFormStatus()
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending || disabled}>
       {pending ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
       ) : null}
@@ -46,10 +51,15 @@ function DocumentAccessDialogForm({
   onAccessGroupIdsChange,
   accessMembersText,
   onAccessMembersTextChange,
+  accessReady,
+  accessLoading,
+  accessError,
+  onRetry,
   onOpenChange,
 }: Readonly<Omit<DocumentAccessDialogProps, 'open' | 'action'>>) {
   const t = useTranslations('DocumentAccessDialog')
   const { pending } = useFormStatus()
+  const formDisabled = pending || !accessReady
 
   return (
     <>
@@ -57,12 +67,26 @@ function DocumentAccessDialogForm({
       <input type="hidden" name="access_group_ids_json" value={JSON.stringify(accessGroupIds)} />
 
       <div className="mt-4 space-y-4">
+        {accessError ? (
+          <QueryErrorState
+            title="文档权限加载失败"
+            description={accessError}
+            onRetry={onRetry}
+            retrying={accessLoading}
+          />
+        ) : null}
+        {accessLoading && !accessReady ? (
+          <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            正在读取文档权限…
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <div className="text-sm font-medium">{t('mode.label')}</div>
           <Select
             value={accessMode}
             onValueChange={(value) => onAccessModeChange(value as DocumentAccessMode)}
-            disabled={pending}
+            disabled={formDisabled}
           >
             <SelectTrigger>
               <SelectValue placeholder={t("mode.placeholder")} />
@@ -87,6 +111,7 @@ function DocumentAccessDialogForm({
                 value={accessGroupIds}
                 onChange={onAccessGroupIdsChange}
                 placeholder={t('groups.placeholder')}
+                disabled={formDisabled}
               />
               <div className="text-xs text-muted-foreground">{t('groups.hint')}</div>
             </div>
@@ -98,7 +123,7 @@ function DocumentAccessDialogForm({
                 value={accessMembersText}
                 onChange={(event) => onAccessMembersTextChange(event.target.value)}
                 placeholder={t('members.placeholder')}
-                disabled={pending}
+                disabled={formDisabled}
               />
               <div className="text-xs text-muted-foreground">{t('members.hint')}</div>
             </div>
@@ -110,7 +135,7 @@ function DocumentAccessDialogForm({
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
           {t('actions.cancel')}
         </Button>
-        <DocumentAccessSaveButton />
+        <DocumentAccessSaveButton disabled={!accessReady} />
       </div>
     </>
   )
@@ -126,6 +151,10 @@ export function DocumentAccessDialog({
   onAccessGroupIdsChange,
   accessMembersText,
   onAccessMembersTextChange,
+  accessReady,
+  accessLoading,
+  accessError,
+  onRetry,
   action,
 }: Readonly<DocumentAccessDialogProps>) {
   const t = useTranslations('DocumentAccessDialog')
@@ -151,6 +180,10 @@ export function DocumentAccessDialog({
             onAccessGroupIdsChange={onAccessGroupIdsChange}
             accessMembersText={accessMembersText}
             onAccessMembersTextChange={onAccessMembersTextChange}
+            accessReady={accessReady}
+            accessLoading={accessLoading}
+            accessError={accessError}
+            onRetry={onRetry}
             onOpenChange={onOpenChange}
           />
         </form>
