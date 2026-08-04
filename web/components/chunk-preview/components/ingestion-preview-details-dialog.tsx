@@ -1,50 +1,131 @@
 /**
- * IngestionPreviewDetailsDialog
- *
- * Shows ingestion policy match + preprocess / governance preview details.
- * Used by /chunk-preview to quickly audit "what will happen on ingest" before confirming.
+ * 展示文档入库前的规则匹配、预处理和内容治理结果。
+ * 用户可以在这里核对变化、应用建议，或转到数据治理继续调整。
  */
 'use client'
 
-import { useMemo } from 'react'
-import { Download, FileText, Settings2 } from 'lucide-react'
+import { useMemo, type ReactNode } from 'react'
+import {
+  ArrowUpRight,
+  ClipboardCopy,
+  Download,
+  FileText,
+  Settings2,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { useRouter } from '@/i18n/navigation'
+import { isJsonObject } from '@/components/chunk-preview/utils/metadata'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { isJsonObject } from '@/components/chunk-preview/utils/metadata'
+import { useRouter } from '@/i18n/navigation'
+import { getChunkStrategyLabel } from '@/lib/chunk-strategies'
+import { getParserLabel } from '@/lib/parser-options'
 import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
 import { cn, formatFileSize } from '@/lib/utils'
-import type { DocumentPipelineOptions, GovernanceIssue, IngestionPreviewResponse, PreprocessStepLog } from '@/types'
+import type {
+  DocumentPipelineOptions,
+  GovernanceIssue,
+  IngestionPreviewResponse,
+  PreprocessStepLog,
+} from '@/types'
 
 function toShortNote(note: unknown, maxChars: number = 180): string {
-  const s = toTrimmedPrimitiveString(note)
-  if (!s) return ''
-  if (s.length <= maxChars) return s
-  return `${s.slice(0, Math.max(0, maxChars - 3))}...`
+  const value = toTrimmedPrimitiveString(note)
+  if (!value) return ''
+  if (value.length <= maxChars) return value
+  return `${value.slice(0, Math.max(0, maxChars - 3))}...`
 }
 
-function downloadJsonObject(obj: unknown, filename: string) {
-  const safe = String(filename || 'export.json')
+function downloadJsonObject(value: unknown, filename: string) {
+  const safeName = String(filename || 'export.json')
     .trim()
     .replaceAll(/[\\/:*?"<>|]+/g, '_')
     .slice(0, 128)
-  const blob = new Blob([JSON.stringify(obj ?? {}, null, 2)], { type: 'application/json;charset=utf-8' })
+  const blob = new Blob([JSON.stringify(value ?? {}, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = safe.endsWith('.json') ? safe : `${safe}.json`
-  a.click()
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = safeName.endsWith('.json') ? safeName : `${safeName}.json`
+  anchor.click()
   globalThis.window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function countTotalHits(entries: Record<string, number> | null | undefined): number {
   if (!entries) return 0
-  return Object.values(entries).reduce((acc, value) => acc + (Number(value) || 0), 0)
+  return Object.values(entries).reduce(
+    (total, value) => total + (Number(value) || 0),
+    0
+  )
+}
+
+function SectionPanel({
+  title,
+  action,
+  children,
+  className,
+}: Readonly<{
+  title: ReactNode
+  action?: ReactNode
+  children: ReactNode
+  className?: string
+}>) {
+  return (
+    <section className={cn('rounded-md border border-border bg-background', className)}>
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function StatusBadge({
+  tone,
+  children,
+}: Readonly<{
+  tone: 'neutral' | 'success' | 'warning' | 'danger'
+  children: ReactNode
+}>) {
+  return (
+    <span
+      className={cn(
+        'inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-medium',
+        tone === 'success' && 'border-success/25 bg-success/10 text-success',
+        tone === 'warning' && 'border-warning/25 bg-warning/10 text-warning',
+        tone === 'danger' &&
+          'border-destructive/25 bg-destructive/10 text-destructive',
+        tone === 'neutral' && 'border-border bg-muted/30 text-muted-foreground'
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+function EmptyMessage({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <div className="flex min-h-32 items-center justify-center px-4 py-8 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  )
+}
+
+function getIssueTone(severity: string): 'neutral' | 'warning' | 'danger' {
+  if (severity === 'error') return 'danger'
+  if (severity === 'warning') return 'warning'
+  return 'neutral'
 }
 
 export function IngestionPreviewDetailsDialog({
@@ -64,587 +145,675 @@ export function IngestionPreviewDetailsDialog({
   const t = useTranslations('ChunkPreview')
   const ruleTitle = useMemo(() => {
     if (!preview) return ''
-    if (!preview.rule?.matched) return t("ingestionPreview.rule.unmatched")
-    return preview.rule?.rule_name || preview.rule?.rule_id || t("ingestionPreview.rule.matched")
+    if (!preview.rule?.matched) return t('ingestionPreview.rule.unmatched')
+    return (
+      preview.rule?.rule_name ||
+      preview.rule?.rule_id ||
+      t('ingestionPreview.rule.matched')
+    )
   }, [preview, t])
 
   const preprocessSummary = useMemo(() => {
     if (!preview?.preprocess) return null
-    const p = preview.preprocess
-    const sizeBefore = Number(p.size_before || 0)
-    const sizeAfter = Number(p.size_after || 0)
-    const changed = Boolean(p.changed)
-    const warnings = Array.isArray(p.warnings) ? p.warnings.filter(Boolean).map(String) : []
-    const steps = Array.isArray(p.steps) ? p.steps : []
-    return { changed, sizeBefore, sizeAfter, warnings, steps }
+    const preprocess = preview.preprocess
+    return {
+      changed: Boolean(preprocess.changed),
+      sizeBefore: Number(preprocess.size_before || 0),
+      sizeAfter: Number(preprocess.size_after || 0),
+      warnings: Array.isArray(preprocess.warnings)
+        ? preprocess.warnings.filter(Boolean).map(String)
+        : [],
+      steps: Array.isArray(preprocess.steps) ? preprocess.steps : [],
+    }
   }, [preview])
 
   const cleanSummary = useMemo(() => {
-    const c = preview?.clean
-    if (!c) return null
-    const piiHits = c.pii_hits ?? null
-    const secretsHits = c.secrets_hits ?? null
-    const piiTotal = countTotalHits(piiHits)
-    const secretsTotal = countTotalHits(secretsHits)
+    const clean = preview?.clean
+    if (!clean) return null
+    const piiHits = clean.pii_hits ?? null
+    const secretsHits = clean.secrets_hits ?? null
     return {
-      changed: Boolean(c.changed),
-      dropped: Boolean(c.dropped),
-      dropReason: (c.drop_reason || '').trim() || null,
-      appliedRules: Number(c.applied_rules || 0),
-      inputChars: Number(c.input_chars || 0),
-      outputChars: Number(c.output_chars || 0),
-      inputLines: Number(c.input_lines || 0),
-      outputLines: Number(c.output_lines || 0),
-      added: Number(c.added_lines || 0),
-      removed: Number(c.removed_lines || 0),
-      changedLines: Number(c.changed_lines || 0),
-      urlsChanged: Number(c.urls_changed || 0),
-      paragraphsDropped: Number(c.paragraphs_dropped || 0),
-      referencesRemovedLines: Number(c.references_removed_lines || 0),
-      piiTotal,
-      secretsTotal,
-      piiHits,
-      secretsHits,
-      diffTruncated: Boolean(c.diff_truncated),
+      changed: Boolean(clean.changed),
+      dropped: Boolean(clean.dropped),
+      dropReason: (clean.drop_reason || '').trim() || null,
+      appliedRules: Number(clean.applied_rules || 0),
+      inputChars: Number(clean.input_chars || 0),
+      outputChars: Number(clean.output_chars || 0),
+      inputLines: Number(clean.input_lines || 0),
+      outputLines: Number(clean.output_lines || 0),
+      added: Number(clean.added_lines || 0),
+      removed: Number(clean.removed_lines || 0),
+      changedLines: Number(clean.changed_lines || 0),
+      urlsChanged: Number(clean.urls_changed || 0),
+      paragraphsDropped: Number(clean.paragraphs_dropped || 0),
+      referencesRemovedLines: Number(clean.references_removed_lines || 0),
+      piiTotal: countTotalHits(piiHits),
+      secretsTotal: countTotalHits(secretsHits),
+      diffTruncated: Boolean(clean.diff_truncated),
     }
   }, [preview?.clean])
 
-  const hasPreview = Boolean(preview)
   const issues = useMemo(() => {
     const list = preview?.clean?.issues ?? []
     return Array.isArray(list) ? list : []
   }, [preview?.clean?.issues])
 
+  const applyPatch = (patch: DocumentPipelineOptions, successMessage: string) => {
+    if (!onApplyPipelinePatch) {
+      toast.message(t('ingestionPreview.clean.patch.missingHandler'))
+      return
+    }
+    onApplyPipelinePatch(patch)
+    toast.success(successMessage)
+  }
+
+  const suggestedPatch = preview?.clean?.suggested_pipeline_patch ?? null
+  const hasSuggestedPatch = Boolean(
+    suggestedPatch && Object.keys(suggestedPatch).length
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <Settings2 className="w-5 h-5 text-primary" />
-              {t("ingestionPreview.title")}
-            </span>
+      <DialogContent className="grid h-[min(92dvh,860px)] w-[calc(100vw-1.5rem)] max-w-4xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0">
+        <DialogHeader className="border-b border-border bg-background px-4 py-4 pr-14 sm:px-6 sm:pr-14">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Settings2 className="h-5 w-5 shrink-0 text-primary" />
+                {t('ingestionPreview.title')}
+              </DialogTitle>
+              <DialogDescription className="mt-2 space-y-1 text-sm">
+                <span className="block text-foreground">{ruleTitle || '—'}</span>
+                {preview ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {t('ingestionPreview.meta.parserLabel')}：
+                    {getParserLabel(preview.rule?.parser_backend)}
+                    <span aria-hidden="true"> · </span>
+                    {t('ingestionPreview.meta.strategyLabel')}：
+                    {getChunkStrategyLabel(preview.rule?.chunk_strategy)}
+                  </span>
+                ) : null}
+                {preview?.rule?.governance_profile_ref ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {t('ingestionPreview.meta.governanceProfileLabel')}：
+                    {preview.rule.governance_profile_ref}
+                  </span>
+                ) : null}
+                <span className="block text-xs text-muted-foreground">
+                  {t('ingestionPreview.meta.description')}
+                </span>
+              </DialogDescription>
+            </div>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 px-3 text-[11px]"
+              className="h-9 w-fit shrink-0 gap-2 px-3 text-sm"
               onClick={() => {
                 const params = new URLSearchParams()
                 params.set('from', 'chunk-preview')
                 params.set('tab', 'clean')
-                const ds = String(datasetId || '').trim()
-                if (ds) params.set('dataset_id', ds)
-                const ref = String(preview?.rule?.governance_profile_ref || '').trim()
-                if (ref) params.set('governance_profile_ref', ref)
+                const normalizedDatasetId = String(datasetId || '').trim()
+                if (normalizedDatasetId) {
+                  params.set('dataset_id', normalizedDatasetId)
+                }
+                const profileReference = String(
+                  preview?.rule?.governance_profile_ref || ''
+                ).trim()
+                if (profileReference) {
+                  params.set('governance_profile_ref', profileReference)
+                }
                 router.push(`/data-governance?${params.toString()}`)
                 onOpenChange(false)
               }}
               disabled={!preview}
             >
-              {t("ingestionPreview.actions.openGovernance")}
+              {t('ingestionPreview.actions.openGovernance')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             </Button>
-          </DialogTitle>
-          <DialogDescription className="space-y-1">
-            <div className="text-xs text-foreground/90">
-              {ruleTitle || '—'}
-              {preview?.rule?.parser_backend ? (
-                <span className="text-muted-foreground">
-                  {' '}
-                  · {t("ingestionPreview.meta.parserLabel")}: {preview.rule.parser_backend}
-                </span>
-              ) : null}
-              {preview?.rule?.chunk_strategy ? (
-                <span className="text-muted-foreground">
-                  {' '}
-                  · {t("ingestionPreview.meta.strategyLabel")}: {preview.rule.chunk_strategy}
-                </span>
-              ) : null}
-            </div>
-            {preview?.rule?.governance_profile_ref ? (
-              <div className="text-[11px] text-muted-foreground">
-                {t("ingestionPreview.meta.governanceProfileLabel")}:{' '}
-                <span className="font-mono">{preview.rule.governance_profile_ref}</span>
-              </div>
-            ) : null}
-            <div className="text-[11px] text-muted-foreground">
-              {t("ingestionPreview.meta.previewSourcePrefix")}{' '}
-              <span className="font-mono">/pipeline/ingestion-preview</span>
-              {t("ingestionPreview.meta.previewSourceSuffix")}
-            </div>
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
-        <Tabs defaultValue="preprocess" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="preprocess" disabled={!hasPreview}>
-              {t("ingestionPreview.tabs.preprocess")}
-            </TabsTrigger>
-            <TabsTrigger value="clean" disabled={!hasPreview}>
-              {t("ingestionPreview.tabs.governance")}
-            </TabsTrigger>
-            <TabsTrigger value="diff" disabled={!hasPreview}>
-              {t("ingestionPreview.tabs.diff")}
-            </TabsTrigger>
-            <TabsTrigger value="issues" disabled={!hasPreview}>
-              {issues.length
-                ? t("ingestionPreview.tabs.issuesWithCount", { count: issues.length })
-                : t("ingestionPreview.tabs.issues")}
-            </TabsTrigger>
-            <TabsTrigger value="explain" disabled={!hasPreview}>
-              {t("ingestionPreview.tabs.explain")}
-            </TabsTrigger>
-          </TabsList>
+        <Tabs
+          defaultValue="preprocess"
+          className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background"
+        >
+          <div className="overflow-x-auto border-b border-border px-4 py-2 sm:px-6">
+            <TabsList className="h-9 w-max min-w-full justify-start gap-1 rounded-md bg-muted/40 p-1">
+              {[
+                ['preprocess', t('ingestionPreview.tabs.preprocess')],
+                ['clean', t('ingestionPreview.tabs.governance')],
+                ['diff', t('ingestionPreview.tabs.diff')],
+                [
+                  'issues',
+                  issues.length
+                    ? t('ingestionPreview.tabs.issuesWithCount', {
+                        count: issues.length,
+                      })
+                    : t('ingestionPreview.tabs.issues'),
+                ],
+                ['explain', t('ingestionPreview.tabs.explain')],
+              ].map(([value, label]) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  disabled={!preview}
+                  className="h-7 rounded-md px-3 py-1 text-sm data-[state=active]:bg-background data-[state=active]:text-primary"
+                >
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-          <TabsContent value="preprocess" className="mt-4">
+          <TabsContent
+            value="preprocess"
+            className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+          >
             {preprocessSummary ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-border/60 bg-card p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-foreground">{t("ingestionPreview.preprocess.title")}</div>
-                    <span
-                      className={cn(
-                        'text-[11px] px-2 py-0.5 rounded-full border',
-                        preprocessSummary.changed
-                          ? 'bg-warning/10 text-warning border-warning/25'
-                          : 'bg-success/10 text-success border-success/25'
-                      )}
+              <div className="space-y-4">
+                <SectionPanel
+                  title={t('ingestionPreview.preprocess.title')}
+                  action={
+                    <StatusBadge
+                      tone={preprocessSummary.changed ? 'warning' : 'success'}
                     >
                       {preprocessSummary.changed
-                        ? t("ingestionPreview.preprocess.status.changed")
-                        : t("ingestionPreview.preprocess.status.noChange")}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-[11px] text-muted-foreground">
-                    {t("ingestionPreview.preprocess.sizeLabel")}:{' '}
-                    <span className="font-mono">{formatFileSize(preprocessSummary.sizeBefore)}</span> →{' '}
-                    <span className="font-mono">{formatFileSize(preprocessSummary.sizeAfter)}</span>
-                  </div>
-                  {preprocessSummary.warnings.length ? (
-                    <div className="mt-2 text-[11px] text-warning">
-                      {t("ingestionPreview.preprocess.warningsLabel")}:{' '}
-                      <span className="font-mono">{preprocessSummary.warnings.length}</span>
+                        ? t('ingestionPreview.preprocess.status.changed')
+                        : t('ingestionPreview.preprocess.status.noChange')}
+                    </StatusBadge>
+                  }
+                >
+                  <dl className="grid gap-x-6 gap-y-3 px-4 py-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        {t('ingestionPreview.preprocess.sizeLabel')}
+                      </dt>
+                      <dd className="mt-1 tabular-nums text-foreground">
+                        {formatFileSize(preprocessSummary.sizeBefore)}
+                        <span className="mx-2 text-muted-foreground">→</span>
+                        {formatFileSize(preprocessSummary.sizeAfter)}
+                      </dd>
                     </div>
-                  ) : null}
-                </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        {t('ingestionPreview.preprocess.warningsLabel')}
+                      </dt>
+                      <dd className="mt-1 tabular-nums text-foreground">
+                        {preprocessSummary.warnings.length}
+                      </dd>
+                    </div>
+                  </dl>
+                </SectionPanel>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-border/60 bg-card p-3">
-                    <div className="text-[11px] font-medium text-muted-foreground">
-                      {t("ingestionPreview.preprocess.stepsTitle")}
-                    </div>
-                    <ScrollArea className="h-[240px] mt-2 pr-2">
-                      {preprocessSummary.steps.length ? (
-                        <div className="space-y-1">
-                          {preprocessSummary.steps.map((step: PreprocessStepLog, idx: number) => {
-                            const id = String(step.id || '').trim() || `step_${idx + 1}`
-                            const applied = Boolean(step.applied)
-                            const changed = Boolean(step.changed)
-                            return (
-                            <div key={id} className="rounded-lg border border-border/60 bg-background p-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="text-[11px] font-mono text-foreground/90">{id}</div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span
-                                      className={cn(
-                                        'text-[11px] px-1.5 py-0.5 rounded border',
-                                        applied ? 'bg-success/10 text-success border-success/25' : 'bg-muted text-muted-foreground border-border/60'
-                                      )}
-                                    >
-                                      {applied
-                                        ? t("ingestionPreview.preprocess.stepStatus.applied")
-                                        : t("ingestionPreview.preprocess.stepStatus.skipped")}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <SectionPanel title={t('ingestionPreview.preprocess.stepsTitle')}>
+                    {preprocessSummary.steps.length ? (
+                      <ScrollArea className="h-64">
+                        <div className="divide-y divide-border">
+                          {preprocessSummary.steps.map(
+                            (step: PreprocessStepLog, index: number) => {
+                              const id =
+                                String(step.id || '').trim() || `step_${index + 1}`
+                              const applied = Boolean(step.applied)
+                              const changed = Boolean(step.changed)
+                              return (
+                                <div key={id} className="px-4 py-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {id}
                                     </span>
-                                    <span
-                                      className={cn(
-                                        'text-[11px] px-1.5 py-0.5 rounded border',
-                                        changed ? 'bg-warning/10 text-warning border-warning/25' : 'bg-muted text-muted-foreground border-border/60'
-                                      )}
-                                    >
-                                      {changed
-                                        ? t("ingestionPreview.preprocess.stepChange.changed")
-                                        : t("ingestionPreview.preprocess.stepChange.same")}
-                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                      <StatusBadge tone={applied ? 'success' : 'neutral'}>
+                                        {applied
+                                          ? t(
+                                              'ingestionPreview.preprocess.stepStatus.applied'
+                                            )
+                                          : t(
+                                              'ingestionPreview.preprocess.stepStatus.skipped'
+                                            )}
+                                      </StatusBadge>
+                                      <StatusBadge tone={changed ? 'warning' : 'neutral'}>
+                                        {changed
+                                          ? t(
+                                              'ingestionPreview.preprocess.stepChange.changed'
+                                            )
+                                          : t(
+                                              'ingestionPreview.preprocess.stepChange.same'
+                                            )}
+                                      </StatusBadge>
+                                    </div>
                                   </div>
+                                  {step.note ? (
+                                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                      {toShortNote(step.note)}
+                                    </p>
+                                  ) : null}
                                 </div>
-                                {step.note ? (
-                                  <div className="mt-1 text-[11px] text-muted-foreground">{toShortNote(step.note)}</div>
-                                ) : null}
-                              </div>
-                            )
-                          })}
+                              )
+                            }
+                          )}
                         </div>
-                      ) : (
-                        <div className="text-[11px] text-muted-foreground">{t("ingestionPreview.preprocess.emptySteps")}</div>
-                      )}
-                    </ScrollArea>
-                  </div>
+                      </ScrollArea>
+                    ) : (
+                      <EmptyMessage>
+                        {t('ingestionPreview.preprocess.emptySteps')}
+                      </EmptyMessage>
+                    )}
+                  </SectionPanel>
 
-                  <div className="rounded-xl border border-border/60 bg-card p-3">
-                    <div className="text-[11px] font-medium text-muted-foreground">
-                      {t("ingestionPreview.preprocess.warningsTitle")}
-                    </div>
-                    <ScrollArea className="h-[240px] mt-2 pr-2">
-                      {preprocessSummary.warnings.length ? (
-                        <div className="space-y-1">
-                          {preprocessSummary.warnings.map((w) => (
-                            <div key={w} className="rounded-lg border border-warning/25 bg-warning/10 px-2 py-1 text-[11px] text-warning">
-                              {w}
-                            </div>
+                  <SectionPanel title={t('ingestionPreview.preprocess.warningsTitle')}>
+                    {preprocessSummary.warnings.length ? (
+                      <ScrollArea className="h-64">
+                        <ul className="divide-y divide-border">
+                          {preprocessSummary.warnings.map((warning, index) => (
+                            <li
+                              key={`${warning}-${index}`}
+                              className="px-4 py-3 text-sm leading-6 text-warning"
+                            >
+                              {warning}
+                            </li>
                           ))}
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-muted-foreground">
-                          {t("ingestionPreview.preprocess.emptyWarnings")}
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </div>
+                        </ul>
+                      </ScrollArea>
+                    ) : (
+                      <EmptyMessage>
+                        {t('ingestionPreview.preprocess.emptyWarnings')}
+                      </EmptyMessage>
+                    )}
+                  </SectionPanel>
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">{t("ingestionPreview.states.noPreviewData")}</div>
+              <EmptyMessage>{t('ingestionPreview.states.noPreviewData')}</EmptyMessage>
             )}
           </TabsContent>
 
-          <TabsContent value="clean" className="mt-4">
+          <TabsContent
+            value="clean"
+            className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+          >
             {cleanSummary ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-border/60 bg-card p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-foreground">{t("ingestionPreview.clean.title")}</div>
-                    <span
-                      className={cn(
-                        'text-[11px] px-2 py-0.5 rounded-full border',
+              <div className="space-y-4">
+                <SectionPanel
+                  title={t('ingestionPreview.clean.title')}
+                  action={
+                    <StatusBadge
+                      tone={
                         cleanSummary.dropped
-                          ? 'bg-destructive/10 text-destructive border-destructive/25'
+                          ? 'danger'
                           : cleanSummary.changed
-                            ? 'bg-warning/10 text-warning border-warning/25'
-                            : 'bg-success/10 text-success border-success/25'
-                      )}
+                            ? 'warning'
+                            : 'success'
+                      }
                     >
                       {cleanSummary.dropped
-                        ? t("ingestionPreview.clean.status.dropped")
+                        ? t('ingestionPreview.clean.status.dropped')
                         : cleanSummary.changed
-                          ? t("ingestionPreview.clean.status.changed")
-                          : t("ingestionPreview.clean.status.noChange")}
-                    </span>
-                  </div>
+                          ? t('ingestionPreview.clean.status.changed')
+                          : t('ingestionPreview.clean.status.noChange')}
+                    </StatusBadge>
+                  }
+                >
                   {cleanSummary.dropReason ? (
-                    <div className="mt-2 text-[11px] text-destructive">
-                      {t("ingestionPreview.clean.dropReasonLabel")}:{' '}
-                      <span className="font-mono">{cleanSummary.dropReason}</span>
+                    <div className="border-b border-border bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                      {t('ingestionPreview.clean.dropReasonLabel')}：
+                      {cleanSummary.dropReason}
                     </div>
                   ) : null}
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                    <div>
-                      {t("ingestionPreview.clean.metrics.chars")}:{' '}
-                      <span className="font-mono">{cleanSummary.inputChars}</span> →{' '}
-                      <span className="font-mono">{cleanSummary.outputChars}</span>
-                    </div>
-                    <div>
-                      {t("ingestionPreview.clean.metrics.lines")}:{' '}
-                      <span className="font-mono">{cleanSummary.inputLines}</span> →{' '}
-                      <span className="font-mono">{cleanSummary.outputLines}</span>
-                    </div>
-                    <div>
-                      {t("ingestionPreview.clean.metrics.rules")}:{' '}
-                      <span className="font-mono">{cleanSummary.appliedRules}</span> · {t("ingestionPreview.clean.metrics.urls")}:{' '}
-                      <span className="font-mono">{cleanSummary.urlsChanged}</span>
-                    </div>
-                    <div>
-                      {t("ingestionPreview.clean.metrics.dropped")}:{' '}
-                      <span className="font-mono">{cleanSummary.paragraphsDropped}</span> · {t("ingestionPreview.clean.metrics.refs")}:{' '}
-                      <span className="font-mono">{cleanSummary.referencesRemovedLines}</span>
-                    </div>
-                    <div>
-                      <span>+</span><span className="font-mono">{cleanSummary.added}</span>{' '}
-                      <span>-</span><span className="font-mono">{cleanSummary.removed}</span>{' '}
-                      <span>~</span>
-                      <span className="font-mono">{cleanSummary.changedLines}</span>
-                    </div>
-                    <div>
-                      {t("ingestionPreview.clean.metrics.diff")}:{' '}
-                      <span className="font-mono">
-                        {cleanSummary.diffTruncated
-                          ? t("ingestionPreview.clean.metrics.diffTruncated")
-                          : t("ingestionPreview.clean.metrics.diffFull")}
-                      </span>
-                    </div>
-                  </div>
-
-                  {(cleanSummary.piiTotal > 0 || cleanSummary.secretsTotal > 0) && (
-                    <div className="mt-2 rounded-lg border border-warning/25 bg-warning/10 px-2 py-1 text-[11px] text-warning">
-                      {cleanSummary.piiTotal > 0 ? (
-                        <div>
-                          {t("ingestionPreview.clean.alerts.piiHits")}:{' '}
-                          <span className="font-mono">{cleanSummary.piiTotal}</span>
-                        </div>
-                      ) : null}
-                      {cleanSummary.secretsTotal > 0 ? (
-                        <div>
-                          {t("ingestionPreview.clean.alerts.secretsHits")}:{' '}
-                          <span className="font-mono">{cleanSummary.secretsTotal}</span>
-                        </div>
-                      ) : null}
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        {t("ingestionPreview.clean.alerts.maskingHint")}
+                  <dl className="grid gap-x-6 gap-y-4 px-4 py-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      [
+                        t('ingestionPreview.clean.metrics.chars'),
+                        `${cleanSummary.inputChars} → ${cleanSummary.outputChars}`,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.lines'),
+                        `${cleanSummary.inputLines} → ${cleanSummary.outputLines}`,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.rules'),
+                        cleanSummary.appliedRules,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.urls'),
+                        cleanSummary.urlsChanged,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.dropped'),
+                        cleanSummary.paragraphsDropped,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.refs'),
+                        cleanSummary.referencesRemovedLines,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.changedLines'),
+                        `+${cleanSummary.added} / -${cleanSummary.removed} / ~${cleanSummary.changedLines}`,
+                      ],
+                      [
+                        t('ingestionPreview.clean.metrics.diff'),
+                        cleanSummary.diffTruncated
+                          ? t('ingestionPreview.clean.metrics.diffTruncated')
+                          : t('ingestionPreview.clean.metrics.diffFull'),
+                      ],
+                    ].map(([label, value]) => (
+                      <div key={String(label)}>
+                        <dt className="text-xs text-muted-foreground">{label}</dt>
+                        <dd className="mt-1 tabular-nums text-foreground">{value}</dd>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </dl>
 
-                {preview?.clean?.suggested_pipeline_patch && Object.keys(preview.clean.suggested_pipeline_patch || {}).length ? (
-                  <div className="rounded-xl border border-border/60 bg-card p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-[11px] font-medium text-muted-foreground">{t("ingestionPreview.clean.patch.title")}</div>
+                  {cleanSummary.piiTotal > 0 || cleanSummary.secretsTotal > 0 ? (
+                    <div className="border-t border-warning/25 bg-warning/5 px-4 py-3 text-sm">
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-warning">
+                        {cleanSummary.piiTotal > 0 ? (
+                          <span>
+                            {t('ingestionPreview.clean.alerts.piiHits')}：
+                            {cleanSummary.piiTotal}
+                          </span>
+                        ) : null}
+                        {cleanSummary.secretsTotal > 0 ? (
+                          <span>
+                            {t('ingestionPreview.clean.alerts.secretsHits')}：
+                            {cleanSummary.secretsTotal}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 leading-6 text-muted-foreground">
+                        {t('ingestionPreview.clean.alerts.maskingHint')}
+                      </p>
+                    </div>
+                  ) : null}
+                </SectionPanel>
+
+                {hasSuggestedPatch && suggestedPatch ? (
+                  <SectionPanel
+                    title={t('ingestionPreview.clean.patch.title')}
+                    action={
                       <Button
                         type="button"
                         size="sm"
-                        className="h-8 px-3 text-[11px]"
-                        onClick={() => {
-                          const patch = preview?.clean?.suggested_pipeline_patch || {}
-                          if (!onApplyPipelinePatch) {
-                            toast.message(t("ingestionPreview.clean.patch.missingHandler"))
-                            return
-                          }
-                          onApplyPipelinePatch(patch)
-                          toast.success(t("ingestionPreview.clean.patch.applied"))
-                        }}
+                        className="h-9 px-3 text-sm"
+                        onClick={() =>
+                          applyPatch(
+                            suggestedPatch,
+                            t('ingestionPreview.clean.patch.applied')
+                          )
+                        }
                         disabled={!onApplyPipelinePatch}
                       >
-                        {t("ingestionPreview.clean.patch.apply")}
+                        {t('ingestionPreview.clean.patch.apply')}
                       </Button>
-                    </div>
-                    <pre className="mt-2 max-h-[160px] overflow-auto rounded-lg border border-border/60 bg-background p-2 text-[11px] text-muted-foreground">
-                      {JSON.stringify(preview.clean.suggested_pipeline_patch, null, 2)}
-                    </pre>
-                  </div>
+                    }
+                  >
+                    <details className="group px-4 py-3">
+                      <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                        {t('ingestionPreview.clean.patch.showDetails')}
+                      </summary>
+                      <pre className="mt-3 max-h-48 overflow-auto rounded-md bg-muted/40 p-3 text-xs leading-5 text-foreground">
+                        {JSON.stringify(suggestedPatch, null, 2)}
+                      </pre>
+                    </details>
+                  </SectionPanel>
                 ) : null}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">{t("ingestionPreview.states.noPreviewData")}</div>
+              <EmptyMessage>{t('ingestionPreview.states.noPreviewData')}</EmptyMessage>
             )}
           </TabsContent>
 
-          <TabsContent value="diff" className="mt-4">
-            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <div className="text-sm font-medium text-foreground">{t("ingestionPreview.diff.title")}</div>
-                </div>
-                {preview?.clean?.diff_unified ? (
+          <TabsContent
+            value="diff"
+            className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+          >
+            <SectionPanel
+              title={
+                <span className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+                  {t('ingestionPreview.diff.title')}
+                </span>
+              }
+              action={
+                preview?.clean?.diff_unified ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 px-3 text-[11px]"
+                    className="h-9 gap-2 px-3 text-sm"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(String(preview?.clean?.diff_unified || ''))
-                        toast.success(t("ingestionPreview.diff.copySuccess"))
+                        await navigator.clipboard.writeText(
+                          String(preview.clean?.diff_unified || '')
+                        )
+                        toast.success(t('ingestionPreview.diff.copySuccess'))
                       } catch {
-                        toast.error(t("ingestionPreview.diff.copyError"))
+                        toast.error(t('ingestionPreview.diff.copyError'))
                       }
                     }}
                   >
-                    {t("ingestionPreview.diff.copy")}
+                    <ClipboardCopy className="h-4 w-4" aria-hidden="true" />
+                    {t('ingestionPreview.diff.copy')}
                   </Button>
-                ) : null}
-              </div>
-              <div className="mt-2 text-[11px] text-muted-foreground">
-                {preview?.clean?.diff_unified ? (
-                  <span>
-                    {preview.clean.diff_truncated ? (
-                      <span className="text-warning">{t("ingestionPreview.diff.diffTruncated")}</span>
-                    ) : (
-                      <span className="text-muted-foreground">{t("ingestionPreview.diff.diffFull")}</span>
-                    )}
-                  </span>
-                ) : (
-                  <span>{t("ingestionPreview.diff.noDiff")}</span>
-                )}
-              </div>
+                ) : undefined
+              }
+            >
               {preview?.clean?.diff_unified ? (
-                <pre className="mt-2 max-h-[420px] overflow-auto rounded-lg border border-border/60 bg-background p-3 text-[11px] font-mono text-foreground/80">
-                  {String(preview.clean.diff_unified)}
-                </pre>
-              ) : null}
-            </div>
+                <div>
+                  <p
+                    className={cn(
+                      'border-b border-border px-4 py-3 text-sm',
+                      preview.clean.diff_truncated
+                        ? 'text-warning'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {preview.clean.diff_truncated
+                      ? t('ingestionPreview.diff.diffTruncated')
+                      : t('ingestionPreview.diff.diffFull')}
+                  </p>
+                  <pre className="max-h-[500px] overflow-auto bg-muted/30 p-4 text-xs leading-5 text-foreground">
+                    {String(preview.clean.diff_unified)}
+                  </pre>
+                </div>
+              ) : (
+                <EmptyMessage>{t('ingestionPreview.diff.noDiff')}</EmptyMessage>
+              )}
+            </SectionPanel>
           </TabsContent>
 
-	          <TabsContent value="issues" className="mt-4">
-	            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium text-foreground">{t("ingestionPreview.issues.title")}</div>
-                {preview?.clean?.suggested_pipeline_patch && Object.keys(preview.clean.suggested_pipeline_patch || {}).length ? (
+          <TabsContent
+            value="issues"
+            className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+          >
+            <SectionPanel
+              title={t('ingestionPreview.issues.title')}
+              action={
+                hasSuggestedPatch && suggestedPatch ? (
                   <Button
                     type="button"
                     size="sm"
-                    className="h-8 px-3 text-[11px]"
-                    onClick={() => {
-                      const patch = preview?.clean?.suggested_pipeline_patch || {}
-                      if (!onApplyPipelinePatch) {
-                        toast.message(t("ingestionPreview.issues.toasts.missingHandler"))
-                        return
-                      }
-                      onApplyPipelinePatch(patch)
-                      toast.success(t("ingestionPreview.issues.toasts.appliedAll"))
-                    }}
+                    className="h-9 px-3 text-sm"
+                    onClick={() =>
+                      applyPatch(
+                        suggestedPatch,
+                        t('ingestionPreview.issues.toasts.appliedAll')
+                      )
+                    }
                     disabled={!onApplyPipelinePatch}
                   >
-                    {t("ingestionPreview.issues.actions.applyAll")}
+                    {t('ingestionPreview.issues.actions.applyAll')}
                   </Button>
-                ) : null}
-              </div>
-
+                ) : undefined
+              }
+            >
               {issues.length ? (
-                <ScrollArea className="h-[520px] mt-3 pr-2">
-                  <div className="space-y-2">
-                    {issues.map((issue: GovernanceIssue, idx: number) => {
-                      const code = String(issue.code || '').trim() || `issue_${idx + 1}`
-                      const severity = String(issue.severity || 'info')
-                      const count = Number(issue.count || 0)
-                      const message = String(issue.message || '').trim() || code
-                      const samples = Array.isArray(issue.samples) ? issue.samples.filter(Boolean).map(String) : []
-                      const patch = issue.suggested_pipeline_patch ?? null
-                      const patchKeys = patch ? Object.keys(patch || {}) : []
-                      const badgeCls =
-                        (() => {
-    if (severity === 'error') {
-        return 'bg-destructive/10 text-destructive border-destructive/25';
-    }
-    else if (severity === 'warning') {
-            return 'bg-warning/10 text-warning border-warning/25';
-        }
-        else {
-            return 'bg-muted text-muted-foreground border-border/60';
-        }
-})()
-                      return (
-                        <div key={`${code}-${message}`} className="rounded-xl border border-border/60 bg-background p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={cn('text-[11px] px-2 py-0.5 rounded-full border font-medium', badgeCls)}>
-                                  {severity}
-                                </span>
-                                <span className="text-[11px] font-mono text-muted-foreground">{code}</span>
-                                <span className="text-[11px] text-muted-foreground">
-                                  {t("ingestionPreview.issues.labels.count")}: <span className="font-mono">{count}</span>
-                                </span>
-                              </div>
-                              <div className="mt-1 text-[12px] text-foreground/90">{message}</div>
-                            </div>
+                <div className="divide-y divide-border">
+                  {issues.map((issue: GovernanceIssue, index: number) => {
+                    const code =
+                      String(issue.code || '').trim() || `issue_${index + 1}`
+                    const severity = String(issue.severity || 'info')
+                    const count = Number(issue.count || 0)
+                    const message = String(issue.message || '').trim() || code
+                    const samples = Array.isArray(issue.samples)
+                      ? issue.samples.filter(Boolean).map(String)
+                      : []
+                    const patch = issue.suggested_pipeline_patch ?? null
+                    const patchKeys = patch ? Object.keys(patch) : []
 
-                            {patch && patchKeys.length ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-8 px-3 text-[11px]"
-                                onClick={() => {
-                                  if (!onApplyPipelinePatch) {
-                                    toast.message(t("ingestionPreview.issues.toasts.missingHandler"))
-                                    return
-                                  }
-                                  onApplyPipelinePatch(patch)
-                                  toast.success(t("ingestionPreview.issues.toasts.appliedSuggestion", { code }))
-                                }}
-                                disabled={!onApplyPipelinePatch}
-                              >
-                                {t("ingestionPreview.issues.actions.applySuggestion")}
-                              </Button>
-                            ) : null}
+                    return (
+                      <article key={`${code}-${index}`} className="px-4 py-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <StatusBadge tone={getIssueTone(severity)}>
+                                {severity === 'error'
+                                  ? t('ingestionPreview.issues.severity.error')
+                                  : severity === 'warning'
+                                    ? t('ingestionPreview.issues.severity.warning')
+                                    : t('ingestionPreview.issues.severity.info')}
+                              </StatusBadge>
+                              <span className="text-xs text-muted-foreground">
+                                {t('ingestionPreview.issues.labels.code')}：{code}
+                              </span>
+                              <span className="text-xs tabular-nums text-muted-foreground">
+                                {t('ingestionPreview.issues.labels.count')}：{count}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-foreground">
+                              {message}
+                            </p>
                           </div>
-
-                          {samples.length ? (
-                            <div className="mt-2">
-                              <div className="text-[11px] text-muted-foreground">{t("ingestionPreview.issues.labels.samples")}</div>
-                              <div className="mt-1 space-y-1">
-                                {samples.slice(0, 4).map((s: string) => (
-                                  <div
-                                    key={s}
-                                    className="rounded-lg border border-border/60 bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
-                                  >
-                                    {toShortNote(s, 240)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : null}
-
                           {patch && patchKeys.length ? (
-                            <details className="mt-2">
-                              <summary className="cursor-pointer select-none text-[11px] text-muted-foreground hover:text-foreground">
-                                {t("ingestionPreview.issues.labels.suggestedPatchWithCount", { count: patchKeys.length })}
-                              </summary>
-                              <pre className="mt-2 max-h-[180px] overflow-auto rounded-lg border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
-                                {JSON.stringify(patch, null, 2)}
-                              </pre>
-                            </details>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-9 w-fit shrink-0 px-3 text-sm"
+                              onClick={() =>
+                                applyPatch(
+                                  patch,
+                                  t(
+                                    'ingestionPreview.issues.toasts.appliedSuggestion',
+                                    { code }
+                                  )
+                                )
+                              }
+                              disabled={!onApplyPipelinePatch}
+                            >
+                              {t('ingestionPreview.issues.actions.applySuggestion')}
+                            </Button>
                           ) : null}
                         </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <div className="mt-3 text-[12px] text-muted-foreground">{t("ingestionPreview.issues.empty")}</div>
-              )}
-	            </div>
-	          </TabsContent>
 
-          <TabsContent value="explain" className="mt-4">
-            <div className="rounded-xl border border-border/60 bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-medium text-foreground">{t("ingestionPreview.explain.title")}</div>
+                        {samples.length ? (
+                          <div className="mt-3">
+                            <h4 className="text-xs font-medium text-muted-foreground">
+                              {t('ingestionPreview.issues.labels.samples')}
+                            </h4>
+                            <ul className="mt-2 divide-y divide-border rounded-md border border-border">
+                              {samples.slice(0, 4).map((sample: string, sampleIndex: number) => (
+                                <li
+                                  key={`${sample}-${sampleIndex}`}
+                                  className="px-3 py-2 text-sm leading-6 text-muted-foreground"
+                                >
+                                  {toShortNote(sample, 240)}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {patch && patchKeys.length ? (
+                          <details className="mt-3">
+                            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                              {t(
+                                'ingestionPreview.issues.labels.suggestedPatchWithCount',
+                                { count: patchKeys.length }
+                              )}
+                            </summary>
+                            <pre className="mt-2 max-h-48 overflow-auto rounded-md bg-muted/40 p-3 text-xs leading-5 text-foreground">
+                              {JSON.stringify(patch, null, 2)}
+                            </pre>
+                          </details>
+                        ) : null}
+                      </article>
+                    )
+                  })}
+                </div>
+              ) : (
+                <EmptyMessage>{t('ingestionPreview.issues.empty')}</EmptyMessage>
+              )}
+            </SectionPanel>
+          </TabsContent>
+
+          <TabsContent
+            value="explain"
+            className="m-0 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+          >
+            <SectionPanel
+              title={t('ingestionPreview.explain.title')}
+              action={
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 px-3 text-[11px] gap-2"
+                  className="h-9 gap-2 px-3 text-sm"
                   onClick={() => {
-                    const exp = preview?.explain
-                    if (!exp) {
-                      toast.error(t("ingestionPreview.explain.missingData"))
+                    const explanation = preview?.explain
+                    if (!explanation) {
+                      toast.error(t('ingestionPreview.explain.missingData'))
                       return
                     }
-                    const snapshotValue = isJsonObject(exp) && 'snapshot' in exp ? exp.snapshot ?? exp : exp
-                    const snapshotRecord = isJsonObject(snapshotValue) ? snapshotValue : null
+                    const snapshotValue =
+                      isJsonObject(explanation) && 'snapshot' in explanation
+                        ? explanation.snapshot ?? explanation
+                        : explanation
+                    const snapshotRecord = isJsonObject(snapshotValue)
+                      ? snapshotValue
+                      : null
                     const filename = snapshotRecord?.filename
-                    const rawName = (typeof filename === 'string' ? filename : 'ingestion-preview')
+                    const rawName = (
+                      typeof filename === 'string' ? filename : 'ingestion-preview'
+                    )
                       .trim()
-                       .replaceAll(/[^a-zA-Z0-9_.-]+/g, '_')
-                       .slice(0, 64)
-                     downloadJsonObject(snapshotValue, `${rawName}.ingestion-preview.explain.json`)
-                     toast.success(t("ingestionPreview.explain.exportSuccess"))
-                   }}
-                   disabled={!preview?.explain}
-                 >
-                   <Download className="w-4 h-4" />
-                   {t("ingestionPreview.explain.exportJson")}
-                 </Button>
-               </div>
-
-               <div className="mt-2 text-[11px] text-muted-foreground">
-                 {t("ingestionPreview.explain.description")}
-               </div>
-
-               <div className="mt-3 rounded-lg border border-border/60 bg-background">
-                 <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground border-b border-border/60">
-                   {t("ingestionPreview.explain.payloadLabel")}
-                 </div>
-                 <ScrollArea className="h-[420px]">
-                   <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-words text-foreground/80">
-                     {JSON.stringify(preview?.explain ?? null, null, 2)}
-                   </pre>
-                </ScrollArea>
-              </div>
-            </div>
+                      .replaceAll(/[^a-zA-Z0-9_.-]+/g, '_')
+                      .slice(0, 64)
+                    downloadJsonObject(
+                      snapshotValue,
+                      `${rawName}.ingestion-preview.explain.json`
+                    )
+                    toast.success(t('ingestionPreview.explain.exportSuccess'))
+                  }}
+                  disabled={!preview?.explain}
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  {t('ingestionPreview.explain.exportJson')}
+                </Button>
+              }
+            >
+              <p className="border-b border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
+                {t('ingestionPreview.explain.description')}
+              </p>
+              {preview?.explain ? (
+                <div>
+                  <div className="border-b border-border px-4 py-2 text-xs font-medium text-muted-foreground">
+                    {t('ingestionPreview.explain.payloadLabel')}
+                  </div>
+                  <ScrollArea className="h-[460px]">
+                    <pre className="whitespace-pre-wrap break-words bg-muted/30 p-4 text-xs leading-5 text-foreground">
+                      {JSON.stringify(preview.explain, null, 2)}
+                    </pre>
+                  </ScrollArea>
+                </div>
+              ) : (
+                <EmptyMessage>{t('ingestionPreview.explain.missingData')}</EmptyMessage>
+              )}
+            </SectionPanel>
           </TabsContent>
-	        </Tabs>
-	      </DialogContent>
-	    </Dialog>
-	  )
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  )
 }

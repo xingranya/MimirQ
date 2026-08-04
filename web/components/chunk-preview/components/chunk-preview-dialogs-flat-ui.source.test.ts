@@ -9,6 +9,7 @@ const cardSource = source('chunk-card.tsx')
 const autoTuneSource = source('chunk-auto-tune-dialog.tsx')
 const compareSource = source('chunk-compare-dialog.tsx')
 const inspectorSource = source('chunk-inspector-dialog.tsx')
+const ingestionPreviewSource = source('ingestion-preview-details-dialog.tsx')
 const presetSource = source('chunk-preset-panel.tsx')
 const helpSource = source('chunking-help-dialog.tsx')
 const catalogSource = readFileSync(
@@ -21,6 +22,7 @@ const visualSources = [
   autoTuneSource,
   compareSource,
   inspectorSource,
+  ingestionPreviewSource,
   presetSource,
   helpSource,
 ]
@@ -70,6 +72,18 @@ describe('分块预览二三级界面契约', () => {
     expect(presetSource).toContain('chunkPresetApi.create')
   })
 
+  it('入库预览详情在窄屏可浏览，并保留建议、复制和导出操作', () => {
+    expect(ingestionPreviewSource).toContain('h-[min(92dvh,860px)]')
+    expect(ingestionPreviewSource).toContain('overflow-x-auto')
+    expect(ingestionPreviewSource).not.toContain('grid-cols-5')
+    expect(ingestionPreviewSource).not.toContain('/pipeline/ingestion-preview')
+    expect(ingestionPreviewSource).toContain('getParserLabel')
+    expect(ingestionPreviewSource).toContain('getChunkStrategyLabel')
+    expect(ingestionPreviewSource).toContain('onApplyPipelinePatch(patch)')
+    expect(ingestionPreviewSource).toContain('navigator.clipboard.writeText')
+    expect(ingestionPreviewSource).toContain('downloadJsonObject(')
+  })
+
   it('用户文案不再暴露调参内部字段和英文表头', () => {
     expect(catalogSource).toContain("title: '自动调整切块参数'")
     expect(catalogSource).toContain("params: '参数'")
@@ -78,5 +92,11 @@ describe('分块预览二三级界面契约', () => {
     expect(catalogSource).toContain("copyEmbeddingFailed: '复制失败，请检查浏览器权限'")
     expect(catalogSource).not.toContain('Auto-tune 完成')
     expect(catalogSource).not.toContain("params: 'Params'")
+    expect(catalogSource).toContain("title: '入库预览详情'")
+    expect(catalogSource).toContain("preprocess: '预处理'")
+    expect(catalogSource).toContain("governance: '内容治理'")
+    expect(catalogSource).toContain("explain: '配置详情'")
+    expect(catalogSource).not.toContain("preprocess: 'Preprocess'")
+    expect(catalogSource).not.toContain("governance: 'Governance'")
   })
 })
