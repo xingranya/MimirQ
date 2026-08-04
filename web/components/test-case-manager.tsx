@@ -1,12 +1,4 @@
-/**
- * Golden 评测集管理组件
- *
- * 功能：
- * - 列表展示数据集级 Golden 评测样本
- * - 搜索和筛选
- * - 编辑、删除操作
- * - 批量选择和操作
- */
+/** 数据集基准样本管理组件。 */
 
 'use client'
 
@@ -27,8 +19,10 @@ import type {
   RegressionReferenceSource,
 } from '@/types'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Search,
@@ -51,6 +45,8 @@ import { queryKeys } from '@/lib/query-keys'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -64,6 +60,7 @@ interface TestCaseManagerProps {
 
 const REGRESSION_CASE_PAGE_LIMIT = 200
 const REGRESSION_CASE_FETCH_MAX = 1000
+const EVIDENCE_PACK_MAX_BYTES = 5 * 1024 * 1024
 
 type EvidencePackDraft = {
   dataset_id?: string
@@ -94,10 +91,20 @@ type TestCaseRowProps = {
 
 const GOLDEN_TAG = 'golden'
 const GOLDEN_DRAFT_TAG = 'golden_draft'
+const TEST_CASE_TAG_LABELS: Readonly<Record<string, string>> = {
+  [GOLDEN_TAG]: '基准',
+  [GOLDEN_DRAFT_TAG]: '基准草稿',
+  from_retrieval_preview: '检索结果',
+  evidence_pack: '证据包',
+}
 
 function isGoldenCase(caseItem: RegressionCase): boolean {
   const tags = Array.isArray(caseItem.tags) ? caseItem.tags : []
   return tags.includes(GOLDEN_TAG) || tags.includes(GOLDEN_DRAFT_TAG)
+}
+
+function testCaseTagLabel(tag: string): string {
+  return TEST_CASE_TAG_LABELS[tag] || tag
 }
 
 function TestCaseRow({
@@ -127,11 +134,15 @@ function TestCaseRow({
 
   const hasManualGolden =
     Array.isArray(caseItem.tags) && caseItem.tags.includes(GOLDEN_TAG)
+  const hasDraftGolden =
+    Array.isArray(caseItem.tags) && caseItem.tags.includes(GOLDEN_DRAFT_TAG)
   const goldenActionLabel = hasManualGolden
-    ? '移出人工 Golden 标记'
+    ? hasDraftGolden
+      ? '取消人工确认，保留基准草稿'
+      : '移出基准样本'
     : isGolden
-      ? '已由插件草稿纳入 Golden，点击固定为人工 Golden'
-      : '纳入 Golden 评测集'
+      ? '确认为基准样本'
+      : '设为基准样本'
 
   const handleDeleteConfirm = () => {
     detachPromise(onDelete(caseItem.id))
@@ -140,114 +151,95 @@ function TestCaseRow({
   return (
     <div
       className={cn(
-        'transition-colors motion-reduce:transition-none',
-        dense ? 'px-3 py-3 hover:bg-muted/40' : 'p-4 hover:bg-muted/50',
-        isSelected && (dense ? 'bg-info/5' : 'bg-primary/10')
+        'border-b border-border transition-colors last:border-b-0 hover:bg-muted/30 motion-reduce:transition-none',
+        dense ? 'px-3 py-3' : 'px-4 py-3',
+        isSelected && 'bg-primary/5'
       )}
     >
-      <div className={cn('flex items-start', dense ? 'gap-2.5' : 'gap-3')}>
+      <div className="flex items-start gap-2 sm:gap-3">
         <button
           type="button"
           onClick={handleToggleSelect}
-          className="mt-0.5"
-          aria-label={isChecked ? '取消选择测试用例' : '选择测试用例'}
+          className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={isChecked ? '取消选择评测样本' : '选择评测样本'}
         >
           {isChecked ? (
-            <CheckSquare className="w-4 h-4 text-primary" />
+            <CheckSquare className="size-4 text-primary" aria-hidden="true" />
           ) : (
-            <Square className="w-4 h-4 text-muted-foreground" />
+            <Square className="size-4" aria-hidden="true" />
           )}
         </button>
 
         <button
           type="button"
-          className="flex-1 min-w-0 text-left"
+          className="min-w-0 flex-1 rounded-md px-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={handleSelect}
         >
-          <div
-            className={cn(
-              'font-medium text-foreground line-clamp-2',
-              dense ? 'mb-1 text-[13px] leading-5' : 'mb-1 text-sm'
-            )}
-          >
+          <div className="line-clamp-2 text-sm font-medium leading-6 text-foreground">
             {caseItem.question}
           </div>
 
           {caseItem.expected_answer ? (
-            <div
-              className={cn(
-                'text-muted-foreground line-clamp-2',
-                dense ? 'mb-1.5 text-[11px]' : 'mb-2 text-xs'
-              )}
-            >
-              标准答案: {caseItem.expected_answer}
+            <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              标准答案：{caseItem.expected_answer}
             </div>
           ) : null}
 
           {caseItem.tags && caseItem.tags.length > 0 ? (
-            <div
-              className={cn(
-                'flex items-center gap-1 flex-wrap',
-                dense ? 'mb-1.5' : 'mb-2'
-              )}
-            >
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {caseItem.tags.map((tag) => (
                 <span
                   key={tag}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full border text-muted-foreground',
-                    dense
-                      ? 'border-border/60 bg-[#fffef9] px-1.5 py-0.5 text-[9px]'
-                      : 'border-border/60 bg-muted px-2 py-0.5 text-[11px]'
-                  )}
+                  className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
                 >
-                  <Tag className="w-2.5 h-2.5" />
-                  {tag}
+                  <Tag className="size-3" aria-hidden="true" />
+                  {testCaseTagLabel(tag)}
                 </span>
               ))}
             </div>
           ) : null}
 
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground/80">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
+              <Calendar className="size-3.5" aria-hidden="true" />
               {new Date(caseItem.created_at).toLocaleDateString()}
             </span>
             {caseItem.document_ids?.length ? (
               <span className="flex items-center gap-1">
-                <FileText className="w-3 h-3" />
+                <FileText className="size-3.5" aria-hidden="true" />
                 {caseItem.document_ids.length} 文档
               </span>
             ) : null}
             {caseItem.reference_sources?.length ? (
               <span className="flex items-center gap-1">
-                <Star className="w-3 h-3" />
+                <Star className="size-3.5" aria-hidden="true" />
                 标准证据 {caseItem.reference_sources.length}
               </span>
             ) : null}
           </div>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={handleToggleGolden}
             className={cn(
-              'text-muted-foreground hover:text-foreground transition-colors motion-reduce:transition-none',
+              'flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               isGolden && 'text-warning hover:text-warning'
             )}
             aria-label={goldenActionLabel}
             title={goldenActionLabel}
           >
             <Star
-              className="w-4 h-4"
+              className="size-4"
               fill={isGolden ? 'currentColor' : 'none'}
+              aria-hidden="true"
             />
           </button>
 
           <ConfirmDialog
-            title="删除该测试用例？"
-            description="此操作不可恢复。"
+            title="删除该评测样本？"
+            description="删除后无法恢复。"
             confirmLabel="删除"
             cancelLabel="返回"
             confirmVariant="destructive"
@@ -255,11 +247,11 @@ function TestCaseRow({
           >
             <button
               type="button"
-              className="text-muted-foreground hover:text-destructive transition-colors motion-reduce:transition-none"
-              aria-label="删除测试用例"
+              className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="删除评测样本"
               title="删除"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="size-4" aria-hidden="true" />
             </button>
           </ConfirmDialog>
         </div>
@@ -276,6 +268,7 @@ export function TestCaseManager({
 }: Readonly<TestCaseManagerProps>) {
   const queryClient = useQueryClient()
   const onCaseSelectedRef = useRef(onCaseSelected)
+  const datasetIdRef = useRef(datasetId)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [goldenOnly, setGoldenOnly] = useState(false)
@@ -287,7 +280,7 @@ export function TestCaseManager({
   const [newQuestion, setNewQuestion] = useState('')
   const [newExpectedAnswer, setNewExpectedAnswer] = useState('')
 
-  // Evidence Pack import → regression case authoring.
+  // 证据包导入后可直接生成回归样本。
   const evidenceFileInputRef = useRef<HTMLInputElement>(null)
   const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false)
   const [evidencePack, setEvidencePack] = useState<EvidencePackDraft | null>(
@@ -304,6 +297,10 @@ export function TestCaseManager({
   useEffect(() => {
     onCaseSelectedRef.current = onCaseSelected
   }, [onCaseSelected])
+
+  useEffect(() => {
+    datasetIdRef.current = datasetId
+  }, [datasetId])
 
   const evidenceCitations = useMemo(() => {
     const items = evidencePack?.citations
@@ -390,7 +387,7 @@ export function TestCaseManager({
       Promise.all(
         caseIds.map((caseId) => evaluationApi.deleteRegressionCase(caseId))
       ),
-    onSuccess: invalidateRegressionCases,
+    onSettled: invalidateRegressionCases,
   })
 
   const patchCaseTagsMutation = useMutation({
@@ -407,13 +404,21 @@ export function TestCaseManager({
   useEffect(() => {
     setSelectedCaseIds(new Set())
     setSelectedCase(null)
+    setIsCreating(false)
+    setNewQuestion('')
+    setNewExpectedAnswer('')
+    setEvidenceDialogOpen(false)
+    setEvidencePack(null)
+    setEvidenceQuestion('')
+    setEvidenceExpectedAnswer('')
+    setEvidenceSelectedChunkIds(new Set())
     onCaseSelectedRef.current?.(null)
   }, [datasetId])
 
   useEffect(() => {
     if (!regressionCasesQuery.error) return
-    console.error('加载测试用例失败:', regressionCasesQuery.error)
-    toast.error(formatApiError(regressionCasesQuery.error, '加载测试用例失败'))
+    console.error('加载评测样本失败:', regressionCasesQuery.error)
+    toast.error(formatApiError(regressionCasesQuery.error, '加载评测样本失败'))
   }, [regressionCasesQuery.error])
 
   const goldenCount = useMemo(() => {
@@ -452,6 +457,9 @@ export function TestCaseManager({
     if (!goldenOnly) return true
     return isGoldenCase(c)
   })
+  const allFilteredCasesSelected =
+    filteredCases.length > 0 &&
+    filteredCases.every((caseItem) => selectedCaseIds.has(caseItem.id))
 
   // 切换选择
   const toggleSelect = (caseId: string) => {
@@ -466,18 +474,27 @@ export function TestCaseManager({
 
   // 全选/取消全选
   const toggleSelectAll = () => {
-    if (selectedCaseIds.size === filteredCases.length) {
-      setSelectedCaseIds(new Set())
-    } else {
-      setSelectedCaseIds(new Set(filteredCases.map((c) => c.id)))
-    }
+    setSelectedCaseIds((current) => {
+      const next = new Set(current)
+      if (allFilteredCasesSelected) {
+        filteredCases.forEach((caseItem) => next.delete(caseItem.id))
+      } else {
+        filteredCases.forEach((caseItem) => next.add(caseItem.id))
+      }
+      return next
+    })
   }
 
   // 删除用例
   const handleDelete = async (caseId: string) => {
     try {
       await deleteCasesMutation.mutateAsync([caseId])
-      toast.success('删除成功')
+      toast.success('评测样本已删除')
+      setSelectedCaseIds((current) => {
+        const next = new Set(current)
+        next.delete(caseId)
+        return next
+      })
       if (selectedCase?.id === caseId) {
         setSelectedCase(null)
         onCaseSelected?.(null)
@@ -491,11 +508,16 @@ export function TestCaseManager({
   // 批量删除
   const handleBatchDelete = async () => {
     if (selectedCaseIds.size === 0) return
+    const deletingCaseIds = Array.from(selectedCaseIds)
 
     try {
-      await deleteCasesMutation.mutateAsync(Array.from(selectedCaseIds))
-      toast.success('批量删除成功')
+      await deleteCasesMutation.mutateAsync(deletingCaseIds)
+      toast.success(`已删除 ${deletingCaseIds.length} 个评测样本`)
       setSelectedCaseIds(new Set())
+      if (selectedCase && deletingCaseIds.includes(selectedCase.id)) {
+        setSelectedCase(null)
+        onCaseSelected?.(null)
+      }
     } catch (error) {
       console.error('批量删除失败:', error)
       toast.error(formatApiError(error, '批量删除失败'))
@@ -509,7 +531,8 @@ export function TestCaseManager({
       toast.error('请输入问题')
       return
     }
-    if (!datasetId) {
+    const requestedDatasetId = String(datasetId || '').trim()
+    if (!requestedDatasetId) {
       toast.error('请先选择数据集')
       return
     }
@@ -518,19 +541,23 @@ export function TestCaseManager({
     try {
       const res = await ragApi.retrieveEvidence({
         query: q,
-        dataset_id: datasetId,
+        dataset_id: requestedDatasetId,
       })
+      if (String(datasetIdRef.current || '').trim() !== requestedDatasetId) {
+        toast.info('数据集已切换，请重新检索标准证据')
+        return
+      }
       const citations = Array.isArray(res?.citations)
         ? (res.citations as unknown as Citation[])
         : []
       if (!citations.length) {
-        toast.error('未检索到可用 citations（请检查数据集是否已入库）')
+        toast.error('未检索到可用证据，请检查数据集是否已完成入库')
         return
       }
 
       const exportedAt = new Date().toISOString()
       setEvidencePack({
-        dataset_id: datasetId,
+        dataset_id: requestedDatasetId,
         query: q,
         query_for_retrieval: res?.query_for_retrieval || q,
         metrics: res?.metrics || null,
@@ -544,7 +571,7 @@ export function TestCaseManager({
       setEvidenceQuestion(q)
       setEvidenceExpectedAnswer(newExpectedAnswer || '')
 
-      // Default: select the top-1 citation as a starting point (operators can adjust).
+      // 默认选择第一条证据，用户仍可继续调整。
       const firstChunkId = toTrimmedPrimitiveString(citations?.[0]?.chunk_id)
       setEvidenceSelectedChunkIds(
         firstChunkId ? new Set([firstChunkId]) : new Set()
@@ -570,6 +597,11 @@ export function TestCaseManager({
 
   const handleEvidencePackFile = async (file: File | null) => {
     if (!file) return
+    if (file.size > EVIDENCE_PACK_MAX_BYTES) {
+      toast.error('证据包不能超过 5 MB')
+      if (evidenceFileInputRef.current) evidenceFileInputRef.current.value = ''
+      return
+    }
     try {
       const raw = await file.text()
       const parsed = JSON.parse(raw)
@@ -577,7 +609,7 @@ export function TestCaseManager({
         ? (parsed.citations as Citation[])
         : []
       if (!citations.length) {
-        toast.error('Evidence Pack 缺少 citations')
+        toast.error('证据包中没有可用证据')
         return
       }
 
@@ -585,9 +617,14 @@ export function TestCaseManager({
         typeof parsed?.dataset_id === 'string'
           ? String(parsed.dataset_id).trim()
           : ''
-      const effectiveDatasetId = ds || datasetId || ''
+      const activeDatasetId = String(datasetIdRef.current || '').trim()
+      const effectiveDatasetId = ds || activeDatasetId
       if (!effectiveDatasetId) {
-        toast.error('Evidence Pack 缺少 dataset_id，且当前未选择数据集')
+        toast.error('证据包未指定数据集，且当前也没有选择数据集')
+        return
+      }
+      if (ds && activeDatasetId && ds !== activeDatasetId) {
+        toast.error('证据包属于其他数据集，请切换到对应数据集后再导入')
         return
       }
 
@@ -607,7 +644,7 @@ export function TestCaseManager({
         .map((x: any) => toTrimmedPrimitiveString(x))
         .filter(Boolean)
 
-      // Default: keep the exported selection (if present), else select top-1 as a starting point.
+      // 优先恢复导出时的选择，否则默认选择第一条证据。
       const firstChunkId = toTrimmedPrimitiveString(citations?.[0]?.chunk_id)
       setEvidenceSelectedChunkIds(
         (() => {
@@ -622,10 +659,10 @@ export function TestCaseManager({
       )
       setEvidenceDialogOpen(true)
     } catch (err: any) {
-      console.error('Failed to parse Evidence Pack', err)
-      toast.error('Evidence Pack 解析失败（请确认是 JSON 文件）')
+      console.error('证据包解析失败', err)
+      toast.error('证据包解析失败，请确认文件为有效的 JSON 格式')
     } finally {
-      // Allow re-selecting the same file.
+      // 清空文件选择，允许再次选择同一文件。
       if (evidenceFileInputRef.current) evidenceFileInputRef.current.value = ''
     }
   }
@@ -633,7 +670,12 @@ export function TestCaseManager({
   const handleCreateCaseFromEvidencePack = async () => {
     const ds = (evidenceDatasetId || '').trim()
     if (!ds) {
-      toast.error('缺少 dataset_id')
+      toast.error('未指定数据集')
+      return
+    }
+    const activeDatasetId = String(datasetIdRef.current || '').trim()
+    if (!activeDatasetId || ds !== activeDatasetId) {
+      toast.error('当前数据集已变化，请重新选择标准证据')
       return
     }
     const q = (evidenceQuestion || '').trim()
@@ -642,7 +684,7 @@ export function TestCaseManager({
       return
     }
     if (!evidenceSelectedChunkIds.size) {
-      toast.error('请至少选择 1 条证据引用（reference_sources）')
+      toast.error('请至少选择一条标准证据')
       return
     }
 
@@ -677,7 +719,7 @@ export function TestCaseManager({
       .filter((r) => !!r.document_id && !!r.chunk_id)
 
     if (!refs.length) {
-      toast.error('选中的证据引用无效（缺少 chunk_id/document_id）')
+      toast.error('选中的证据缺少文档或切片信息，请重新选择')
       return
     }
 
@@ -705,7 +747,7 @@ export function TestCaseManager({
         },
       }
       await createCaseMutation.mutateAsync(payload)
-      toast.success('已创建 Golden 评测样本')
+      toast.success('已创建基准评测样本')
       setEvidenceDialogOpen(false)
       setEvidencePack(null)
       setEvidenceSelectedChunkIds(new Set())
@@ -713,8 +755,8 @@ export function TestCaseManager({
       setNewQuestion('')
       setNewExpectedAnswer('')
     } catch (err: any) {
-      console.error('Failed to create case from evidence pack', err)
-      toast.error(formatApiError(err, '创建回归用例失败'))
+      console.error('从证据包创建评测样本失败', err)
+      toast.error(formatApiError(err, '创建评测样本失败'))
     } finally {
       setEvidenceCreating(false)
     }
@@ -729,6 +771,7 @@ export function TestCaseManager({
   const handleToggleGolden = async (caseItem: RegressionCase) => {
     const prevTags = Array.isArray(caseItem.tags) ? caseItem.tags : []
     const hasGolden = prevTags.includes(GOLDEN_TAG)
+    const hasGoldenDraft = prevTags.includes(GOLDEN_DRAFT_TAG)
     const nextTags = hasGolden
       ? prevTags.filter((t) => t !== GOLDEN_TAG)
       : [...prevTags, GOLDEN_TAG]
@@ -742,10 +785,14 @@ export function TestCaseManager({
         setSelectedCase(updated)
         onCaseSelected?.(updated.id)
       }
-      toast.success(hasGolden ? '已移出 Golden 评测集' : '已纳入 Golden 评测集')
+      if (hasGolden && hasGoldenDraft) {
+        toast.success('已取消人工确认，样本仍保留为基准草稿')
+      } else {
+        toast.success(hasGolden ? '已移出基准样本' : '已设为基准样本')
+      }
     } catch (error) {
-      console.error('Failed to toggle golden tag:', error)
-      toast.error(formatApiError(error, '更新 Golden 标记失败'))
+      console.error('更新基准标记失败:', error)
+      toast.error(formatApiError(error, '更新基准标记失败'))
     }
   }
 
@@ -767,7 +814,7 @@ export function TestCaseManager({
   }
 
   const handleRunGolden = () => {
-    handleRunCaseIds(goldenCaseIds, '当前数据集暂无 Golden 样本')
+    handleRunCaseIds(goldenCaseIds, '当前数据集暂无基准样本')
   }
 
   const handleRunAll = () => {
@@ -780,37 +827,69 @@ export function TestCaseManager({
   let caseListContent: ReactNode
   if (isLoading) {
     caseListContent = (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none text-muted-foreground" />
+      <div
+        className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"
+        role="status"
+      >
+        <Loader2
+          className="size-5 animate-spin motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+        正在加载评测样本…
+      </div>
+    )
+  } else if (regressionCasesQuery.isError) {
+    caseListContent = (
+      <div
+        className="flex min-h-80 items-center justify-center px-6 py-12 text-center"
+        role="alert"
+      >
+        <div className="max-w-sm">
+          <div className="text-sm font-semibold text-foreground">
+            评测样本加载失败
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            请检查网络连接后重试。已有样本不会受到影响。
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-4 h-9 rounded-md px-3 text-sm"
+            onClick={() => detachPromise(regressionCasesQuery.refetch())}
+          >
+            重新加载
+          </Button>
+        </div>
       </div>
     )
   } else if (filteredCases.length === 0) {
     const emptyTitle = datasetId
       ? searchQuery || goldenOnly
         ? '没有匹配的评测样本'
-        : '暂无 Golden 评测样本'
+        : '暂无基准评测样本'
       : '先选择数据集'
     const emptyDescription = datasetId
       ? searchQuery || goldenOnly
         ? '当前筛选条件没有命中样本，可以清空筛选或新增一条可复用标准问答。'
-        : '为当前数据集添加标准问题、标准答案和标准证据，用它作为评估 RAG pipeline 的固定标尺。'
-      : 'Golden 评测集绑定到数据集，选择知识库后才能创建标准问答和标准证据。'
+        : '添加标准问题、答案和证据，用于持续检查检索与回答质量。'
+      : '基准样本按数据集管理，选择数据集后即可开始创建。'
 
     caseListContent = (
       <div
         className={cn(
-          'flex h-full min-h-[420px] items-center justify-center px-6 text-center',
-          dense ? 'py-12' : 'py-10'
+          'flex h-full min-h-80 items-center justify-center px-6 text-center',
+          dense ? 'py-10' : 'py-12'
         )}
       >
         <div className="max-w-md">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-border/60 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.16),transparent_45%),linear-gradient(180deg,hsl(var(--card))_0%,hsl(var(--background))_100%)] shadow-sm">
-            <FileText className="h-7 w-7 text-primary" />
+          <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-border bg-muted/30">
+            <FileText className="size-5 text-primary" aria-hidden="true" />
           </div>
           <div className="mt-4 text-base font-semibold text-foreground">
             {emptyTitle}
           </div>
-          <div className="mt-2 text-[13px] leading-6 text-muted-foreground">
+          <div className="mt-2 text-sm leading-6 text-muted-foreground">
             {emptyDescription}
           </div>
 
@@ -819,10 +898,7 @@ export function TestCaseManager({
               <Button
                 size="sm"
                 variant="outline"
-                className={cn(
-                  dense &&
-                    'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-                )}
+                className="h-9 rounded-md px-3 text-sm"
                 onClick={() => {
                   setSearchQuery('')
                   setGoldenOnly(false)
@@ -833,56 +909,24 @@ export function TestCaseManager({
             ) : null}
             <Button
               size="sm"
-              className={cn(
-                'gap-2',
-                dense && 'h-8 rounded-lg px-2.5 text-[11px]'
-              )}
+              className="h-9 gap-2 rounded-md px-3 text-sm"
               onClick={() => setIsCreating(true)}
               disabled={!datasetId}
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="size-4" aria-hidden="true" />
               新增标准问答
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className={cn(
-                'gap-2',
-                dense &&
-                  'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-              )}
+              className="h-9 gap-2 rounded-md px-3 text-sm"
               onClick={handleChooseEvidencePack}
               disabled={!datasetId}
             >
-              <Upload className="h-3.5 w-3.5" />
-              导入 Evidence Pack
+              <Upload className="size-4" aria-hidden="true" />
+              导入证据包
             </Button>
           </div>
-
-          {datasetId ? (
-            <div className="mt-6 grid grid-cols-3 gap-2 text-left">
-              {[
-                ['1', '标准问题', '固定 RAG 输入'],
-                ['2', '标准证据', '标定 ground truth'],
-                ['3', '差距评分', '追踪回归结果'],
-              ].map(([step, title, desc]) => (
-                <div
-                  key={step}
-                  className="rounded-2xl border border-border/60 bg-card/90 p-2.5"
-                >
-                  <div className="text-[10px] font-semibold text-primary">
-                    STEP {step}
-                  </div>
-                  <div className="mt-1 text-[11px] font-semibold text-foreground">
-                    {title}
-                  </div>
-                  <div className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
-                    {desc}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
     )
@@ -898,21 +942,18 @@ export function TestCaseManager({
           <button
             type="button"
             onClick={toggleSelectAll}
-            className={cn(
-              'flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors motion-reduce:transition-none',
-              dense ? 'text-[11px]' : 'text-xs'
-            )}
+            className="flex min-h-9 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground motion-reduce:transition-none"
           >
-            {selectedCaseIds.size === filteredCases.length ? (
-              <CheckSquare className="w-4 h-4" />
+            {allFilteredCasesSelected ? (
+              <CheckSquare className="size-4" aria-hidden="true" />
             ) : (
-              <Square className="w-4 h-4" />
+              <Square className="size-4" aria-hidden="true" />
             )}
             全选
           </button>
         </div>
 
-        <div className="divide-y divide-border">
+        <div>
           {filteredCases.map((caseItem) => {
             const isGolden = isGoldenCase(caseItem)
             return (
@@ -936,92 +977,67 @@ export function TestCaseManager({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 头部操作栏 */}
+    <div className="flex h-full flex-col">
+      {/* 顶部操作栏 */}
       <div
         className={cn(
-          'border-b',
-          dense
-            ? 'border-border/60 bg-[#fffef9] px-3 py-3'
-            : 'border-border p-4'
+          'border-b border-border bg-background',
+          dense ? 'px-3 py-3' : 'p-4'
         )}
       >
-        <div
-          className={cn(
-            'flex items-center justify-between',
-            dense ? 'mb-2.5' : 'mb-3'
-          )}
-        >
-          <div>
-            <h3
-              className={cn(
-                'font-semibold text-foreground',
-                dense ? 'text-[13px]' : 'text-sm'
-              )}
-            >
-              Golden 评测集
+        <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">
+              基准评测样本
             </h3>
-            <p
-              className={cn(
-                'mt-1 text-muted-foreground',
-                dense ? 'text-[11px] leading-4' : 'text-xs'
-              )}
-            >
-              数据集级固定标尺：问题、标准答案、标准证据。
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              用固定的问题、答案和证据持续检查检索与回答质量。
             </p>
             {dense ? (
               <div
-                aria-label="Golden 评测集统计"
-                className="mt-2 flex flex-wrap items-center gap-1.5"
+                aria-label="基准评测样本统计"
+                className="mt-2 flex flex-wrap items-center gap-2"
               >
-                <span className="rounded-full border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
                   样本 {caseTotal}
-                  {!casesFullyLoaded ? ` · 已载 ${cases.length}` : ''}
+                  {!casesFullyLoaded ? ` · 已加载 ${cases.length}` : ''}
                 </span>
-                <span className="rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">
-                  Golden {goldenCount}
+                <span className="rounded-md bg-warning/10 px-2 py-1 text-xs text-warning">
+                  基准 {goldenCount}
                 </span>
-                <span className="rounded-full border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] text-success">
+                <span className="rounded-md bg-success/10 px-2 py-1 text-xs text-success">
                   标准答案 {standardAnswerCount}
                 </span>
-                <span className="rounded-full border border-info/30 bg-info/10 px-1.5 py-0.5 text-[10px] text-info">
+                <span className="rounded-md bg-info/10 px-2 py-1 text-xs text-info">
                   标准证据 {referenceSourceCount}
                 </span>
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                <span className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary">
                   已选 {selectedCaseIds.size}
                 </span>
               </div>
             ) : null}
           </div>
-          <div className={cn('flex items-center', dense ? 'gap-1.5' : 'gap-2')}>
+          <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
             {cases.length > 0 && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
-                  className={cn(
-                    'gap-2',
-                    dense &&
-                      'h-8 rounded-lg border-warning/30 bg-warning/5 px-2.5 text-[11px] text-warning hover:bg-warning/10'
-                  )}
+                  className="h-9 gap-2 rounded-md px-3 text-sm"
                   onClick={handleRunGolden}
                   disabled={!datasetId || goldenCaseIds.length === 0}
                 >
-                  <Star className="w-3.5 h-3.5" />
-                  {casesFullyLoaded ? '运行 Golden' : '运行已载 Golden'}
+                  <Star className="size-4" aria-hidden="true" />
+                  {casesFullyLoaded ? '运行基准' : '运行已加载基准'}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className={cn(
-                    'gap-2',
-                    dense &&
-                      'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-                  )}
+                  className="h-9 rounded-md px-3 text-sm"
                   onClick={handleRunAll}
                   disabled={!datasetId || cases.length === 0}
                 >
-                  {casesFullyLoaded ? '运行全部' : '运行已载'}
+                  {casesFullyLoaded ? '运行全部' : '运行已加载样本'}
                 </Button>
               </>
             )}
@@ -1030,18 +1046,14 @@ export function TestCaseManager({
                 <Button
                   size="sm"
                   variant="outline"
-                  className={cn(
-                    'gap-2',
-                    dense &&
-                      'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-                  )}
+                  className="h-9 rounded-md px-3 text-sm"
                   onClick={handleRunSelected}
                 >
-                  运行选中 ({selectedCaseIds.size})
+                  运行选中（{selectedCaseIds.size}）
                 </Button>
                 <ConfirmDialog
-                  title="批量删除测试用例？"
-                  description={`将删除 ${selectedCaseIds.size} 个测试用例。此操作不可恢复。`}
+                  title="批量删除评测样本？"
+                  description={`将删除 ${selectedCaseIds.size} 个评测样本。此操作不可恢复。`}
                   confirmLabel="删除"
                   cancelLabel="返回"
                   confirmVariant="destructive"
@@ -1050,13 +1062,9 @@ export function TestCaseManager({
                   <Button
                     size="sm"
                     variant="outline"
-                    className={cn(
-                      'gap-2 text-destructive hover:text-destructive',
-                      dense &&
-                        'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-                    )}
+                    className="h-9 gap-2 rounded-md px-3 text-sm text-destructive hover:text-destructive"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="size-4" aria-hidden="true" />
                     删除
                   </Button>
                 </ConfirmDialog>
@@ -1076,57 +1084,45 @@ export function TestCaseManager({
             <Button
               size="sm"
               variant="outline"
-              className={cn(
-                'gap-2',
-                dense &&
-                  'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-              )}
+              className="h-9 gap-2 rounded-md px-3 text-sm"
               onClick={handleChooseEvidencePack}
               disabled={!datasetId}
-              title={datasetId ? '导入 Evidence Pack JSON' : '请先选择数据集'}
+              title={datasetId ? '导入证据包 JSON 文件' : '请先选择数据集'}
             >
-              <Upload className="w-3.5 h-3.5" />
-              导入 Evidence Pack
+              <Upload className="size-4" aria-hidden="true" />
+              导入证据包
             </Button>
             <Button
               size="sm"
-              className={cn(
-                'gap-2',
-                dense && 'h-8 rounded-lg px-2.5 text-[11px]'
-              )}
+              className="h-9 gap-2 rounded-md px-3 text-sm"
               onClick={() => setIsCreating(true)}
+              disabled={!datasetId}
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="size-4" aria-hidden="true" />
               新增标准问答
             </Button>
           </div>
         </div>
 
-        {/* 搜索框 */}
-        <div className="relative">
+        <div className="relative max-w-2xl">
           <Search
-            className={cn(
-              'absolute top-1/2 -translate-y-1/2 text-muted-foreground',
-              dense ? 'left-2.5 h-3.5 w-3.5' : 'left-3 h-4 w-4'
-            )}
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
           />
           <Input
             type="text"
-            placeholder="搜索问题、关键词或标签..."
+            placeholder="搜索问题、答案或标签"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn(
-              dense
-                ? 'h-9 rounded-xl border-border/60 bg-card/95 pl-8 text-[13px]'
-                : 'pl-10'
-            )}
+            className="h-9 rounded-md border-border bg-background pl-9 text-sm"
+            aria-label="搜索评测样本"
           />
         </div>
 
         <div
           className={cn(
             'flex items-center justify-start gap-3',
-            dense ? 'mt-2.5' : 'mt-3'
+            dense ? 'mt-2' : 'mt-3'
           )}
         >
           <Button
@@ -1136,277 +1132,266 @@ export function TestCaseManager({
               'gap-2',
               goldenOnly &&
                 'bg-warning/15 text-warning hover:bg-warning/20',
-              dense &&
-                'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
+              'h-9 rounded-md border-border px-3 text-sm'
             )}
             onClick={() => {
               setGoldenOnly((v) => !v)
               setSelectedCaseIds(new Set())
             }}
             disabled={!datasetId}
-            title={
-              datasetId ? '只显示纳入 Golden 评测集的样本' : '请先选择数据集'
-            }
+            title={datasetId ? '只显示基准评测样本' : '请先选择数据集'}
           >
             <Star
-              className="w-3.5 h-3.5"
+              className="size-4"
               fill={goldenOnly ? 'currentColor' : 'none'}
+              aria-hidden="true"
             />
-            只看 Golden
+            只看基准样本
           </Button>
         </div>
       </div>
 
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent
-          className={cn(
-            'max-w-2xl',
-            dense && 'max-h-[min(82vh,720px)] overflow-y-auto'
-          )}
-        >
+      <Dialog
+        open={isCreating}
+        onOpenChange={(open) => {
+          if (!open && evidenceLoading) return
+          setIsCreating(open)
+        }}
+      >
+        <DialogContent className="max-h-[min(90dvh,720px)] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>新增标准问答</DialogTitle>
-          </DialogHeader>
-
-          <div className={cn(dense ? 'space-y-2.5' : 'space-y-3')}>
-            <div>
-              <div
-                className={cn(
-                  'block font-medium text-muted-foreground',
-                  dense ? 'mb-1 text-[11px]' : 'mb-1 text-xs'
-                )}
-              >
-                标准问题 *
-              </div>
-              <Textarea
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                placeholder="输入用于评估 RAG 的标准问题..."
-                className={cn(
-                  'resize-none',
-                  dense
-                    ? 'min-h-[72px] rounded-xl border-border/60 bg-card/95 text-[13px]'
-                    : 'min-h-[72px]'
-                )}
-              />
-            </div>
-            <div>
-              <div
-                className={cn(
-                  'block font-medium text-muted-foreground',
-                  dense ? 'mb-1 text-[11px]' : 'mb-1 text-xs'
-                )}
-              >
-                标准答案（推荐）
-              </div>
-              <Textarea
-                value={newExpectedAnswer}
-                onChange={(e) => setNewExpectedAnswer(e.target.value)}
-                placeholder="输入可比对的标准答案..."
-                className={cn(
-                  'resize-none',
-                  dense
-                    ? 'min-h-[72px] rounded-xl border-border/60 bg-card/95 text-[13px]'
-                    : 'min-h-[72px]'
-                )}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className={cn(dense && 'h-8 rounded-lg px-2.5 text-[11px]')}
-                onClick={() => detachPromise(handleCreate())}
-                disabled={evidenceLoading || !datasetId || !newQuestion.trim()}
-              >
-                {evidenceLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />
-                    检索中…
-                  </>
-                ) : (
-                  '检索并选择标准证据'
-                )}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className={cn(
-                  dense &&
-                    'h-8 rounded-lg border-border/60 bg-card/90 px-2.5 text-[11px]'
-                )}
-                onClick={() => {
-                  setIsCreating(false)
-                  setNewQuestion('')
-                  setNewExpectedAnswer('')
-                }}
-              >
-                取消
-              </Button>
-            </div>
-            <div
-              className={cn(
-                'rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-muted-foreground',
-                dense ? 'text-[11px] leading-5' : 'text-[11px]'
-              )}
-            >
-              提示：后端要求每个用例必须提供至少 1 条{' '}
-              <span className="font-mono">reference_sources</span>。
-              点击“检索并选择标准证据”或“导入 Evidence Pack”选择 Ground Truth
-              证据引用后再创建。
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={evidenceDialogOpen} onOpenChange={setEvidenceDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>标准证据选择 → Golden 评测样本</DialogTitle>
+            <DialogDescription>
+              输入标准问题和答案，系统会先检索可作为评测依据的证据。
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 truncate">
-                  dataset_id:{' '}
-                  <span className="font-mono text-foreground/80">
-                    {evidenceDatasetId || '-'}
-                  </span>
-                </div>
-                <div className="text-[11px]">
-                  citations:{' '}
-                  <span className="font-mono text-foreground/80">
-                    {evidenceCitations.length}
-                  </span>
-                </div>
-              </div>
-              {evidencePack?.exported_at && (
-                <div className="mt-2 text-[11px]">
-                  exported_at:{' '}
-                  <span className="font-mono text-foreground/80">
-                    {String(evidencePack.exported_at)}
-                  </span>
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="regression-case-question">标准问题</Label>
+              <Textarea
+                id="regression-case-question"
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                placeholder="输入用于评测检索与回答效果的问题"
+                className="min-h-24 resize-none rounded-md text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="regression-case-answer">标准答案（推荐）</Label>
+              <Textarea
+                id="regression-case-answer"
+                value={newExpectedAnswer}
+                onChange={(e) => setNewExpectedAnswer(e.target.value)}
+                placeholder="输入可用于结果比对的标准答案"
+                className="min-h-24 resize-none rounded-md text-sm"
+              />
+            </div>
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              每个评测样本至少需要一条标准证据。下一步可以从检索结果中选择，也可以导入已有证据包。
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setIsCreating(false)
+                setNewQuestion('')
+                setNewExpectedAnswer('')
+              }}
+              disabled={evidenceLoading}
+            >
+              取消
+            </Button>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => detachPromise(handleCreate())}
+              disabled={evidenceLoading || !datasetId || !newQuestion.trim()}
+            >
+              {evidenceLoading ? (
+                <>
+                  <Loader2
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  检索中…
+                </>
+              ) : (
+                '检索并选择标准证据'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={evidenceDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && evidenceCreating) return
+          setEvidenceDialogOpen(open)
+        }}
+      >
+        <DialogContent className="flex max-h-[min(90dvh,760px)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border px-6 py-4 text-left">
+            <DialogTitle>选择标准证据</DialogTitle>
+            <DialogDescription>
+              核对问题和答案，至少选择一条证据后创建基准评测样本。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 text-xs text-muted-foreground">
+              <span>
+                来源：
+                {evidencePack?.source === 'evidence_pack'
+                  ? '导入的证据包'
+                  : '当前数据集检索结果'}
+              </span>
+              <span>共 {evidenceCitations.length} 条证据</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  标准问题
-                </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="evidence-case-question">标准问题</Label>
                 <Textarea
+                  id="evidence-case-question"
                   value={evidenceQuestion}
                   onChange={(e) => setEvidenceQuestion(e.target.value)}
-                  placeholder="问题（将写入 Golden 评测样本）"
-                  className="min-h-[84px] resize-none"
+                  placeholder="输入用于评测检索与回答效果的问题"
+                  className="min-h-24 resize-none rounded-md text-sm"
                 />
               </div>
-              <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  标准答案（推荐）
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="evidence-case-answer">标准答案（推荐）</Label>
                 <Textarea
+                  id="evidence-case-answer"
                   value={evidenceExpectedAnswer}
                   onChange={(e) => setEvidenceExpectedAnswer(e.target.value)}
-                  placeholder="可选：标准答案"
-                  className="min-h-[84px] resize-none"
+                  placeholder="输入可用于结果比对的标准答案"
+                  className="min-h-24 resize-none rounded-md text-sm"
                 />
               </div>
             </div>
 
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="px-3 py-2 border-b border-border bg-card flex items-center justify-between">
-                <div className="text-xs font-semibold text-foreground">
-                  选择标准证据（reference_sources）
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  已选 {evidenceSelectedChunkIds.size} /{' '}
-                  {evidenceCitations.length}
-                </div>
+            <section aria-labelledby="evidence-selection-title">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4
+                  id="evidence-selection-title"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  标准证据
+                </h4>
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  已选 {evidenceSelectedChunkIds.size} 条，共{' '}
+                  {evidenceCitations.length} 条
+                </span>
               </div>
-              <div className="max-h-64 overflow-y-auto">
-                {(evidenceCitations || []).map((c: any, idx: number) => {
-                  const chunkId = String(c?.chunk_id || '')
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+                {evidenceCitations.map((citation: Citation, index: number) => {
+                  const chunkId = String(citation?.chunk_id || '')
                   const checked =
-                    !!chunkId && evidenceSelectedChunkIds.has(chunkId)
-                  const label = String(
-                    c?.document_name || c?.document_id || 'Unknown'
+                    Boolean(chunkId) && evidenceSelectedChunkIds.has(chunkId)
+                  const documentLabel = String(
+                    citation?.document_name ||
+                      citation?.document_id ||
+                      '未命名文档'
                   )
-                  const snippet = String(c?.chunk_content || '').slice(0, 180)
+                  const snippet = String(citation?.chunk_content || '').slice(
+                    0,
+                    180
+                  )
+                  const checkboxId = `evidence-citation-${index}`
+
                   return (
                     <div
-                      key={`${chunkId || idx}`}
+                      key={chunkId || index}
                       className={cn(
-                        'flex items-start gap-3 px-3 py-2 border-b border-border/60 cursor-pointer hover:bg-muted/30',
-                        !chunkId && 'opacity-50 cursor-not-allowed'
+                        'flex items-start gap-3 border-b border-border px-3 py-3 last:border-b-0 hover:bg-muted/30',
+                        !chunkId && 'opacity-60'
                       )}
                     >
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 rounded border-border"
+                      <Checkbox
+                        id={checkboxId}
+                        className="mt-1 shrink-0 rounded-sm"
                         disabled={!chunkId}
                         checked={checked}
-                        onChange={(e) => {
+                        onCheckedChange={(nextChecked) => {
                           const next = new Set(evidenceSelectedChunkIds)
-                          if (e.target.checked) next.add(chunkId)
+                          if (nextChecked === true) next.add(chunkId)
                           else next.delete(chunkId)
                           setEvidenceSelectedChunkIds(next)
                         }}
+                        aria-describedby={`${checkboxId}-description`}
                       />
-                      <div className="min-w-0">
-                        <div
-                          className="text-xs font-medium text-foreground truncate"
-                          title={label}
+                      <Label
+                        htmlFor={checkboxId}
+                        className={cn(
+                          'min-w-0 flex-1 cursor-pointer font-normal',
+                          !chunkId && 'cursor-not-allowed'
+                        )}
+                      >
+                        <span
+                          className="block truncate text-sm font-medium text-foreground"
+                          title={documentLabel}
                         >
-                          #{idx + 1} {label}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                          “{snippet}
-                          {snippet.length >= 180 ? '…' : ''}”
-                        </div>
-                        <div className="mt-1 text-[11px] text-muted-foreground flex flex-wrap gap-2">
-                          {c?.page_number ? (
-                            <span>p.{String(c.page_number)}</span>
-                          ) : null}
-                          {chunkId ? (
-                            <span className="font-mono">
-                              chunk:{chunkId.slice(0, 8)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
+                          {index + 1}. {documentLabel}
+                        </span>
+                        <span
+                          id={`${checkboxId}-description`}
+                          className="mt-1 block text-sm leading-6 text-muted-foreground"
+                        >
+                          {snippet || '该证据没有可预览的正文。'}
+                          {snippet.length >= 180 ? '…' : ''}
+                        </span>
+                        {citation?.page_number ? (
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            第 {String(citation.page_number)} 页
+                          </span>
+                        ) : null}
+                      </Label>
                     </div>
                   )
                 })}
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setEvidenceDialogOpen(false)}
-                disabled={evidenceCreating}
-              >
-                取消
-              </Button>
-              <Button
-                onClick={() =>
-                  detachPromise(handleCreateCaseFromEvidencePack())
-                }
-                disabled={evidenceCreating}
-              >
-                {evidenceCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin motion-reduce:animate-none" />
-                    创建中…
-                  </>
-                ) : (
-                  '创建 Golden 样本'
-                )}
-              </Button>
-            </div>
+            </section>
           </div>
+
+          <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-6 py-4">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEvidenceDialogOpen(false)}
+              disabled={evidenceCreating}
+            >
+              取消
+            </Button>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => detachPromise(handleCreateCaseFromEvidencePack())}
+              disabled={
+                evidenceCreating ||
+                !evidenceDatasetId ||
+                !evidenceQuestion.trim() ||
+                evidenceSelectedChunkIds.size === 0
+              }
+            >
+              {evidenceCreating ? (
+                <>
+                  <Loader2
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  创建中…
+                </>
+              ) : (
+                '创建基准样本'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1419,21 +1404,12 @@ export function TestCaseManager({
       {filteredCases.length > 0 || selectedCaseIds.size > 0 ? (
         <div
           className={cn(
-            'border-t',
-            dense
-              ? 'border-border/60 bg-[#fffef9] px-3 py-2.5'
-              : 'border-border bg-muted/30 p-3'
+            'border-t border-border bg-background text-xs text-muted-foreground',
+            dense ? 'px-3 py-2.5' : 'px-4 py-3'
           )}
         >
-          <div
-            className={cn(
-              'text-center text-muted-foreground',
-              dense ? 'text-[11px]' : 'text-xs'
-            )}
-          >
-            已显示 {filteredCases.length} 个测试用例
-            {selectedCaseIds.size > 0 && ` · 已选择 ${selectedCaseIds.size} 个`}
-          </div>
+          已显示 {filteredCases.length} 个评测样本
+          {selectedCaseIds.size > 0 && `，已选择 ${selectedCaseIds.size} 个`}
         </div>
       ) : null}
     </div>
