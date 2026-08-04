@@ -1,6 +1,4 @@
-/**
- * TopBar - 工作台顶部栏
- */
+/** 切块预览工作台顶部栏。 */
 'use client'
 
 import { useRef, useState } from 'react'
@@ -57,6 +55,7 @@ import { useRouter } from '@/i18n/navigation'
 import { getAuthHeaders } from '@/lib/auth-headers'
 import { API_V1_BASE_URL } from '@/lib/env'
 import { getChunkStrategyLabel } from '@/lib/chunk-strategies'
+import { getParserLabel } from '@/lib/parser-options'
 import { cn, detachPromise, formatFileSize } from '@/lib/utils'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -273,31 +272,31 @@ export function TopBar() {
   const serverTimingTitle = (() => {
     if (!previewData) return undefined
     const rows: string[] = []
-    rows.push(`server_total: ${previewData.preview_duration_ms ?? '-'}ms`)
+    rows.push(`服务端总耗时：${previewData.preview_duration_ms ?? '-'} 毫秒`)
     if (typeof previewData.upload_duration_ms === 'number') {
-      rows.push(`upload: ${previewData.upload_duration_ms}ms`)
+      rows.push(`上传：${previewData.upload_duration_ms} 毫秒`)
     }
     if (previewData.parse_duration_ms != null) {
-      rows.push(`parse: ${previewData.parse_duration_ms}ms`)
+      rows.push(`解析：${previewData.parse_duration_ms} 毫秒`)
     }
     if (typeof previewData.governance_duration_ms === 'number') {
-      rows.push(`govern: ${previewData.governance_duration_ms}ms`)
+      rows.push(`内容治理：${previewData.governance_duration_ms} 毫秒`)
     }
     if (typeof previewData.chunking_duration_ms === 'number') {
-      rows.push(`chunk: ${previewData.chunking_duration_ms}ms`)
+      rows.push(`切块：${previewData.chunking_duration_ms} 毫秒`)
     }
     if (typeof previewData.stats_duration_ms === 'number') {
-      rows.push(`stats: ${previewData.stats_duration_ms}ms`)
+      rows.push(`统计：${previewData.stats_duration_ms} 毫秒`)
     }
-    rows.push(`parse_cache_hit: ${previewData.parse_cache_hit ? 'true' : 'false'}`)
+    rows.push(`解析缓存：${previewData.parse_cache_hit ? '已命中' : '未命中'}`)
     if (previewData.parse_cache_hit) {
-      rows.push(`parse_cache_age_ms: ${previewData.parse_cache_age_ms ?? '-'}`)
+      rows.push(`缓存时间：${previewData.parse_cache_age_ms ?? '-'} 毫秒`)
     }
     return rows.join(ESCAPED_NEWLINE)
   })()
 
   const escapeForAnsiC = (value: string) => {
-    // Used for bash $'...' strings in generated cURL.
+    // 转义生成的 cURL 中 Bash $'...' 字符串。
     return value
       .replaceAll(SHELL_BACKSLASH, DOUBLE_SHELL_BACKSLASH)
       .replaceAll("'", String.raw`\\'`)
@@ -310,13 +309,13 @@ export function TopBar() {
       .replaceAll(BACKTICK, SHELL_BACKSLASH + BACKTICK)
 
   const summaryChipClass =
-    'inline-flex h-7 items-center gap-1.5 rounded-lg border border-border/55 bg-muted/20 px-2.5 text-[10.5px] font-bold uppercase tracking-[-0.01em] text-muted-foreground/90 antialiased shadow-[0_1px_0_rgba(255,255,255,0.7)_inset]'
+    'inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/20 px-2 text-xs font-medium text-muted-foreground'
   const fileMetaChipClass =
-    'inline-flex h-5 min-w-0 items-center gap-1 rounded-md border border-border/45 bg-background/60 px-1.5 text-[9px] font-bold tracking-[-0.01em] text-muted-foreground/80 antialiased'
+    'inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground'
   const stateChipClass =
-    'inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[10.5px] font-bold uppercase tracking-[-0.01em] antialiased shadow-[0_1px_0_rgba(255,255,255,0.7)_inset]'
+    'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium'
   const actionButtonClass =
-    'h-8 rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-[-0.01em] text-muted-foreground/90 hover:bg-primary/8 hover:text-primary transition-all antialiased'
+    'h-9 rounded-md px-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground'
   const visibleFileName =
     currentFileItem.displayName || previewData?.filename || currentFile.name
   const visibleFileType =
@@ -340,6 +339,8 @@ export function TopBar() {
       ? Math.trunc(previewData.params.chunk_overlap)
       : chunkOverlap
   const visibleChunkUnit = previewData?.params?.unit || 'chars'
+  const visibleChunkUnitLabel = visibleChunkUnit === 'tokens' ? '词元' : '字符'
+  const visibleParserLabel = getParserLabel(effectiveParserBackend)
   const visiblePreviewDurationMs =
     typeof previewData?.preview_duration_ms === 'number' &&
     Number.isFinite(previewData.preview_duration_ms)
@@ -468,59 +469,60 @@ export function TopBar() {
   return (
     <section
       aria-label={workbenchTitle}
-      className="relative flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-background/95 px-3.5 py-3 shadow-[0_12px_32px_-12px_rgba(15,23,42,0.12)] xl:flex-row xl:items-center xl:justify-between antialiased backdrop-blur-xl"
+      className="flex min-w-0 flex-col gap-3 rounded-md border border-border bg-background p-3 xl:flex-row xl:items-center xl:justify-between"
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-        <div data-current-file-summary className="flex min-w-0 items-center gap-3">
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_4px_12px_-4px_rgba(var(--primary-rgb),0.2)]">
-            <FileText className="h-5 w-5" strokeWidth={2.5} />
-            <div className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-background bg-primary text-[8px] font-black text-primary-foreground shadow-sm">
-              {currentFileIndex + 1}
-            </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div data-current-file-summary className="flex min-w-0 items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <FileText className="size-5" />
           </div>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <span
-                className="max-w-full truncate text-[13px] font-black tracking-[-0.01em] text-foreground sm:max-w-[28rem] xl:max-w-[34rem]"
-                title={visibleFileName}
-              >
-                {visibleFileName}
-              </span>
+            <div
+              className="max-w-full truncate text-sm font-semibold text-foreground sm:max-w-[28rem] xl:max-w-[34rem]"
+              title={visibleFileName}
+            >
+              {visibleFileName}
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
               {visibleFileType ? (
-                <span className={cn(fileMetaChipClass, 'border-primary/20 bg-primary/5 text-primary/90')}>
-                  <span className="font-black uppercase tracking-[0.18em]">{String(visibleFileType).toUpperCase()}</span>
+                <span className={cn(fileMetaChipClass, 'font-medium text-primary')}>
+                  {String(visibleFileType).toUpperCase()}
                 </span>
               ) : null}
               <span className={fileMetaChipClass}>
-                <span className="opacity-60">{t('topBar.fileMeta.size')}</span>
-                <span className="font-black tabular-nums">{formatFileSize(visibleFileSize)}</span>
+                {t('topBar.fileMeta.index')} {currentFileIndex + 1}
+              </span>
+              <span className={fileMetaChipClass}>
+                <span>{t('topBar.fileMeta.size')}</span>
+                <span className="font-medium tabular-nums text-foreground">{formatFileSize(visibleFileSize)}</span>
               </span>
               <span className={cn(fileMetaChipClass, 'max-w-[10rem]')}>
-                <span className="opacity-60">{t('topBar.fileMeta.parser')}</span>
-                <span className="min-w-0 truncate font-black" title={effectiveParserBackend}>
-                  {effectiveParserBackend}
+                <span>{t('topBar.fileMeta.parser')}</span>
+                <span className="min-w-0 truncate font-medium text-foreground" title={visibleParserLabel}>
+                  {visibleParserLabel}
                 </span>
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 px-0.5">
-          <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/10 p-0.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={summaryChipClass}>
-              <span className="opacity-50 tracking-[0.18em]">{t('topBar.strategyLabel')}</span>
-              <span className="text-foreground" title={effectiveChunkStrategy}>
+              <span>{t('topBar.strategyLabel')}</span>
+              <span
+                className="text-foreground"
+                title={getChunkStrategyLabel(effectiveChunkStrategy)}
+              >
                 {getChunkStrategyLabel(effectiveChunkStrategy)}
               </span>
               {effectiveChunkStrategy === 'auto' && previewData?.auto_selected_strategy ? (
                 <>
                   <span className="h-2.5 w-px bg-border/80" />
                   <span
-                    className="inline-flex items-center rounded-md bg-primary/10 px-1 py-0.5 text-[9px] font-black text-primary"
+                    className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
                     title={t('topBar.status.autoSelectedStrategyTitle', {
-                      strategy: previewData.auto_selected_strategy,
+                      strategy: getChunkStrategyLabel(previewData.auto_selected_strategy),
                     })}
                   >
                     {getChunkStrategyLabel(previewData.auto_selected_strategy)}
@@ -530,12 +532,12 @@ export function TopBar() {
             </span>
 
             <span className={summaryChipClass}>
-              <span className="opacity-50 tracking-[0.18em]">{t('topBar.paramsLabel')}</span>
+              <span>{t('topBar.paramsLabel')}</span>
               <span
-                className="font-black tabular-nums text-foreground"
-                title={visibleChunkUnit}
+                className="font-medium tabular-nums text-foreground"
+                title={visibleChunkUnitLabel}
               >
-                {visibleChunkSize}/{visibleChunkOverlap}
+                {visibleChunkSize}/{visibleChunkOverlap} {visibleChunkUnitLabel}
               </span>
             </span>
           </div>
@@ -543,8 +545,7 @@ export function TopBar() {
           <div className="flex items-center gap-2">
             {typeof visiblePreviewDurationMs === 'number' ? (
               <span className={summaryChipClass} title={serverTimingTitle}>
-                <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
-                <span className="tabular-nums">{visiblePreviewDurationMs}ms</span>
+                <span className="tabular-nums">{visiblePreviewDurationMs} 毫秒</span>
               </span>
             ) : null}
 
@@ -552,11 +553,11 @@ export function TopBar() {
               <span className={cn(summaryChipClass, 'border-primary/10')}>
                 <div
                   className={cn(
-                    'h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]',
+                    'h-1.5 w-1.5 rounded-full',
                     previewData.chunks_truncated ? 'bg-warning' : 'bg-primary'
                   )}
                 />
-                <span className="font-black tabular-nums text-foreground/90">
+                <span className="font-medium tabular-nums text-foreground">
                   {(() => {
                     const shown = Number(previewData.total_chunks || 0)
                     const full = Number(previewData.total_chunks_full ?? shown)
@@ -569,8 +570,8 @@ export function TopBar() {
             ) : null}
 
             {cacheHit ? (
-              <span className={cn(stateChipClass, 'border-primary/20 bg-primary/5 text-primary')}>
-                <Check className="h-3 w-3" strokeWidth={3} />
+              <span className={cn(stateChipClass, 'border-primary/20 bg-primary/10 text-primary')}>
+                <Check className="size-3.5" />
                 {t('topBar.status.cacheHit')}
               </span>
             ) : null}
@@ -582,7 +583,7 @@ export function TopBar() {
                   age: previewData.parse_cache_age_ms ?? '-',
                 })}
               >
-                <Database className="h-3 w-3" strokeWidth={3} />
+                <Database className="size-3.5" />
                 {t('topBar.status.parseCache')}
               </span>
             ) : null}
@@ -611,17 +612,17 @@ export function TopBar() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
         {submitSuccess ? (
-          <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-success animate-in fade-in slide-in-from-right-4 motion-reduce:animate-none shadow-[0_2px_12px_-4px_rgba(16,185,129,0.2)]">
-            <Check className="w-4 h-4" strokeWidth={3} />
+          <div className="flex h-8 items-center gap-2 rounded-md border border-success/30 bg-success/10 px-2.5 text-xs font-medium text-success">
+            <Check className="size-4" />
             {t('topBar.submitSuccess')}
           </div>
         ) : null}
 
         {isPreviewDirty && !submitSuccess && !error ? (
-          <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-warning dark:text-warning shadow-[0_2px_12px_-4px_hsl(var(--warning)/0.24)]">
-            <AlertCircle className="w-4 h-4" strokeWidth={3} />
+          <div className="flex h-8 items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-2.5 text-xs font-medium text-warning">
+            <AlertCircle className="size-4" />
             {t('topBar.dirtyWarning')}
           </div>
         ) : null}
@@ -630,24 +631,24 @@ export function TopBar() {
           <div
             role="alert"
             aria-live="polite"
-            className="flex min-w-[min(100%,18rem)] max-w-xl items-start gap-2.5 rounded-2xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-destructive shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_4px_16px_-8px_rgba(239,68,68,0.2)] backdrop-blur-md"
+            className="flex min-w-[min(100%,18rem)] max-w-xl items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-destructive"
           >
-            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-xl bg-destructive/10">
-              <AlertCircle className="size-4" strokeWidth={2.5} />
+            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-destructive/10">
+              <AlertCircle className="size-4" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-[-0.01em] leading-none">
+                <span className="text-sm font-semibold leading-none">
                   {topBarError.title}
                 </span>
                 {topBarError.badge ? (
-                  <span className="rounded-full border border-destructive/30 bg-background/80 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] leading-none text-destructive/90 antialiased">
+                  <span className="rounded-md border border-destructive/30 bg-background px-2 py-0.5 text-xs font-medium leading-none text-destructive">
                     {topBarError.badge}
                   </span>
                 ) : null}
               </div>
               {topBarError.detail ? (
-                <p className="mt-1.5 max-w-[42rem] break-words text-[11px] font-bold leading-relaxed text-destructive/80 antialiased">
+                <p className="mt-1.5 max-w-[42rem] break-words text-xs leading-5 text-destructive/90">
                   {topBarError.detail}
                 </p>
               ) : null}
@@ -655,30 +656,30 @@ export function TopBar() {
           </div>
         ) : null}
 
-        <div className="flex items-center gap-1.5 rounded-2xl border border-border/60 bg-muted/20 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
             onClick={reset}
-            className={cn(actionButtonClass, "hover:bg-background hover:shadow-sm")}
+            className={actionButtonClass}
+            aria-label={t('topBar.actions.reset')}
+            title={t('topBar.actions.reset')}
           >
-            <RotateCcw className="w-3.5 h-3.5 mr-1.5 text-muted-foreground/60" strokeWidth={2.5} />
-            {t('topBar.actions.reset')}
+            <RotateCcw className="size-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">{t('topBar.actions.reset')}</span>
           </Button>
-
-          <div className="w-px h-4 bg-border/60 mx-0.5" />
 
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={toggleSettingsPanel}
-            className={cn(actionButtonClass, 'lg:hidden hover:bg-background hover:shadow-sm')}
+            className={cn(actionButtonClass, 'lg:hidden')}
             aria-label={t('topBar.actions.openSettingsPanel')}
             title={t('topBar.actions.openSettingsPanel')}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} />
-            {t('topBar.actions.settings')}
+            <SlidersHorizontal className="size-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">{t('topBar.actions.settings')}</span>
           </Button>
 
           <Button
@@ -690,7 +691,7 @@ export function TopBar() {
               actionButtonClass,
               showOriginalPanel 
                 ? 'bg-primary/10 text-primary hover:bg-primary/15' 
-                : 'hover:bg-background hover:shadow-sm'
+                : ''
             )}
             aria-label={
               showOriginalPanel
@@ -703,10 +704,12 @@ export function TopBar() {
                 : t('topBar.actions.showOriginalPanel')
             }
           >
-            <FileText className={cn("w-3.5 h-3.5 mr-1.5", showOriginalPanel ? "text-primary" : "text-muted-foreground/60")} strokeWidth={2.5} />
-            {showOriginalPanel
-              ? t('topBar.actions.hideOriginal')
-              : t('topBar.actions.showOriginal')}
+            <FileText className={cn('size-4 sm:mr-1.5', showOriginalPanel ? 'text-primary' : '')} />
+            <span className="hidden sm:inline">
+              {showOriginalPanel
+                ? t('topBar.actions.hideOriginal')
+                : t('topBar.actions.showOriginal')}
+            </span>
           </Button>
 
           <Button
@@ -714,11 +717,11 @@ export function TopBar() {
             variant="ghost"
             size="sm"
             onClick={() => setHelpOpen(true)}
-            className={cn(actionButtonClass, "hover:bg-background hover:shadow-sm")}
+            className={actionButtonClass}
             aria-label={t('topBar.actions.helpTitle')}
             title={t('topBar.actions.helpTitle')}
           >
-            <HelpCircle className="w-3.5 h-3.5 mr-1.5 text-muted-foreground/60" strokeWidth={2.5} />
+            <HelpCircle className="size-4 md:mr-1.5" />
             <span className="hidden md:inline">{t('topBar.actions.help')}</span>
           </Button>
 
@@ -728,14 +731,17 @@ export function TopBar() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 rounded-lg p-0 text-muted-foreground/60 hover:bg-background hover:text-foreground hover:shadow-sm transition-all"
+                className="size-9 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t('topBar.actions.moreActions')}
                 title={t('topBar.actions.moreActions')}
               >
                 <MoreVertical className="w-4 h-4" strokeWidth={2.5} />
               </Button>
             </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-60 rounded-2xl border-border/80 bg-popover/98 backdrop-blur-2xl shadow-strong p-1.5 ring-1 ring-black/5 animate-in fade-in zoom-in-95">
+          <DropdownMenuContent
+            align="end"
+            className="max-h-[min(70vh,32rem)] w-64 overflow-y-auto"
+          >
             <input
               ref={importConfigInputRef}
               type="file"
@@ -761,7 +767,7 @@ export function TopBar() {
               }}
             />
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               onSelect={() => {
                 detachPromise(
                   copyText(
@@ -775,7 +781,7 @@ export function TopBar() {
               {t('topBar.actions.copyConfig')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               onSelect={() => {
                 const filename = `${sanitizeFilename(
                   currentFileItem?.displayName || currentFile.name
@@ -791,12 +797,15 @@ export function TopBar() {
               <Download className="mr-2.5 h-4 w-4 opacity-60" strokeWidth={2.5} />
               {t('topBar.actions.exportConfig')}
             </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-xl py-2 font-bold text-xs" onSelect={() => importConfigInputRef.current?.click()}>
+            <DropdownMenuItem
+              className="rounded-md py-2 text-sm"
+              onSelect={() => importConfigInputRef.current?.click()}
+            >
               <Upload className="mr-2.5 h-4 w-4 opacity-60" strokeWidth={2.5} />
               {t('topBar.actions.importConfigFromFile')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               onSelect={async () => {
                 try {
                   if (!navigator.clipboard?.readText) {
@@ -822,7 +831,7 @@ export function TopBar() {
               <>
                 <DropdownMenuSeparator className="bg-border/60 mx-1 my-1.5" />
                 <DropdownMenuCheckboxItem
-                  className="rounded-xl py-2 font-bold text-xs"
+                  className="rounded-md py-2 text-sm"
                   checked={includeSkippedInExports}
                   onCheckedChange={(checked) =>
                     setIncludeSkippedInExports(Boolean(checked))
@@ -838,7 +847,7 @@ export function TopBar() {
             <DropdownMenuSeparator className="bg-border/60 mx-1 my-1.5" />
 
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               disabled={!previewData}
               onSelect={() => {
                 if (!exportPreview) return
@@ -855,7 +864,7 @@ export function TopBar() {
               {t('topBar.actions.exportJson')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               disabled={!previewData}
               onSelect={() => {
                 if (!exportPreview) return
@@ -872,7 +881,7 @@ export function TopBar() {
               {t('topBar.actions.exportMarkdown')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               disabled={!previewData}
               onSelect={() => {
                 if (!exportPreview) return
@@ -889,7 +898,7 @@ export function TopBar() {
               {t('topBar.actions.exportCsv')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               disabled={!previewData}
               onSelect={() => {
                 if (!exportPreview) return
@@ -906,7 +915,7 @@ export function TopBar() {
               {t('topBar.actions.exportJsonl')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs text-primary"
+              className="rounded-md py-2 text-sm text-primary"
               disabled={!previewData}
               onSelect={() => {
                 const payloadPreview = exportPreviewEnabledOnly
@@ -943,7 +952,7 @@ export function TopBar() {
               {t('topBar.actions.copyIngestPayload')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               disabled={!canCompare}
               onSelect={() => setCompareOpen(true)}
             >
@@ -952,7 +961,7 @@ export function TopBar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border/60 mx-1 my-1.5" />
             <DropdownMenuItem
-              className="rounded-xl py-2 font-bold text-xs"
+              className="rounded-md py-2 text-sm"
               onSelect={() => {
                 const url = `${API_V1_BASE_URL}/documents/chunk-preview?chunk_size=${encodeURIComponent(
                   String(chunkSize)
@@ -1009,7 +1018,7 @@ export function TopBar() {
               <>
                 <DropdownMenuSeparator className="bg-border/60 mx-1 my-1.5" />
                 <DropdownMenuItem
-                  className="rounded-xl py-2 font-bold text-xs"
+                  className="rounded-md py-2 text-sm"
                   onSelect={() => {
                     detachPromise(
                       copyText(createdDocumentId, t('topBar.toasts.copiedDocumentId'))
@@ -1019,12 +1028,15 @@ export function TopBar() {
                   <Copy className="mr-2.5 h-4 w-4 opacity-60" strokeWidth={2.5} />
                   {t('topBar.actions.copyDocumentId')}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-xl py-2 font-bold text-xs" onSelect={() => setTestGenOpen(true)}>
+                <DropdownMenuItem
+                  className="rounded-md py-2 text-sm"
+                  onSelect={() => setTestGenOpen(true)}
+                >
                   <TestTube2 className="mr-2.5 h-4 w-4 opacity-60" strokeWidth={2.5} />
                   {t('topBar.actions.generateEvalQuestions')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="rounded-xl py-2 font-bold text-xs"
+                  className="rounded-md py-2 text-sm"
                   disabled={!canOpenSelectedChunkInChatPage}
                   onSelect={() => {
                     if (!canOpenSelectedChunkInChatPage) return
@@ -1043,7 +1055,7 @@ export function TopBar() {
                   {t('topBar.actions.openCurrentChunkInChat')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="rounded-xl py-2 font-bold text-xs"
+                  className="rounded-md py-2 text-sm"
                   onSelect={() => {
                     router.push(`/?doc=${encodeURIComponent(createdDocumentId)}`)
                     toast.success(t('topBar.toasts.openedDocumentInChat'))
@@ -1063,7 +1075,7 @@ export function TopBar() {
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-muted-foreground/60 hover:text-foreground/90 h-9 w-9 p-0 rounded-full hover:bg-muted/50 transition-colors"
+            className="size-9 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={t('topBar.actions.close')}
             title={t('topBar.actions.close')}
           >
@@ -1075,10 +1087,10 @@ export function TopBar() {
           onClick={submitChunks}
           disabled={!previewData || isSubmitting || submitSuccess}
           className={cn(
-            'h-9 px-6 text-xs font-black uppercase tracking-[0.1em] rounded-xl shadow-lg transition-all duration-300 motion-reduce:transition-none antialiased hover:scale-[1.02] active:scale-[0.98]',
+            'h-9 rounded-md px-4 text-sm font-semibold',
             submitSuccess
-              ? 'bg-success text-success-foreground hover:bg-success/90 shadow-success/20'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_16px_-4px_rgba(var(--primary-rgb),0.4)]'
+              ? 'bg-success text-success-foreground hover:bg-success/90'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
           )}
         >
           {isSubmitting ? (
