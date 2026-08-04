@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageScaffold } from '@/components/ui/page-scaffold'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import {
   Select,
   SelectContent,
@@ -109,17 +110,17 @@ function SettingsGroupsPageContent() {
     queryKey: queryKeys.groups.list(GROUP_PAGE_LIST_PARAMS),
     retry: false,
     queryFn: async () => {
-      try {
-        const res = await groupApi.listGroups(GROUP_PAGE_LIST_PARAMS)
-        return Array.isArray(res.items) ? res.items : []
-      } catch (err: unknown) {
-        toast.error(formatApiError(err, '加载成员组失败'))
-        throw err
-      }
+      const res = await groupApi.listGroups(GROUP_PAGE_LIST_PARAMS)
+      return Array.isArray(res.items) ? res.items : []
     },
   })
   const groups = useMemo(() => groupsQuery.data || [], [groupsQuery.data])
   const loading = groupsQuery.isFetching
+  const hasGroupsSnapshot = groupsQuery.data !== undefined
+  const groupsLoadError = groupsQuery.error
+    ? formatApiError(groupsQuery.error, '成员组加载失败')
+    : null
+  const groupsUnavailable = Boolean(groupsLoadError) && !hasGroupsSnapshot
   const createMutation = useMutation({
     mutationFn: async () => {
       const name = String(nameDraft || '').trim()
@@ -314,7 +315,11 @@ function SettingsGroupsPageContent() {
                     成员组列表
                   </h2>
                   <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                    共 {groups.length} 个成员组，当前显示 {filtered.length} 个。
+                    {!hasGroupsSnapshot
+                      ? loading
+                        ? '正在加载成员组列表。'
+                        : '成员组列表暂时不可用。'
+                      : `共 ${groups.length} 个成员组，当前显示 ${filtered.length} 个。`}
                   </p>
                 </div>
               </div>
@@ -361,6 +366,7 @@ function SettingsGroupsPageContent() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索成员组名称、外部目录标识或组标识"
+              disabled={groupsUnavailable || (!hasGroupsSnapshot && loading)}
             />
           </div>
 
@@ -376,9 +382,26 @@ function SettingsGroupsPageContent() {
               <div className="col-span-1 text-right">操作</div>
             </div>
 
+            {groupsLoadError && hasGroupsSnapshot ? (
+              <QueryErrorState
+                title="成员组刷新失败"
+                description={groupsLoadError}
+                onRetry={() => groupsQuery.refetch()}
+                retrying={loading}
+                className="m-3"
+              />
+            ) : null}
+
             <div className="space-y-2 overflow-y-auto p-3 lg:hidden">
-              {hasVisibleGroups
-                ? visibleGroups.map((group) => {
+              {groupsUnavailable ? (
+                <QueryErrorState
+                  title="成员组加载失败"
+                  description={groupsLoadError || '暂时无法读取成员组列表。'}
+                  onRetry={() => groupsQuery.refetch()}
+                  retrying={loading}
+                />
+              ) : hasVisibleGroups ? (
+                visibleGroups.map((group) => {
                     const groupId = String(group.id || '').trim()
                     const deleting = deletingId === groupId
                     return (
@@ -416,11 +439,30 @@ function SettingsGroupsPageContent() {
                       </article>
                     )
                   })
-                : null}
+              ) : !hasGroupsSnapshot && loading ? (
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  正在加载成员组…
+                </div>
+              ) : (
+                <GroupsEmptyState
+                  hasGroups={groups.length > 0}
+                  canManageGroups={canManageGroups}
+                  onClear={() => setQuery('')}
+                  onCreate={() => setCreateOpen(true)}
+                />
+              )}
             </div>
 
             <div className="hidden min-h-0 flex-1 flex-col overflow-y-auto lg:flex">
-              {hasVisibleGroups ? (
+              {groupsUnavailable ? (
+                <QueryErrorState
+                  title="成员组加载失败"
+                  description={groupsLoadError || '暂时无法读取成员组列表。'}
+                  onRetry={() => groupsQuery.refetch()}
+                  retrying={loading}
+                  className="m-3 min-h-[240px]"
+                />
+              ) : hasVisibleGroups ? (
                 visibleGroups.map((g) => {
                   const gid = String(g.id || '').trim()
                   const deleting = Boolean(deletingId && deletingId === gid)
@@ -478,36 +520,27 @@ function SettingsGroupsPageContent() {
                   )
                 })
               ) : null}
-              {!hasVisibleGroups && loading ? (
+              {!groupsUnavailable && !hasVisibleGroups && !hasGroupsSnapshot && loading ? (
                 <div className="flex min-h-[280px] flex-1 items-center justify-center text-sm text-muted-foreground">
-                  加载中…
+                  正在加载成员组…
                 </div>
               ) : null}
-              {!hasVisibleGroups && !loading ? (
-                <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center border-t border-border px-6 text-center">
-                  <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Users className="size-5" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    暂无成员组
-                  </h3>
-                  <p className="mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">
-                    还没有成员组。创建后即可按团队分配成员和访问范围。
-                  </p>
-                  <Button
-                    data-settings-groups-create-action="true"
-                    className={cn(PRIMARY_BUTTON, 'mt-5')}
-                    onClick={() => setCreateOpen(true)}
-                    disabled={!canManageGroups}
-                  >
-                    <Plus className="size-4" />
-                    新建成员组
-                  </Button>
-                </div>
+              {!groupsUnavailable && !hasVisibleGroups && hasGroupsSnapshot ? (
+                <GroupsEmptyState
+                  hasGroups={groups.length > 0}
+                  canManageGroups={canManageGroups}
+                  onClear={() => setQuery('')}
+                  onCreate={() => setCreateOpen(true)}
+                />
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground">
+            <div
+              className={cn(
+                'items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground',
+                groupsUnavailable || !hasGroupsSnapshot ? 'hidden' : 'flex'
+              )}
+            >
               <span>共 {filtered.length} 条</span>
               <div className="flex items-center gap-2">
                 <Button
@@ -541,6 +574,49 @@ function SettingsGroupsPageContent() {
         </div>
       </PageScaffold>
     </AppFrame>
+  )
+}
+
+function GroupsEmptyState({
+  hasGroups,
+  canManageGroups,
+  onClear,
+  onCreate,
+}: Readonly<{
+  hasGroups: boolean
+  canManageGroups: boolean
+  onClear: () => void
+  onCreate: () => void
+}>) {
+  return (
+    <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center px-6 text-center">
+      <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Users className="size-5" />
+      </div>
+      <h3 className="text-base font-semibold text-foreground">
+        {hasGroups ? '没有匹配的成员组' : '暂无成员组'}
+      </h3>
+      <p className="mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">
+        {hasGroups
+          ? '请调整搜索内容，或清除搜索后查看全部成员组。'
+          : '创建成员组后，即可按团队分配成员和访问范围。'}
+      </p>
+      {hasGroups ? (
+        <Button variant="outline" className="mt-5 h-9 rounded-md" onClick={onClear}>
+          清除搜索
+        </Button>
+      ) : (
+        <Button
+          data-settings-groups-create-action="true"
+          className={cn(PRIMARY_BUTTON, 'mt-5')}
+          onClick={onCreate}
+          disabled={!canManageGroups}
+        >
+          <Plus className="size-4" />
+          新建成员组
+        </Button>
+      )}
+    </div>
   )
 }
 

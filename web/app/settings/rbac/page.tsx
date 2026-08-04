@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils'
 import { rbacApi, type TenantInvitation, type TenantMember } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
 import { EmptyState } from '@/components/ui/empty-state'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { SamlOpsPanel } from '@/components/settings/saml-ops-panel'
 import { ScimProvisioningPanel } from '@/components/settings/scim-provisioning-panel'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
@@ -208,16 +209,11 @@ function SettingsRbacPageContent() {
     queryKey: queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
     retry: false,
     queryFn: async () => {
-      try {
-        const res = await rbacApi.listTenantMembers(RBAC_MEMBERS_PARAMS)
-        const items = Array.isArray(res.items) ? res.items : []
-        return {
-          items,
-          total: Number(res.total || items.length || 0),
-        }
-      } catch (err: unknown) {
-        toast.error(formatApiError(err, '加载成员失败（需要管理员权限）'))
-        throw err
+      const res = await rbacApi.listTenantMembers(RBAC_MEMBERS_PARAMS)
+      const items = Array.isArray(res.items) ? res.items : []
+      return {
+        items,
+        total: Number(res.total || items.length || 0),
       }
     },
   })
@@ -242,7 +238,22 @@ function SettingsRbacPageContent() {
     [invitationsQuery.data?.items]
   )
   const totalMembers = Number(membersQuery.data?.total ?? members.length)
-  const loading = membersQuery.isFetching
+  const hasMembersSnapshot = membersQuery.data !== undefined
+  const hasInvitationsSnapshot = invitationsQuery.data !== undefined
+  const membersLoadError = membersQuery.error
+    ? formatApiError(membersQuery.error, '成员列表加载失败')
+    : null
+  const invitationsLoadError = invitationsQuery.error
+    ? formatApiError(invitationsQuery.error, '邀请列表加载失败')
+    : null
+  const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot
+  const invitationsUnavailable =
+    Boolean(invitationsLoadError) && !hasInvitationsSnapshot
+  const loadingMembers = membersQuery.isFetching
+  const loadingInvitations = invitationsQuery.isFetching
+  const refreshing = loadingMembers || (canManageMembers && loadingInvitations)
+  const hasMemberFilters =
+    Boolean(query.trim()) || roleFilter !== 'all' || statusFilter !== 'all'
 
   const filtered = useMemo(() => {
     const q = String(query || '')
@@ -495,21 +506,21 @@ function SettingsRbacPageContent() {
             <StatCard
               icon={Users}
               label="总成员"
-              value={String(totalMembers || members.length)}
+              value={hasMembersSnapshot ? String(totalMembers || members.length) : '--'}
               detail="可管理成员"
               tone="blue"
             />
             <StatCard
               icon={UserCog}
               label="管理员"
-              value={String(adminCount)}
+              value={hasMembersSnapshot ? String(adminCount) : '--'}
               detail="高权限成员"
               tone="green"
             />
             <StatCard
               icon={UserPlus}
               label="未分配角色"
-              value={String(unassignedCount)}
+              value={hasMembersSnapshot ? String(unassignedCount) : '--'}
               detail="待补齐角色"
               tone="orange"
             />
@@ -660,16 +671,16 @@ function SettingsRbacPageContent() {
               variant="outline"
               size="sm"
               className={cn(RBAC_SOFT_BUTTON_CLASS, 'gap-2')}
-              disabled={loading}
+              disabled={refreshing}
               onClick={() => {
                 membersQuery.refetch()
-                invitationsQuery.refetch()
+                if (canManageMembers) invitationsQuery.refetch()
               }}
             >
               <RefreshCw
                 className={cn(
                   'size-4',
-                  loading && 'animate-spin motion-reduce:animate-none'
+                  refreshing && 'animate-spin motion-reduce:animate-none'
                 )}
               />
               刷新
@@ -696,6 +707,16 @@ function SettingsRbacPageContent() {
             </div>
 
             <div className="px-4 py-3 sm:px-5">
+              {membersLoadError && hasMembersSnapshot ? (
+                <QueryErrorState
+                  title="成员列表刷新失败"
+                  description={membersLoadError}
+                  onRetry={() => membersQuery.refetch()}
+                  retrying={loadingMembers}
+                  className="mb-3"
+                />
+              ) : null}
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.1fr)_220px_220px_auto] xl:items-end">
                 <div className="space-y-1.5">
                   <Label className={RBAC_FIELD_LABEL_CLASS}>
@@ -842,15 +863,26 @@ function SettingsRbacPageContent() {
                       </div>
                     </article>
                   ))
-                ) : loading ? (
+                ) : membersUnavailable ? (
+                  <QueryErrorState
+                    title="成员列表加载失败"
+                    description={membersLoadError || '暂时无法读取成员列表。'}
+                    onRetry={() => membersQuery.refetch()}
+                    retrying={loadingMembers}
+                  />
+                ) : !hasMembersSnapshot && loadingMembers ? (
                   <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                    加载中…
+                    正在加载成员…
                   </div>
                 ) : (
                   <EmptyState
                     icon={Users}
-                    title="暂无成员"
-                    description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员。"
+                    title={hasMemberFilters ? '没有符合条件的成员' : '暂无成员'}
+                    description={
+                      hasMemberFilters
+                        ? '请调整搜索内容或筛选条件后再试。'
+                        : '管理员可以使用页面右上角的邀请入口添加成员。'
+                    }
                     className="rounded-md border-border bg-card"
                   />
                 )}
@@ -947,15 +979,27 @@ function SettingsRbacPageContent() {
                       ) : (
                         <tr>
                           <td colSpan={6}>
-                            {loading ? (
+                            {membersUnavailable ? (
+                              <QueryErrorState
+                                title="成员列表加载失败"
+                                description={membersLoadError || '暂时无法读取成员列表。'}
+                                onRetry={() => membersQuery.refetch()}
+                                retrying={loadingMembers}
+                                className="m-3"
+                              />
+                            ) : !hasMembersSnapshot && loadingMembers ? (
                               <div className="px-4 py-10 text-sm text-muted-foreground">
-                                加载中…
+                                正在加载成员…
                               </div>
                             ) : (
                               <EmptyState
                                 icon={Users}
-                                title="暂无成员"
-                                description="还没有成员。管理员可以使用页面右上角的邀请入口添加成员。"
+                                title={hasMemberFilters ? '没有符合条件的成员' : '暂无成员'}
+                                description={
+                                  hasMemberFilters
+                                    ? '请调整搜索内容或筛选条件后再试。'
+                                    : '管理员可以使用页面右上角的邀请入口添加成员。'
+                                }
                                 className="rounded-none border-0 shadow-none"
                               />
                             )}
@@ -1033,10 +1077,31 @@ function SettingsRbacPageContent() {
                   </p>
                 </div>
                 <Badge variant="outline" className="rounded-md px-2 py-1 text-xs shadow-none">
-                  {pendingInvitations.length} 条
+                  {hasInvitationsSnapshot ? `${pendingInvitations.length} 条` : '--'}
                 </Badge>
               </div>
-              {pendingInvitations.length ? (
+              {invitationsLoadError && hasInvitationsSnapshot ? (
+                <QueryErrorState
+                  title="邀请列表刷新失败"
+                  description={invitationsLoadError}
+                  onRetry={() => invitationsQuery.refetch()}
+                  retrying={loadingInvitations}
+                  className="m-4"
+                />
+              ) : null}
+              {invitationsUnavailable ? (
+                <QueryErrorState
+                  title="邀请列表加载失败"
+                  description={invitationsLoadError || '暂时无法读取待处理邀请。'}
+                  onRetry={() => invitationsQuery.refetch()}
+                  retrying={loadingInvitations}
+                  className="m-4"
+                />
+              ) : !hasInvitationsSnapshot && loadingInvitations ? (
+                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  正在加载待处理邀请…
+                </div>
+              ) : pendingInvitations.length ? (
                 <div className="divide-y divide-border">
                   {pendingInvitations.map((invitation) => {
                     const invitationId = String(invitation.id)

@@ -35,6 +35,19 @@ describe('成员管理页面源码契约', () => {
     expect(source).toContain('撤销邀请')
   })
 
+  it('区分成员和邀请的失败、加载与真实空状态', () => {
+    expect(source).toContain('const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot')
+    expect(source).toContain('Boolean(invitationsLoadError) && !hasInvitationsSnapshot')
+    expect(source).toContain('title="成员列表加载失败"')
+    expect(source).toContain('title="邀请列表加载失败"')
+    expect(source).toContain('正在加载成员…')
+    expect(source).toContain('正在加载待处理邀请…')
+    expect(source).toContain("hasMemberFilters ? '没有符合条件的成员' : '暂无成员'")
+    expect(source).toContain("value={hasMembersSnapshot ? String(adminCount) : '--'}")
+    expect(source).toContain('onRetry={() => membersQuery.refetch()}')
+    expect(source).toContain('onRetry={() => invitationsQuery.refetch()}')
+  })
+
   it('为手机和桌面分别提供可操作的成员列表', () => {
     expect(source).toContain('mt-3 space-y-2 xl:hidden')
     expect(source).toContain('mt-3 hidden overflow-hidden rounded-md border border-border xl:block')

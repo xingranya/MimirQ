@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { AlertCircle, ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageScaffold } from '@/components/ui/page-scaffold'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Textarea } from '@/components/ui/textarea'
 import { cn, formatDate } from '@/lib/utils'
 import { formatApiError } from '@/lib/api-errors'
@@ -126,12 +127,7 @@ function SettingsGroupDetailPageContent() {
     retry: false,
     queryFn: async () => {
       if (!groupId) return { items: [], total: 0 }
-      try {
-        return await groupApi.listGroupMembers(groupId, GROUP_MEMBERS_PARAMS)
-      } catch (err: unknown) {
-        toast.error(formatApiError(err, '加载成员失败'))
-        throw err
-      }
+      return groupApi.listGroupMembers(groupId, GROUP_MEMBERS_PARAMS)
     },
   })
 
@@ -146,6 +142,11 @@ function SettingsGroupDetailPageContent() {
   const membersTotal = Number(membersQuery.data?.total ?? members.length)
   const loadingGroup = groupQuery.isFetching
   const loadingMembers = membersQuery.isFetching
+  const hasMembersSnapshot = membersQuery.data !== undefined
+  const membersLoadError = membersQuery.error
+    ? formatApiError(membersQuery.error, '成员列表加载失败')
+    : null
+  const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot
   const groupLoadError = groupQuery.isError
     ? formatApiError(groupQuery.error, '成员组详情加载失败')
     : null
@@ -377,32 +378,12 @@ function SettingsGroupDetailPageContent() {
             </div>
             <div className="space-y-4 p-4">
               {groupLoadError ? (
-                <div
-                  role="alert"
-                  className="flex flex-col gap-3 rounded-md border border-destructive/25 bg-destructive/5 p-3 sm:flex-row sm:items-center"
-                >
-                  <AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-destructive">成员组详情加载失败</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{groupLoadError}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-md"
-                    onClick={() => groupQuery.refetch()}
-                    disabled={loadingGroup}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        'size-4',
-                        loadingGroup && 'animate-spin motion-reduce:animate-none'
-                      )}
-                    />
-                    重新加载
-                  </Button>
-                </div>
+                <QueryErrorState
+                  title="成员组详情加载失败"
+                  description={groupLoadError}
+                  onRetry={() => groupQuery.refetch()}
+                  retrying={loadingGroup}
+                />
               ) : null}
 
               <div className="grid gap-2">
@@ -467,7 +448,9 @@ function SettingsGroupDetailPageContent() {
                   <Users className="size-4 text-primary" />
                   <span className="text-base font-semibold text-foreground">成员</span>
                 </span>
-                <span className="text-xs text-muted-foreground">{membersTotal} 人</span>
+                <span className="text-xs text-muted-foreground">
+                  {hasMembersSnapshot ? `${membersTotal} 人` : '--'}
+                </span>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
@@ -479,6 +462,7 @@ function SettingsGroupDetailPageContent() {
                     onChange={(e) => setMemberQuery(e.target.value)}
                     placeholder="搜索成员标识"
                     className="h-9 rounded-md"
+                    disabled={membersUnavailable || (!hasMembersSnapshot && loadingMembers)}
                   />
                 </div>
                 <div className="flex items-end">
@@ -494,7 +478,7 @@ function SettingsGroupDetailPageContent() {
                       <Button
                         size="sm"
                         className="h-9 gap-2 rounded-md"
-                        disabled={!canManageGroups || !groupId}
+                        disabled={!canManageGroups || !group || !hasMembersSnapshot || membersUnavailable}
                       >
                         <UserPlus className="size-4" />
                         添加成员
@@ -538,8 +522,25 @@ function SettingsGroupDetailPageContent() {
             </div>
 
             <div className="p-4">
+              {membersLoadError && hasMembersSnapshot ? (
+                <QueryErrorState
+                  title="成员列表刷新失败"
+                  description={membersLoadError}
+                  onRetry={() => membersQuery.refetch()}
+                  retrying={loadingMembers}
+                  className="mb-3"
+                />
+              ) : null}
+
               <div className="space-y-2 lg:hidden">
-                {filteredMembers.length ? (
+                {membersUnavailable ? (
+                  <QueryErrorState
+                    title="成员列表加载失败"
+                    description={membersLoadError || '暂时无法读取成员列表。'}
+                    onRetry={() => membersQuery.refetch()}
+                    retrying={loadingMembers}
+                  />
+                ) : filteredMembers.length ? (
                   filteredMembers.map((member) => {
                     const userId = String(member.user_id || '').trim()
                     const removing = removingUserId === userId
@@ -569,9 +570,20 @@ function SettingsGroupDetailPageContent() {
                       </article>
                     )
                   })
-                ) : (
+                ) : !hasMembersSnapshot && loadingMembers ? (
                   <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                    {loadingMembers ? '加载中…' : '暂无成员'}
+                    正在加载成员…
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border px-4 py-8 text-center">
+                    <p className="text-sm font-semibold text-foreground">
+                      {members.length ? '没有找到匹配的成员' : '该成员组还没有成员'}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {members.length
+                        ? '请调整搜索内容后再试。'
+                        : '可以使用上方的添加成员按钮，把组织成员加入当前成员组。'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -583,7 +595,15 @@ function SettingsGroupDetailPageContent() {
                   <div className="col-span-1 text-right">操作</div>
                 </div>
 
-                {filteredMembers.length ? (
+                {membersUnavailable ? (
+                  <QueryErrorState
+                    title="成员列表加载失败"
+                    description={membersLoadError || '暂时无法读取成员列表。'}
+                    onRetry={() => membersQuery.refetch()}
+                    retrying={loadingMembers}
+                    className="m-3"
+                  />
+                ) : filteredMembers.length ? (
                   filteredMembers.map((m) => {
                     const uid = String(m.user_id || '').trim()
                     const removing = removingUserId === uid
@@ -609,9 +629,20 @@ function SettingsGroupDetailPageContent() {
                       </div>
                     )
                   })
-                ) : (
+                ) : !hasMembersSnapshot && loadingMembers ? (
                   <div className="px-3 py-8 text-sm text-muted-foreground">
-                    {loadingMembers ? '加载中…' : '暂无成员'}
+                    正在加载成员…
+                  </div>
+                ) : (
+                  <div className="px-4 py-10 text-center">
+                    <p className="text-sm font-semibold text-foreground">
+                      {members.length ? '没有找到匹配的成员' : '该成员组还没有成员'}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {members.length
+                        ? '请调整搜索内容后再试。'
+                        : '可以使用上方的添加成员按钮，把组织成员加入当前成员组。'}
+                    </p>
                   </div>
                 )}
               </div>
