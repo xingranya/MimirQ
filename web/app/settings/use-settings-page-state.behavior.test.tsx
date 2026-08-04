@@ -155,6 +155,9 @@ describe('设置页保存校验', () => {
         }),
       })
     )
+    expect(hook.result.current.saveMessage?.detail).toBe(
+      '多数配置会用于当前服务的后续请求。若部署了独立后台处理服务或多个后端进程，请重启相关服务，无需重新构建镜像。'
+    )
     hook.unmount()
   })
 
@@ -168,6 +171,54 @@ describe('设置页保存校验', () => {
 
     expect(hook.result.current.ragMerged.chunk_size).toBe(500)
     expect(hook.result.current.ragMerged.chunk_overlap).toBe(499)
+    hook.unmount()
+  })
+
+  it('编辑解析服务时保留后端返回的完整配置', async () => {
+    mocks.getSettings.mockResolvedValue({
+      ...settingsSnapshot,
+      paddle_vl: {
+        api_url: 'https://paddle.example.test/parse',
+        timeout_sec: 600,
+        pipeline_version: 'v2',
+        mode: 'doc_parser',
+      },
+      magicpdf: {
+        api_url: 'http://magicpdf.example.test/parse',
+        request_timeout_sec: 720,
+        max_concurrent_jobs: 2,
+        cli: 'magic-pdf',
+        method: 'auto',
+        lang: 'ch',
+        debug: false,
+        timeout_sec: 600,
+        models_dir: '/models',
+        device_mode: 'cpu',
+        keep_artifacts: false,
+      },
+    })
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.updatePaddleVL({ timeout_sec: 900 }))
+    act(() => hook.result.current.updateMagicPDF({ method: 'ocr' }))
+    await act(async () => hook.result.current.saveSettings())
+
+    expect(mocks.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paddle_vl: expect.objectContaining({
+          pipeline_version: 'v2',
+          mode: 'doc_parser',
+          timeout_sec: 900,
+        }),
+        magicpdf: expect.objectContaining({
+          api_url: 'http://magicpdf.example.test/parse',
+          request_timeout_sec: 720,
+          max_concurrent_jobs: 2,
+          method: 'ocr',
+        }),
+      })
+    )
     hook.unmount()
   })
 })

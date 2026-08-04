@@ -100,6 +100,60 @@ _OBJECT_STORAGE_RUNTIME_KEYS = frozenset(
         "OBJECT_STORAGE_REGION_PROFILES",
     }
 )
+_PARSER_RUNTIME_RESET_KEYS = frozenset(
+    {
+        "DEEPDOC_ENABLED",
+        "DOCLING_ENABLED",
+        "ETL4LLM_ENABLED",
+        "ETL4LLM_API_URL",
+        "ETL4LLM_TIMEOUT_SEC",
+        "ETL4LLM_MODE",
+        "ETL4LLM_FORCE_OCR",
+        "ETL4LLM_ENABLE_FORMULA",
+        "ETL4LLM_EXTRACT_IMAGES",
+        "ETL4LLM_FILTER_PAGE_HEADER_FOOTER",
+        "MARKER_ENABLED",
+        "MARKER_API_URL",
+        "MARKER_TIMEOUT_SEC",
+        "PADDLE_VL_ENABLED",
+        "PADDLE_VL_API_URL",
+        "PADDLE_VL_TIMEOUT_SEC",
+        "PADDLE_VL_PIPELINE_VERSION",
+        "PADDLE_VL_MODE",
+        "TEXTIN_ENABLED",
+        "TEXTIN_API_URL",
+        "TEXTIN_APP_ID",
+        "TEXTIN_SECRET_CODE",
+        "TEXTIN_TIMEOUT_SEC",
+        "TEXTIN_PARSE_MODE",
+        "TEXTIN_TABLE_FLAVOR",
+        "TEXTIN_APPLY_DOCUMENT_TREE",
+        "TEXTIN_MARKDOWN_DETAILS",
+        "TEXTIN_GET_IMAGE",
+        "TEXTIN_DPI",
+        "TEXTIN_PAGE_COUNT",
+        "MARKITDOWN_ENABLED",
+        "MINERU_ENABLED",
+        "MINERU_API_TOKEN",
+        "MINERU_API_BASE",
+        "MINERU_MODEL_VERSION",
+        "MINERU_BACKEND",
+        "MINERU_LOCAL_SERVER_URL",
+        "MINERU_VL_SERVER",
+        "MAGIC_PDF_ENABLED",
+        "MAGIC_PDF_API_URL",
+        "MAGIC_PDF_REQUEST_TIMEOUT_SEC",
+        "MAGIC_PDF_MAX_CONCURRENT_JOBS",
+        "MAGIC_PDF_CLI",
+        "MAGIC_PDF_METHOD",
+        "MAGIC_PDF_LANG",
+        "MAGIC_PDF_DEBUG",
+        "MAGIC_PDF_TIMEOUT_SEC",
+        "MAGIC_PDF_MODELS_DIR",
+        "MAGIC_PDF_DEVICE_MODE",
+        "MAGIC_PDF_KEEP_ARTIFACTS",
+    }
+)
 
 
 def _normalize_mineru_backend(value: Any) -> str:
@@ -835,6 +889,8 @@ def _apply_runtime_settings(env_vars: dict[str, str], updated_keys: list[str]) -
         settings.MARKER_ENABLED = _parse_bool(env_vars["MARKER_ENABLED"])
     if "PADDLE_VL_ENABLED" in updated_keys and "PADDLE_VL_ENABLED" in env_vars:
         settings.PADDLE_VL_ENABLED = _parse_bool(env_vars["PADDLE_VL_ENABLED"])
+    if "TEXTIN_ENABLED" in updated_keys and "TEXTIN_ENABLED" in env_vars:
+        settings.TEXTIN_ENABLED = _parse_bool(env_vars["TEXTIN_ENABLED"])
     if "MARKITDOWN_ENABLED" in updated_keys and "MARKITDOWN_ENABLED" in env_vars:
         settings.MARKITDOWN_ENABLED = _parse_bool(env_vars["MARKITDOWN_ENABLED"])
     if "LLAMA_INDEX_ENABLED" in updated_keys and "LLAMA_INDEX_ENABLED" in env_vars:
@@ -1085,6 +1141,28 @@ def _apply_runtime_settings(env_vars: dict[str, str], updated_keys: list[str]) -
     if "PADDLE_VL_MODE" in updated_keys and "PADDLE_VL_MODE" in env_vars:
         settings.PADDLE_VL_MODE = env_vars["PADDLE_VL_MODE"]
 
+    # TextIn
+    for key in (
+        "TEXTIN_API_URL",
+        "TEXTIN_APP_ID",
+        "TEXTIN_SECRET_CODE",
+        "TEXTIN_PARSE_MODE",
+        "TEXTIN_TABLE_FLAVOR",
+        "TEXTIN_GET_IMAGE",
+    ):
+        if key in updated_keys and key in env_vars:
+            setattr(settings, key, env_vars[key])
+    for key in ("TEXTIN_APPLY_DOCUMENT_TREE", "TEXTIN_MARKDOWN_DETAILS"):
+        if key in updated_keys and key in env_vars:
+            setattr(settings, key, _parse_bool(env_vars[key]))
+    for key, default in (
+        ("TEXTIN_TIMEOUT_SEC", 180),
+        ("TEXTIN_DPI", 144),
+        ("TEXTIN_PAGE_COUNT", 0),
+    ):
+        if key in updated_keys and key in env_vars:
+            setattr(settings, key, _parse_int(env_vars[key], default=default))
+
     # MagicPDF
     if "MAGIC_PDF_API_URL" in updated_keys and "MAGIC_PDF_API_URL" in env_vars:
         settings.MAGIC_PDF_API_URL = env_vars["MAGIC_PDF_API_URL"]
@@ -1112,6 +1190,11 @@ def _apply_runtime_settings(env_vars: dict[str, str], updated_keys: list[str]) -
         settings.MAGIC_PDF_DEVICE_MODE = env_vars["MAGIC_PDF_DEVICE_MODE"]
     if "MAGIC_PDF_KEEP_ARTIFACTS" in updated_keys and "MAGIC_PDF_KEEP_ARTIFACTS" in env_vars:
         settings.MAGIC_PDF_KEEP_ARTIFACTS = _parse_bool(env_vars["MAGIC_PDF_KEEP_ARTIFACTS"])
+
+    if _PARSER_RUNTIME_RESET_KEYS.intersection(updated_keys):
+        from app.parsing.factory import reset_parser_factory
+
+        reset_parser_factory()
 
     # Observability / debug toggles
     if "TOOL_CALL_LOG_ENABLED" in updated_keys and "TOOL_CALL_LOG_ENABLED" in env_vars:
@@ -1974,7 +2057,7 @@ def update_settings(
 
         return {
             "success": True,
-            "message": "配置已保存，大多数修改会影响后续请求；外部解析器仍需对应服务已启动。",
+            "message": "配置已保存，多数配置会用于当前服务的后续请求；独立后台处理服务或多进程部署需重启相关服务。",
             "updated_keys": updated_keys
         }
     except HTTPException:

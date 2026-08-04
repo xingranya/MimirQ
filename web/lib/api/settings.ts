@@ -124,6 +124,8 @@ export interface MarkerConfig {
 export interface PaddleVLConfig {
   api_url: string
   timeout_sec: number
+  pipeline_version: string
+  mode: string
 }
 
 export interface TextInConfig {
@@ -141,6 +143,9 @@ export interface TextInConfig {
 }
 
 export interface MagicPDFConfig {
+  api_url: string
+  request_timeout_sec: number
+  max_concurrent_jobs: number
   cli: string
   method: string
   lang: string

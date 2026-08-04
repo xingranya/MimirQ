@@ -1220,6 +1220,13 @@ def get_parser_factory() -> ParserFactory:
     return _PARSER_FACTORY
 
 
+def reset_parser_factory() -> None:
+    """丢弃全局解析器工厂，使后续请求按最新配置重新创建解析器。"""
+    global _PARSER_FACTORY
+    with _PARSER_FACTORY_LOCK:
+        _PARSER_FACTORY = None
+
+
 class _ParserFactoryProxy:
     def __getattr__(self, name: str) -> Any:  # pragma: no cover
         return getattr(get_parser_factory(), name)

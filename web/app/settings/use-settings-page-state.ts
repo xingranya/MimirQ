@@ -43,7 +43,7 @@ type SaveMessage = {
 }
 
 const SETTINGS_SAVE_SUCCESS_DETAIL =
-  '大多数修改会影响后续请求。少量启动期能力需要重启后端服务；容器部署通常无需重新构建镜像。'
+  '多数配置会用于当前服务的后续请求。若部署了独立后台处理服务或多个后端进程，请重启相关服务，无需重新构建镜像。'
 
 function createSettingsSaveSuccessMessage(): SaveMessage {
   return {
@@ -183,6 +183,9 @@ const DEFAULT_GOVERNANCE: GovernanceSettings = {
 }
 
 const DEFAULT_MAGICPDF: MagicPDFConfig = {
+  api_url: '',
+  request_timeout_sec: 600,
+  max_concurrent_jobs: 1,
   cli: 'magic-pdf',
   method: 'auto',
   lang: '',
@@ -220,6 +223,8 @@ const DEFAULT_MARKER: MarkerConfig = {
 const DEFAULT_PADDLE_VL: PaddleVLConfig = {
   api_url: '',
   timeout_sec: 600,
+  pipeline_version: 'v1.5',
+  mode: 'doc_parser',
 }
 
 const DEFAULT_TEXTIN: TextInConfig = {
