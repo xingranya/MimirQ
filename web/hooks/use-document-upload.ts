@@ -142,7 +142,7 @@ export function useDocumentUpload({
         remaining = round.nextRemaining
       }
 
-      await loadDocuments()
+      if (successes.length > 0) await loadDocuments()
       for (const success of successes) {
         if (success?.document_id) {
           pollDocumentStatus(String(success.document_id))

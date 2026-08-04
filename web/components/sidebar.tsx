@@ -6,6 +6,7 @@
 import { useState, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { FileText, Upload, Loader2, Trash2, CheckCircle2, AlertCircle, X, Clock, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { useDocuments } from '@/hooks/use-documents'
 import { useLocalSearch } from '@/hooks/use-local-search'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
@@ -18,7 +19,12 @@ import { Magnetic } from '@/components/ui/magnetic'
 import { TiltCard } from '@/components/ui/tilt-card'
 import { FileTypeIcon } from '@/components/ui/file-type-icon'
 import { Button } from '@/components/ui/button'
+import { formatApiError } from '@/lib/api-errors'
 import { reportClientError } from '@/lib/client-logging'
+import {
+  createDocumentUploadOutcome,
+  formatDocumentUploadOutcome,
+} from '@/lib/document-upload-outcome'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,9 +66,18 @@ export function Sidebar({ variant = 'app' }: SidebarProps = {}) {
     if (!files || files.length === 0) return
 
     try {
-      await uploadDocuments(Array.from(files), { maxRetries: 1, maxConcurrent: 5 })
+      const response = await uploadDocuments(Array.from(files), { maxRetries: 1, maxConcurrent: 5 })
+      const outcome = createDocumentUploadOutcome(response)
+      const message = formatDocumentUploadOutcome(outcome, {
+        successVerb: '已上传',
+        completeFailure: '文件上传失败',
+      })
+      if (outcome.status === 'error') toast.error(message)
+      else if (outcome.status === 'warning') toast.warning(message)
+      else toast.success(message)
     } catch (error) {
       reportClientError('Sidebar document upload failed', error)
+      toast.error(formatApiError(error, '文件上传失败'))
     }
     e.target.value = ''
   }

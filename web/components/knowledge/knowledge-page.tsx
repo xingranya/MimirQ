@@ -76,6 +76,10 @@ import {
   formatDocumentBatchOutcome,
   type DocumentBatchOutcome,
 } from '@/lib/document-batch-outcome'
+import {
+  createDocumentUploadOutcome,
+  formatDocumentUploadOutcome,
+} from '@/lib/document-upload-outcome'
 import { cn, detachPromise, formatFileSize } from '@/lib/utils'
 import { useDocumentView } from '@/store/document-view'
 import { resolveKnowledgeDocumentGridColumns } from '@/components/knowledge/knowledge-layout'
@@ -585,14 +589,24 @@ export default function KnowledgePage() {
       if (!files?.length) return
 
       try {
-        await uploadDocuments(Array.from(files))
-        toast.success(t('toasts.uploadSuccess'))
-        await loadDocuments()
+        const response = await uploadDocuments(Array.from(files))
+        const outcome = createDocumentUploadOutcome(response)
+        const message = formatDocumentUploadOutcome(outcome, {
+          successVerb: '已上传',
+          completeFailure: t('toasts.uploadFailed'),
+        })
+
+        if (outcome.status === 'error') {
+          toast.error(message)
+          return
+        }
+        if (outcome.status === 'warning') toast.warning(message)
+        else toast.success(message)
       } catch (err) {
         toast.error(formatApiError(err, t('toasts.uploadFailed')))
       }
     },
-    [loadDocuments, t, uploadDocuments]
+    [t, uploadDocuments]
   )
 
   const toggleDocSelection = useCallback((docId: string) => {

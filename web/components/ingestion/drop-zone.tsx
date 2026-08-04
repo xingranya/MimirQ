@@ -18,7 +18,12 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { datasetApi, documentApi } from '@/lib/api'
+import { formatApiError } from '@/lib/api-errors'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
+import {
+  createDocumentUploadOutcome,
+  formatDocumentUploadOutcome,
+} from '@/lib/document-upload-outcome'
 import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 import { cn } from '@/lib/utils'
 import type { Dataset } from '@/types'
@@ -75,22 +80,32 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
     files: File[],
     options?: { precheckOnly?: boolean }
   ) => {
-    if (!files.length) return
+    if (!files.length) return false
     const precheckOnly = options?.precheckOnly ?? uploadModeRef.current
-    const response = await documentApi.uploadBatch(files, {
-      dataset_id: datasetId || selectedDatasetId || undefined,
-      parser_backend: parserBackend,
-      chunk_strategy: 'langchain_recursive',
-      precheck_only: precheckOnly,
-      max_concurrent: 4,
-    })
-    persistParserBackend(parserBackend)
-    if (response.failed_count > 0) {
-      response.failed?.forEach((item) => toast.error(`${item.filename}: ${item.error || '上传失败'}`))
+    try {
+      const response = await documentApi.uploadBatch(files, {
+        dataset_id: datasetId || selectedDatasetId || undefined,
+        parser_backend: parserBackend,
+        chunk_strategy: 'langchain_recursive',
+        precheck_only: precheckOnly,
+        max_concurrent: 4,
+      })
+      persistParserBackend(parserBackend)
+      const outcome = createDocumentUploadOutcome(response)
+      const message = formatDocumentUploadOutcome(outcome, {
+        successVerb: precheckOnly ? '已完成评估' : '已上传',
+        completeFailure: precheckOnly ? '文件评估失败' : '文件上传失败',
+      })
+
+      if (outcome.status === 'error') toast.error(message)
+      else if (outcome.status === 'warning') toast.warning(message)
+      else toast.success(message)
+      if (outcome.succeeded > 0) onUploadComplete()
+      return outcome.succeeded > 0
+    } catch (error) {
+      toast.error(formatApiError(error, precheckOnly ? '文件评估失败' : '文件上传失败'))
+      return false
     }
-    const successLabel = precheckOnly ? '评估完成' : '上传完成'
-    toast.success(`${successLabel}：成功 ${response.successful_count} / 失败 ${response.failed_count}`)
-    onUploadComplete()
   }, [datasetId, onUploadComplete, parserBackend, selectedDatasetId])
 
   React.useImperativeHandle(ref, () => ({
@@ -99,7 +114,9 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
       setDialogPrecheckOnly(uploadModeRef.current)
       inputRef.current?.click()
     },
-    uploadFiles: async (files: File[]) => uploadFiles(files),
+    uploadFiles: async (files: File[]) => {
+      await uploadFiles(files)
+    },
   }), [defaultPrecheckOnly, uploadFiles])
 
   React.useEffect(() => {
@@ -267,7 +284,8 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
               disabled={!datasets.length || !selectedDatasetId || !pendingDropFiles?.length}
               onClick={async () => {
                 if (!pendingDropFiles?.length) return
-                await uploadFiles(pendingDropFiles, { precheckOnly: dialogPrecheckOnly })
+                const succeeded = await uploadFiles(pendingDropFiles, { precheckOnly: dialogPrecheckOnly })
+                if (!succeeded) return
                 setPendingDropFiles(null)
                 setDropConfirmOpen(false)
               }}

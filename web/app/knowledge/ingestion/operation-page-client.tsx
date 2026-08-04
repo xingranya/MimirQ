@@ -46,6 +46,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { connectorApi, datasetApi, documentApi, settingsApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { readClientStorage } from '@/lib/client-storage'
+import {
+  createDocumentUploadOutcome,
+  formatDocumentUploadOutcome,
+} from '@/lib/document-upload-outcome'
 import { cn, detachPromise, formatDate, formatFileSize } from '@/lib/utils'
 import type {
   ConnectorRunOut,
@@ -71,7 +75,7 @@ type ParserBackend = 'auto' | 'docling' | 'markitdown' | 'deepdoc' | 'csv' | 'js
 type ChunkStrategy = 'semantic' | 'langchain_recursive' | 'markdown' | 'by_title'
 type IngestMode = 'append' | 'replace' | 'skip_duplicates'
 type IngestExecutionMode = 'upload_only' | 'parse_only' | 'full_index'
-type TaskStatus = 'idle' | 'prechecking' | 'uploading' | 'completed' | 'failed'
+type TaskStatus = 'idle' | 'prechecking' | 'uploading' | 'completed' | 'partial' | 'failed'
 type SelectOption<T extends string> = {
   value: T
   title: string
@@ -447,6 +451,7 @@ function datasetShortId(dataset?: Dataset | null) {
 
 function statusLabel(status: string) {
   if (status === 'completed' || status === 'ready') return '已完成'
+  if (status === 'partial') return '部分完成'
   if (status === 'failed') return '失败'
   if (status === 'processing' || status === 'uploading') return '入库中'
   if (status === 'prechecking') return '检查中'
@@ -456,6 +461,7 @@ function statusLabel(status: string) {
 
 function statusVariant(status: string): 'success' | 'warning' | 'destructive' | 'info' | 'soft' {
   if (status === 'completed' || status === 'ready') return 'success'
+  if (status === 'partial') return 'warning'
   if (status === 'failed') return 'destructive'
   if (status === 'processing' || status === 'uploading' || status === 'prechecking') return 'info'
   if (status === 'pending') return 'warning'
@@ -464,6 +470,7 @@ function statusVariant(status: string): 'success' | 'warning' | 'destructive' | 
 
 function progressForStatus(status: string, fallback = 0) {
   if (status === 'completed' || status === 'ready') return 100
+  if (status === 'partial') return 100
   if (status === 'failed') return 100
   if (status === 'processing' || status === 'uploading') return Math.max(fallback, 62)
   if (status === 'prechecking') return Math.max(fallback, 38)
@@ -1051,15 +1058,26 @@ export default function KnowledgeIngestionOperationPage() {
           ),
         }
         const response = await documentApi.uploadBatch(files, uploadOptions)
+        const outcome = createDocumentUploadOutcome(response)
+        const message = formatDocumentUploadOutcome(outcome, {
+          successVerb: mode === 'upload_only' ? '已登记' : '已提交入库',
+          completeFailure: mode === 'upload_only' ? '文件登记失败' : '入库任务提交失败',
+        })
         setUploadResponse(response)
-        setStatus(response.failed_count > 0 ? 'failed' : 'completed')
-        await Promise.all([documentsQuery.refetch(), foldersQuery.refetch(), ingestionStatsQuery.refetch()])
-        toast.success(
-          mode === 'upload_only'
-            ? `已登记到知识库：成功 ${response.successful_count} / 失败 ${response.failed_count}`
-            : `入库任务已提交：成功 ${response.successful_count} / 失败 ${response.failed_count}`
+        setStatus(
+          outcome.status === 'error'
+            ? 'failed'
+            : outcome.status === 'warning'
+              ? 'partial'
+              : 'completed'
         )
-        if (response.successful_count > 0 && shouldOpenExecutionMonitor(draft, mode)) {
+        if (outcome.succeeded > 0) {
+          await Promise.all([documentsQuery.refetch(), foldersQuery.refetch(), ingestionStatsQuery.refetch()])
+        }
+        if (outcome.status === 'error') toast.error(message)
+        else if (outcome.status === 'warning') toast.warning(message)
+        else toast.success(message)
+        if (outcome.succeeded > 0 && shouldOpenExecutionMonitor(draft, mode)) {
           router.push('/knowledge/ingestion?mode=execution-monitor')
         }
       } catch (error) {
@@ -1301,6 +1319,7 @@ export default function KnowledgeIngestionOperationPage() {
                 onClear={clearFiles}
                 onRemove={removeFile}
               />
+              {uploadResponse ? <UploadResultNotice response={uploadResponse} /> : null}
             </section>
 
             <TaskListCard
@@ -1317,6 +1336,54 @@ export default function KnowledgeIngestionOperationPage() {
           </main>
         </div>
       </div>
+    </div>
+  )
+}
+
+function UploadResultNotice({
+  response,
+}: Readonly<{ response: DocumentBatchUploadResponse }>) {
+  const outcome = createDocumentUploadOutcome(response)
+  const summary = formatDocumentUploadOutcome(outcome, {
+    successVerb: '已处理',
+    completeFailure: '本次提交失败',
+    detailLimit: 0,
+  })
+  const visibleFailures = outcome.failures.slice(0, 5)
+  const hiddenFailureCount = Math.max(0, outcome.failed - visibleFailures.length)
+
+  return (
+    <div
+      role={outcome.status === 'error' ? 'alert' : 'status'}
+      aria-live="polite"
+      className={cn(
+        'mt-3 min-w-0 border-t border-border pt-3 text-[13px]',
+        outcome.status === 'error'
+          ? 'text-destructive'
+          : outcome.status === 'warning'
+            ? 'text-warning'
+            : 'text-success'
+      )}
+    >
+      <p className="font-medium">{summary}</p>
+      {visibleFailures.length > 0 ? (
+        <ul className="mt-2 space-y-1 text-foreground">
+          {visibleFailures.map((failure, index) => (
+            <li
+              key={`${failure.filename}-${failure.source_path ?? index}`}
+              className="grid min-w-0 gap-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]"
+            >
+              <span className="break-words font-medium">{failure.filename || '未命名文件'}</span>
+              <span className="break-words text-muted-foreground">
+                {failure.error || '未返回失败原因'}
+              </span>
+            </li>
+          ))}
+          {hiddenFailureCount > 0 ? (
+            <li className="text-muted-foreground">另有 {hiddenFailureCount} 个失败文件未展开</li>
+          ) : null}
+        </ul>
+      ) : null}
     </div>
   )
 }
@@ -1875,7 +1942,7 @@ function TaskListCard({
       return tasks.filter((task) => ['pending', 'running', 'processing', 'uploading', 'prechecking'].includes(task.status))
     }
     if (statusFilter === 'done') {
-      return tasks.filter((task) => ['completed', 'ready'].includes(task.status))
+      return tasks.filter((task) => ['completed', 'partial', 'ready'].includes(task.status))
     }
     return tasks
   }, [statusFilter, tasks])
@@ -1975,7 +2042,14 @@ function TaskListCard({
                     <div className="flex min-w-[7rem] items-center gap-2">
                       <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/70">
                         <span
-                          className={cn('block h-full rounded-full', task.status === 'failed' ? 'bg-destructive' : 'bg-primary')}
+                          className={cn(
+                            'block h-full rounded-full',
+                            task.status === 'failed'
+                              ? 'bg-destructive'
+                              : task.status === 'partial'
+                                ? 'bg-warning'
+                                : 'bg-primary'
+                          )}
                           style={{ width: `${task.progress ?? 0}%` }}
                         />
                       </span>
