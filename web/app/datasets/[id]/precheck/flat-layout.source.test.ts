@@ -29,6 +29,15 @@ describe('数据集预检页扁平化契约', () => {
     expect(pageSource).toContain('openPolicy')
   })
 
+  it('摘要请求失败时不渲染误导性的零值统计', () => {
+    expect(pageSource).toContain('queryKeys.datasets.precheckSummary')
+    expect(pageSource).toContain('summaryErrorMessage')
+    expect(pageSource).toContain('<PrecheckSummaryStatus')
+    expect(pageSource).toContain('{summary ? (')
+    expect(pageSource).not.toContain('.catch(() => setSummary(null))')
+    expect(pageSource).not.toContain("summary?.total_files ?? (loading ? '…' : 0)")
+  })
+
   it('移除旧装饰表面、固定高度和用户可见内部英文', () => {
     expect(pageSource).not.toContain('gradient')
     expect(pageSource).not.toContain('backdrop-blur')

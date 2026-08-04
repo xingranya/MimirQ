@@ -41,6 +41,7 @@ import {
 
 import { AppFrame } from '@/components/app-frame'
 import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
+import { PrecheckSummaryStatus } from './precheck-summary-status'
 import { Panel } from '@/components/ui/panel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -194,8 +195,6 @@ export default function DatasetPrecheckPage() {
   const datasetId = asDatasetId((params as Record<string, unknown>)?.id)
 
   const [selectedRun, setSelectedRun] = useState<DatasetPrecheckScanRunOut | null>(null)
-  const [summary, setSummary] = useState<DatasetPrecheckSummary | null>(null)
-
   const [scanRunning, setScanRunning] = useState(false)
   const [configHelpOpen, setConfigHelpOpen] = useState(false)
   const pollTimerRef = useRef<number | null>(null)
@@ -276,6 +275,20 @@ export default function DatasetPrecheckPage() {
   const runs = useMemo(() => runsQuery.data?.items || [], [runsQuery.data?.items])
   const loading = Boolean(datasetId) && (datasetQuery.isPending || runsQuery.isPending)
   const selectedRunId = selectedRun?.id || ''
+  const selectedRunStatus = String(selectedRun?.status || '').toLowerCase()
+  const summaryQuery = useQuery<DatasetPrecheckSummary>({
+    queryKey: queryKeys.datasets.precheckSummary(datasetId || '', selectedRunId),
+    queryFn: () =>
+      datasetApi.getPrecheckSummary(datasetId as string, selectedRunId),
+    enabled: Boolean(
+      datasetId && selectedRunId && selectedRunStatus === 'completed'
+    ),
+    retry: false,
+  })
+  const summary = summaryQuery.data ?? null
+  const summaryErrorMessage = summaryQuery.error
+    ? formatApiError(summaryQuery.error, '扫描摘要加载失败，请稍后重试')
+    : ''
   const selectedFindingKey = selectedFinding?.key || ''
   const sampleSize = scanConfig.sample_size ?? undefined
 
@@ -426,10 +439,7 @@ export default function DatasetPrecheckPage() {
         setScanRunning(false)
         stopPolling()
         await refreshPrecheckRuns()
-        if (st === 'completed') {
-          const s = await datasetApi.getPrecheckSummary(datasetIdValue, runId)
-          setSummary(s)
-        } else if (next.error_message) {
+        if (st !== 'completed' && next.error_message) {
           toast.error(`预检扫描失败：${next.error_message}`)
         }
       } catch (e: unknown) {
@@ -503,7 +513,7 @@ export default function DatasetPrecheckPage() {
     [pollRun, refreshPrecheckRuns, stopPolling, stopSse]
   )
 
-  // When selectedRun changes, load summary (if available) and resume polling (if running).
+  // 扫描运行中使用流式事件，完成后的摘要由独立查询按批次加载。
   useEffect(() => {
     if (!datasetId || !selectedRun?.id) return
     const st = String(selectedRun.status || '').toLowerCase()
@@ -515,14 +525,6 @@ export default function DatasetPrecheckPage() {
     setScanRunning(false)
     stopPolling()
     stopSse()
-    if (st === 'completed') {
-      detachPromise(datasetApi
-        .getPrecheckSummary(datasetId, selectedRun.id)
-        .then(setSummary)
-        .catch(() => setSummary(null)))
-      return
-    }
-    setSummary(null)
   }, [datasetId, selectedRun, startSse, stopPolling, stopSse])
 
   const startScan = useCallback(async () => {
@@ -1261,41 +1263,36 @@ export default function DatasetPrecheckPage() {
             )}
           </Panel>
 
-          <Panel className="p-5">
-            <StatsGrid>
-              <StatCard icon={FileSearch} label="文件总数" value={summary?.total_files ?? (loading ? '…' : 0)} color="cyan" />
-              <StatCard icon={FileSearch} label="总大小" value={(() => {
-    if (summary) {
-        return formatFileSize(summary.total_size_bytes || 0);
-    }
-    else if (loading) {
-            return '…';
-        }
-        else {
-            return '-';
-        }
-})()} color="teal" />
-              <StatCard icon={Sparkles} label="P50 长度" value={summary?.length_percentiles?.p50 ?? (loading ? '…' : 0)} subValue="字符" color="blue" />
-              <StatCard icon={Sparkles} label="P90 长度" value={summary?.length_percentiles?.p90 ?? (loading ? '…' : 0)} subValue="字符" color="blue" />
-              <StatCard icon={Sparkles} label="扫描 PDF" value={(() => {
-    if (summary) {
-        return `${summary.pdf_scan.scanned}/${summary.pdf_scan.scanned + summary.pdf_scan.not_scanned + summary.pdf_scan.unknown}`;
-    }
-    else if (loading) {
-            return '…';
-        }
-        else {
-            return '-';
-        }
-})()} color="orange" />
-            </StatsGrid>
-          </Panel>
+          <PrecheckSummaryStatus
+            loading={summaryQuery.isFetching}
+            errorMessage={summaryErrorMessage}
+            hasSummary={Boolean(summary)}
+            runStatus={selectedRunStatus}
+            onRetry={() => summaryQuery.refetch()}
+          />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {summary ? (
+            <>
+              <Panel className="p-5">
+                <StatsGrid>
+                  <StatCard icon={FileSearch} label="文件总数" value={summary.total_files} color="cyan" />
+                  <StatCard icon={FileSearch} label="总大小" value={formatFileSize(summary.total_size_bytes || 0)} color="teal" />
+                  <StatCard icon={Sparkles} label="P50 长度" value={summary.length_percentiles?.p50 ?? 0} subValue="字符" color="blue" />
+                  <StatCard icon={Sparkles} label="P90 长度" value={summary.length_percentiles?.p90 ?? 0} subValue="字符" color="blue" />
+                  <StatCard
+                    icon={Sparkles}
+                    label="扫描 PDF"
+                    value={`${summary.pdf_scan.scanned}/${summary.pdf_scan.scanned + summary.pdf_scan.not_scanned + summary.pdf_scan.unknown}`}
+                    color="orange"
+                  />
+                </StatsGrid>
+              </Panel>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="font-semibold">格式分布</div>
-                <div className="font-mono text-xs text-muted-foreground">{summary?.generated_at ? `更新于 ${formatDate(summary.generated_at)}` : ''}</div>
+                <div className="font-mono text-xs text-muted-foreground">{summary.generated_at ? `更新于 ${formatDate(summary.generated_at)}` : ''}</div>
               </div>
               <SafeResponsiveChart>
                   <PieChart>
@@ -1384,7 +1381,9 @@ export default function DatasetPrecheckPage() {
                 <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">暂无数据</div>
               )}
             </Panel>
-          </div>
+              </div>
+            </>
+          ) : null}
 
           <Panel className="p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

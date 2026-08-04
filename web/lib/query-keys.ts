@@ -33,6 +33,8 @@ export const queryKeys = {
     ingestionStats: (id: string) => ['datasets', 'ingestion-stats', id] as const,
     precheckRuns: (id: string, params?: QueryParams) =>
       ['datasets', 'precheck-runs', id, params] as const,
+    precheckSummary: (id: string, runId: string) =>
+      ['datasets', 'precheck-summary', id, runId] as const,
     precheckSamples: (id: string, runId: string, params?: QueryParams) =>
       ['datasets', 'precheck-samples', id, runId, params] as const,
     precheckNearDups: (id: string, runId: string) =>
