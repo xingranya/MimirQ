@@ -34,9 +34,11 @@ describe('检索监控页面源码契约', () => {
     expect(source).toContain('慢查询率')
     expect(source).toContain('查询指纹已复制')
     expect(source).toContain('发起一次使用知识检索的对话后，再刷新本页查看统计。')
+    expect(source).toContain('查看检索监控的权限')
     expect(source).not.toContain('暂无 Query Analytics 数据')
     expect(source).not.toContain('ENABLE_METRICS_LOG=false')
     expect(source).not.toContain('owner/admin')
+    expect(source).not.toContain('查看系统设置的权限')
   })
 
   it('使用扁平视觉并去除原始 JSON 结果块', () => {

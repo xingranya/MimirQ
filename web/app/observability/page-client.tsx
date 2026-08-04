@@ -495,7 +495,7 @@ export default function ObservabilityPage() {
                   <AlertTriangle className="size-4" />
                   <AlertTitle>无法加载监控数据</AlertTitle>
                   <AlertDescription>
-                    请确认当前账号有查看系统设置的权限，然后刷新重试。
+                    请确认当前账号有查看检索监控的权限，然后刷新重试。
                   </AlertDescription>
                 </Alert>
               )}
@@ -671,10 +671,10 @@ export default function ObservabilityPage() {
         else {
             return (<Alert variant="destructive" className="mt-4">
                   <AlertTriangle className="size-4"/>
-                  <AlertTitle>无法加载查询分析</AlertTitle>
-                  <AlertDescription>
-                    请确认当前账号有查看系统设置的权限，然后刷新重试。
-                  </AlertDescription>
+                   <AlertTitle>无法加载查询分析</AlertTitle>
+                   <AlertDescription>
+                     请确认当前账号有查看检索监控的权限，然后刷新重试。
+                   </AlertDescription>
                 </Alert>);
         }
 })()}
