@@ -967,6 +967,7 @@ export default function KnowledgePage() {
                     <KnowledgeInspector
                       embedded
                       selectedDocs={peekingDoc ? [peekingDoc] : []}
+                      datasetLabelById={datasetLabelById}
                     />
                   </div>
                 </WorkbenchPanelDialog>
@@ -1232,6 +1233,7 @@ export default function KnowledgePage() {
                     <KnowledgeInspector
                       embedded
                       selectedDocs={peekingDoc ? [peekingDoc] : []}
+                      datasetLabelById={datasetLabelById}
                     />
                   </div>
                   <div className="border-t border-border/60 px-5 py-4">

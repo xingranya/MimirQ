@@ -742,6 +742,7 @@ export function KnowledgeDocumentsPanel({
             <KnowledgeInspector
               embedded
               selectedDocs={activeDrawerDoc ? [activeDrawerDoc] : []}
+              datasetLabelById={datasetLabelById}
             />
           </div>
         </DialogContent>
