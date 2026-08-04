@@ -2,14 +2,14 @@ const chunkPreviewMessages = {
 ChunkPreview: {
     emptyState: {
       badge: '切块预览',
-      title: '上传文档，预览切片质量',
-      description: '选择合适的解析器/切块策略与参数，右侧实时查看切片列表与原文定位，确认无误后再入库。',
+      title: '选择文档，检查切块效果',
+      description: '上传文件后，可先调整解析方式和切块参数，确认内容与原文位置无误再入库。',
       help: '切块指南',
       draggingTitle: '松开鼠标上传文件',
       idleTitle: '点击或拖拽上传文档',
       uploadHint: '支持 PDF / Markdown / TXT，支持多文件上传',
       exampleTitle: '试用示例文档',
-      exampleDescription: '无需上传，一键体验切块预览流程',
+      exampleDescription: '无需上传即可体验切块预览流程',
       previewTitle: '预览与定位',
       previewDescription: '悬停/选中切片，高亮原文对应区间',
       tipsTitle: '参数建议',
@@ -29,9 +29,9 @@ ChunkPreview: {
       },
     },
     workbench: {
-      title: '切片预览',
-      description: '调整分块策略并预览结果',
-      settingsPanelTitle: '参数面板',
+      title: '切块预览',
+      description: '在入库前检查切块内容、覆盖范围和原文位置',
+      settingsPanelTitle: '切块参数',
       header: {
         eyebrow: 'CHUNK WORKBENCH',
         scope: '范围',

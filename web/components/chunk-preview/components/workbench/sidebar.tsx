@@ -1,6 +1,4 @@
-/**
- * Sidebar - 左侧配置栏
- */
+/** 切块预览参数侧栏。 */
 'use client'
 
 import dynamic from 'next/dynamic'
@@ -12,7 +10,9 @@ const ChunkPreviewSidebarClient = dynamic(
   () => import('./sidebar-client').then((mod) => mod.Sidebar),
   {
     ssr: false,
-    loading: () => <div className="h-full w-full rounded-2xl border border-border/60 bg-muted/20 animate-pulse" />,
+    loading: () => (
+      <div className="h-full w-full animate-pulse rounded-md border border-border bg-muted/20" />
+    ),
   }
 )
 
