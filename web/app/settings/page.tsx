@@ -781,7 +781,11 @@ function SettingsContent({
             {visibleSectionIdSet.has('settings-retrieval') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-retrieval']}>
                 <SettingsSubsection title="RAG 配置">
-                  <RagSection rag={state.ragMerged} updateRag={state.updateRag} />
+                  <RagSection
+                    rag={state.ragMerged}
+                    updateRag={state.updateRag}
+                    ltrAvailable={state.ltrModels.some((model) => model.active)}
+                  />
                 </SettingsSubsection>
                 <SettingsSubsection title="检索增强" advanced>
                   <RetrievalEnhancementSection state={state} />

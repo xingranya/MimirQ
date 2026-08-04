@@ -17,7 +17,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_account_id
@@ -349,11 +349,11 @@ class MinioConfig(BaseModel):
 
 class RAGConfig(BaseModel):
     """RAG parameter config."""
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    chunk_min_chars: int = 30
-    retrieval_top_k: int = 5
-    similarity_threshold: float = 0.7
+    chunk_size: int = Field(default=1000, ge=1)
+    chunk_overlap: int = Field(default=200, ge=0)
+    chunk_min_chars: int = Field(default=30, ge=0, le=5000)
+    retrieval_top_k: int = Field(default=5, ge=1, le=200)
+    similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     default_parser_backend: str = "auto"
     default_chunk_strategy: str = "langchain_recursive"
     bm25_index_enabled: bool = True
@@ -362,6 +362,12 @@ class RAGConfig(BaseModel):
     reranker_top_n: int = Field(default=20, ge=1, le=200)
     show_image_in_answer: bool = True
     image_append_max: int = Field(default=3, ge=0, le=10)
+
+    @model_validator(mode="after")
+    def _validate_chunk_window(self) -> "RAGConfig":
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be less than chunk_size")
+        return self
 
     @field_validator("reranker_provider", mode="before")
     @classmethod
@@ -757,6 +763,42 @@ def _validate_external_service_update(
                 status_code=400,
                 detail="启用 Dify 外部知识库前，请至少配置一条知识绑定",
             )
+
+
+def _ltr_reranker_ready() -> bool:
+    """检查 LTR 是否已有可读取的模型，避免保存后在检索时才失败。"""
+    configured_path = str(getattr(settings, "LTR_MODEL_PATH", "") or "").strip()
+    if configured_path and Path(configured_path).is_file():
+        return True
+
+    try:
+        from app.services.ltr_model_registry import resolve_active_model_paths
+
+        model_path, _manifest_path, _spec_version, _model_id = resolve_active_model_paths()
+    except Exception:
+        return False
+    return bool(model_path and Path(model_path).is_file())
+
+
+def _validate_rag_update(request: UpdateSettingsRequest) -> None:
+    """校验设置页暴露的重排组合是否能由默认检索链直接执行。"""
+    rag = request.rag
+    if rag is None or not rag.enable_reranker:
+        return
+
+    provider = str(rag.reranker_provider or "").strip().lower()
+    if provider == "none":
+        raise HTTPException(status_code=400, detail="启用重排序时不能选择“不使用重排”")
+    if provider == "weighted":
+        raise HTTPException(
+            status_code=400,
+            detail="加权重排需要单独配置权重，不能作为系统默认重排服务",
+        )
+    if provider == "ltr" and not _ltr_reranker_ready():
+        raise HTTPException(
+            status_code=400,
+            detail="启用学习排序模型前，请先在 LTR 模型区激活一个模型",
+        )
 
 
 def _parse_int(value: Any, *, default: int = 0) -> int:
@@ -1890,6 +1932,7 @@ def update_settings(
             )
 
         _validate_external_service_update(env_vars, request)
+        _validate_rag_update(request)
         write_env_file(env_vars)
         with contextlib.suppress(Exception):
             # Best-effort, PII-minimal audit record (no secret values).

@@ -158,7 +158,7 @@ const DEFAULT_RAG: RagSettings = {
   retrieval_top_k: 5,
   similarity_threshold: 0.7,
   default_parser_backend: 'auto',
-  default_chunk_strategy: 'recursive',
+  default_chunk_strategy: 'langchain_recursive',
   bm25_index_enabled: true,
   enable_reranker: false,
   reranker_provider: 'llm',
@@ -794,10 +794,20 @@ export function useSettingsPageState() {
   }
 
   const updateRag = (patch: Partial<RagSettings>) => {
-    setEditedSettings((prev) => ({
-      ...prev,
-      rag: mergeConfig(mergeWithDefaults(DEFAULT_RAG, settings?.rag, prev.rag), patch),
-    }))
+    setEditedSettings((prev) => {
+      const nextRag = mergeConfig(
+        mergeWithDefaults(DEFAULT_RAG, settings?.rag, prev.rag),
+        patch
+      )
+      nextRag.chunk_overlap = Math.min(
+        nextRag.chunk_overlap,
+        Math.max(0, nextRag.chunk_size - 1)
+      )
+      return {
+        ...prev,
+        rag: nextRag,
+      }
+    })
   }
 
   const updateUrlIngest = (patch: Partial<UrlIngestSettings>) => {

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DifyExternalKnowledgeConfig, MinIOConfig } from '@/lib/api'
+import type { DifyExternalKnowledgeConfig, MinIOConfig, RAGConfig } from '@/lib/api'
 import {
   validateDifyExternalKnowledgeConfig,
   validateMinIOConfig,
+  validateRagConfig,
   validateSettingsChanges,
 } from './settings-validation'
 
@@ -26,6 +27,22 @@ const validMinIO: MinIOConfig = {
   use_ssl: false,
   documents_enabled: true,
   image_max_bytes: 0,
+}
+
+const validRag: RAGConfig = {
+  chunk_size: 1000,
+  chunk_overlap: 200,
+  chunk_min_chars: 30,
+  retrieval_top_k: 5,
+  similarity_threshold: 0.7,
+  default_parser_backend: 'auto',
+  default_chunk_strategy: 'langchain_recursive',
+  bm25_index_enabled: true,
+  enable_reranker: true,
+  reranker_provider: 'local_bge_v2_m3',
+  reranker_top_n: 20,
+  show_image_in_answer: true,
+  image_append_max: 3,
 }
 
 describe('设置保存校验', () => {
@@ -113,6 +130,24 @@ describe('设置保存校验', () => {
   ])('拦截无效的对象存储配置 %#', (patch, message) => {
     const result = validateMinIOConfig({ ...validMinIO, ...patch })
     expect(result?.section).toBe('对象存储')
+    expect(result?.message).toContain(message)
+  })
+
+  it('接受可执行的 RAG 配置', () => {
+    expect(validateRagConfig(validRag)).toBeNull()
+  })
+
+  it.each([
+    [{ chunk_size: 0 }, '分块大小'],
+    [{ chunk_overlap: -1 }, '分块重叠'],
+    [{ chunk_size: 200, chunk_overlap: 200 }, '小于分块大小'],
+    [{ retrieval_top_k: 0 }, '召回数量'],
+    [{ similarity_threshold: 1.1 }, '相似度阈值'],
+    [{ reranker_provider: 'none' }, '可用的重排服务'],
+    [{ reranker_provider: 'weighted' }, '单独配置权重'],
+  ])('拦截无效的 RAG 配置 %#', (patch, message) => {
+    const result = validateRagConfig({ ...validRag, ...patch })
+    expect(result?.section).toBe('检索与生成')
     expect(result?.message).toContain(message)
   })
 })

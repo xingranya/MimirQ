@@ -102,6 +102,7 @@ export type {
   NavigationConfig,
   ObservabilityConfig,
   PaddleVLConfig,
+  RAGConfig,
   SafetyConfig,
   SystemSettings,
   SystemStatus,

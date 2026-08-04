@@ -45,7 +45,15 @@ describe('RAG 设置区块契约', () => {
 
   it('保留三项能力开关和对应更新字段', () => {
     expect(source).toContain("updateRag({ bm25_index_enabled: checked })")
-    expect(source).toContain("updateRag({ enable_reranker: checked })")
+    expect(source).toContain('enable_reranker: checked')
+    expect(source).toContain('reranker_provider: DEFAULT_RERANKER_PROVIDER')
     expect(source).toContain("updateRag({ show_image_in_answer: checked })")
+  })
+
+  it('限制重叠范围并阻止未激活的 LTR', () => {
+    expect(source).toContain('Math.min(1000, rag.chunk_size - 1)')
+    expect(source).toContain("disabled={option.key === 'ltr' && !ltrAvailable}")
+    expect(source).toContain('h-8 w-full cursor-pointer')
+    expect(source).toContain("filter((option) => option.key !== 'none')")
   })
 })

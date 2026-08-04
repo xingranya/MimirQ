@@ -157,4 +157,17 @@ describe('设置页保存校验', () => {
     )
     hook.unmount()
   })
+
+  it('缩小分块时同步收紧重叠值并使用有效默认策略', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    expect(hook.result.current.ragMerged.default_chunk_strategy).toBe('langchain_recursive')
+    act(() => hook.result.current.updateRag({ chunk_overlap: 900 }))
+    act(() => hook.result.current.updateRag({ chunk_size: 500 }))
+
+    expect(hook.result.current.ragMerged.chunk_size).toBe(500)
+    expect(hook.result.current.ragMerged.chunk_overlap).toBe(499)
+    hook.unmount()
+  })
 })

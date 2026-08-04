@@ -6,12 +6,13 @@ export const RERANKER_PROVIDER_OPTIONS = [
   { key: 'ltr', label: '学习排序模型' },
   { key: 'colbert', label: 'ColBERT 后交互' },
   { key: 'pc', label: '父子片段重排' },
-  { key: 'weighted', label: '加权重排' },
   { key: 'mmr', label: '多样性重排' },
   { key: 'kg_pagerank', label: '图谱 PageRank' },
   { key: 'kg_rrf', label: '图谱 RRF' },
   { key: 'openai', label: 'OpenAI 兼容重排' },
   { key: 'dashscope', label: '通义千问重排' },
+  { key: 'aliyun', label: '阿里云重排' },
+  { key: 'late_interaction', label: '后交互重排' },
   { key: 'none', label: '不使用重排' },
 ] as const
 
@@ -29,6 +30,7 @@ export function normalizeRerankerProvider(value: unknown): string {
   if (provider === 'parent_child') return 'pc'
   if (provider === 'bge_v2_m3') return 'local_bge_v2_m3'
   if (provider === 'xgboost_ltr') return 'ltr'
+  if (provider === 'weighted') return 'llm'
   if (
     provider === 'sentence_transformers' ||
     provider === 'sentence_transformer'

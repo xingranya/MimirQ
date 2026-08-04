@@ -1,11 +1,12 @@
 import type {
   DifyExternalKnowledgeConfig,
   MinIOConfig,
+  RAGConfig,
   SystemSettings,
 } from '@/lib/api'
 
 export type SettingsValidationIssue = {
-  section: 'Dify 外部知识库' | '对象存储'
+  section: 'Dify 外部知识库' | '对象存储' | '检索与生成'
   message: string
 }
 
@@ -152,9 +153,46 @@ export function validateMinIOConfig(config: MinIOConfig): SettingsValidationIssu
   return null
 }
 
+export function validateRagConfig(config: RAGConfig): SettingsValidationIssue | null {
+  if (!Number.isInteger(config.chunk_size) || config.chunk_size < 1) {
+    return issue('检索与生成', '分块大小必须是大于 0 的整数。')
+  }
+  if (!Number.isInteger(config.chunk_overlap) || config.chunk_overlap < 0) {
+    return issue('检索与生成', '分块重叠必须是大于或等于 0 的整数。')
+  }
+  if (config.chunk_overlap >= config.chunk_size) {
+    return issue('检索与生成', '分块重叠必须小于分块大小。')
+  }
+  if (!Number.isInteger(config.chunk_min_chars) || config.chunk_min_chars < 0) {
+    return issue('检索与生成', '最小分块长度必须是大于或等于 0 的整数。')
+  }
+  if (!Number.isInteger(config.retrieval_top_k) || config.retrieval_top_k < 1) {
+    return issue('检索与生成', '召回数量必须是大于 0 的整数。')
+  }
+  if (
+    !Number.isFinite(config.similarity_threshold) ||
+    config.similarity_threshold < 0 ||
+    config.similarity_threshold > 1
+  ) {
+    return issue('检索与生成', '相似度阈值必须在 0 到 1 之间。')
+  }
+  if (config.enable_reranker && config.reranker_provider === 'none') {
+    return issue('检索与生成', '启用重排序时请选择可用的重排服务。')
+  }
+  if (config.enable_reranker && config.reranker_provider === 'weighted') {
+    return issue('检索与生成', '加权重排需要单独配置权重，不能作为系统默认服务。')
+  }
+  return null
+}
+
 export function validateSettingsChanges(
   settings: Partial<SystemSettings>
 ): SettingsValidationIssue | null {
+  if (settings.rag) {
+    const ragIssue = validateRagConfig(settings.rag)
+    if (ragIssue) return ragIssue
+  }
+
   if (settings.dify_external_knowledge) {
     const difyIssue = validateDifyExternalKnowledgeConfig(
       settings.dify_external_knowledge

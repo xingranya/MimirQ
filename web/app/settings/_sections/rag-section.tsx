@@ -15,7 +15,10 @@ import {
 } from '@/components/ui/select'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 import type { SystemSettings } from '@/lib/api'
-import { RERANKER_PROVIDER_OPTIONS } from '@/lib/reranker-provider-options'
+import {
+  normalizeRerankerProvider,
+  RERANKER_PROVIDER_OPTIONS,
+} from '@/lib/reranker-provider-options'
 import { cn } from '@/lib/utils'
 
 type RagSettings = NonNullable<SystemSettings['rag']>
@@ -23,10 +26,11 @@ type RagSettings = NonNullable<SystemSettings['rag']>
 type RagSectionProps = {
   rag: RagSettings
   updateRag: (patch: Partial<RagSettings>) => void
+  ltrAvailable?: boolean
 }
 
 const RANGE_INPUT_CLASS =
-  'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-[hsl(var(--primary))] outline-none transition-colors hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:bg-primary [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background [&::-webkit-slider-thumb]:bg-primary'
+  'h-8 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-[hsl(var(--primary))] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:bg-primary [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:mt-[-7px] [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background [&::-webkit-slider-thumb]:bg-primary'
 const DEFAULT_RERANKER_PROVIDER = 'llm'
 const FIELD_INPUT_CLASS = 'h-9 rounded-md border-border bg-background text-sm'
 
@@ -119,18 +123,26 @@ function ToggleRow({
   )
 }
 
-export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
+export function RagSection({
+  rag,
+  updateRag,
+  ltrAvailable = false,
+}: Readonly<RagSectionProps>) {
   const isBm25IndexEnabled = rag.bm25_index_enabled
   const isRerankerEnabled = rag.enable_reranker
   const showImageInAnswer = rag.show_image_in_answer
-  const rerankerProviderValue = rag.reranker_provider || DEFAULT_RERANKER_PROVIDER
+  const normalizedRerankerProvider = normalizeRerankerProvider(rag.reranker_provider)
+  const rerankerProviderValue =
+    normalizedRerankerProvider === 'none'
+      ? DEFAULT_RERANKER_PROVIDER
+      : normalizedRerankerProvider
   const rerankerProviderLabel = getRerankerProviderLabel(rerankerProviderValue)
 
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-background">
       <div className="p-4">
         <div>
-          <h3 className="text-sm font-medium text-foreground">基础检索</h3>
+          <h4 className="text-sm font-medium text-foreground">基础检索</h4>
           <p className={cn(settingsTextTokens.helpText, 'mt-1')}>
             控制每次检索的候选数量和最低相关性。修改后会影响后续问答。
           </p>
@@ -193,10 +205,17 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
           description={
             isRerankerEnabled
               ? `当前使用${rerankerProviderLabel}。`
-              : '关闭后按原始召回顺序生成答案。'
+              : '关闭后不再执行模型重排序。'
           }
           checked={isRerankerEnabled}
-          onCheckedChange={(checked) => updateRag({ enable_reranker: checked })}
+          onCheckedChange={(checked) =>
+            updateRag({
+              enable_reranker: checked,
+              ...(checked && ['none', 'weighted'].includes(rag.reranker_provider)
+                ? { reranker_provider: DEFAULT_RERANKER_PROVIDER }
+                : {}),
+            })
+          }
           ariaLabel="切换重排器"
         >
           <details className="group rounded-md border border-border bg-muted/20 px-3 py-2">
@@ -224,9 +243,14 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
                     <SelectValue placeholder="选择重排服务" />
                   </SelectTrigger>
                   <SelectContent>
-                    {RERANKER_PROVIDER_OPTIONS.map((option) => (
-                      <SelectItem key={option.key} value={option.key}>
+                    {RERANKER_PROVIDER_OPTIONS.filter((option) => option.key !== 'none').map((option) => (
+                      <SelectItem
+                        key={option.key}
+                        value={option.key}
+                        disabled={option.key === 'ltr' && !ltrAvailable}
+                      >
                         {option.label}
+                        {option.key === 'ltr' && !ltrAvailable ? '（请先激活模型）' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -323,7 +347,7 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             label="分块重叠"
             value={rag.chunk_overlap}
             min={0}
-            max={1000}
+            max={Math.max(0, Math.min(1000, rag.chunk_size - 1))}
             step={50}
             description={
               <>
@@ -354,7 +378,7 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
               className={FIELD_INPUT_CLASS}
             />
             <span className={cn(settingsTextTokens.helpText, 'block')}>
-              入库时丢弃过短片段，0 表示保留全部。
+              只影响后续入库；已有文档需要重新入库才会生效。0 表示保留全部。
             </span>
           </label>
         </div>
