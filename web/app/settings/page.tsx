@@ -44,17 +44,14 @@ import {
   SETTINGS_SECTIONS,
   type SettingsSectionDefinition,
 } from './settings-sections'
-import { SettingsSwitchIndicator } from '@/components/settings/settings-switch'
 import {
   CheckCircle2,
   ChevronDown,
-  Network,
   RefreshCw,
   Save,
   Search,
   XCircle,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
@@ -190,127 +187,6 @@ function SettingsSaveBar({
         {state.saving ? '保存中...' : '保存配置'}
       </Button>
     </div>
-  )
-}
-
-type EnhancementCardProps = {
-  title: string
-  description: string
-  icon: LucideIcon
-  checked: boolean
-  onToggle: () => void
-  tone: 'blue' | 'emerald'
-  tags: string[]
-}
-
-function EnhancementCard({
-  title,
-  description,
-  icon: Icon,
-  checked,
-  onToggle,
-  tone,
-  tags,
-}: Readonly<EnhancementCardProps>) {
-  const toneClass =
-    tone === 'emerald'
-      ? {
-          card: checked
-            ? 'border-success/30 bg-success/10'
-            : 'border-border/60 bg-card',
-          icon: checked
-            ? 'bg-success/15 text-success'
-            : 'bg-muted text-muted-foreground',
-        }
-      : {
-          card: checked
-            ? 'border-primary/30 bg-primary/10'
-            : 'border-border/60 bg-card',
-          icon: checked
-            ? 'bg-primary/15 text-primary'
-            : 'bg-muted text-muted-foreground',
-        }
-
-  return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      onClick={onToggle}
-      className={cn(
-        'group flex min-h-[54px] w-full items-center justify-between gap-3 rounded-[13px] border px-3 py-2 text-left transition-[border-color,background-color,box-shadow] duration-150 focus-ring hover:border-primary/30 motion-reduce:transition-none',
-        toneClass.card
-      )}
-    >
-      <span className="flex min-w-0 items-center gap-2.5">
-        <span
-          className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-[10px]',
-            toneClass.icon
-          )}
-        >
-          <Icon className="size-3.5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[12px] font-semibold leading-4 text-foreground">
-            {title}
-          </span>
-          <span className="mt-0.5 block truncate text-[10.5px] font-medium leading-4 text-muted-foreground">
-            {description}
-          </span>
-          {tags.length > 0 ? (
-            <span className="mt-1 flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-md border border-border/60 bg-card/80 px-1.5 py-0.5 text-[10px] font-medium leading-[14px] text-muted-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
-            </span>
-          ) : null}
-        </span>
-      </span>
-      <SettingsSwitchIndicator checked={checked} />
-    </button>
-  )
-}
-
-function RetrievalEnhancementSection({ state }: Readonly<{ state: SettingsPageState }>) {
-  const bm25Enabled = Boolean(state.ragMerged?.bm25_index_enabled)
-  const kgEnabled = state.getFeatureValue('kg_enabled')
-
-  return (
-    <section className="rounded-[16px] border border-border/60 bg-card/82 p-3.5 shadow-sm">
-      <div className="mb-2.5">
-        <h2 className="text-[13px] font-semibold text-foreground">
-          关键词增强配置
-        </h2>
-        <p className="mt-0.5 text-[11.5px] font-medium leading-[18px] text-muted-foreground">
-          绑定后端 RAG 与 KG 开关，控制关键词索引和图谱增强是否参与检索
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
-        <EnhancementCard
-          title="BM25 关键词索引"
-          description="启用关键词通道，对精确词匹配、标题和结构化段落更友好"
-          icon={Search}
-          checked={bm25Enabled}
-          onToggle={() => state.updateRag({ bm25_index_enabled: !bm25Enabled })}
-          tone="blue"
-          tags={['RAG 配置', '真实后端字段']}
-        />
-        <EnhancementCard
-          title="KG 知识图谱"
-          description="启用实体、事件与关系索引，作为 RAG 上下文增强来源"
-          icon={Network}
-          checked={kgEnabled}
-          onToggle={() => state.toggleFeature('kg_enabled')}
-          tone="emerald"
-          tags={['Feature Flag', 'KG_ENABLED']}
-        />
-      </div>
-    </section>
   )
 }
 
@@ -779,6 +655,15 @@ function SettingsContent({
                       updateMagicPDF={state.updateMagicPDF}
                     />
                   </SettingsSubsection>
+                  <SettingsSubsection title="功能开关" advanced>
+                    <FeatureFlagsSection
+                      editedFeatureFlags={state.editedFeatureFlags}
+                      getFeatureValue={state.getFeatureValue}
+                      toggleFeature={state.toggleFeature}
+                      parserStatuses={state.status?.parsers}
+                      disabled={!settingsWritable}
+                    />
+                  </SettingsSubsection>
                   <SettingsSubsection title="数据治理">
                     <GovernanceSection
                       isGovernanceEnabled={state.isGovernanceEnabled}
@@ -811,14 +696,6 @@ function SettingsContent({
                       rag={state.ragMerged}
                       updateRag={state.updateRag}
                       ltrAvailable={state.ltrModels.some((model) => model.active)}
-                    />
-                  </SettingsSubsection>
-                  <SettingsSubsection title="检索增强" advanced>
-                    <RetrievalEnhancementSection state={state} />
-                    <FeatureFlagsSection
-                      editedFeatureFlags={state.editedFeatureFlags}
-                      getFeatureValue={state.getFeatureValue}
-                      toggleFeature={state.toggleFeature}
                     />
                   </SettingsSubsection>
                   <SettingsSubsection title="LTR 模型" advanced>

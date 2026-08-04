@@ -1,11 +1,9 @@
 'use client'
 
 import { SettingsSwitchIndicator } from '@/components/settings/settings-switch'
-import { systemPageTokens } from '@/components/ui/system-page-tokens'
 import { cn } from '@/lib/utils'
-import type { FeatureFlags } from '@/lib/api'
+import type { FeatureFlags, SystemStatus } from '@/lib/api'
 import {
-  AlertCircle,
   CloudCog,
   FileCode,
   FileSearch,
@@ -14,260 +12,258 @@ import {
   ScanLine,
   Sparkles,
   Wand2,
-  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 type FeatureFlagDescriptor = {
-  key: keyof FeatureFlags
   name: string
   description: string
   icon: LucideIcon
-  color: 'teal' | 'orange' | 'cyan' | 'green'
   dependencies: string[]
+  parserStatusKey?: string
 }
 
-const FEATURE_FLAGS_CONFIG: FeatureFlagDescriptor[] = [
-  {
-    key: 'kg_enabled',
-    name: 'KG 知识抽取',
-    description: '启用知识图谱抽取，自动抽取文档中的实体和事件',
+const FEATURE_FLAG_DETAILS: Record<keyof FeatureFlags, FeatureFlagDescriptor> = {
+  kg_enabled: {
+    name: '知识图谱抽取',
+    description: '从文档中提取实体、事件和关系。',
     icon: Sparkles,
-    color: 'teal',
-    dependencies: ['向量数据库（Milvus）', '大语言模型（LLM）'],
+    dependencies: ['向量数据库和大语言模型'],
   },
-  {
-    key: 'deepdoc_enabled',
+  deepdoc_enabled: {
     name: 'DeepDoc 结构化解析',
-    description:
-      '启用视觉 + OCR 解析能力，适合扫描件/图文混排 PDF（自动选择时生效）',
+    description: '解析扫描件和图文混排 PDF 中的版面结构。',
     icon: ScanLine,
-    color: 'orange',
     dependencies: [],
+    parserStatusKey: 'deepdoc',
   },
-  {
-    key: 'docling_enabled',
+  docling_enabled: {
     name: 'Docling 结构化解析',
-    description:
-      '启用 Docling 解析，对版面/表格结构抽取更友好（自动选择时生效）',
+    description: '提取文档版面和表格结构。',
     icon: FileSearch,
-    color: 'cyan',
     dependencies: [],
+    parserStatusKey: 'docling',
   },
-  {
-    key: 'etl4llm_enabled',
+  etl4llm_enabled: {
     name: 'ETL4LLM 版面解析',
-    description:
-      '启用 ETL4LLM 版面/表格/图片解析（需自建服务，自动选择时生效）',
+    description: '通过 ETL4LLM 服务解析版面、表格和图片。',
     icon: LayoutGrid,
-    color: 'green',
-    dependencies: ['ETL4LLM 服务地址（API URL）'],
+    dependencies: ['服务地址'],
+    parserStatusKey: 'etl4llm',
   },
-  {
-    key: 'marker_enabled',
-    name: 'Marker 启发式解析',
-    description:
-      '启用 Marker 启发式 PDF→Markdown 解析服务（可在解析器下拉中选择）',
-    icon: LayoutGrid,
-    color: 'green',
-    dependencies: ['Marker 服务地址（API URL）'],
-  },
-  {
-    key: 'paddle_vl_enabled',
-    name: 'PaddleOCR-VL 外部解析',
-    description:
-      '启用 PaddleOCR-VL 外部 OCR/版面解析服务（适合扫描件 PDF，可在解析器下拉中选择）',
-    icon: ScanLine,
-    color: 'orange',
-    dependencies: ['PaddleOCR-VL 服务地址（API URL）'],
-  },
-  {
-    key: 'textin_enabled',
-    name: 'TextIn xParse 外部解析',
-    description:
-      '启用 TextIn 文档解析 API（可用于 PDF/Office/图片等文档转 Markdown）',
-    icon: CloudCog,
-    color: 'cyan',
-    dependencies: ['TextIn API 地址', 'TextIn APP ID', 'TextIn Secret Code'],
-  },
-  {
-    key: 'markitdown_enabled',
-    name: 'MarkItDown 文档解析',
-    description:
-      '启用多格式转 Markdown（Office/表格/PDF），自动选择与解析工作台会使用',
+  marker_enabled: {
+    name: 'Marker 文档解析',
+    description: '通过 Marker 服务将 PDF 转为 Markdown。',
     icon: FileCode,
-    color: 'teal',
-    dependencies: [],
+    dependencies: ['服务地址'],
+    parserStatusKey: 'marker',
   },
-  {
-    key: 'llama_index_enabled',
-    name: 'LlamaIndex 分块',
-    description: '启用 LlamaIndex 高级分块策略',
-    icon: Network,
-    color: 'orange',
-    dependencies: [],
+  paddle_vl_enabled: {
+    name: 'PaddleOCR-VL 解析',
+    description: '通过 PaddleOCR-VL 服务解析扫描件和复杂版面。',
+    icon: ScanLine,
+    dependencies: ['服务地址'],
+    parserStatusKey: 'paddle_vl',
   },
-  {
-    key: 'mineru_enabled',
-    name: 'MinerU 解析',
-    description: '启用 MinerU 本地服务或在线 API 进行复杂 PDF 解析',
+  textin_enabled: {
+    name: 'TextIn xParse',
+    description: '通过 TextIn API 将文档和图片转为 Markdown。',
     icon: CloudCog,
-    color: 'cyan',
-    dependencies: ['本地 MinerU 服务地址或 API 令牌'],
+    dependencies: ['API 地址、APP ID 和密钥'],
+    parserStatusKey: 'textin',
+  },
+  markitdown_enabled: {
+    name: 'MarkItDown 文档解析',
+    description: '将 Office 文档、表格和 PDF 转为 Markdown。',
+    icon: FileCode,
+    dependencies: [],
+    parserStatusKey: 'markitdown',
+  },
+  llama_index_enabled: {
+    name: 'LlamaIndex 分块',
+    description: '使用 LlamaIndex 生成文档分块。',
+    icon: Network,
+    dependencies: [],
+  },
+  mineru_enabled: {
+    name: 'MinerU 解析',
+    description: '通过 MinerU 本地服务或云端 API 解析复杂 PDF。',
+    icon: CloudCog,
+    dependencies: ['本地服务地址或 API 令牌'],
+    parserStatusKey: 'mineru',
+  },
+  magicpdf_enabled: {
+    name: 'MagicPDF 本地解析',
+    description: '使用本地 MagicPDF 解析复杂 PDF。',
+    icon: Wand2,
+    dependencies: ['MagicPDF 运行环境'],
+    parserStatusKey: 'magicpdf',
+  },
+}
+
+const FEATURE_FLAG_GROUPS: ReadonlyArray<{
+  id: string
+  label: string
+  keys: ReadonlyArray<keyof FeatureFlags>
+}> = [
+  {
+    id: 'knowledge',
+    label: '知识组织',
+    keys: ['kg_enabled', 'llama_index_enabled'],
   },
   {
-    key: 'magicpdf_enabled',
-    name: 'MagicPDF 本地解析',
-    description: '启用 magic-pdf 本地高级解析后端（可在解析器下拉中选择）',
-    icon: Wand2,
-    color: 'teal',
-    dependencies: ['magic-pdf'],
+    id: 'local-parsers',
+    label: '内置与本地解析',
+    keys: [
+      'deepdoc_enabled',
+      'docling_enabled',
+      'markitdown_enabled',
+      'magicpdf_enabled',
+    ],
+  },
+  {
+    id: 'connected-parsers',
+    label: '接入服务',
+    keys: [
+      'mineru_enabled',
+      'etl4llm_enabled',
+      'marker_enabled',
+      'paddle_vl_enabled',
+      'textin_enabled',
+    ],
   },
 ]
-
-function getColorClasses(color: FeatureFlagDescriptor['color']) {
-  const styles = {
-    primary: {
-      bg: 'bg-primary/10',
-      border: 'border-primary/25',
-      text: 'text-primary',
-      iconBg: 'bg-primary/12',
-    },
-    info: {
-      bg: 'bg-info/10',
-      border: 'border-info/25',
-      text: 'text-info',
-      iconBg: 'bg-info/10',
-    },
-    success: {
-      bg: 'bg-success/10',
-      border: 'border-success/25',
-      text: 'text-success',
-      iconBg: 'bg-success/12',
-    },
-    warning: {
-      bg: 'bg-warning/10',
-      border: 'border-warning/25',
-      text: 'text-warning',
-      iconBg: 'bg-warning/12',
-    },
-  }
-
-  const key =
-    color === 'green'
-      ? 'success'
-      : color === 'orange'
-        ? 'warning'
-        : color === 'cyan'
-          ? 'primary'
-          : 'info'
-
-  return styles[key]
-}
 
 type FeatureFlagsSectionProps = {
   editedFeatureFlags?: Partial<FeatureFlags>
   getFeatureValue: (key: keyof FeatureFlags) => boolean
   toggleFeature: (key: keyof FeatureFlags) => void
+  parserStatuses?: SystemStatus['parsers']
+  disabled?: boolean
+}
+
+function parserStatusText(
+  status: NonNullable<SystemStatus['parsers']>[string]
+): string {
+  if (status.available) return '运行环境可用'
+  return status.enabled ? '运行环境不可用' : '运行状态未启用'
 }
 
 export function FeatureFlagsSection({
   editedFeatureFlags,
   getFeatureValue,
   toggleFeature,
+  parserStatuses,
+  disabled = false,
 }: Readonly<FeatureFlagsSectionProps>) {
   return (
-    <section className="rounded-[16px] border border-border/60 bg-card/82 p-3.5 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-            <Zap className="h-3.5 w-3.5 text-warning" />
-            功能开关
-          </h2>
-          <p className="mt-0.5 text-[11.5px] font-medium leading-[18px] text-muted-foreground">
-            按需启用各项能力模块，保存后会影响后续请求；外部解析器仍需对应服务已启动
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-          <AlertCircle className="h-3 w-3" />
-          <span>保存后影响后续请求</span>
-        </div>
-      </div>
+    <section aria-label="功能开关" className="space-y-5">
+      <p className="text-sm leading-5 text-muted-foreground">
+        控制知识处理与解析能力。接入式解析服务需先完成连接配置。
+      </p>
 
-      <div className="mt-3.5 grid grid-cols-1 gap-2 xl:grid-cols-2">
-        {FEATURE_FLAGS_CONFIG.map((feature) => {
-          const Icon = feature.icon
-          const colors = getColorClasses(feature.color)
-          const isEnabled = getFeatureValue(feature.key)
-          const isEdited = Boolean(
-            editedFeatureFlags && feature.key in editedFeatureFlags
-          )
-
-          return (
-            <button
-              type="button"
-              key={feature.key}
-              className={cn(
-                'group relative w-full rounded-[13px] border px-3 py-2 text-left transition-[border-color,background-color,box-shadow] duration-150 focus-ring motion-reduce:transition-none',
-                isEnabled
-                  ? `${colors.border} ${colors.bg} shadow-[inset_0_0_0_1px_hsl(var(--card)/0.55)]`
-                  : 'border-border/60 bg-card hover:border-primary/20 hover:bg-muted/30',
-                isEdited && 'ring-2 ring-primary/55 ring-offset-1'
-              )}
-              aria-pressed={isEnabled}
-              onClick={() => toggleFeature(feature.key)}
+      <div className="space-y-5">
+        {FEATURE_FLAG_GROUPS.map((group) => (
+          <section key={group.id} aria-labelledby={`feature-group-${group.id}`}>
+            <h5
+              id={`feature-group-${group.id}`}
+              className="mb-2 text-xs font-semibold text-muted-foreground"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <div
-                    className={cn(
-                      'mt-0.5 flex size-[23px] shrink-0 items-center justify-center rounded-[9px] transition-colors',
-                      isEnabled ? colors.iconBg : 'bg-muted'
-                    )}
+              {group.label}
+            </h5>
+            <div className="divide-y divide-border border-y border-border">
+              {group.keys.map((featureKey) => {
+                const feature = FEATURE_FLAG_DETAILS[featureKey]
+                const Icon = feature.icon
+                const isEnabled = getFeatureValue(featureKey)
+                const isEdited = Boolean(
+                  editedFeatureFlags && featureKey in editedFeatureFlags
+                )
+                const status = feature.parserStatusKey
+                  ? parserStatuses?.[feature.parserStatusKey]
+                  : undefined
+                const nameId = `feature-${featureKey}-name`
+                const descriptionId = `feature-${featureKey}-description`
+                const dependencyId = `feature-${featureKey}-dependency`
+                const statusId = `feature-${featureKey}-status`
+                const describedBy = [
+                  descriptionId,
+                  feature.dependencies.length > 0 ? dependencyId : null,
+                  status ? statusId : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+
+                return (
+                  <button
+                    type="button"
+                    key={featureKey}
+                    disabled={disabled}
+                    aria-pressed={isEnabled}
+                    aria-labelledby={nameId}
+                    aria-describedby={describedBy}
+                    onClick={() => toggleFeature(featureKey)}
+                    className="flex min-h-14 w-full items-start justify-between gap-4 px-1 py-3 text-left transition-colors focus-ring hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent motion-reduce:transition-none sm:px-2"
                   >
-                    <Icon
-                      className={cn(
-                        'h-3 w-3',
-                        isEnabled ? colors.text : 'text-muted-foreground'
-                      )}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <h3
-                      className={cn(
-                        'text-[12px] font-semibold leading-[15px] transition-colors',
-                        isEnabled ? 'text-foreground' : 'text-foreground/78'
-                      )}
-                    >
-                      {feature.name}
-                    </h3>
-                    <p
-                      className={cn(
-                        systemPageTokens.subtle,
-                        'mt-0.5 max-w-[62ch] truncate text-[10.5px] leading-[14px]'
-                      )}
-                    >
-                      {feature.description}
-                    </p>
-                    {feature.dependencies.length > 0 ? (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {feature.dependencies.map((dependency) => (
-                          <span
-                            key={dependency}
-                            className="rounded-md border border-border/60 bg-card/75 px-1.5 py-0.5 text-[10px] font-medium leading-[14px] text-muted-foreground"
-                          >
-                            需要: {dependency}
+                    <span className="flex min-w-0 items-start gap-3">
+                      <span
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded-md',
+                          isEnabled
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span id={nameId} className="text-sm font-medium text-foreground">
+                            {feature.name}
                           </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <SettingsSwitchIndicator checked={isEnabled} className="mt-0.5" />
-              </div>
-            </button>
-          )
-        })}
+                          {isEdited ? (
+                            <span className="text-xs font-medium text-primary">未保存</span>
+                          ) : null}
+                        </span>
+                        <span
+                          id={descriptionId}
+                          className="mt-1 block text-sm leading-5 text-muted-foreground"
+                        >
+                          {feature.description}
+                        </span>
+                        {feature.dependencies.length > 0 ? (
+                          <span
+                            id={dependencyId}
+                            className="mt-1 block text-xs leading-5 text-muted-foreground"
+                          >
+                            需配置：{feature.dependencies.join('、')}
+                          </span>
+                        ) : null}
+                        {status ? (
+                          <span
+                            id={statusId}
+                            title={status.message || undefined}
+                            className={cn(
+                              'mt-1 block text-xs leading-5',
+                              status.available
+                                ? 'text-success'
+                                : status.enabled
+                                  ? 'text-destructive'
+                                  : 'text-muted-foreground'
+                            )}
+                          >
+                            {parserStatusText(status)}
+                          </span>
+                        ) : null}
+                      </span>
+                    </span>
+                    <SettingsSwitchIndicator checked={isEnabled} className="mt-1" />
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </section>
   )

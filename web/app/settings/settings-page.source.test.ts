@@ -38,7 +38,6 @@ describe('设置页信息架构', () => {
       'UrlIngestSection',
       'IndustryRulesSection',
       'RagSection',
-      'RetrievalEnhancementSection',
       'FeatureFlagsSection',
       'LtrModelRegistrySection',
       'FrontendPreferencesSection',
@@ -68,6 +67,18 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).toContain('只有系统所有者可以修改')
     expect(settingsPageSource.match(/<fieldset disabled={!settingsWritable}/g)).toHaveLength(5)
     expect(settingsPageSource).toContain('if (!settingsWritable) return null')
+  })
+
+  it('功能开关只保留一个知识图谱入口并接收只读状态', () => {
+    const knowledgeSection = settingsPageSource.slice(
+      settingsPageSource.indexOf("visibleSectionIdSet.has('settings-knowledge')"),
+      settingsPageSource.indexOf("visibleSectionIdSet.has('settings-retrieval')")
+    )
+    expect(settingsPageSource).not.toContain('RetrievalEnhancementSection')
+    expect(settingsPageSource).toContain('disabled={!settingsWritable}')
+    expect(settingsPageSource.match(/<FeatureFlagsSection/g)).toHaveLength(1)
+    expect(knowledgeSection).toContain('<SettingsSubsection title="功能开关" advanced>')
+    expect(knowledgeSection).toContain('<FeatureFlagsSection')
   })
 
   it('保存失败保持可见并允许再次保存', () => {
