@@ -8,18 +8,15 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  CircleMinus,
   Clock3,
-  Database,
   FileText,
-  Gauge,
-  GitBranch,
-  Hash,
   Layers,
   Network,
   RefreshCw,
   SearchCheck,
   ShieldCheck,
-  Sigma,
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -28,10 +25,12 @@ import { AppFrame } from '@/components/app-frame'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
-import { Panel } from '@/components/ui/panel'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { useRouter } from '@/i18n/navigation'
 import { documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
+import { getChunkStrategyLabel } from '@/lib/chunk-strategies'
+import { getParserLabel } from '@/lib/parser-options'
 import { queryKeys } from '@/lib/query-keys'
 import { cn, formatDate, formatFileSize } from '@/lib/utils'
 
@@ -53,57 +52,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function pct(value: number | null | undefined, digits = 1): string {
-  const v = typeof value === 'number' && Number.isFinite(value) ? value : null
-  if (v === null) return '—'
-  return `${(v * 100).toFixed(digits)}%`
-}
-
-function fmt(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value.toString()
-  }
-  if (value instanceof Date) return value.toISOString()
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return '—'
-  }
+  const number = typeof value === 'number' && Number.isFinite(value) ? value : null
+  if (number === null) return '—'
+  return `${(number * 100).toFixed(digits)}%`
 }
 
 function compactNumber(value: unknown): string {
-  const n = safeNumber(value)
-  if (n === null) return fmt(value)
-  return n.toLocaleString()
+  const number = safeNumber(value)
+  return number === null ? '—' : number.toLocaleString()
 }
 
 function parseQualityScore(card: DocumentHealthCard | null): number | null {
   const parseQuality = isRecord(card?.parsing?.parse_quality) ? card.parsing.parse_quality : {}
-  const score = parseQuality.score
-  return safeNumber(score)
-}
-
-function qualityBadgeClassName(tone: QualityBadgeTone): string {
-  switch (tone) {
-    case 'bad':
-      return 'border-destructive/25 bg-destructive/[0.08] text-destructive'
-    case 'warn':
-      return 'border-warning/24 bg-warning/[0.08] text-warning dark:text-warning'
-    default:
-      return 'border-success/24 bg-success/[0.08] text-success dark:text-success'
-  }
+  return safeNumber(parseQuality.score)
 }
 
 function toneClassName(tone: HealthTone): string {
   switch (tone) {
     case 'bad':
-      return 'border-destructive/24 bg-destructive/[0.08] text-destructive'
+      return 'border-destructive/25 bg-destructive/5 text-destructive'
     case 'warn':
-      return 'border-warning/24 bg-warning/[0.08] text-warning dark:text-warning'
+      return 'border-warning/25 bg-warning/5 text-warning'
     case 'ok':
-      return 'border-success/24 bg-success/[0.08] text-success dark:text-success'
+      return 'border-success/25 bg-success/5 text-success'
     default:
-      return 'border-border/50 bg-muted/22 text-muted-foreground'
+      return 'border-border bg-muted/40 text-muted-foreground'
   }
 }
 
@@ -111,16 +84,16 @@ function retrievalHitsStatusLabel(
   retrievalHits: DocumentHealthCard['retrieval_hits'] | null | undefined,
 ): string {
   if (retrievalHits?.enabled !== true) return '未启用'
-  return retrievalHits.available ? '有样本' : '暂无命中'
+  return retrievalHits.available ? '已有记录' : '暂无记录'
 }
 
 function documentStatusLabel(status: unknown): string {
   const value = String(status || '').toLowerCase()
   if (value === 'completed' || value === 'ready') return '已就绪'
   if (value === 'processing' || value === 'pending') return '处理中'
-  if (value === 'failed') return '失败'
-  if (value === 'quarantined') return '隔离'
-  return value || '未知'
+  if (value === 'failed') return '处理失败'
+  if (value === 'quarantined') return '已隔离'
+  return value || '状态未知'
 }
 
 function documentStatusTone(status: unknown): HealthTone {
@@ -135,6 +108,21 @@ function formatBoolean(value: boolean | null | undefined): string {
   if (value === true) return '是'
   if (value === false) return '否'
   return '—'
+}
+
+function formatParser(value: string | null | undefined): string {
+  return value?.trim() ? getParserLabel(value) : '—'
+}
+
+function formatChunkStrategy(value: string | null | undefined): string {
+  return value?.trim() ? getChunkStrategyLabel(value) : '—'
+}
+
+function formatWindow(minutes: number | null | undefined): string {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—'
+  if (minutes % (24 * 60) === 0) return `${minutes / (24 * 60)} 天`
+  if (minutes % 60 === 0) return `${minutes / 60} 小时`
+  return `${minutes} 分钟`
 }
 
 function getCoverageTone(value: number | null | undefined): HealthTone {
@@ -159,9 +147,6 @@ export default function DocumentHealthPage({ documentId }: Readonly<{ documentId
     enabled: Boolean(documentId),
   })
   const data = (healthQuery.data ?? null) as DocumentHealthCard | null
-  const loading = healthQuery.isFetching
-  const error = healthQuery.error ? formatApiError(healthQuery.error, '加载失败') : null
-
   const qualityScore = useMemo(() => parseQualityScore(data), [data])
   const kgSummary = isRecord(data?.kg?.summary) ? data.kg.summary : {}
   const kgComponents = isRecord(data?.kg?.components) ? data.kg.components : {}
@@ -172,11 +157,17 @@ export default function DocumentHealthPage({ documentId }: Readonly<{ documentId
     return { label: '解析质量良好', tone: 'ok' as const }
   }, [qualityScore])
   const retrievalHitsStatus = retrievalHitsStatusLabel(data?.retrieval_hits)
-  const retrievalMetricsDisabled = data?.retrieval_hits?.enabled === false
   const semanticQuality = data?.chunking?.semantic_quality ?? null
   const coverage = data?.chunking?.coverage ?? null
   const isolatedRatio = safeNumber(kgSummary.isolated_entity_ratio)
   const largestComponentRatio = safeNumber(kgComponents.largest_component_ratio)
+  const errorDescription = healthQuery.error
+    ? formatApiError(healthQuery.error, '暂时无法读取文档健康数据。请重新加载。')
+    : null
+
+  const retry = () => {
+    void healthQuery.refetch()
+  }
 
   return (
     <AppFrame>
@@ -185,246 +176,212 @@ export default function DocumentHealthPage({ documentId }: Readonly<{ documentId
         size="full"
         density="system-dense"
         bodyGutter="dense"
-        bodyClassName="bg-[radial-gradient(circle_at_18%_0%,hsl(var(--info)/0.10),transparent_28%),linear-gradient(180deg,hsl(var(--background)/0.96),hsl(var(--surface-2)/0.68))] pb-3"
-        description={
-          <div className="space-y-1">
-            <div className="text-muted-foreground">
-              解析 → 分块 → KG → 检索命中（聚合，PII-safe）
-            </div>
-            <div className="font-mono text-xs text-muted-foreground break-all">{documentId}</div>
-          </div>
-        }
+        bodyClassName="pb-4"
+        description="检查文档从解析到检索的质量，优先处理评分偏低或覆盖不足的环节。"
         icon={ShieldCheck}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 rounded-xl border-border/55 bg-background/78 px-3 text-[12px]"
+              className="h-9"
               onClick={() => router.push('/knowledge')}
             >
-              <ArrowLeft className="mr-2 size-3.5" />
+              <ArrowLeft className="size-4" aria-hidden="true" />
               返回知识库
             </Button>
             <Button
               type="button"
-              variant="outline"
               size="sm"
-              className="h-9 rounded-xl border-border/55 bg-background/78 px-3 text-[12px]"
-              disabled={loading}
-              onClick={() => {
-                healthQuery.refetch()
-              }}
+              className="h-9"
+              disabled={healthQuery.isFetching}
+              onClick={retry}
             >
-              <RefreshCw className={cn('mr-2 size-3.5', loading ? 'animate-spin motion-reduce:animate-none' : '')} />
-              刷新
+              <RefreshCw
+                className={cn(
+                  'size-4',
+                  healthQuery.isFetching && 'animate-spin motion-reduce:animate-none'
+                )}
+                aria-hidden="true"
+              />
+              {healthQuery.isFetching ? '正在刷新' : '刷新数据'}
             </Button>
           </div>
         }
-        top={
-          data ? (
-            <Panel
-              variant="glass"
-              className="overflow-hidden rounded-[24px] border-border/50 bg-[radial-gradient(circle_at_10%_0%,hsl(var(--info)/0.10),transparent_34%),linear-gradient(135deg,hsl(var(--card)/0.90),hsl(var(--surface-2)/0.48))] p-0 shadow-[0_18px_48px_-36px_hsl(var(--primary)/0.28)]"
-            >
-              <div className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-stretch lg:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-[16px] border border-info/18 bg-info/[0.08] text-info shadow-[inset_0_1px_0_hsl(var(--card)/0.80)]">
-                      <FileText className="size-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="break-words text-[20px] font-semibold leading-6 tracking-[-0.02em] text-foreground">
-                          {data.filename || '未命名文档'}
-                        </h2>
-                        <Badge
-                          variant="secondary"
-                          className={cn('border px-2 py-0.5 text-[10px] font-semibold', toneClassName(documentStatusTone(data.status)))}
-                        >
-                          {documentStatusLabel(data.status)}
-                        </Badge>
-                        {qualityBadge ? (
-                          <Badge
-                            variant="secondary"
-                            className={cn('border px-2 py-0.5 text-[10px] font-semibold', qualityBadgeClassName(qualityBadge.tone))}
-                          >
-                            {qualityBadge.label}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <InfoPill icon={Hash} value={data.document_id} />
-                        <InfoPill icon={Database} value={data.dataset_id || '未绑定知识库'} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid min-w-[min(100%,28rem)] grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-[40rem]">
-                  <HeroMetric icon={FileText} label="类型" value={fmt(data.file_type)} />
-                  <HeroMetric icon={Gauge} label="大小" value={data.file_size ? formatFileSize(data.file_size) : '—'} />
-                  <HeroMetric icon={Clock3} label="创建" value={data.created_at ? formatDate(data.created_at) : '—'} />
-                  <HeroMetric icon={Clock3} label="生成" value={data.generated_at ? formatDate(data.generated_at) : '—'} />
-                </div>
-              </div>
-            </Panel>
-          ) : null
-        }
+        top={data ? <DocumentSummary data={data} qualityBadge={qualityBadge} /> : null}
       >
-        {error ? (
-          <Panel className="rounded-[18px] border border-destructive/24 bg-destructive/[0.08] text-destructive">
-            {error}
-          </Panel>
+        {!data && healthQuery.isPending ? <DocumentHealthLoading /> : null}
+
+        {!data && errorDescription ? (
+          <QueryErrorState
+            title="文档健康数据加载失败"
+            description={errorDescription}
+            onRetry={retry}
+            retrying={healthQuery.isFetching}
+          />
         ) : null}
 
-        {!data && !loading && !error ? (
-          <Panel variant="glass" className="rounded-[18px] text-muted-foreground">
-            未找到数据
-          </Panel>
-        ) : null}
-
-        {loading && !data ? (
-          <Panel variant="glass" className="rounded-[18px] text-muted-foreground">
-            加载中…
-          </Panel>
+        {!data && !healthQuery.isPending && !errorDescription ? (
+          <section className="rounded-md border border-border bg-card px-4 py-10 text-center">
+            <FileText className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
+            <h2 className="mt-3 text-base font-semibold text-foreground">暂无健康数据</h2>
+            <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">
+              该文档还没有可用的质量检查结果。文档处理完成后再刷新此页。
+            </p>
+          </section>
         ) : null}
 
         {data ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <ScoreTile
+            {errorDescription ? (
+              <QueryErrorState
+                title="刷新失败"
+                description={errorDescription}
+                onRetry={retry}
+                retrying={healthQuery.isFetching}
+                className="py-3"
+              />
+            ) : null}
+
+            <dl className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 xl:grid-cols-4">
+              <HealthMetric
                 icon={Activity}
-                label="解析评分"
-                value={qualityScore === null ? '—' : qualityScore.toFixed(3)}
+                label="解析质量"
+                value={pct(qualityScore)}
                 detail={qualityBadge?.label || '暂无评分'}
                 tone={qualityBadge?.tone || 'neutral'}
               />
-              <ScoreTile
+              <HealthMetric
                 icon={Layers}
-                label="覆盖率"
+                label="内容覆盖"
                 value={pct(coverage?.coverage_ratio)}
-                detail={`缺口 ${coverage?.gap_count ?? 0}`}
+                detail={`发现 ${coverage?.gap_count ?? 0} 处缺口`}
                 tone={getCoverageTone(coverage?.coverage_ratio)}
               />
-              <ScoreTile
+              <HealthMetric
                 icon={Network}
-                label="KG 实体"
+                label="知识图谱"
                 value={compactNumber(kgSummary.entities)}
-                detail={`关系 ${compactNumber(kgSummary.relations)}`}
+                detail={`${compactNumber(kgSummary.relations)} 条关系`}
                 tone="neutral"
               />
-              <ScoreTile
+              <HealthMetric
                 icon={SearchCheck}
                 label="检索命中"
                 value={pct(data.retrieval_hits?.hit_rate, 2)}
                 detail={retrievalHitsStatus}
                 tone={data.retrieval_hits?.available ? 'ok' : 'neutral'}
               />
-            </div>
+            </dl>
 
-            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 2xl:grid-cols-4">
-              <HealthSection
+            <div className="overflow-hidden rounded-md border border-border bg-card">
+              <HealthDetails
                 icon={FileText}
-                title="解析链路"
-                subtitle="解析器、扫描件、页数与处理时间"
-                badge={qualityBadge?.label || '未评分'}
+                title="解析信息"
+                description="查看解析方式、页数和处理结果"
+                badge={qualityBadge?.label || '暂无评分'}
                 tone={qualityBadge?.tone || 'neutral'}
               >
-                <DenseGrid>
-                  <Fact label="解析器" value={fmt(data.parsing?.parser_backend)} />
-                  <Fact label="请求解析器" value={fmt(data.parsing?.parser_backend_requested)} />
-                  <Fact label="Parse score" value={qualityScore === null ? '—' : qualityScore.toFixed(4)} />
-                  <Fact label="扫描件" value={formatBoolean(data.parsing?.is_scanned)} />
-                  <Fact label="页数" value={fmt(data.parsing?.page_count)} />
-                  <Fact label="处理时间" value={data.parsing?.processed_at ? formatDate(data.parsing.processed_at) : '—'} />
-                </DenseGrid>
-              </HealthSection>
+                <FactsGrid>
+                  <Fact label="实际解析方式" value={formatParser(data.parsing?.parser_backend)} />
+                  <Fact label="计划解析方式" value={formatParser(data.parsing?.parser_backend_requested)} />
+                  <Fact label="解析质量" value={pct(qualityScore)} />
+                  <Fact label="是否为扫描件" value={formatBoolean(data.parsing?.is_scanned)} />
+                  <Fact label="页数" value={compactNumber(data.parsing?.page_count)} />
+                  <Fact
+                    label="处理时间"
+                    value={data.parsing?.processed_at ? formatDate(data.parsing.processed_at) : '—'}
+                  />
+                </FactsGrid>
+              </HealthDetails>
 
-              <HealthSection
+              <HealthDetails
                 icon={Layers}
-                title="切片链路"
-                subtitle="chunk 策略、字符覆盖、overlap 成本"
+                title="内容分块"
+                description="查看分块方式、字符覆盖和内容缺口"
                 badge={`覆盖 ${pct(coverage?.coverage_ratio)}`}
                 tone={getCoverageTone(coverage?.coverage_ratio)}
               >
-                <DenseGrid>
-                  <Fact label="策略" value={fmt(data.chunking?.chunk_strategy)} />
-                  <Fact label="请求策略" value={fmt(data.chunking?.chunk_strategy_requested)} />
-                  <Fact label="切片数" value={compactNumber(data.chunking?.chunk_count)} />
-                  <Fact label="总字符" value={compactNumber(data.chunking?.total_characters)} />
-                  <Fact label="覆盖率" value={pct(coverage?.coverage_ratio)} />
-                  <Fact label="Overlap waste" value={pct(coverage?.overlap_waste_ratio)} />
-                  <Fact label="缺口数" value={compactNumber(coverage?.gap_count)} />
-                  <Fact label="最大缺口" value={compactNumber(coverage?.largest_gap)} />
-                </DenseGrid>
+                <FactsGrid>
+                  <Fact label="实际分块方式" value={formatChunkStrategy(data.chunking?.chunk_strategy)} />
+                  <Fact label="计划分块方式" value={formatChunkStrategy(data.chunking?.chunk_strategy_requested)} />
+                  <Fact label="分块数量" value={compactNumber(data.chunking?.chunk_count)} />
+                  <Fact label="字符总数" value={compactNumber(data.chunking?.total_characters)} />
+                  <Fact label="内容覆盖率" value={pct(coverage?.coverage_ratio)} />
+                  <Fact label="重复内容占比" value={pct(coverage?.overlap_waste_ratio)} />
+                  <Fact label="内容缺口" value={compactNumber(coverage?.gap_count)} />
+                  <Fact label="最大缺口字符数" value={compactNumber(coverage?.largest_gap)} />
+                </FactsGrid>
 
                 {semanticQuality ? (
-                  <div className="mt-3 rounded-[16px] border border-border/45 bg-muted/[0.12] p-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-[12px] font-semibold text-foreground">语义质量抽样</div>
-                      {semanticQuality.note ? (
-                        <div className="text-[10px] text-muted-foreground">{semanticQuality.note}</div>
-                      ) : null}
+                  <section className="mt-5 border-t border-border pt-4" aria-labelledby="semantic-quality-title">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 id="semantic-quality-title" className="text-sm font-semibold text-foreground">
+                        语义质量抽样
+                      </h3>
+                      <Badge
+                        variant="secondary"
+                        className={cn('border', toneClassName(getReviewTone(semanticQuality.needs_review_ratio)))}
+                      >
+                        {compactNumber(semanticQuality.needs_review)} 个分块需复核
+                      </Badge>
                     </div>
-                    <DenseGrid>
-                      <Fact label="抽样切片" value={compactNumber(semanticQuality.sampled_chunks)} />
-                      <Fact
-                        label="需复核"
-                        value={`${compactNumber(semanticQuality.needs_review)} · ${pct(semanticQuality.needs_review_ratio)}`}
-                        tone={getReviewTone(semanticQuality.needs_review_ratio)}
-                      />
-                      <Fact label="信息密度" value={fmt(semanticQuality.mean_information_density)} />
-                      <Fact label="语义完整" value={fmt(semanticQuality.mean_semantic_completeness)} />
-                      <Fact label="自包含" value={fmt(semanticQuality.mean_self_containedness)} />
-                      <Fact label="代词率" value={fmt(semanticQuality.mean_pronoun_ratio)} />
-                    </DenseGrid>
-                  </div>
+                    <FactsGrid className="mt-3">
+                      <Fact label="抽样分块" value={compactNumber(semanticQuality.sampled_chunks)} />
+                      <Fact label="需复核占比" value={pct(semanticQuality.needs_review_ratio)} />
+                      <Fact label="平均信息密度" value={compactNumber(semanticQuality.mean_information_density)} />
+                      <Fact label="平均语义完整度" value={compactNumber(semanticQuality.mean_semantic_completeness)} />
+                      <Fact label="平均自包含程度" value={compactNumber(semanticQuality.mean_self_containedness)} />
+                      <Fact label="平均代词占比" value={pct(semanticQuality.mean_pronoun_ratio)} />
+                    </FactsGrid>
+                  </section>
                 ) : null}
-              </HealthSection>
+              </HealthDetails>
 
-              <HealthSection
+              <HealthDetails
                 icon={Network}
-                title="KG 链路"
-                subtitle="事件、实体、关系与连通性摘要"
-                badge={`实体 ${compactNumber(kgSummary.entities)}`}
+                title="知识图谱"
+                description="查看实体、关系和图谱连通情况"
+                badge={`${compactNumber(kgSummary.entities)} 个实体`}
                 tone="neutral"
               >
-                <DenseGrid>
+                <FactsGrid>
                   <Fact label="事件" value={compactNumber(kgSummary.events)} />
                   <Fact label="实体" value={compactNumber(kgSummary.entities)} />
                   <Fact label="关系" value={compactNumber(kgSummary.relations)} />
-                  <Fact label="孤立实体" value={isolatedRatio === null ? '—' : pct(isolatedRatio, 2)} />
-                  <Fact label="连通分量" value={compactNumber(kgComponents.components)} />
-                  <Fact label="最大分量" value={largestComponentRatio === null ? '—' : pct(largestComponentRatio, 2)} />
-                </DenseGrid>
-              </HealthSection>
+                  <Fact label="孤立实体占比" value={pct(isolatedRatio, 2)} />
+                  <Fact label="连通区域" value={compactNumber(kgComponents.components)} />
+                  <Fact label="最大连通区域占比" value={pct(largestComponentRatio, 2)} />
+                </FactsGrid>
+              </HealthDetails>
 
-              <HealthSection
+              <HealthDetails
                 icon={SearchCheck}
-                title="检索命中"
-                subtitle="最近窗口内的引用命中与样本覆盖"
+                title="检索记录"
+                description="查看最近一段时间内的引用和命中情况"
                 badge={retrievalHitsStatus}
                 tone={data.retrieval_hits?.available ? 'ok' : 'neutral'}
+                last
               >
-                <DenseGrid>
-                  <Fact label="指标状态" value={retrievalHitsStatus} />
-                  <Fact label="窗口" value={`${data.retrieval_hits?.window_minutes ?? '—'} min`} />
-                  <Fact label="扫描 trace" value={compactNumber(data.retrieval_hits?.traces_scanned)} />
-                  <Fact label="命中 trace" value={compactNumber(data.retrieval_hits?.traces_with_hits)} />
+                <FactsGrid>
+                  <Fact label="统计状态" value={retrievalHitsStatus} />
+                  <Fact label="统计范围" value={formatWindow(data.retrieval_hits?.window_minutes)} />
+                  <Fact label="分析记录" value={compactNumber(data.retrieval_hits?.traces_scanned)} />
+                  <Fact label="有命中的记录" value={compactNumber(data.retrieval_hits?.traces_with_hits)} />
                   <Fact label="引用命中" value={compactNumber(data.retrieval_hits?.citations_matched)} />
-                  <Fact label="唯一 chunk" value={compactNumber(data.retrieval_hits?.unique_chunks_matched)} />
+                  <Fact label="命中的不同分块" value={compactNumber(data.retrieval_hits?.unique_chunks_matched)} />
                   <Fact label="命中率" value={pct(data.retrieval_hits?.hit_rate, 2)} />
-                  <Fact label="截断" value={formatBoolean(data.retrieval_hits?.truncated)} />
-                </DenseGrid>
+                  <Fact label="数据是否截断" value={formatBoolean(data.retrieval_hits?.truncated)} />
+                </FactsGrid>
 
-                {retrievalMetricsDisabled ? (
-                  <div className="mt-3 flex items-start gap-2 rounded-[14px] border border-warning/22 bg-warning/[0.08] px-3 py-2 text-[11px] leading-4 text-warning dark:text-warning">
-                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                    <span>提示：需要启用后端 metrics 日志（ENABLE_METRICS_LOG=true）才能统计命中频率。</span>
+                {data.retrieval_hits?.enabled === false ? (
+                  <div className="mt-4 flex items-start gap-2 rounded-md border border-warning/25 bg-warning/5 p-3 text-sm leading-6 text-warning">
+                    <AlertTriangle className="mt-1 size-4 shrink-0" aria-hidden="true" />
+                    <p>检索统计尚未启用。请联系管理员在运行设置中开启检索指标记录。</p>
                   </div>
                 ) : null}
-              </HealthSection>
+              </HealthDetails>
             </div>
           </div>
         ) : null}
@@ -433,44 +390,83 @@ export default function DocumentHealthPage({ documentId }: Readonly<{ documentId
   )
 }
 
-function InfoPill({
-  icon: Icon,
-  value,
+function DocumentSummary({
+  data,
+  qualityBadge,
 }: Readonly<{
-  icon: LucideIcon
-  value: string
+  data: DocumentHealthCard
+  qualityBadge: { label: string; tone: QualityBadgeTone } | null
 }>) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/45 bg-background/62 px-2 py-1 font-mono text-[10px] text-muted-foreground">
-      <Icon className="size-3 shrink-0 text-info/72" />
-      <span className="truncate">{value}</span>
-    </span>
+    <section className="rounded-md border border-border bg-card px-4 py-3" aria-labelledby="document-health-name">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
+              <FileText className="size-4" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="document-health-name" className="break-words text-base font-semibold text-foreground">
+                  {data.filename || '未命名文档'}
+                </h2>
+                <Badge
+                  variant="secondary"
+                  className={cn('border', toneClassName(documentStatusTone(data.status)))}
+                >
+                  {documentStatusLabel(data.status)}
+                </Badge>
+                {qualityBadge ? (
+                  <Badge variant="secondary" className={cn('border', toneClassName(qualityBadge.tone))}>
+                    {qualityBadge.label}
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">以下结果来自最近一次健康检查。</p>
+            </div>
+          </div>
+        </div>
+
+        <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+          <SummaryFact label="文件类型" value={data.file_type || '—'} />
+          <SummaryFact label="文件大小" value={data.file_size ? formatFileSize(data.file_size) : '—'} />
+          <SummaryFact label="创建时间" value={data.created_at ? formatDate(data.created_at) : '—'} />
+          <SummaryFact label="检查时间" value={data.generated_at ? formatDate(data.generated_at) : '—'} />
+        </dl>
+      </div>
+    </section>
   )
 }
 
-function HeroMetric({
-  icon: Icon,
-  label,
-  value,
-}: Readonly<{
-  icon: LucideIcon
-  label: string
-  value: string
-}>) {
+function SummaryFact({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
-    <div className="rounded-[16px] border border-border/45 bg-background/58 px-3 py-2 shadow-[inset_0_1px_0_hsl(var(--card)/0.72)]">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground/66">
-        <Icon className="size-3 text-info/70" />
-        {label}
-      </div>
-      <div className="mt-1 truncate font-mono text-[11px] font-semibold tabular-nums text-foreground/86" title={value}>
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate font-medium text-foreground" title={value}>
         {value}
+      </dd>
+    </div>
+  )
+}
+
+function DocumentHealthLoading() {
+  return (
+    <div role="status" aria-live="polite" className="space-y-3">
+      <span className="sr-only">正在加载文档健康数据</span>
+      <div className="h-24 animate-pulse rounded-md border border-border bg-muted/40 motion-reduce:animate-none" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="h-24 animate-pulse rounded-md border border-border bg-muted/40 motion-reduce:animate-none"
+          />
+        ))}
       </div>
     </div>
   )
 }
 
-function ScoreTile({
+function HealthMetric({
   detail,
   icon: Icon,
   label,
@@ -483,105 +479,88 @@ function ScoreTile({
   tone: HealthTone
   value: string
 }>) {
-  const ToneIcon = tone === 'ok' ? CheckCircle2 : tone === 'bad' ? AlertTriangle : Sigma
+  const ToneIcon = tone === 'ok' ? CheckCircle2 : tone === 'bad' ? AlertTriangle : CircleMinus
 
   return (
-    <div className="group relative overflow-hidden rounded-[18px] border border-border/50 bg-card/58 px-3 py-2.5 shadow-[0_12px_28px_-30px_hsl(var(--primary)/0.24)]">
-      <span className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,hsl(var(--primary)/0.10),hsl(var(--info)/0.42),hsl(var(--primary)/0.08))]" />
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/72">
-            <Icon className="size-3.5 text-info/78" />
-            {label}
-          </div>
-          <div className="mt-1 truncate font-mono text-[17px] font-semibold tabular-nums tracking-[-0.02em] text-foreground">
-            {value}
-          </div>
-          <div className="mt-0.5 truncate text-[10px] text-muted-foreground/70">
-            {detail}
-          </div>
-        </div>
-        <span className={cn('inline-flex size-7 shrink-0 items-center justify-center rounded-full border', toneClassName(tone))}>
-          <ToneIcon className="size-3.5" />
-        </span>
+    <div className="flex min-w-0 items-start justify-between gap-3 bg-card p-4">
+      <div className="min-w-0">
+        <dt className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Icon className="size-4 text-primary" aria-hidden="true" />
+          {label}
+        </dt>
+        <dd className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</dd>
+        <p className="mt-1 truncate text-xs text-muted-foreground" title={detail}>
+          {detail}
+        </p>
       </div>
+      <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-md border', toneClassName(tone))}>
+        <ToneIcon className="size-4" aria-hidden="true" />
+      </span>
     </div>
   )
 }
 
-function HealthSection({
+function HealthDetails({
   badge,
   children,
+  description,
   icon: Icon,
-  subtitle,
+  last = false,
   title,
   tone,
 }: Readonly<{
   badge: string
   children: React.ReactNode
+  description: string
   icon: LucideIcon
-  subtitle: string
+  last?: boolean
   title: string
   tone: HealthTone
 }>) {
   return (
-    <Panel
-      variant="glass"
-      className="overflow-hidden rounded-[20px] border-border/50 bg-card/54 p-0 shadow-[0_14px_34px_-34px_hsl(var(--primary)/0.22)]"
-    >
-      <div className="border-b border-border/45 bg-[linear-gradient(180deg,hsl(var(--card)/0.70),hsl(var(--surface-2)/0.34))] px-3.5 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-[12px] border border-info/16 bg-info/[0.07] text-info">
-              <Icon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[14px] font-semibold leading-none text-foreground">
-                {title}
-              </div>
-              <div className="mt-1 text-[11px] leading-4 text-muted-foreground/72">
-                {subtitle}
-              </div>
-            </div>
-          </div>
-          <Badge variant="secondary" className={cn('shrink-0 border px-2 py-0.5 text-[10px] font-semibold', toneClassName(tone))}>
-            {badge}
-          </Badge>
+    <details className={cn('group', !last && 'border-b border-border')}>
+      <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
+          <Icon className="size-4" aria-hidden="true" />
         </div>
-      </div>
-      <div className="p-3.5">{children}</div>
-    </Panel>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{description}</p>
+        </div>
+        <Badge variant="secondary" className={cn('hidden shrink-0 border sm:inline-flex', toneClassName(tone))}>
+          {badge}
+        </Badge>
+        <ChevronDown
+          className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="border-t border-border bg-muted/15 p-4">{children}</div>
+    </details>
   )
 }
 
-function DenseGrid({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <div className="grid grid-cols-2 gap-2">{children}</div>
-}
-
-function Fact({
-  label,
-  tone = 'neutral',
-  value,
+function FactsGrid({
+  children,
+  className,
 }: Readonly<{
-  label: string
-  tone?: HealthTone
-  value: string
+  children: React.ReactNode
+  className?: string
 }>) {
   return (
-    <div className="min-w-0 rounded-[14px] border border-border/45 bg-background/58 px-2.5 py-2">
-      <div className="text-[10px] font-medium leading-none text-muted-foreground/62">
-        {label}
-      </div>
-      <div
-        className={cn(
-          'mt-1.5 truncate font-mono text-[11px] font-semibold leading-none tabular-nums text-foreground/84',
-          tone !== 'neutral' && 'inline-flex max-w-full rounded-md border px-1.5 py-0.5',
-          tone !== 'neutral' && toneClassName(tone)
-        )}
-        title={value}
-      >
+    <dl className={cn('grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
+      {children}
+    </dl>
+  )
+}
+
+function Fact({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="min-w-0 border-t border-border pt-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium leading-6 text-foreground" title={value}>
         {value}
-      </div>
+      </dd>
     </div>
   )
 }
