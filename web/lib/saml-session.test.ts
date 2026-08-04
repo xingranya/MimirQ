@@ -3,8 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { consumeSamlBridgeState, getSamlCallbackErrorMessage } from './saml-session'
 
 describe('getSamlCallbackErrorMessage', () => {
-  it('falls back for unknown error values', () => {
-    expect(getSamlCallbackErrorMessage('debug stack trace')).toBe('SAML sign-in failed. Please try again.')
+  it('未知错误使用安全中文兜底', () => {
+    expect(getSamlCallbackErrorMessage('debug stack trace')).toBe('单点登录失败，请返回登录页重试。')
+  })
+
+  it('已映射的安全文案可以重复传入', () => {
+    expect(getSamlCallbackErrorMessage('身份提供方返回了无效的登录响应。')).toBe(
+      '身份提供方返回了无效的登录响应。'
+    )
   })
 })
 
@@ -13,7 +19,7 @@ describe('consumeSamlBridgeState', () => {
     vi.unstubAllGlobals()
   })
 
-  it('does not echo arbitrary backend error detail', async () => {
+  it('不回显任意后端错误详情', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -26,7 +32,7 @@ describe('consumeSamlBridgeState', () => {
 
     await expect(consumeSamlBridgeState()).resolves.toEqual({
       kind: 'error',
-      error: 'SAML sign-in failed. Please try again.',
+      error: '单点登录失败，请返回登录页重试。',
     })
   })
 })
