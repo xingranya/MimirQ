@@ -12,7 +12,7 @@ const validDify: DifyExternalKnowledgeConfig = {
   api_keys: 'abcd***wxyz',
   tenant_id: '00000000-0000-4000-8000-000000000001',
   account_id: 'system:dify',
-  knowledge_map_json: '{"kb_policy":["dataset-a"]}',
+  knowledge_map_json: '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
   top_k_max: 20,
   endpoint_path: '/api/v1/integrations/dify/retrieval',
 }
@@ -41,6 +41,7 @@ describe('设置保存校验', () => {
         minio: {
           ...validMinIO,
           enabled: false,
+          documents_enabled: false,
           endpoint: '',
           access_key: '',
           secret_key: '',
@@ -55,7 +56,12 @@ describe('设置保存校验', () => {
       validateDifyExternalKnowledgeConfig({
         ...validDify,
         knowledge_map_json: JSON.stringify({
-          kb_policy: { dataset_ids: ['dataset-a', 'dataset-b'] },
+          kb_policy: {
+            dataset_ids: [
+              '00000000-0000-4000-8000-000000000001',
+              '00000000-0000-4000-8000-000000000002',
+            ],
+          },
         }),
       })
     ).toBeNull()
@@ -70,7 +76,8 @@ describe('设置保存校验', () => {
     [{ knowledge_map_json: '' }, '至少一条知识绑定'],
     [{ knowledge_map_json: '{' }, '有效的 JSON'],
     [{ knowledge_map_json: '[]' }, 'JSON 对象'],
-    [{ knowledge_map_json: '{"kb_policy":[]}' }, '至少一个有效的数据集 ID'],
+    [{ knowledge_map_json: '{"kb_policy":[]}' }, '至少一个有效的数据集 UUID'],
+    [{ knowledge_map_json: '{"kb_policy":["dataset-a"]}' }, '有效的数据集 UUID'],
   ])('拦截无效的 Dify 配置 %#', (patch, message) => {
     const result = validateDifyExternalKnowledgeConfig({ ...validDify, ...patch })
     expect(result?.section).toBe('Dify 外部知识库')
@@ -79,6 +86,19 @@ describe('设置保存校验', () => {
 
   it('接受脱敏凭证和有效的对象存储配置', () => {
     expect(validateMinIOConfig(validMinIO)).toBeNull()
+  })
+
+  it('不允许在关闭 MinIO 时单独启用文档对象存储', () => {
+    expect(
+      validateMinIOConfig({
+        ...validMinIO,
+        enabled: false,
+        documents_enabled: true,
+      })
+    ).toEqual({
+      section: '对象存储',
+      message: '启用文档对象存储前，请先打开 MinIO 对象存储。',
+    })
   })
 
   it.each([

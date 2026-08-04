@@ -43,6 +43,13 @@ function datasetIdsFromBinding(value: unknown): string[] | null {
   )
 }
 
+function hasValidDatasetBinding(value: unknown): boolean {
+  const datasetIds = datasetIdsFromBinding(value)
+  return Boolean(
+    datasetIds?.length && datasetIds.every((datasetId) => UUID_PATTERN.test(datasetId))
+  )
+}
+
 export function validateDifyExternalKnowledgeConfig(
   config: DifyExternalKnowledgeConfig
 ): SettingsValidationIssue | null {
@@ -94,12 +101,12 @@ export function validateDifyExternalKnowledgeConfig(
   if (
     bindings.some(
       ([knowledgeId, value]) =>
-        !knowledgeId.trim() || datasetIdsFromBinding(value) === null
+        !knowledgeId.trim() || !hasValidDatasetBinding(value)
     )
   ) {
     return issue(
       'Dify 外部知识库',
-      '每条知识绑定都要包含 knowledge_id 和至少一个有效的数据集 ID。'
+      '每条知识绑定都要包含 knowledge_id 和至少一个有效的数据集 UUID。'
     )
   }
 
@@ -107,7 +114,11 @@ export function validateDifyExternalKnowledgeConfig(
 }
 
 export function validateMinIOConfig(config: MinIOConfig): SettingsValidationIssue | null {
-  if (!config.enabled) return null
+  if (!config.enabled) {
+    return config.documents_enabled
+      ? issue('对象存储', '启用文档对象存储前，请先打开 MinIO 对象存储。')
+      : null
+  }
 
   const endpoint = String(config.endpoint || '').trim()
   if (!endpoint) {

@@ -137,7 +137,8 @@ describe('设置页保存校验', () => {
       hook.result.current.updateDifyExternalKnowledge({
         enabled: true,
         api_keys: 'valid-key',
-        knowledge_map_json: '{"kb_policy":["dataset-a"]}',
+        knowledge_map_json:
+          '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
       })
     })
     await act(async () => {
@@ -149,7 +150,8 @@ describe('设置页保存校验', () => {
       expect.objectContaining({
         dify_external_knowledge: expect.objectContaining({
           enabled: true,
-          knowledge_map_json: '{"kb_policy":["dataset-a"]}',
+          knowledge_map_json:
+            '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
         }),
       })
     )

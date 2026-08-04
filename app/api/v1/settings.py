@@ -34,6 +34,7 @@ from app.core.config import (
     settings,
 )
 from app.core.database import get_db
+from app.core.env import is_production_env
 from app.core.jwt_inspect import format_unix_ts_utc, try_get_jwt_exp
 from app.core.openai_compat import (
     is_local_openai_compatible_base_url,
@@ -619,6 +620,143 @@ def _parse_bool(value: Any) -> bool:
         return value
     text = str(value or "").strip().lower()
     return text in {"1", "true", "yes", "y", "on"}
+
+
+def _effective_setting_value(env_vars: dict[str, str], key: str, current_key: str) -> str:
+    """读取本次保存后会生效的值，并兼容仅由进程环境提供的现有密钥。"""
+    if key in env_vars:
+        return str(env_vars[key] or "").strip()
+    return str(getattr(settings, current_key, "") or "").strip()
+
+
+def _validate_dify_knowledge_binding(value: Any) -> bool:
+    """检查一条 Dify 绑定是否至少包含一个有效的数据集 UUID。"""
+    if isinstance(value, dict):
+        for key in ("dataset_ids", "datasets", "dataset_id"):
+            if key in value:
+                return _validate_dify_knowledge_binding(value[key])
+        return False
+    if isinstance(value, str):
+        try:
+            UUID(value.strip())
+        except ValueError:
+            return False
+        return True
+    if isinstance(value, list | tuple | set):
+        return bool(value) and all(_validate_dify_knowledge_binding(item) for item in value)
+    return False
+
+
+def _validate_external_service_update(
+    env_vars: dict[str, str],
+    request: UpdateSettingsRequest,
+) -> None:
+    """在落盘前校验外部服务配置，避免保存成功后才在启动阶段失败。"""
+    if request.minio is not None:
+        enabled = _parse_bool(env_vars.get("MINIO_ENABLED"))
+        documents_enabled = _parse_bool(env_vars.get("MINIO_DOCUMENTS_ENABLED"))
+        if documents_enabled and not enabled:
+            raise HTTPException(status_code=400, detail="启用文档对象存储前，请先启用 MinIO 对象存储")
+        if enabled:
+            endpoint = str(env_vars.get("MINIO_ENDPOINT") or "").strip()
+            if not endpoint:
+                raise HTTPException(status_code=400, detail="启用 MinIO 前，请填写 Endpoint")
+            if any(char.isspace() for char in endpoint) or "://" in endpoint or any(
+                char in endpoint for char in "/?#"
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="MinIO Endpoint 只填写主机名和端口，不要包含协议、路径或空格",
+                )
+            bucket_name = str(env_vars.get("MINIO_BUCKET_NAME") or "").strip()
+            if not bucket_name:
+                raise HTTPException(status_code=400, detail="启用 MinIO 前，请填写 Bucket 名称")
+            if any(char.isspace() for char in bucket_name) or "/" in bucket_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail="MinIO Bucket 名称不能包含空格或路径分隔符",
+                )
+            access_key = _effective_setting_value(
+                env_vars,
+                "MINIO_ACCESS_KEY",
+                "MINIO_ACCESS_KEY",
+            )
+            secret_key = _effective_setting_value(
+                env_vars,
+                "MINIO_SECRET_KEY",
+                "MINIO_SECRET_KEY",
+            )
+            if not access_key or not secret_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="启用 MinIO 前，请同时填写 Access Key 和 Secret Key",
+                )
+
+    if request.dify_external_knowledge is not None:
+        enabled = _parse_bool(env_vars.get("DIFY_EXTERNAL_KNOWLEDGE_ENABLED"))
+        if not enabled:
+            return
+
+        api_keys = _effective_setting_value(
+            env_vars,
+            "DIFY_EXTERNAL_KNOWLEDGE_API_KEYS",
+            "DIFY_EXTERNAL_KNOWLEDGE_API_KEYS",
+        )
+        tokens = api_keys.replace(",", " ").split()
+        if not tokens:
+            raise HTTPException(status_code=400, detail="启用 Dify 外部知识库前，请填写 API Key")
+        for token in tokens:
+            if token.lower().startswith("sha256:"):
+                digest = token.split(":", 1)[1].strip()
+                if len(digest) != 64 or any(
+                    char not in "0123456789abcdefABCDEF" for char in digest
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Dify API Key 的 SHA-256 摘要格式不正确",
+                    )
+
+        tenant_id_text = str(env_vars.get("DIFY_EXTERNAL_KNOWLEDGE_TENANT_ID") or "").strip()
+        if is_production_env() and not tenant_id_text:
+            raise HTTPException(
+                status_code=400,
+                detail="生产环境启用 Dify 外部知识库时必须填写租户 ID",
+            )
+        account_id = str(env_vars.get("DIFY_EXTERNAL_KNOWLEDGE_ACCOUNT_ID") or "").strip()
+        if not account_id:
+            raise HTTPException(status_code=400, detail="启用 Dify 外部知识库前，请填写服务账号")
+
+        raw_map = str(env_vars.get("DIFY_EXTERNAL_KNOWLEDGE_MAP_JSON") or "").strip()
+        resolution_mode = _effective_setting_value(
+            env_vars,
+            "DIFY_EXTERNAL_KNOWLEDGE_RESOLUTION_MODE",
+            "DIFY_EXTERNAL_KNOWLEDGE_RESOLUTION_MODE",
+        ).lower() or "mapped_only"
+        if raw_map:
+            try:
+                knowledge_map = json.loads(raw_map)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=400, detail="Dify 知识绑定不是有效的 JSON") from exc
+            if not isinstance(knowledge_map, dict):
+                raise HTTPException(status_code=400, detail="Dify 知识绑定必须是 JSON 对象")
+            if not knowledge_map and (resolution_mode != "allow_dataset_uuid" or is_production_env()):
+                raise HTTPException(
+                    status_code=400,
+                    detail="启用 Dify 外部知识库前，请至少配置一条知识绑定",
+                )
+            if any(
+                not str(knowledge_id).strip() or not _validate_dify_knowledge_binding(binding)
+                for knowledge_id, binding in knowledge_map.items()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="每条 Dify 知识绑定都必须包含有效的数据集 UUID",
+                )
+        elif resolution_mode != "allow_dataset_uuid" or is_production_env():
+            raise HTTPException(
+                status_code=400,
+                detail="启用 Dify 外部知识库前，请至少配置一条知识绑定",
+            )
 
 
 def _parse_int(value: Any, *, default: int = 0) -> int:
@@ -1751,6 +1889,7 @@ def update_settings(
                 ]
             )
 
+        _validate_external_service_update(env_vars, request)
         write_env_file(env_vars)
         with contextlib.suppress(Exception):
             # Best-effort, PII-minimal audit record (no secret values).
