@@ -37,16 +37,16 @@ export function RagTraceDialog({ open, onOpenChange, conversationId, title }: Re
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-6xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4 pr-12">
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] max-w-6xl flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90dvh]">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-3 pr-12 sm:px-6 sm:py-4">
+          <DialogTitle className="flex min-w-0 items-center gap-2 text-left">
             <Route className="h-5 w-5 text-info" />
-            <span>{t("dialog.title")}</span>
-            {title ? <span className="text-sm font-normal text-muted-foreground">· {title}</span> : null}
+            <span className="shrink-0">{t("dialog.title")}</span>
+            {title ? <span className="truncate text-sm font-normal text-muted-foreground">· {title}</span> : null}
           </DialogTitle>
         </DialogHeader>
         {conversationId ? (
-          <div className="min-h-0 overflow-y-auto px-6 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4">
             <RagTracePanel conversationId={conversationId} className="min-h-0" />
           </div>
         ) : null}

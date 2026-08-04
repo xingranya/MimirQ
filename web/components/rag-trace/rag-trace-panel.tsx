@@ -375,25 +375,25 @@ const RAG_TRACE_LAST_TARGETS_STORAGE_KEY = 'mimirq_rag_trace_last_targets_v1'
 type RagTraceTranslation = (key: string, values?: Record<string, string | number | Date>) => string
 
 const RAG_TRACE_FALLBACK_MESSAGES: Record<string, string> = {
-  'panel.channels.options.all.label': 'All',
-  'panel.channels.options.all.summary': '查看整条链路的最终证据面。',
-  'panel.channels.options.vector.label': 'Vector',
-  'panel.channels.options.vector.summary': '聚焦 dense/vector 通道真正贡献到最终引用的证据。',
+  'panel.channels.options.all.label': '全部',
+  'panel.channels.options.all.summary': '查看整条链路采用的最终证据。',
+  'panel.channels.options.vector.label': '向量',
+  'panel.channels.options.vector.summary': '查看向量检索实际贡献的最终证据。',
   'panel.channels.options.bm25.label': 'BM25',
-  'panel.channels.options.bm25.summary': '排查 lexical keyword 命中是否主导了召回结果。',
-  'panel.channels.options.lexicalDb.label': 'Lexical DB',
-  'panel.channels.options.lexicalDb.summary': '查看数据库级词法通道在最终证据里的存在感。',
-  'panel.channels.options.sparse.label': 'Sparse',
-  'panel.channels.options.sparse.summary': '检查 learned sparse / SPLADE 风格通道是否带来额外证据。',
+  'panel.channels.options.bm25.summary': '检查关键词匹配是否主导了检索结果。',
+  'panel.channels.options.lexicalDb.label': '词法数据库',
+  'panel.channels.options.lexicalDb.summary': '查看数据库词法检索贡献的最终证据。',
+  'panel.channels.options.sparse.label': '稀疏检索',
+  'panel.channels.options.sparse.summary': '检查稀疏检索是否带来额外证据。',
   'panel.channels.options.colbert.label': 'ColBERT',
-  'panel.channels.options.colbert.summary': '聚焦 late-interaction / ColBERT 通道影响到的证据。',
-  'panel.inspector.retrieveSummary': '检索层决定候选面宽度，可以直接看 query 扩散、top_k 和融合策略是否异常。',
-  'panel.inspector.retrieveCallout': 'hierarchy recall {status}{overfetch}',
+  'panel.channels.options.colbert.summary': '查看 ColBERT 检索影响到的最终证据。',
+  'panel.inspector.retrieveSummary': '检索阶段决定候选范围，可检查查询数量、候选上限和融合方式。',
+  'panel.inspector.retrieveCallout': '层级召回{status}{overfetch}',
   'panel.inspector.retrieveEnabled': '已启用',
   'panel.inspector.retrieveDisabled': '未启用',
-  'panel.inspector.rerankSummary': '重排层用于判断“为什么这个 chunk 最终浮到前面”，适合排查 provider、top_n 和跳过原因。',
-  'panel.inspector.rerankSkipped': '当前 trace 跳过 rerank：{reason}',
-  'panel.inspector.citationsSummary': '证据层把最终引用聚合成可验证的来源，你可以直接跳到高分 chunk 做人工复核。',
+  'panel.inspector.rerankSummary': '重排阶段用于判断某条内容为何排在前面，可检查服务来源、保留数量和跳过原因。',
+  'panel.inspector.rerankSkipped': '当前请求跳过了重排：{reason}',
+  'panel.inspector.citationsSummary': '证据阶段汇总最终引用，可直接打开高分内容进行核对。',
   'panel.inspector.defaultSummary': '该阶段没有专门的诊断面板，保留关键计数与耗时，方便对照整条流水线。',
   'panel.evidencePreview.title': '证据解读',
   'panel.evidencePreview.description': '这块用于判断回答到底引用了什么。当前展示排名前 {count} 条证据；如果证据偏题，就说明召回或 Dify 回传证据需要调整。',
@@ -479,9 +479,9 @@ function getRagTraceCitationChannelRawScore(
 }
 
 function getTraceConfigMatchLabel(value: boolean | null): string {
-  if (value === false) return 'cfg changed'
-  if (value === true) return 'same cfg'
-  return 'cfg ?'
+  if (value === false) return '配置不同'
+  if (value === true) return '配置相同'
+  return '配置未知'
 }
 
 function getTraceRankDeltaLabel(rankDelta: number): string {
@@ -793,7 +793,7 @@ function stringifyInspectorValue(value: unknown, fallback = '—') {
   if (value == null) return fallback
   if (typeof value === 'string') return value.trim() || fallback
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallback
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'boolean') return value ? '是' : '否'
   return safeDisplayString(value, fallback)
 }
 
@@ -855,13 +855,13 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
         : {}
     if (id === 'retrieve') {
       const metrics = [
-        buildInspectorMetric('Latency', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
-        buildInspectorMetric('Mode', step.mode ?? trace.retrieval?.mode),
-        buildInspectorMetric('Queries', step.queryCount),
-        buildInspectorMetric('Top K', step.topK),
-        buildInspectorMetric('Candidates', step.itemCount),
-        buildInspectorMetric('Fusion', channels?.fusion_strategy),
-        buildInspectorMetric('Vector backend', channels?.vector_backend),
+        buildInspectorMetric('耗时', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
+        buildInspectorMetric('模式', step.mode ?? trace.retrieval?.mode),
+        buildInspectorMetric('查询数', step.queryCount),
+        buildInspectorMetric('候选上限', step.topK),
+        buildInspectorMetric('候选数', step.itemCount),
+        buildInspectorMetric('融合方式', channels?.fusion_strategy),
+        buildInspectorMetric('向量服务', channels?.vector_backend),
       ].filter((value): value is PipelineInspectorMetric => Boolean(value))
 
       return {
@@ -874,7 +874,7 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
             : t("panel.inspector.retrieveCallout", {
                 status: hierarchyRecall.enabled ? t("panel.inspector.retrieveEnabled") : t("panel.inspector.retrieveDisabled"),
                 overfetch:
-                  hierarchyRecall.overfetch_factor == null ? '' : ` · overfetch=${safeDisplayString(hierarchyRecall.overfetch_factor)}`,
+                  hierarchyRecall.overfetch_factor == null ? '' : ` · 扩展倍数 ${safeDisplayString(hierarchyRecall.overfetch_factor)}`,
               }),
         metrics,
         citations: citationSummary.top,
@@ -883,12 +883,12 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
 
     if (id === 'rerank') {
       const metrics = [
-        buildInspectorMetric('Latency', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
-        buildInspectorMetric('Provider', trace.rerank?.enabled ? trace.rerank?.provider || 'enabled' : 'disabled'),
-        buildInspectorMetric('Top N', step.rerankTopN ?? trace.rerank?.top_n),
-        buildInspectorMetric('Candidates kept', step.itemCount),
-        buildInspectorMetric('Skip reason', rerankMeta?.skip_reason),
-        buildInspectorMetric('Error', rerankMeta?.error),
+        buildInspectorMetric('耗时', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
+        buildInspectorMetric('服务', trace.rerank?.enabled ? trace.rerank?.provider || '已启用' : '未启用'),
+        buildInspectorMetric('保留数量', step.rerankTopN ?? trace.rerank?.top_n),
+        buildInspectorMetric('保留候选', step.itemCount),
+        buildInspectorMetric('跳过原因', rerankMeta?.skip_reason),
+        buildInspectorMetric('错误', rerankMeta?.error),
       ].filter((value): value is PipelineInspectorMetric => Boolean(value))
 
       return {
@@ -903,10 +903,10 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
 
     if (id === 'citations') {
       const metrics = [
-        buildInspectorMetric('Latency', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
-        buildInspectorMetric('Citations', trace.citations_count),
-        buildInspectorMetric('Distinct docs', citationSummary.distinctDocuments),
-        buildInspectorMetric('Image hits', citationSummary.imageHits),
+        buildInspectorMetric('耗时', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
+        buildInspectorMetric('证据数', trace.citations_count),
+        buildInspectorMetric('文档数', citationSummary.distinctDocuments),
+        buildInspectorMetric('图片证据', citationSummary.imageHits),
       ].filter((value): value is PipelineInspectorMetric => Boolean(value))
 
       return {
@@ -920,27 +920,27 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
 
     if (id === 'dify_result') {
       const metrics = [
-        buildInspectorMetric('Answer chars', stepMeta.answer_chars),
-        buildInspectorMetric('Answer hash', stepMeta.answer_hash),
-        buildInspectorMetric('Dify message', stepMeta.source_message_id),
-        buildInspectorMetric('Workflow run', stepMeta.source_run_id),
-        buildInspectorMetric('Citations', stepMeta.citations_count ?? trace.citations_count),
+        buildInspectorMetric('回答字符数', stepMeta.answer_chars),
+        buildInspectorMetric('回答摘要值', stepMeta.answer_hash),
+        buildInspectorMetric('Dify 消息', stepMeta.source_message_id),
+        buildInspectorMetric('工作流记录', stepMeta.source_run_id),
+        buildInspectorMetric('证据数', stepMeta.citations_count ?? trace.citations_count),
       ].filter((value): value is PipelineInspectorMetric => Boolean(value))
 
       return {
         id,
         label: step.label,
-        summary: 'Dify workflow result metadata attached to this RAG trace.',
+        summary: '当前 RAG 追踪记录包含 Dify 工作流返回的结果信息。',
         metrics,
         citations: citationSummary.top,
       }
     }
 
     const metrics = [
-      buildInspectorMetric('Latency', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
-      buildInspectorMetric('Mode', step.mode),
-      buildInspectorMetric('Queries', step.queryCount),
-      buildInspectorMetric('Items', step.itemCount),
+      buildInspectorMetric('耗时', step.elapsedSec, { formatter: (value) => formatSec(asFiniteNumber(value)) }),
+      buildInspectorMetric('模式', step.mode),
+      buildInspectorMetric('查询数', step.queryCount),
+      buildInspectorMetric('条目数', step.itemCount),
     ].filter((value): value is PipelineInspectorMetric => Boolean(value))
 
     return {
@@ -955,12 +955,12 @@ export function buildPipelineInspectorSections(trace: RagTrace | null, t: RagTra
   if (!sections.some((section) => section.id === 'citations') && trace.citations_count > 0) {
     sections.push({
       id: 'citations',
-      label: 'Citations',
+      label: '证据',
       summary: t("panel.inspector.citationsSummary"),
       metrics: [
-        buildInspectorMetric('Citations', trace.citations_count),
-        buildInspectorMetric('Distinct docs', citationSummary.distinctDocuments),
-        buildInspectorMetric('Image hits', citationSummary.imageHits),
+        buildInspectorMetric('证据数', trace.citations_count),
+        buildInspectorMetric('文档数', citationSummary.distinctDocuments),
+        buildInspectorMetric('图片证据', citationSummary.imageHits),
       ].filter((value): value is PipelineInspectorMetric => Boolean(value)),
       citations: citationSummary.top,
     })
@@ -984,8 +984,8 @@ export function buildPipelineTimelineSteps(trace: RagTrace | null): PipelineTime
     const rerankTopN = lowerKey.includes('rerank') ? asFiniteNumber(trace?.rerank?.top_n) : null
 
     return {
-      key: String(step.key || step.label || 'step'),
-      label: String(step.label || step.key || 'step'),
+      key: String(step.key || step.label || 'stage'),
+      label: String(step.label || step.key || '阶段'),
       elapsedSec: elapsed,
       mode,
       queryCount,
@@ -1009,7 +1009,7 @@ export function RagTracePipelineTimeline({
   steps,
   selectedKey = null,
   onSelectStep,
-  emptyLabel = 'pipeline steps unavailable',
+  emptyLabel = '暂无流程步骤',
 }: Readonly<{
   steps: PipelineTimelineStep[]
   selectedKey?: string | null
@@ -1028,13 +1028,13 @@ export function RagTracePipelineTimeline({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-foreground">{step.label}</div>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    share={shareLabel}
-                    {step.mode ? ` · mode=${step.mode}` : null}
-                    {step.queryCount == null ? null : ` · queries=${step.queryCount}`}
-                    {step.itemCount == null ? null : ` · count=${step.itemCount}`}
-                    {step.topK == null ? null : ` · top_k=${step.topK}`}
-                    {step.rerankTopN == null ? null : ` · top_n=${step.rerankTopN}`}
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    占比 {shareLabel}
+                    {step.mode ? ` · 模式 ${formatTraceModeLabel(step.mode)}` : null}
+                    {step.queryCount == null ? null : ` · 查询 ${step.queryCount}`}
+                    {step.itemCount == null ? null : ` · 条目 ${step.itemCount}`}
+                    {step.topK == null ? null : ` · 候选上限 ${step.topK}`}
+                    {step.rerankTopN == null ? null : ` · 重排保留 ${step.rerankTopN}`}
                   </div>
                 </div>
                 <div className="shrink-0 text-xs font-medium text-muted-foreground">{formatSec(step.elapsedSec)}</div>
@@ -1051,7 +1051,7 @@ export function RagTracePipelineTimeline({
 
           if (!onSelectStep) {
             return (
-              <div key={step.key} className="space-y-1 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+              <div key={step.key} className="space-y-1 rounded-md border border-border bg-muted/20 px-3 py-2">
                 {content}
               </div>
             )
@@ -1064,11 +1064,11 @@ export function RagTracePipelineTimeline({
               aria-pressed={selected}
               onClick={() => onSelectStep(step.key)}
               className={cn(
-                'block w-full space-y-1 rounded-xl border px-3 py-2 text-left transition-colors',
+                'block w-full space-y-1 rounded-md border px-3 py-2 text-left transition-colors',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
                 selected
-                  ? 'border-info bg-info shadow-sm'
-                  : 'border-border/60 bg-muted/20 hover:border-info hover:bg-muted/40'
+                  ? 'border-info bg-info'
+                  : 'border-border bg-muted/20 hover:border-info hover:bg-muted/40'
               )}
             >
               {content}
@@ -1098,13 +1098,13 @@ function TraceCitationDiffList({
   onOpenCitation: (citation: RagTraceCitation, opts?: { label?: string; notify?: boolean }) => void
 }>) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+    <div className="rounded-md border border-border bg-background p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-semibold text-foreground">{title}</div>
         <Badge
           variant="soft"
           className={cn(
-            'text-[11px]',
+            'text-xs',
             tone === 'added' ? 'border-success/20 bg-success/10 text-success' : undefined,
             tone === 'removed' ? 'border-warning/20 bg-warning/10 text-warning' : undefined
           )}
@@ -1119,25 +1119,27 @@ function TraceCitationDiffList({
             const documentId = String(item.citation.document_id || '').trim()
             const chunkId = String(item.citation.chunk_id || '').trim() || undefined
             const scoreLabel = item.score == null ? '—' : item.score.toFixed(3)
-            const pageLabel = item.citation.page_number == null ? null : `P.${item.citation.page_number}`
+            const pageLabel = item.citation.page_number == null ? null : `第 ${item.citation.page_number} 页`
             return (
               <div
                 key={`${tone}:${item.key}`}
-                className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                className="flex items-start justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
               >
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-foreground">{item.label}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>{chunkId ? `chunk=${chunkId}` : 'document-level evidence'}</span>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{chunkId ? `分块 ${chunkId}` : '文档级证据'}</span>
                     {pageLabel ? <span>{pageLabel}</span> : null}
-                    <span className="font-mono">score={scoreLabel}</span>
+                    <span className="font-mono">得分 {scoreLabel}</span>
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-xl"
+                  className="rounded-md"
                   disabled={!documentId}
+                  aria-label="打开证据"
+                  title="打开证据"
                   onMouseEnter={() => onPrefetchCitation(documentId, chunkId)}
                   onFocus={() => onPrefetchCitation(documentId, chunkId)}
                   onClick={() => onOpenCitation(item.citation, { label: item.label })}
@@ -1149,7 +1151,7 @@ function TraceCitationDiffList({
           })}
         </div>
       ) : (
-        <div className="mt-3 rounded-xl border border-dashed border-border/60 bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
+        <div className="mt-3 rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
           {emptyLabel}
         </div>
       )}
@@ -1169,10 +1171,10 @@ function TraceCitationScoreShiftList({
   const t = useTranslations('RagTrace')
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+    <div className="rounded-md border border-border bg-background p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-semibold text-foreground">{t("panel.evidenceDrift.scoreShiftTitle")}</div>
-        <Badge variant="soft" className="text-[11px]">
+        <Badge variant="soft" className="text-xs">
           {items.length}
         </Badge>
       </div>
@@ -1185,14 +1187,14 @@ function TraceCitationScoreShiftList({
             return (
               <div
                 key={`shift:${item.key}`}
-                className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                className="flex items-start justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
               >
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-foreground">{item.label}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>{chunkId ? `chunk=${chunkId}` : 'document-level evidence'}</span>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{chunkId ? `分块 ${chunkId}` : '文档级证据'}</span>
                     <span className="font-mono">
-                      A={item.scoreA == null ? '—' : item.scoreA.toFixed(3)} → B={item.scoreB == null ? '—' : item.scoreB.toFixed(3)}
+                      当前 {item.scoreA == null ? '—' : item.scoreA.toFixed(3)} → 对比 {item.scoreB == null ? '—' : item.scoreB.toFixed(3)}
                     </span>
                     <span className={cn('font-mono', item.scoreDelta >= 0 ? 'text-success' : 'text-warning')}>
                       Δ {item.scoreDelta.toFixed(3)}
@@ -1202,8 +1204,10 @@ function TraceCitationScoreShiftList({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-xl"
+                  className="rounded-md"
                   disabled={!documentId}
+                  aria-label="打开证据"
+                  title="打开证据"
                   onMouseEnter={() => onPrefetchCitation(documentId, chunkId)}
                   onFocus={() => onPrefetchCitation(documentId, chunkId)}
                   onClick={() => onOpenCitation(item.b, { label: item.label })}
@@ -1215,8 +1219,8 @@ function TraceCitationScoreShiftList({
           })}
         </div>
       ) : (
-        <div className="mt-3 rounded-xl border border-dashed border-border/60 bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
-          共享 evidence 的排序分数没有明显变化。
+        <div className="mt-3 rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-xs text-muted-foreground">
+          共同证据的排序分数没有明显变化。
         </div>
       )}
     </div>
@@ -1471,19 +1475,19 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
       zip.file(
         'README.txt',
         [
-          '见外传媒知识库 Incident Bundle (PII-safe)',
-          `exported_at: ${new Date().toISOString()}`,
-          `request_id: ${rid}`,
+          '见外传媒知识库诊断包（不含个人信息）',
+          `导出时间：${new Date().toISOString()}`,
+          `请求 ID：${rid}`,
           '',
-          'Files:',
+          '文件：',
           '- meta.json',
           '- health_ready.json',
           '- config_snapshot.json',
           '- trace_bundle.json',
           '',
-          'Notes:',
-          '- query text is NOT included; only hashes/aggregates are exported.',
-          '- trace_bundle.json is produced by /api/v1/observability/rag-metrics/trace-bundle',
+          '说明：',
+          '- 诊断包不包含查询原文，只导出摘要值和聚合数据。',
+          '- trace_bundle.json 由 /api/v1/observability/rag-metrics/trace-bundle 生成。',
         ].join('\n')
       )
 
@@ -1617,7 +1621,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
         icon={Quote}
         iconClassName="text-info"
       >
-        <Button variant="outline" onClick={load} className="rounded-xl">
+        <Button variant="outline" onClick={load} className="rounded-md">
           {t("panel.actions.refresh")}
         </Button>
       </EmptyState>
@@ -1626,22 +1630,22 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
 
   return (
     <section
-      className={cn('grid grid-cols-1 gap-3 lg:grid-cols-[300px,minmax(0,1fr)]', className)}
-      aria-label="RAG trace keyboard navigation"
+      className={cn('grid grid-cols-1 gap-3 xl:grid-cols-[300px,minmax(0,1fr)]', className)}
+      aria-label="RAG 追踪记录"
     >
-      <Panel variant="glass" padding="none" className="overflow-hidden border-info/14 bg-[linear-gradient(180deg,hsl(var(--info)/0.05),hsl(var(--background)/0.7))]">
-        <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5">
+      <Panel padding="none" className="overflow-hidden bg-background">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Route className="h-4 w-4 text-info" />
               <div className="text-sm font-semibold">{t("panel.header.title")}</div>
-              <Badge variant="soft" className="text-[11px]">
+              <Badge variant="soft" className="text-xs">
                 {items.length} 条
               </Badge>
             </div>
-            <div className="mt-1 truncate text-[11px] text-muted-foreground">{t("panel.header.keyboardHint")}</div>
+            <div className="mt-1 truncate text-xs text-muted-foreground">{t("panel.header.keyboardHint")}</div>
           </div>
-          <Button variant="outline" size="sm" onClick={load} className="h-8 rounded-xl px-3">
+          <Button variant="outline" size="sm" onClick={load} className="h-8 rounded-md px-3">
             {t("panel.actions.refresh")}
           </Button>
         </div>
@@ -1655,20 +1659,20 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                 type="button"
                 onClick={() => setSelectedIndex(idx)}
                 className={cn(
-                  'w-full rounded-xl border px-3 py-2 text-left transition-colors',
+                  'w-full rounded-md border px-3 py-2 text-left transition-colors',
                   'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
                   active
-                    ? 'border-info bg-info shadow-sm'
-                    : 'border-border/60 bg-background/65 hover:bg-muted/40'
+                    ? 'border-info bg-info'
+                    : 'border-border bg-background hover:bg-muted/40'
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-medium text-foreground">{formatTs(t.ts_ms)}</div>
-                  <Badge variant="soft" className="text-[11px]">
+                  <Badge variant="soft" className="text-xs">
                     {formatTraceModeLabel(mode)}
                   </Badge>
                 </div>
-                <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>{formatCitationCount(t.citations_count)}</span>
                   <span className="inline-flex items-center gap-1">
                     <Timer className="h-3 w-3" />
@@ -1685,27 +1689,26 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
         {selected ? (
           <>
             <Panel
-              variant="glass"
-              className="flex flex-col gap-2 border-info/14 bg-[linear-gradient(135deg,hsl(var(--background)),hsl(var(--background)),hsl(var(--info)/0.04))]"
+              className="flex flex-col gap-2 bg-background"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="soft" className="max-w-[14rem] truncate text-[11px] font-mono" title={selected.request_id || ''}>
+                  <Badge variant="soft" className="max-w-[14rem] truncate text-xs font-mono" title={selected.request_id || ''}>
                     请求 {selected.request_id ? shortHash(selected.request_id, { head: 12, tail: 8 }) : '—'}
                   </Badge>
-                  <Badge variant="soft" className="text-[11px]">
+                  <Badge variant="soft" className="text-xs">
                     {formatTraceModeLabel(selected?.retrieval?.mode)}
                   </Badge>
                   {retrievalConfigHash ? (
                     <Badge
                       variant="soft"
-                      className="text-[11px] font-mono"
+                      className="text-xs font-mono"
                       title={retrievalConfigHash}
                     >
-                      cfg: {shortHash(retrievalConfigHash)}
+                      配置：{shortHash(retrievalConfigHash)}
                     </Badge>
                   ) : null}
-                  <Badge variant="soft" className="text-[11px]">
+                  <Badge variant="soft" className="text-xs">
                     {formatCitationCount(selected.citations_count)}
                   </Badge>
                 </div>
@@ -1717,7 +1720,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 rounded-xl px-3 text-xs"
+                    className="h-8 gap-1.5 rounded-md px-3 text-xs"
                     disabled={!requestId || bundleDownloading}
                     onClick={() => detachPromise(downloadBundle())}
                     title={t("panel.actions.downloadBundleTitle")}
@@ -1732,7 +1735,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 rounded-xl px-3 text-xs"
+                    className="h-8 gap-1.5 rounded-md px-3 text-xs"
                     disabled={!requestId}
                     onClick={() => setDiffOpen((v) => !v)}
                     title={t("panel.actions.compareTitle")}
@@ -1744,7 +1747,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
               </div>
 
               {bundleError ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                   {bundleError}
                 </div>
               ) : null}
@@ -1762,7 +1765,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       {diffCandidateOptions.length ? (
                         <div className="space-y-2">
                           <div>
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="text-xs font-semibold text-muted-foreground">
                               {t("panel.compareCandidates.title")}
                             </div>
                             <div className="mt-1 text-xs text-muted-foreground">
@@ -1778,21 +1781,21 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                                   type="button"
                                   onClick={() => selectDiffCandidate(candidate)}
                                   className={cn(
-                                    'rounded-xl border px-3 py-2 text-left transition-colors',
+                                    'rounded-md border px-3 py-2 text-left transition-colors',
                                     'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
                                     active
                                       ? 'border-info bg-info'
-                                      : 'border-border/60 bg-background/80 hover:border-info hover:bg-muted/30'
+                                      : 'border-border bg-background hover:border-info hover:bg-muted/30'
                                   )}
                                 >
                                   <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                                     <span className="font-mono">{shortHash(candidate.requestId, { head: 10, tail: 6 })}</span>
-                                    <Badge variant="soft" className="text-[11px]">
+                                    <Badge variant="soft" className="text-xs">
                                       {getTraceConfigMatchLabel(candidate.sameRetrievalConfig)}
                                     </Badge>
                                   </div>
-                                  <div className="mt-1 text-[11px] text-muted-foreground">
-                                    {candidate.mode || '—'} · citations={candidate.citationsCount} · {formatTs(candidate.tsMs)}
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {formatTraceModeLabel(candidate.mode)} · {formatCitationCount(candidate.citationsCount)} · {formatTs(candidate.tsMs)}
                                   </div>
                                 </button>
                               )
@@ -1804,11 +1807,11 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                         <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2">
                           <div className="space-y-1">
-                            <div className="text-[11px] text-muted-foreground">{t("panel.compare.requestIdA")}</div>
+                            <div className="text-xs text-muted-foreground">{t("panel.compare.requestIdA")}</div>
                             <Input value={requestId} readOnly className="font-mono text-xs" />
                           </div>
                           <div className="space-y-1">
-                            <div className="text-[11px] text-muted-foreground">{t("panel.compare.requestIdB")}</div>
+                            <div className="text-xs text-muted-foreground">{t("panel.compare.requestIdB")}</div>
                             <Input
                               value={diffOtherRequestId}
                               onChange={(e) => {
@@ -1824,7 +1827,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-2 rounded-xl"
+                          className="gap-2 rounded-md"
                           disabled={!requestId || !diffOtherRequestId.trim() || diffLoading}
                           onClick={() => detachPromise(runDiff())}
                         >
@@ -1838,7 +1841,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       </div>
 
                       {diffError ? (
-                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                           {diffError}
                         </div>
                       ) : null}
@@ -1847,39 +1850,39 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                         <Panel variant="glass" className="space-y-3">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                              <div className="text-xs font-semibold text-muted-foreground">
                                 {t("panel.evidenceDrift.title")}
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">
                                 {t("panel.evidenceDrift.description")}
                               </div>
                             </div>
-                            <Badge variant="soft" className="text-[11px]">
-                              A {requestId || '—'} vs B {selectedDiffComparisonTrace.request_id || '—'}
+                            <Badge variant="soft" className="text-xs">
+                              当前 {shortHash(requestId || '—')} · 对比 {shortHash(selectedDiffComparisonTrace.request_id || '—')}
                             </Badge>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                            <div className="rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-3 shadow-soft">
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="rounded-md border border-border bg-background px-3 py-3">
+                              <div className="text-xs font-semibold text-muted-foreground">
                                 {t("panel.evidenceDrift.sharedTitle")}
                               </div>
                               <div className="mt-1 text-lg font-semibold text-foreground">{localCitationDiff.sharedCount}</div>
                             </div>
-                            <div className="rounded-xl border border-success/20 bg-success/5 px-3 py-3">
-                              <div className="text-[11px] font-semibold uppercase text-success">
+                            <div className="rounded-md border border-success/20 bg-success/5 px-3 py-3">
+                              <div className="text-xs font-semibold text-success">
                                 {t("panel.evidenceDrift.addedSummaryTitle")}
                               </div>
                               <div className="mt-1 text-lg font-semibold text-foreground">{localCitationDiff.addedCount}</div>
                             </div>
-                            <div className="rounded-xl border border-warning/20 bg-warning/5 px-3 py-3">
-                              <div className="text-[11px] font-semibold uppercase text-warning">
+                            <div className="rounded-md border border-warning/20 bg-warning/5 px-3 py-3">
+                              <div className="text-xs font-semibold text-warning">
                                 {t("panel.evidenceDrift.removedSummaryTitle")}
                               </div>
                               <div className="mt-1 text-lg font-semibold text-foreground">{localCitationDiff.removedCount}</div>
                             </div>
-                            <div className="rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-3 shadow-soft">
-                              <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="rounded-md border border-border bg-background px-3 py-3">
+                              <div className="text-xs font-semibold text-muted-foreground">
                                 {t("panel.evidenceDrift.scoreShiftSummaryTitle")}
                               </div>
                               <div className="mt-1 text-lg font-semibold text-foreground">{localCitationDiff.scoreShiftCount}</div>
@@ -1913,7 +1916,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                         </Panel>
                       ) : null}
                       {!localCitationDiff && diffOtherRequestId.trim() ? (
-                        <div className="rounded-xl border border-dashed border-sidebar-border/60 bg-sidebar/45 px-3 py-3 text-xs text-muted-foreground">
+                        <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
                           {t("panel.evidenceDrift.missingLocalSummary")}
                         </div>
                       ) : null}
@@ -1921,25 +1924,25 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       {diffResult ? (
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border border-sidebar-border/60 bg-sidebar/45 px-3 py-2 text-xs text-muted-foreground">
-                              <div className="text-[11px] text-muted-foreground">{t("panel.compare.summaryA")}</div>
+                            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground">{t("panel.compare.summaryA")}</div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                mode={diffResult.summary_a?.retrieval_mode || '—'} · cfg=
-                                {diffResult.summary_a?.retrieval_config_hash ? shortHash(diffResult.summary_a.retrieval_config_hash) : '—'} · citations=
+                                模式：{formatTraceModeLabel(diffResult.summary_a?.retrieval_mode)} · 配置：
+                                {diffResult.summary_a?.retrieval_config_hash ? shortHash(diffResult.summary_a.retrieval_config_hash) : '—'} · 证据：
                                 {diffResult.summary_a?.citations_count ?? '—'}
                               </div>
                             </div>
-                            <div className="rounded-xl border border-sidebar-border/60 bg-sidebar/45 px-3 py-2 text-xs text-muted-foreground">
-                              <div className="text-[11px] text-muted-foreground">{t("panel.compare.summaryB")}</div>
+                            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground">{t("panel.compare.summaryB")}</div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                mode={diffResult.summary_b?.retrieval_mode || '—'} · cfg=
-                                {diffResult.summary_b?.retrieval_config_hash ? shortHash(diffResult.summary_b.retrieval_config_hash) : '—'} · citations=
+                                模式：{formatTraceModeLabel(diffResult.summary_b?.retrieval_mode)} · 配置：
+                                {diffResult.summary_b?.retrieval_config_hash ? shortHash(diffResult.summary_b.retrieval_config_hash) : '—'} · 证据：
                                 {diffResult.summary_b?.citations_count ?? '—'}
                               </div>
                             </div>
                           </div>
 
-                          <div className="text-[11px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {t("panel.compare.changesMeta", {
                               changes: diffResult.diff?.length ?? 0,
                               truncated: diffResult.truncated ? t("panel.compare.truncatedYes") : t("panel.compare.truncatedNo"),
@@ -1949,14 +1952,14 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             {(diffResult.diff || []).map((it) => (
                               <div
                                 key={String(it.key)}
-                                className="grid grid-cols-1 gap-2 rounded-xl border border-sidebar-border/60 bg-sidebar/45 px-3 py-2 md:grid-cols-3"
+                                className="grid grid-cols-1 gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 md:grid-cols-3"
                               >
                                 <div className="text-xs font-mono text-foreground">{it.key}</div>
                                 <div className="text-xs text-muted-foreground break-words">{formatDiffValue(it.a)}</div>
                                 <div className="text-xs text-muted-foreground break-words">
                                   {formatDiffValue(it.b)}
                                   {it.delta != null && Number.isFinite(Number(it.delta)) ? (
-                                    <span className="ml-2 font-mono text-[11px] text-foreground/80">Δ {String(it.delta)}</span>
+                                    <span className="ml-2 font-mono text-xs text-foreground/80">Δ {String(it.delta)}</span>
                                   ) : null}
                                 </div>
                               </div>
@@ -1996,18 +1999,18 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
               </div>
 
               {evidencePreviewCitations.length ? (
-                <div className="space-y-2 rounded-2xl border border-info bg-info/[0.035] p-3 shadow-soft">
+                <div className="space-y-2 rounded-md border border-info bg-info/[0.035] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <div className="text-xs font-semibold text-foreground">{t("panel.evidencePreview.title")}</div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         {t("panel.evidencePreview.description", {
                           count: Math.min(TRACE_EVIDENCE_PREVIEW_LIMIT, evidencePreviewCitations.length),
                         })}
                       </div>
                     </div>
                     {evidencePreviewQuery.isFetching ? (
-                      <Badge variant="soft" className="gap-1 text-[11px]">
+                      <Badge variant="soft" className="gap-1 text-xs">
                         <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
                         {t("panel.evidencePreview.loading")}
                       </Badge>
@@ -2026,33 +2029,33 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       return (
                         <div
                           key={`evidence-preview:${documentId}:${chunkId || index}`}
-                          className="flex flex-col rounded-xl border border-border/60 bg-background/80 p-2.5 shadow-sm"
+                          className="flex flex-col rounded-md border border-border bg-background p-2.5"
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <Badge variant="soft" className="text-[11px]">{interpretation.label}</Badge>
-                              {score == null ? null : <Badge variant="soft" className="text-[11px]">{t("panel.evidencePreview.score")}={score.toFixed(3)}</Badge>}
-                              {previewChunk ? <Badge variant="soft" className="text-[11px]">{t("panel.evidencePreview.loaded")}</Badge> : null}
+                              <Badge variant="soft" className="text-xs">{interpretation.label}</Badge>
+                              {score == null ? null : <Badge variant="soft" className="text-xs">{t("panel.evidencePreview.score")}={score.toFixed(3)}</Badge>}
+                              {previewChunk ? <Badge variant="soft" className="text-xs">{t("panel.evidencePreview.loaded")}</Badge> : null}
                             </div>
                             <div className="mt-1.5 truncate text-sm font-semibold text-foreground" title={label}>
                               {label}
                             </div>
-                            <div className="mt-1 break-all text-[11px] leading-4 text-muted-foreground">
+                            <div className="mt-1 break-all text-xs leading-4 text-muted-foreground">
                               {t("panel.evidencePreview.document")} {shortHash(documentId, { head: 10, tail: 6 }) || '—'}
                               {chunkId ? ` · ${t("panel.evidencePreview.chunk")} ${shortHash(chunkId, { head: 10, tail: 6 })}` : ''}
                             </div>
-                            <div className="mt-2 rounded-lg bg-muted/35 px-2 py-1.5 text-xs leading-5 text-foreground/85">
+                            <div className="mt-2 rounded-md bg-muted/35 px-2 py-1.5 text-xs leading-5 text-foreground/85">
                               <span className="font-semibold">{t("panel.evidencePreview.takeaway")}：</span>
                               {interpretation.reason}
                             </div>
-                            <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+                            <p className="mt-1.5 text-xs leading-4 text-muted-foreground">
                               {previewText}
                             </p>
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="mt-2 h-8 w-full rounded-xl"
+                            className="mt-2 h-8 w-full rounded-md"
                             disabled={!documentId}
                             onMouseEnter={() => prefetchTraceCitationTarget(documentId, chunkId || undefined)}
                             onFocus={() => prefetchTraceCitationTarget(documentId, chunkId || undefined)}
@@ -2070,20 +2073,20 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
             </Panel>
 
             <Panel variant="glass" className="overflow-hidden" padding="none">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
                 <div>
                   <div className="text-sm font-semibold">{t("panel.timeline.title")}</div>
                   <div className="mt-1 text-xs text-muted-foreground">{t("panel.timeline.description")}</div>
                 </div>
                 {selectedPipelineSection && selectedPipelineSectionIndex >= 0 ? (
-                  <Badge variant="soft" className="text-[11px]">
-                    stage {selectedPipelineSectionIndex + 1}/{pipelineInspectorSections.length}
+                  <Badge variant="soft" className="text-xs">
+                    阶段 {selectedPipelineSectionIndex + 1}/{pipelineInspectorSections.length}
                   </Badge>
                 ) : null}
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
                 <section
-                  aria-label="Pipeline timeline keyboard navigation"
+                  aria-label="检索流水线时间线"
                   className="outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <RagTracePipelineTimeline
@@ -2093,7 +2096,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                     emptyLabel={t("panel.timeline.unavailable")}
                   />
                 </section>
-                <div className="border-t border-border/60 bg-muted/10 lg:border-l lg:border-t-0">
+                <div className="border-t border-border bg-muted/10 xl:border-l xl:border-t-0">
                   <AnimatePresence mode="wait" initial={false}>
                     {selectedPipelineSection ? (
                       <motion.div
@@ -2110,7 +2113,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                         </div>
 
                         {selectedPipelineSection.callout ? (
-                          <div className="rounded-xl border border-info/25 bg-info/10 px-3 py-2 text-xs text-info">
+                          <div className="rounded-md border border-info/25 bg-info/10 px-3 py-2 text-xs text-info">
                             {selectedPipelineSection.callout}
                           </div>
                         ) : null}
@@ -2120,22 +2123,22 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             {selectedPipelineSection.metrics.map((metric) => (
                               <div
                                 key={`${selectedPipelineSection.id}:${metric.label}`}
-                                className="rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-2 shadow-soft"
+                                className="rounded-md border border-border bg-background px-3 py-2"
                               >
-                                <div className="text-[11px] font-semibold uppercase text-muted-foreground">{metric.label}</div>
+                                <div className="text-xs font-semibold text-muted-foreground">{metric.label}</div>
                                 <div className="mt-1 text-sm font-semibold text-foreground">{metric.value}</div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="rounded-xl border border-dashed border-sidebar-border/60 bg-sidebar/45 px-3 py-2 text-xs text-muted-foreground">
+                          <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                             {t("panel.timeline.metricsUnavailable")}
                           </div>
                         )}
 
                         {selectedPipelineSection.citations.length ? (
                           <div className="space-y-2">
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="text-xs font-semibold text-muted-foreground">
                               {t("panel.timeline.quickEvidence")}
                             </div>
                             {selectedPipelineSection.citations.slice(0, 3).map((citation, index) => {
@@ -2154,13 +2157,13 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                                     if (!documentId) return
                                     openTraceCitation(citation, { label })
                                   }}
-                                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-2 text-left transition-colors shadow-soft hover:bg-sidebar/70 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   <div className="min-w-0">
                                     <div className="truncate text-sm font-medium text-foreground">{label}</div>
-                                    <div className="mt-1 text-[11px] text-muted-foreground">
+                                    <div className="mt-1 text-xs text-muted-foreground">
                                       {pageLabel ? `${pageLabel} · ` : ''}
-                                      {chunkId ? `chunk=${chunkId}` : t("panel.timeline.documentLevelEvidence")}
+                                      {chunkId ? `切片 ${chunkId}` : t("panel.timeline.documentLevelEvidence")}
                                     </div>
                                   </div>
                                   <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -2179,21 +2182,21 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
             </Panel>
 
             <Panel variant="glass" className="overflow-hidden" padding="none">
-              <div className="px-4 py-3 border-b border-border/60">
+              <div className="px-4 py-3 border-b border-border">
                 <div className="text-sm font-semibold">{t("panel.channels.title")}</div>
               </div>
               <div className="p-4 space-y-3">
                 {channels ? (
                   <>
-                    <div className="rounded-2xl border border-sidebar-border/70 bg-sidebar/60 p-3 shadow-soft">
+                    <div className="rounded-md border border-border bg-background p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="text-[11px] font-semibold uppercase text-muted-foreground">{t("panel.channels.focusTitle")}</div>
+                          <div className="text-xs font-semibold text-muted-foreground">{t("panel.channels.focusTitle")}</div>
                           <div className="mt-1 text-xs text-muted-foreground">{t("panel.channels.focusDescription")}</div>
                         </div>
                         {activeChannelSummary ? (
-                          <Badge variant="soft" className="text-[11px]">
-                            {activeChannelSummary.matchCount}/{selected.citations.length} hits · focus=
+                          <Badge variant="soft" className="text-xs">
+                            命中 {activeChannelSummary.matchCount}/{selected.citations.length} · 当前通道：
                             {getRagTraceCitationChannelLabel(selectedCitationChannel, t)}
                           </Badge>
                         ) : null}
@@ -2207,16 +2210,16 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             aria-pressed={summary.active}
                             onClick={() => setSelectedCitationChannel(summary.key)}
                             className={cn(
-                              'rounded-full border px-3 py-1.5 text-left text-xs transition-colors',
+                              'rounded-md border px-3 py-1.5 text-left text-xs transition-colors',
                               'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',
                               summary.active
                                 ? 'border-info/25 bg-info/10 text-info'
-                                : 'border-border/60 bg-background/80 text-muted-foreground hover:border-info hover:text-foreground'
+                                : 'border-border bg-background text-muted-foreground hover:border-info hover:text-foreground'
                             )}
                           >
                             <span className="font-semibold">{summary.label}</span>
                             <span className="ml-2 font-mono">{summary.matchCount}</span>
-                            {summary.candidateCount == null ? null : <span className="ml-2 text-[11px]">cand {summary.candidateCount}</span>}
+                            {summary.candidateCount == null ? null : <span className="ml-2 text-xs">候选 {summary.candidateCount}</span>}
                           </button>
                         ))}
                       </div>
@@ -2224,45 +2227,45 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       {activeChannelSummary ? (
                         <div className="mt-3 text-xs text-muted-foreground">
                           {activeChannelSummary.summary}
-                          {activeChannelSummary.maxScore == null ? null : ` · top=${activeChannelSummary.maxScore.toFixed(3)}`}
+                          {activeChannelSummary.maxScore == null ? null : ` · 最高分 ${activeChannelSummary.maxScore.toFixed(3)}`}
                         </div>
                       ) : null}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
                       {channels.retrieval_mode ? (
-                        <Badge variant="soft" className="text-[11px]">
-                          mode={safeDisplayString(channels.retrieval_mode)}
+                        <Badge variant="soft" className="text-xs">
+                          模式：{formatTraceModeLabel(safeDisplayString(channels.retrieval_mode))}
                         </Badge>
                       ) : null}
                       {channels.fusion_strategy ? (
-                        <Badge variant="soft" className="text-[11px]">
-                          fusion={safeDisplayString(channels.fusion_strategy)}
+                        <Badge variant="soft" className="text-xs">
+                          融合方式：{safeDisplayString(channels.fusion_strategy)}
                         </Badge>
                       ) : null}
                       {channels.vector_backend ? (
-                        <Badge variant="soft" className="text-[11px]">
-                          vec={safeDisplayString(channels.vector_backend)}
+                        <Badge variant="soft" className="text-xs">
+                          向量服务：{safeDisplayString(channels.vector_backend)}
                         </Badge>
                       ) : null}
                       {typeof channels.rrf_k === 'number' ? (
-                        <Badge variant="soft" className="text-[11px]">
-                          rrf_k={channels.rrf_k}
+                        <Badge variant="soft" className="text-xs">
+                          RRF 参数：{channels.rrf_k}
                         </Badge>
                       ) : null}
                       {channelTiming?.vector_ms == null ? null : (
-                        <Badge variant="soft" className="text-[11px]">
-                          vector_ms={safeDisplayString(channelTiming.vector_ms)}
+                        <Badge variant="soft" className="text-xs">
+                          向量耗时：{safeDisplayString(channelTiming.vector_ms)}ms
                         </Badge>
                       )}
                       {channelTiming?.bm25_ms == null ? null : (
-                        <Badge variant="soft" className="text-[11px]">
-                          bm25_ms={safeDisplayString(channelTiming.bm25_ms)}
+                        <Badge variant="soft" className="text-xs">
+                          BM25 耗时：{safeDisplayString(channelTiming.bm25_ms)}ms
                         </Badge>
                       )}
                       {channelTiming?.fusion_ms == null ? null : (
-                        <Badge variant="soft" className="text-[11px]">
-                          fusion_ms={safeDisplayString(channelTiming.fusion_ms)}
+                        <Badge variant="soft" className="text-xs">
+                          融合耗时：{safeDisplayString(channelTiming.fusion_ms)}ms
                         </Badge>
                       )}
                     </div>
@@ -2270,48 +2273,48 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                     {hierarchyRecall ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {hierarchyRecall.enabled == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            hierarchy={hierarchyRecall.enabled ? 'on' : 'off'}
+                          <Badge variant="soft" className="text-xs">
+                            层级召回：{hierarchyRecall.enabled ? '开启' : '关闭'}
                           </Badge>
                         )}
                         {hierarchyRecall.family_collapse == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            family_collapse={String(Boolean(hierarchyRecall.family_collapse))}
+                          <Badge variant="soft" className="text-xs">
+                            按来源折叠：{hierarchyRecall.family_collapse ? '是' : '否'}
                           </Badge>
                         )}
                         {hierarchyRecall.family_aggregation ? (
-                          <Badge variant="soft" className="text-[11px]">
-                            family_aggregation={safeDisplayString(hierarchyRecall.family_aggregation)}
+                          <Badge variant="soft" className="text-xs">
+                            来源聚合：{safeDisplayString(hierarchyRecall.family_aggregation)}
                           </Badge>
                         ) : null}
                         {hierarchyRecall.tree_dedup == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            tree_dedup={String(Boolean(hierarchyRecall.tree_dedup))}
+                          <Badge variant="soft" className="text-xs">
+                            树节点去重：{hierarchyRecall.tree_dedup ? '是' : '否'}
                           </Badge>
                         )}
                         {hierarchyRecall.overfetch_factor == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            overfetch_factor={safeDisplayString(hierarchyRecall.overfetch_factor)}
+                          <Badge variant="soft" className="text-xs">
+                            扩展倍数：{safeDisplayString(hierarchyRecall.overfetch_factor)}
                           </Badge>
                         )}
                         {hierarchyRecall.parent_depth == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            parent_depth={safeDisplayString(hierarchyRecall.parent_depth)}
+                          <Badge variant="soft" className="text-xs">
+                            父级深度：{safeDisplayString(hierarchyRecall.parent_depth)}
                           </Badge>
                         )}
                         {hierarchyRecall.sibling_window == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            sibling_window={safeDisplayString(hierarchyRecall.sibling_window)}
+                          <Badge variant="soft" className="text-xs">
+                            同级范围：{safeDisplayString(hierarchyRecall.sibling_window)}
                           </Badge>
                         )}
                         {hierarchyRecall.context_expansion_used == null ? null : (
-                          <Badge variant="soft" className="text-[11px]">
-                            context_expansion_used={String(Boolean(hierarchyRecall.context_expansion_used))}
+                          <Badge variant="soft" className="text-xs">
+                            上下文扩展：{hierarchyRecall.context_expansion_used ? '已使用' : '未使用'}
                           </Badge>
                         )}
                         {hierarchyRecall.context_expansion_error ? (
-                          <Badge variant="soft" className="text-[11px]">
-                            context_expansion_error={safeDisplayString(hierarchyRecall.context_expansion_error)}
+                          <Badge variant="soft" className="text-xs">
+                            上下文扩展错误：{safeDisplayString(hierarchyRecall.context_expansion_error)}
                           </Badge>
                         ) : null}
                       </div>
@@ -2320,13 +2323,13 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                     {(rerankSkipReason || rerankError) ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {rerankSkipReason ? (
-                          <Badge variant="soft" className="text-[11px]">
-                            skip_reason={rerankSkipReason}
+                          <Badge variant="soft" className="text-xs">
+                            跳过原因：{rerankSkipReason}
                           </Badge>
                         ) : null}
                         {rerankError ? (
-                          <Badge variant="soft" className="text-[11px]">
-                            rerank_error={rerankError}
+                          <Badge variant="soft" className="text-xs">
+                            重排错误：{rerankError}
                           </Badge>
                         ) : null}
                       </div>
@@ -2336,7 +2339,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       <Panel variant="muted" className="space-y-4">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div className="space-y-1">
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="text-xs font-semibold text-muted-foreground">
                               {t("panel.fusionSimulator.title")}
                             </div>
                             <div className="text-xs text-muted-foreground">
@@ -2344,13 +2347,13 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => applyCitationSimulationPreset('balanced')}>
+                            <Button variant="outline" size="sm" className="rounded-md" onClick={() => applyCitationSimulationPreset('balanced')}>
                               {t("panel.fusionSimulator.presetBalanced")}
                             </Button>
-                            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => applyCitationSimulationPreset('vector')}>
+                            <Button variant="outline" size="sm" className="rounded-md" onClick={() => applyCitationSimulationPreset('vector')}>
                               {t("panel.fusionSimulator.presetVector")}
                             </Button>
-                            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => applyCitationSimulationPreset('lexical')}>
+                            <Button variant="outline" size="sm" className="rounded-md" onClick={() => applyCitationSimulationPreset('lexical')}>
                               {t("panel.fusionSimulator.presetLexical")}
                             </Button>
                           </div>
@@ -2362,11 +2365,11 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             return (
                               <div
                                 key={channel.key}
-                                className="space-y-2 rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-3 shadow-soft"
+                                className="space-y-2 rounded-md border border-border bg-background px-3 py-3"
                               >
                                 <div className="flex items-center justify-between gap-3">
                                   <span className="text-xs font-semibold text-foreground">{channel.label}</span>
-                                  <span className="text-[11px] font-mono text-muted-foreground">{Math.round(value * 100)}%</span>
+                                  <span className="text-xs font-mono text-muted-foreground">{Math.round(value * 100)}%</span>
                                 </div>
                                 <input
                                   aria-label={channel.label}
@@ -2391,10 +2394,10 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
 
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-[11px] font-semibold uppercase text-muted-foreground">
+                            <div className="text-xs font-semibold text-muted-foreground">
                               {t("panel.fusionSimulator.simulatedTitle")}
                             </div>
-                            <div className="text-[11px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               {t("panel.fusionSimulator.simulatedDescription")}
                             </div>
                           </div>
@@ -2407,38 +2410,40 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                               return (
                                 <div
                                   key={`sim-${docId}:${chunkId || row.rank}`}
-                                  className="flex items-start justify-between gap-3 rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-3 shadow-soft"
+                                  className="flex items-start justify-between gap-3 rounded-md border border-border bg-background px-3 py-3"
                                 >
                                   <div className="min-w-0 space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <Badge variant="soft" className="text-[11px]">
+                                      <Badge variant="soft" className="text-xs">
                                         #{row.rank}
                                       </Badge>
-                                      <Badge variant="soft" className="text-[11px]">
+                                      <Badge variant="soft" className="text-xs">
                                         Δ {deltaLabel}
                                       </Badge>
-                                      <Badge variant="soft" className="text-[11px]">
-                                        score={row.compositeScore.toFixed(3)}
+                                      <Badge variant="soft" className="text-xs">
+                                        综合分 {row.compositeScore.toFixed(3)}
                                       </Badge>
                                       {row.dominantChannelLabel ? (
-                                        <Badge variant="soft" className="text-[11px]">
-                                          dominant={row.dominantChannelLabel}
+                                        <Badge variant="soft" className="text-xs">
+                                          主要通道：{row.dominantChannelLabel}
                                         </Badge>
                                       ) : null}
                                     </div>
                                     <div className="text-sm font-medium text-foreground break-all">{label}</div>
-                                    <div className="text-[11px] text-muted-foreground break-all">
-                                      {chunkId ? `chunk=${chunkId}` : 'document-level evidence'} · base rank #{row.baseRank}
+                                    <div className="text-xs text-muted-foreground break-all">
+                                      {chunkId ? `切片 ${chunkId}` : '文档级证据'} · 原排序 #{row.baseRank}
                                     </div>
                                   </div>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="rounded-xl"
+                                    className="rounded-md"
                                     disabled={!docId}
                                     onMouseEnter={() => prefetchTraceCitationTarget(docId, chunkId)}
                                     onFocus={() => prefetchTraceCitationTarget(docId, chunkId)}
                                     onClick={() => openTraceCitation(row.citation, { label })}
+                                    aria-label="打开证据"
+                                    title="打开证据"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
@@ -2465,19 +2470,19 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                             )}
                           >
                             <div className="min-w-0">
-                              <div className="text-xs font-semibold text-foreground">{k}</div>
-                              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                {box.enabled == null ? null : `enabled=${safeDisplayString(box.enabled)}`}
-                                {box.used == null ? null : ` · used=${safeDisplayString(box.used)}`}
-                                {box.filter_applied == null ? null : ` · filter=${safeDisplayString(box.filter_applied)}`}
-                                {box.index_enabled == null ? null : ` · index=${safeDisplayString(box.index_enabled)}`}
-                                {box.provider ? ` · provider=${safeDisplayString(box.provider)}` : null}
-                                {box.skipped_reason ? ` · skipped=${safeDisplayString(box.skipped_reason)}` : null}
+                              <div className="text-xs font-semibold text-foreground">{summary?.label || k}</div>
+                              <div className="mt-0.5 text-xs text-muted-foreground">
+                                {box.enabled == null ? null : `启用：${stringifyInspectorValue(box.enabled)}`}
+                                {box.used == null ? null : ` · 已使用：${stringifyInspectorValue(box.used)}`}
+                                {box.filter_applied == null ? null : ` · 已过滤：${stringifyInspectorValue(box.filter_applied)}`}
+                                {box.index_enabled == null ? null : ` · 索引：${stringifyInspectorValue(box.index_enabled)}`}
+                                {box.provider ? ` · 服务：${safeDisplayString(box.provider)}` : null}
+                                {box.skipped_reason ? ` · 跳过原因：${safeDisplayString(box.skipped_reason)}` : null}
                               </div>
                             </div>
                             <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                              {box.candidates == null ? '—' : safeDisplayString(box.candidates, '—')}
-                              {summary ? <span className="ml-2 text-[11px] text-foreground/70">hits {summary.matchCount}</span> : null}
+                              {box.candidates == null ? '候选 —' : `候选 ${safeDisplayString(box.candidates, '—')}`}
+                              {summary ? <span className="ml-2 text-xs text-foreground/70">命中 {summary.matchCount}</span> : null}
                             </div>
                           </Panel>
                         )
@@ -2491,24 +2496,24 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
             </Panel>
 
             <Panel variant="glass" className="overflow-hidden" padding="none">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
                 <div>
                   <div className="text-sm font-semibold">{t("panel.topCitations.title")}</div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {activeChannelSummary
-                      ? `${activeChannelSummary.label} · ${activeChannelSummary.matchCount}/${selected.citations.length} hits`
-                      : `All · ${selected.citations.length} hits`}
+                      ? `${activeChannelSummary.label} · 命中 ${activeChannelSummary.matchCount}/${selected.citations.length}`
+                      : `全部 · 命中 ${selected.citations.length}`}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="soft" className="text-[11px]">
-                    focus={getRagTraceCitationChannelLabel(selectedCitationChannel, t)}
+                  <Badge variant="soft" className="text-xs">
+                    当前通道：{getRagTraceCitationChannelLabel(selectedCitationChannel, t)}
                   </Badge>
                    {lastOpenedTraceCitationTarget ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-xl"
+                        className="rounded-md"
                         onClick={reopenLastTraceCitation}
                         title={t("panel.topCitations.reopenRecentTitle")}
                       >
@@ -2523,7 +2528,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                     const score = getPrimaryScore(c)
                     const docId = c.document_id || ''
                     const chunkId = c.chunk_id || ''
-                    const page = c.page_number == null ? null : `p.${c.page_number}`
+                    const page = c.page_number == null ? null : `第 ${c.page_number} 页`
                     const rerankScore = formatScore(c.rerank_score, 3)
                     const retrievalScore = formatScore(c.retrieval_score, 3)
                     const relScore = formatScore(c.relevance_score, 3)
@@ -2542,95 +2547,95 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                     return (
                       <div
                         key={`${docId}:${chunkId}:${role || ''}:${neighborOf || ''}`}
-                        className="flex items-start justify-between gap-3 rounded-xl border border-sidebar-border/70 bg-sidebar/55 px-3 py-2 text-left transition-colors shadow-soft hover:bg-sidebar/70"
+                        className="flex items-start justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-muted/40"
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="soft" className="text-[11px]">
-                              {c.hit_type || 'hit'}
+                            <Badge variant="soft" className="text-xs">
+                              {c.hit_type || '命中'}
                             </Badge>
                             {role ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                role={role}
+                              <Badge variant="soft" className="text-xs">
+                                角色：{role}
                               </Badge>
                             ) : null}
                             {neighborOf ? (
-                              <Badge variant="soft" className="text-[11px]" title={neighborOf}>
-                                neighbor_of={shortHash(neighborOf, { head: 10, tail: 6 })}
+                              <Badge variant="soft" className="text-xs" title={neighborOf}>
+                                关联切片：{shortHash(neighborOf, { head: 10, tail: 6 })}
                               </Badge>
                             ) : null}
                             {score == null ? null : (
-                              <Badge variant="soft" className="text-[11px]">
-                                score={score.toFixed(3)}
+                              <Badge variant="soft" className="text-xs">
+                                相关度 {score.toFixed(3)}
                               </Badge>
                             )}
                             {focusedChannelScore != null && selectedCitationChannel !== 'all' ? (
-                              <Badge variant="soft" className="text-[11px] border-info bg-info">
+                              <Badge variant="soft" className="text-xs border-info bg-info">
                                 {getRagTraceCitationChannelLabel(selectedCitationChannel, t)}={focusedChannelScore.toFixed(3)}
                               </Badge>
                             ) : null}
                             {rerankScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                rerank={rerankScore}
+                              <Badge variant="soft" className="text-xs">
+                                重排 {rerankScore}
                               </Badge>
                             ) : null}
                             {retrievalScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                retrieval={retrievalScore}
+                              <Badge variant="soft" className="text-xs">
+                                检索 {retrievalScore}
                               </Badge>
                             ) : null}
                             {relScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                rel={relScore}
+                              <Badge variant="soft" className="text-xs">
+                                相关性 {relScore}
                               </Badge>
                             ) : null}
                             {vectorScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                v={vectorScore}
+                              <Badge variant="soft" className="text-xs">
+                                向量 {vectorScore}
                               </Badge>
                             ) : null}
                             {bm25Score ? (
-                              <Badge variant="soft" className="text-[11px]">
+                              <Badge variant="soft" className="text-xs">
                                 bm25={bm25Score}
                               </Badge>
                             ) : null}
                             {lexicalScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                lex={lexicalScore}
+                              <Badge variant="soft" className="text-xs">
+                                词法 {lexicalScore}
                               </Badge>
                             ) : null}
                             {sparseScore ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                sparse={sparseScore}
+                              <Badge variant="soft" className="text-xs">
+                                稀疏 {sparseScore}
                               </Badge>
                             ) : null}
                             {colbertScore ? (
-                              <Badge variant="soft" className="text-[11px]">
+                              <Badge variant="soft" className="text-xs">
                                 colbert={colbertScore}
                               </Badge>
                             ) : null}
                             {page ? (
-                              <Badge variant="soft" className="text-[11px]">
+                              <Badge variant="soft" className="text-xs">
                                 {page}
                               </Badge>
                             ) : null}
                             {c.has_image ? (
-                              <Badge variant="soft" className="text-[11px]">
-                                image
+                              <Badge variant="soft" className="text-xs">
+                                含图片
                               </Badge>
                             ) : null}
                           </div>
-                          <div className="mt-1 text-[11px] text-muted-foreground break-all">
-                            doc {docId || '—'}
+                          <div className="mt-1 text-xs text-muted-foreground break-all">
+                            文档 {docId || '—'}
                           </div>
-                          <div className="text-[11px] text-muted-foreground break-all">
-                            chunk {chunkId || '—'}
+                          <div className="text-xs text-muted-foreground break-all">
+                            切片 {chunkId || '—'}
                           </div>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl"
+                          className="rounded-md"
                           disabled={!docId}
                           onMouseEnter={() => prefetchTraceCitationTarget(docId, chunkId || undefined)}
                           onFocus={() => prefetchTraceCitationTarget(docId, chunkId || undefined)}
@@ -2644,7 +2649,7 @@ export function RagTracePanel({ conversationId, className }: Readonly<RagTracePa
                       </div>
                     )
                   }) : (
-                     <div className="rounded-xl border border-dashed border-sidebar-border/60 bg-sidebar/45 px-4 py-6 text-sm text-muted-foreground">
+                     <div className="rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                        {t("panel.topCitations.empty")} <span className="font-mono">{getRagTraceCitationChannelLabel('all', t)}</span> {t("panel.topCitations.emptySuffix")}
                      </div>
                    )}
