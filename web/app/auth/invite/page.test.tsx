@@ -98,7 +98,7 @@ describe('成员邀请接受页', () => {
     })
 
     expect(container.textContent).toContain('邀请链接无效')
-    expect(container.querySelector('a')?.getAttribute('href')).toBe('/auth')
+    expect(container.querySelector('a[href="/auth"]')).not.toBeNull()
     act(() => root.unmount())
   })
 })
