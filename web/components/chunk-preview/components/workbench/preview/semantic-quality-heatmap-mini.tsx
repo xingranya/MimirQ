@@ -1,10 +1,6 @@
 /**
- * SemanticQualityHeatmapMini - tiny, PII-safe visual for per-chunk semantic_quality signals.
- *
- * Notes:
- * - Uses backend-provided `chunk.metadata.semantic_quality` (heuristics; best-effort).
- * - No raw content is surfaced; only numeric scores aggregated into bins.
- * - Row order (legend): density / completeness / self-containedness / dedup (inverted: higher = better).
+ * 展示后端语义质量信号的紧凑热力图，不呈现切块原文。
+ * 行顺序依次为信息密度、完整性、独立性和去重质量。
  */
 'use client'
 
@@ -100,17 +96,17 @@ export function SemanticQualityHeatmapMini(props: Readonly<{ chunks: ChunkPrevie
   if (!model) return null
 
   const title = [
-    `semantic_quality heatmap (binned): needs_review ${model.needsTotal}/${model.total}`,
-    'Rows: density / completeness / self-containedness / dedup (inverted; higher is better).',
-    'Colors: primary=better, destructive=worse (heuristics).',
+    `语义质量：${model.needsTotal}/${model.total} 个切块需要复核`,
+    '从上到下：信息密度、完整性、独立性、去重质量。',
+    '主色表示质量较好，红色表示需要关注。',
   ].join('\n')
 
-  const aria = `Semantic quality heatmap: ${model.needsTotal} of ${model.total} chunks flagged needs review`
+  const aria = `语义质量热力图：${model.total} 个切块中有 ${model.needsTotal} 个需要复核`
 
   return (
     <div
       className={cn(
-        'flex flex-col gap-[1px] rounded bg-muted/30 border border-border/60 px-1 py-1',
+        'flex flex-col gap-[1px] rounded-md border border-border bg-muted/20 p-1',
         className
       )}
       role="img"
@@ -128,8 +124,8 @@ export function SemanticQualityHeatmapMini(props: Readonly<{ chunks: ChunkPrevie
           })}
         </div>
       ))}
-      <div className="flex items-center justify-between text-[9px] font-mono text-muted-foreground px-0.5 pt-0.5">
-        <span>SEM (D/C/S/DU)</span>
+      <div className="flex items-center justify-between px-0.5 pt-0.5 text-xs text-muted-foreground">
+        <span>语义质量</span>
         <span className="tabular-nums">
           {model.needsTotal}/{model.total}
         </span>

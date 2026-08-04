@@ -490,7 +490,7 @@ ChunkPreview: {
     pdfPreview: {
       loading: {
         message: '正在预计算 PDF 高亮...',
-        srMessage: 'Preparing PDF highlight overlays',
+        srMessage: '正在准备 PDF 高亮区域',
       },
       errors: {
         preparationFailedTitle: 'PDF 高亮预处理失败',
@@ -500,11 +500,10 @@ ChunkPreview: {
         notPdf: '当前文件不是 PDF',
         noFile: '未选择文件',
         cannotRenderTitle: '无法显示 PDF 高亮',
-        originalTextMissing: '后端未返回 original_text（可能被 original_text_max_chars 限制）。',
-        includeOriginalTextDisabled: '当前关闭了 include_original_text（预览性能设置）。',
-        noPositionTagsTitle: '未检测到 PDF 位置标签',
-        noPositionTagsDescription:
-          String.raw`该解析结果不包含 @@page\tl\tr\tt\tb## 标签，无法做 PDF 框选高亮。你仍可使用“源码”面板做 offset 高亮。`,
+        originalTextMissing: '解析结果没有返回原文，可能超过了当前返回上限。',
+        includeOriginalTextDisabled: '当前预览设置未返回原文，请在高级配置中开启。',
+        noPositionTagsTitle: '没有 PDF 位置数据',
+        noPositionTagsDescription: '当前解析结果无法在 PDF 原页框选高亮，可切换到“文本”或“定位”查看对应内容。',
       },
       actions: {
         highlightOnly: '仅高亮',
@@ -517,11 +516,11 @@ ChunkPreview: {
       titlePdf: 'PDF 原页',
       charCount: '{count} 字符',
       source: {
-        server: '后端原文',
-        local: '本地原文',
+        server: '解析结果',
+        local: '本地文件',
       },
       badges: {
-        originalTooLargeTitle: '原文超过 {limit} 字符，后端已省略返回',
+        originalTooLargeTitle: '原文超过 {limit} 字符，当前预览未返回全文',
         originalMissingTitle: '原文未返回',
         originalTooLarge: '原文过大，已省略',
         originalMissing: '原文未返回',
@@ -533,25 +532,25 @@ ChunkPreview: {
         full: '全文',
       },
       tabs: {
-        raw: '源码',
+        raw: '文本',
         rendered: '预览',
-        editor: '编辑器',
+        editor: '定位',
         pdf: 'PDF',
-        editorTitle: 'Large-text viewer with stable highlight + overview markers',
-        pdfAvailableTitle: 'PDF 框选高亮（解析器位置标签）',
-        pdfUnavailableTitle: 'PDF 预览（需要解析器位置标签）',
+        editorTitle: '在长文本中定位并高亮当前切块',
+        pdfAvailableTitle: '在 PDF 原页中框选高亮当前切块',
+        pdfUnavailableTitle: '当前解析结果没有 PDF 位置数据',
       },
       hints: {
-        pdfMode: '点击右侧 chunk 后自动跳页，并用布局框高亮原始版面位置。',
-        renderedMode: '提示：渲染模式下不支持高亮显示，请切换至源码/编辑器模式查看切片对应位置',
-        editorMode: '提示：右侧滚动条有 chunk 标记；点击原文可自动选中最细粒度的 chunk（child 优先）。',
+        pdfMode: '选择右侧切块后会自动跳页并高亮原始版面位置。',
+        renderedMode: '预览模式不显示切块高亮，可切换到“文本”或“定位”查看对应位置。',
+        editorMode: '滚动条会标出切块位置；点击原文可选择对应的最小切块。',
       },
       empty: {
         truncated: '原文已省略',
         missing: '原文未返回',
         truncatedDetail:
-          '原文超过 {limit} 字符（当前 {total} 字符），后端已省略返回以避免传输过大。',
-        missingDetail: '原文内容较大（{total} 字符）时，后端可能会省略原文以避免传输过大。',
+          '原文共有 {total} 字符，超过当前 {limit} 字符的返回上限。',
+        missingDetail: '原文共有 {total} 字符，当前预览没有返回全文。',
         fallbackHint: '你仍可使用右侧切片列表进行检查与入库。',
         readLocalLoading: '正在读取本地原文...',
         readLocal: '从本地文件读取原文',
@@ -567,7 +566,7 @@ ChunkPreview: {
       },
       monaco: {
         loadingMessage: '正在加载文本预览...',
-        loadingSrMessage: 'Loading text preview',
+        loadingSrMessage: '正在加载文本预览',
       },
     },
     chunkInspector: {

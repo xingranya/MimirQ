@@ -1,8 +1,6 @@
 /**
- * CoverageHeatmapMini - tiny, PII-safe visual for chunk coverage continuity.
- *
- * All visible metrics and bars are derived from backend stats only. The UI does
- * not recompute coverage quality from chunk ranges.
+ * 展示切块覆盖连续性的紧凑图表。
+ * 所有指标均来自后端统计，前端不根据切块位置重新计算质量。
  */
 'use client'
 
@@ -96,16 +94,16 @@ export function CoverageHeatmapMini(props: Readonly<{
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-md border border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.22))] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]',
+        'flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1',
         className
       )}
       role="img"
       aria-label={aria}
       title={title}
     >
-      <span className={cn('hidden h-1.5 w-1.5 rounded-full motion-safe:animate-pulse xl:inline-flex', pulseTone)} />
+      <span className={cn('hidden size-1.5 rounded-full xl:inline-flex', pulseTone)} />
 
-      <div className="flex items-end gap-[2px] rounded-md border border-border/40 bg-[linear-gradient(180deg,hsl(var(--background)/0.84),hsl(var(--muted)/0.32))] px-1.5 py-1">
+      <div className="flex items-end gap-[2px] rounded-md border border-border bg-background px-1.5 py-1">
         {backendBars.map(({ active, height, key, tone }) => {
           const bg = getCoverageBarBackground(active, tone)
           return (
@@ -118,7 +116,7 @@ export function CoverageHeatmapMini(props: Readonly<{
         })}
       </div>
 
-      <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <span className={cn('tabular-nums transition-colors duration-300 motion-reduce:transition-none', statusTone)}>
           覆盖 {coverageLabel}
         </span>

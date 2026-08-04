@@ -1,8 +1,4 @@
-/**
- * PdfPreview - PDF panel for chunk preview (best-effort).
- *
- * Highlights selected/hovered chunks by mapping chunk char ranges to parsing position-tag blocks.
- */
+/** 根据解析位置标签，在 PDF 原页中联动高亮当前切块。 */
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -33,7 +29,7 @@ function PdfPreviewLoadingSkeleton() {
 
   return (
     <div className="flex h-full items-center justify-center px-6">
-      <div className="w-full max-w-2xl rounded-2xl border border-border/60 bg-card/90 p-6 shadow-soft">
+      <div className="w-full max-w-2xl rounded-md border border-border bg-background p-6">
         <PageLoading
           className="min-h-0 flex-none justify-start"
           message={t('pdfPreview.loading.message')}
@@ -41,8 +37,8 @@ function PdfPreviewLoadingSkeleton() {
         />
         <div className="mt-5 space-y-3">
           <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-32 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-md" />
+          <Skeleton className="h-32 w-full rounded-md" />
         </div>
       </div>
     </div>
@@ -234,8 +230,8 @@ export function PdfPreview() {
   if (!rawOriginal) {
     return (
       <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning">
+        <div className="max-w-md rounded-md border border-border bg-background p-5 text-center">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-md bg-warning/10 text-warning">
             <AlertCircle className="h-5 w-5" />
           </div>
           <div className="text-sm font-semibold text-foreground">
@@ -258,8 +254,8 @@ export function PdfPreview() {
   if (pdfPreparationError) {
     return (
       <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+        <div className="max-w-md rounded-md border border-border bg-background p-5 text-center">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-md bg-destructive/10 text-destructive">
             <AlertCircle className="h-5 w-5" />
           </div>
           <div className="text-sm font-semibold text-foreground">
@@ -274,8 +270,8 @@ export function PdfPreview() {
   if (blocksWithPositions.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning">
+        <div className="max-w-md rounded-md border border-border bg-background p-5 text-center">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-md bg-warning/10 text-warning">
             <AlertCircle className="h-5 w-5" />
           </div>
           <div className="text-sm font-semibold text-foreground">
@@ -290,13 +286,13 @@ export function PdfPreview() {
   }
 
   return (
-    <div className="relative h-full">
-      <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 justify-end border-b border-border bg-background p-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-full bg-background/70 px-3 backdrop-blur"
+          className="h-8 rounded-md bg-background px-3 text-xs"
           onClick={() => setShowAllBoxes((prev) => !prev)}
         >
           {showAllBoxes
@@ -304,16 +300,18 @@ export function PdfPreview() {
             : t('pdfPreview.actions.showAllBoxes')}
         </Button>
       </div>
-      <PdfViewer
-        file={currentFile}
-        boxesByPage={boxesByPage}
-        blockIdToPageIndex={blockIdToPageIndex}
-        activeBlockIds={activeBlockIds}
-        hoveredBlockIds={hoveredBlockIds}
-        showAllBoxes={showAllBoxes}
-        onHoverBlockId={handleHoverBlockId}
-        onClickBlockId={handleClickBlockId}
-      />
+      <div className="min-h-0 flex-1">
+        <PdfViewer
+          file={currentFile}
+          boxesByPage={boxesByPage}
+          blockIdToPageIndex={blockIdToPageIndex}
+          activeBlockIds={activeBlockIds}
+          hoveredBlockIds={hoveredBlockIds}
+          showAllBoxes={showAllBoxes}
+          onHoverBlockId={handleHoverBlockId}
+          onClickBlockId={handleClickBlockId}
+        />
+      </div>
     </div>
   )
 }

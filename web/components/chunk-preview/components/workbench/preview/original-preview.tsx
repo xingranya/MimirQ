@@ -1,6 +1,4 @@
-/**
- * OriginalPreview - 原文预览
- */
+/** 原文文本、渲染结果、定位编辑器和 PDF 原页预览。 */
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
@@ -64,8 +62,7 @@ function DeferredMarkdownToc({ markdown }: Readonly<{ markdown: string }>) {
       setReady(true)
     }
 
-    // Rendering + heading extraction for large markdown docs can block the main thread.
-    // Defer the (non-critical) ToC until the browser is idle so the main preview shows ASAP.
+    // 大型 Markdown 文档的渲染和标题提取可能阻塞主线程，目录延后到浏览器空闲时生成。
     const idleGlobal: IdleGlobal = globalThis
     const ric = idleGlobal.requestIdleCallback
     const cic = idleGlobal.cancelIdleCallback
@@ -85,7 +82,7 @@ function DeferredMarkdownToc({ markdown }: Readonly<{ markdown: string }>) {
   }, [markdown])
 
   if (!ready) {
-    return <div className="text-[11px] text-muted-foreground">{t('originalPreview.tocLoading')}</div>
+    return <div className="text-xs text-muted-foreground">{t('originalPreview.tocLoading')}</div>
   }
 
   return <MarkdownToc markdown={markdown} />
@@ -120,11 +117,12 @@ export function OriginalPreview() {
     if (activeChunkIndex == null) return null
     const chunk = previewData?.chunks?.[activeChunkIndex]
     if (!chunk) return null
+    const role = getChunkRole(chunk)
     return {
       label: `#${activeChunkIndex + 1}`,
       range: `${chunk.start_index}-${chunk.end_index}`,
       page: chunk.page_number,
-      role: getChunkRole(chunk),
+      role: role === 'parent' ? '父块' : role === 'child' ? '子块' : role,
     }
   }, [activeChunkIndex, previewData?.chunks])
 
@@ -135,7 +133,7 @@ export function OriginalPreview() {
     return name.endsWith('.pdf')
   }, [currentFile?.name, previewData?.file_type])
 
-  // Keep the preferred preview mode sticky across chunk inspections (especially useful for PDF docking).
+  // 切换切块时保留用户选择的原文查看方式，PDF 联动时尤其需要。
   useEffect(() => {
     if (globalThis.window === undefined) return
     setPreviewMode(getInitialOriginalPreviewMode(isPdf))
@@ -256,7 +254,7 @@ export function OriginalPreview() {
     const safeActiveEnd = Math.min(activeEnd, text.length)
     if (safeActiveEnd <= activeStart) return null
 
-    // Parent-child: when selecting a child, also highlight its parent range (if provided).
+    // 选择子块时，如果存在父块范围，则同时高亮父块。
     const meta = (chunk.metadata || {})
     const role = typeof meta.chunk_role === 'string' ? meta.chunk_role : ''
     const parentStartRaw = meta.parent_start_char ?? meta.parent_start_index ?? meta.parent_start
@@ -276,7 +274,7 @@ export function OriginalPreview() {
     const baseStart = hasParent ? Math.min(activeStart, parentStartMapped) : activeStart
     const baseEnd = hasParent ? Math.max(safeActiveEnd, parentEndMapped) : safeActiveEnd
 
-    // Avoid rendering giant before/after strings for large texts: default to a windowed excerpt.
+    // 大文本默认只渲染当前窗口，避免生成过大的前后文字符串。
     const EXCERPT_THRESHOLD = 20_000
     const CONTEXT_CHARS = 2000
     const useExcerpt = !forceFullHighlight && text.length > EXCERPT_THRESHOLD
@@ -363,13 +361,13 @@ export function OriginalPreview() {
   }, [activeChunkIndex, previewMode])
 
   const originalHeaderMetaChipClass =
-    'inline-flex h-5 min-w-0 items-center gap-1 rounded-full border border-border/45 bg-background/68 px-1.5 text-[10px] font-medium leading-none text-muted-foreground/80'
+    'inline-flex h-6 min-w-0 items-center gap-1 rounded-md border border-border bg-muted/20 px-2 text-xs font-medium leading-none text-muted-foreground'
   const originalHeaderModeButtonClass =
-    'h-6 rounded-full px-2 text-[10.5px] font-medium shadow-none hover:bg-primary/8 hover:text-foreground/85'
+    'h-8 rounded-md px-2 text-xs font-medium hover:bg-primary/10 hover:text-foreground'
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 border-b lg:border-b-0 lg:border-r border-border/60 bg-card">
-      <div className="min-h-10 shrink-0 border-b border-border/55 bg-card px-3 py-2">
+    <div className="flex min-w-0 flex-1 flex-col border-b border-border bg-background lg:border-b-0 lg:border-r">
+      <div className="min-h-10 shrink-0 border-b border-border bg-background p-3">
         <div
           data-original-preview-header
           className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between"
@@ -413,13 +411,13 @@ export function OriginalPreview() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-warning/25 bg-warning/10 text-warning"
+                          className="inline-flex size-6 items-center justify-center rounded-md border border-warning/25 bg-warning/10 text-warning"
                           aria-label={badgeLabel}
                         >
                           <AlertCircle className="h-3 w-3" />
                         </span>
                       </TooltipTrigger>
-                      <TooltipContent className="max-w-[240px] text-[11px] leading-relaxed">
+                      <TooltipContent className="max-w-[240px] text-xs leading-5">
                         <div className="font-medium">{badgeLabel}</div>
                         {badgeDescription ? (
                           <div className="mt-0.5 text-muted-foreground">{badgeDescription}</div>
@@ -430,7 +428,7 @@ export function OriginalPreview() {
                 )
               })() : null}
               {previewMode === 'pdf' ? (
-                <span className="hidden text-[10.5px] font-normal text-muted-foreground/70 xl:inline">
+                <span className="hidden text-xs text-muted-foreground xl:inline">
                   {t('originalPreview.hints.pdfMode')}
                 </span>
               ) : null}
@@ -439,16 +437,16 @@ export function OriginalPreview() {
             {previewData ? (
               <div
                 data-original-preview-health-strip
-                className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-mono text-muted-foreground"
+                className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
               >
               {activeChunkMeta ? (
-                <span className="inline-flex h-5 max-w-full items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-primary">
+                <span className="inline-flex h-6 max-w-full items-center rounded-md border border-primary/20 bg-primary/10 px-2 text-primary">
                   {activeChunkMeta.label}
-                  {activeChunkMeta.page == null ? '' : ` P.${activeChunkMeta.page}`}
+                  {activeChunkMeta.page == null ? '' : ` 第 ${activeChunkMeta.page} 页`}
                   {' '}
                   <span className="truncate text-muted-foreground">{activeChunkMeta.range}</span>
                   {activeChunkMeta.role ? (
-                    <span className="ml-1 shrink-0 text-[9px] uppercase  text-muted-foreground">
+                    <span className="ml-1 shrink-0 text-xs text-muted-foreground">
                       {activeChunkMeta.role}
                     </span>
                   ) : null}
@@ -480,7 +478,7 @@ export function OriginalPreview() {
                   : t('originalPreview.toggle.full')}
               </Button>
             ) : null}
-            <div className="flex items-center gap-0.5 rounded-full border border-border/50 bg-muted/18 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/20 p-0.5">
               <Button
                 variant={previewMode === 'raw' ? 'secondary' : 'ghost'}
                 size="sm"
@@ -533,13 +531,13 @@ export function OriginalPreview() {
       <div
         data-page-scroll-container="true"
         className={cn(
-          'flex-1 overscroll-contain no-scrollbar p-4 scroll-smooth',
+          'flex-1 overscroll-contain p-3 scroll-smooth no-scrollbar sm:p-4',
           previewMode === 'editor' || previewMode === 'pdf' ? 'overflow-hidden' : 'overflow-y-auto'
         )}
       >
         <div
           className={cn(
-            'min-h-full rounded-2xl border border-border/60 bg-card p-6 shadow-sm ring-1 ring-border/40',
+            'min-h-full',
             previewMode === 'editor' || previewMode === 'pdf' ? 'h-full' : null
           )}
         >
@@ -557,12 +555,12 @@ export function OriginalPreview() {
                     <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-code:text-primary prose-code:bg-primary/10 dark:prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-muted">
                       <MarkdownRenderer markdown={effectiveOriginalText} autoScrollToHash/>
                     </div>
-                    <p className="mt-4 text-[11px] text-muted-foreground">
+                    <p className="mt-4 text-xs leading-5 text-muted-foreground">
                       {t('originalPreview.hints.renderedMode')}
                     </p>
                   </div>
 	                  {tocEnabled && (<aside className="hidden xl:block w-64 shrink-0">
-	                      <div className="sticky top-6 max-h-[calc(100vh-220px)] overflow-y-auto overscroll-contain no-scrollbar rounded-xl border border-border/60 bg-card p-3">
+	                      <div className="sticky top-6 max-h-[calc(100vh-220px)] overflow-y-auto overscroll-contain rounded-md border border-border bg-background p-3 no-scrollbar">
 	                        <DeferredMarkdownToc markdown={effectiveOriginalText}/>
 	                      </div>
 	                    </aside>)}
@@ -571,7 +569,7 @@ export function OriginalPreview() {
                 else if (previewMode === 'editor') {
                         return (<div className="mx-auto w-full max-w-6xl h-full">
                   <OriginalPreviewMonaco text={effectiveOriginalText} chunks={displayChunks} activeChunkIndex={activeChunkIndex} chunkOverrides={chunkOverrides} onSelectChunkIndex={setSelectedChunkIndex}/>
-                  <p className="mt-3 text-[11px] text-muted-foreground">
+                  <p className="mt-3 text-xs leading-5 text-muted-foreground">
                     {t('originalPreview.hints.editorMode')}
                   </p>
                 </div>);
@@ -637,11 +635,11 @@ export function OriginalPreview() {
                   {t('originalPreview.empty.fallbackHint')}
                 </p>
 
-                {localError ? (<p className="text-[11px] text-destructive bg-destructive/10 border border-destructive/25 px-2 py-1 rounded-lg">
+                {localError ? (<p className="rounded-md border border-destructive/25 bg-destructive/10 px-2 py-1 text-xs text-destructive">
                     {localError}
                   </p>) : null}
 
-                {canLoadFromFile && currentFile ? (<Button type="button" variant="outline" size="sm" className="h-8 px-3 text-[11px] mt-2" disabled={localLoading} onClick={async () => {
+                {canLoadFromFile && currentFile ? (<Button type="button" variant="outline" size="sm" className="mt-2 h-8 rounded-md px-3 text-xs" disabled={localLoading} onClick={async () => {
                     try {
                         setLocalLoading(true);
                         setLocalError(null);
@@ -658,7 +656,7 @@ export function OriginalPreview() {
                     {localLoading
                       ? t('originalPreview.empty.readLocalLoading')
                       : t('originalPreview.empty.readLocal')}
-                  </Button>) : (<p className="text-[11px] text-muted-foreground">{t('originalPreview.empty.unsupportedFile')}</p>)}
+                  </Button>) : (<p className="text-xs text-muted-foreground">{t('originalPreview.empty.unsupportedFile')}</p>)}
               </div>));
     }
     else if (isLoading) {

@@ -1,6 +1,4 @@
-/**
- * OriginalPreviewMonaco - Large-text viewer with stable highlight + overview markers.
- */
+/** 支持稳定高亮和滚动标记的长文本定位器。 */
 'use client'
 
 import loader from '@monaco-editor/loader'
@@ -25,7 +23,7 @@ function OriginalPreviewMonacoLoading() {
     <PageLoading
       message={t('originalPreview.monaco.loadingMessage')}
       srMessage={t('originalPreview.monaco.loadingSrMessage')}
-      className="h-full min-h-[520px] rounded-xl border border-border/60 bg-background"
+      className="h-full min-h-[520px] rounded-md border border-border bg-background"
     />
   )
 }
@@ -95,7 +93,7 @@ type MonacoModule = {
 function buildLineStarts(text: string) {
   const starts = [0]
   for (let i = 0; i < text.length; i++) {
-    if (text.codePointAt(i) === 10) starts.push(i + 1) // '\n'
+    if (text.codePointAt(i) === 10) starts.push(i + 1) // 换行符
   }
   return starts
 }
@@ -105,7 +103,7 @@ function clampOffset(value: number, min: number, max: number) {
 }
 
 function offsetToPosition(lineStarts: number[], offset: number) {
-  // lineStarts is sorted; find last start <= offset.
+  // 行起点已经排序，查找不大于偏移量的最后一个起点。
   let lo = 0
   let hi = lineStarts.length - 1
   while (lo <= hi) {
@@ -231,14 +229,14 @@ export function OriginalPreviewMonaco(props: Readonly<{
         return 'rgba(148,163,184,0.35)';
     }
     else if (isChild) {
-            return 'rgba(59,130,246,0.65)' // child highlight
+            return 'rgba(59,130,246,0.65)' // 子块高亮
             ;
         }
         else {
-            return 'rgba(148,163,184,0.45)' // parent/others
+            return 'rgba(148,163,184,0.45)' // 父块或其他切块
             ;
         }
-})() // parent/others
+})() // 父块或其他切块
 
       return {
         range: new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
@@ -334,7 +332,7 @@ export function OriginalPreviewMonaco(props: Readonly<{
         editor.revealRangeInCenter(revealRange, monaco.editor.ScrollType.Smooth)
       }
     } catch {
-      // no-op
+      // 无需处理
     }
   }, [activeChunkIndex, activeRange, chunks, highlightParentRange, lineStarts, text.length])
 
@@ -355,7 +353,7 @@ export function OriginalPreviewMonaco(props: Readonly<{
     try {
       editor.setScrollTop(Math.max(0, initialScrollTop))
     } catch {
-      // no-op
+      // 无需处理
     }
   }, [activeChunkIndex, activeRange, initialScrollTop, text])
 
@@ -373,7 +371,7 @@ export function OriginalPreviewMonaco(props: Readonly<{
   }, [])
 
   return (
-    <div className="relative h-full min-h-[520px] rounded-xl border border-border/60 overflow-hidden bg-background">
+    <div className="relative h-full min-h-[520px] overflow-hidden rounded-md border border-border bg-background">
       <MonacoEditor
         height="100%"
         language="markdown"
@@ -403,7 +401,7 @@ export function OriginalPreviewMonaco(props: Readonly<{
             try {
               editor.setScrollTop(Math.max(0, initialScrollTop))
             } catch {
-              // no-op
+              // 无需处理
             }
           }
 
