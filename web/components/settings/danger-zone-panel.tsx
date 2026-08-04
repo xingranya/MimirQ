@@ -33,10 +33,10 @@ export function DangerZonePanel({
     <details
       data-testid="danger-zone-panel"
       className={cn(
-        'group rounded-xl p-0',
+        'group rounded-lg border p-0',
         isNeutral
-          ? 'border border-border/70 bg-card/70 shadow-[0_8px_24px_hsl(var(--foreground)/0.04)]'
-          : 'border border-destructive/20 bg-destructive/[0.035] shadow-[0_8px_24px_hsl(var(--destructive)/0.035)]',
+          ? 'border-border bg-background'
+          : 'border-destructive/25 bg-destructive/[0.03]',
         className
       )}
     >
@@ -49,7 +49,7 @@ export function DangerZonePanel({
         <div className={cn('flex min-w-0', compact ? 'gap-2' : 'gap-2.5')}>
           <div
             className={cn(
-              'shrink-0 items-center justify-center rounded-lg',
+              'shrink-0 items-center justify-center rounded-md',
               isNeutral
                 ? 'border border-primary/20 bg-primary/10 text-primary'
                 : 'border border-destructive/20 bg-destructive/10 text-destructive',
@@ -60,32 +60,45 @@ export function DangerZonePanel({
           </div>
           <div className="min-w-0">
             <div className={cn('flex flex-wrap items-center', compact ? 'gap-1.5' : 'gap-2')}>
-              <span className={cn('font-medium tracking-[-0.005em] text-foreground', compact ? 'text-[11.5px]' : 'text-[12px]')}>{title}</span>
               <span
                 className={cn(
-                  'rounded-full bg-background/80 font-semibold',
+                  'font-medium text-foreground',
+                  compact ? 'text-xs' : 'text-sm'
+                )}
+              >
+                {title}
+              </span>
+              <span
+                className={cn(
+                  'rounded-md bg-background font-medium',
                   isNeutral
                     ? 'border border-border/60 text-muted-foreground'
                     : 'border border-destructive/20 text-destructive',
-                  compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-1.5 py-0.5 text-[10px]'
+                  'px-1.5 py-0.5 text-xs'
                 )}
               >
                 {badge}
               </span>
             </div>
-            <p className={cn('text-muted-foreground/90', compact ? 'mt-0.5 text-[10px] leading-3.5' : 'mt-0.5 text-[11px] leading-4')}>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
               {impact}
             </p>
           </div>
         </div>
-        <ChevronDown className={cn('shrink-0 text-muted-foreground transition-transform group-open:rotate-180', compact ? 'mt-0 h-3.5 w-3.5' : 'mt-1 h-4 w-4')} />
+        <ChevronDown
+          className={cn(
+            'shrink-0 text-muted-foreground transition-transform group-open:rotate-180',
+            compact ? 'mt-0 h-3.5 w-3.5' : 'mt-1 h-4 w-4'
+          )}
+          aria-hidden="true"
+        />
       </summary>
       <div
         className={cn(
           'px-3 pb-3 pt-3',
           isNeutral
-            ? 'border-t border-border/60 bg-background/55'
-            : 'border-t border-destructive/10 bg-background/55'
+            ? 'border-t border-border bg-background'
+            : 'border-t border-destructive/15 bg-background'
         )}
       >
         {children}
