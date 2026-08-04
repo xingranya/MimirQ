@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -91,8 +92,8 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
     const presetMap: Record<string, string> = {
       paragraph: '\n\n',
       line: '\n',
-      sentence_cn: '。', // cn
-      sentence_en: '.', // en
+      sentence_cn: '。', // 中文句号
+      sentence_en: '.', // 英文句号
       markdown_hr: '---',
       markdown_h1: '# ',
       markdown_h2: '## ',
@@ -249,18 +250,18 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
   return (
     <div
       className={cn(
-        'space-y-2.5 rounded-xl border border-border/55 bg-[linear-gradient(180deg,hsl(var(--background)/0.96),hsl(var(--muted)/0.18))] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]',
+        'space-y-3 rounded-md border border-border bg-background p-3',
         className
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/5 text-accent">
-            <Bookmark className="h-3.5 w-3.5" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-primary">
+            <Bookmark className="size-4" />
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[11px] font-semibold text-foreground/84">{t('chunkPresetPanel.title')}</div>
-            <div className="truncate text-[9.5px] text-muted-foreground/72">
+            <div className="truncate text-sm font-semibold text-foreground">{t('chunkPresetPanel.title')}</div>
+            <div className="truncate text-xs text-muted-foreground">
               {selectedPreset ? t('chunkPresetPanel.statusActive', { name: selectedPreset.name }) : t('chunkPresetPanel.statusIdle')}
             </div>
           </div>
@@ -269,7 +270,7 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
           type="button"
           size="sm"
           variant="ghost"
-          className="h-7 w-7 shrink-0 rounded-lg p-0 text-muted-foreground hover:bg-background/80"
+          className="size-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-muted"
           onClick={() => detachPromise(refresh())}
           disabled={loading || saving}
           aria-label={t('chunkPresetPanel.refreshAria')}
@@ -283,7 +284,7 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
         </Button>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <Select
           value={selectedId || '__none__'}
           onValueChange={(value) => {
@@ -296,7 +297,7 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
             }
           }}
         >
-          <SelectTrigger className="h-8 rounded-lg border-border/55 bg-background/88 text-[11px] shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+          <SelectTrigger className="h-9 rounded-md border-border bg-background text-sm shadow-none">
             <SelectValue placeholder={t('chunkPresetPanel.select')} />
           </SelectTrigger>
           <SelectContent>
@@ -309,19 +310,18 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
           </SelectContent>
         </Select>
 
-        <div className="flex shrink-0 rounded-lg border border-border/50 bg-background/75 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.62)]">
+        <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className="h-7 rounded-md border-accent/30 bg-accent/5 px-2.5 text-[11px] font-medium text-accent shadow-none hover:bg-accent/10 hover:text-accent dark:hover:bg-accent/50"
+            className="h-9 rounded-md px-3 text-sm shadow-none"
             onClick={() => detachPromise(onSave())}
             disabled={saving}
           >
             {saving ? (
               <Loader2 className="mr-1.5 h-3 w-3 animate-spin motion-reduce:animate-none" />
             ) : (
-              <Save className="mr-1.5 h-3 w-3 text-accent" />
+              <Save className="mr-1.5 h-3 w-3" />
             )}
             {selectedPreset ? t('chunkPresetPanel.updatePreset') : t('chunkPresetPanel.savePreset')}
           </Button>
@@ -329,8 +329,8 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              className="h-7 rounded-md px-2.5 text-[11px] text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+              variant="outline"
+              className="h-9 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={() => {
                 setSaveAsName(`${selectedPreset.name} ${t('chunkPresetPanel.copySuffix')}`)
                 setSaveAsDescription(selectedPreset.description || '')
@@ -345,20 +345,21 @@ export function ChunkPresetPanel({ className }: Readonly<{ className?: string }>
       </div>
 
       <Dialog open={saveAsOpen} onOpenChange={setSaveAsOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg rounded-lg">
           <DialogHeader>
             <DialogTitle>{t('chunkPresetPanel.dialogTitle')}</DialogTitle>
             <DialogDescription>{t('chunkPresetPanel.dialogDescription')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">{t('chunkPresetPanel.name')}</div>
-              <Input value={saveAsName} onChange={(e) => setSaveAsName(e.target.value)} placeholder={t('chunkPresetPanel.namePlaceholder')} />
+            <div className="space-y-1.5">
+              <Label htmlFor="chunk-preset-name">{t('chunkPresetPanel.name')}</Label>
+              <Input id="chunk-preset-name" value={saveAsName} onChange={(e) => setSaveAsName(e.target.value)} placeholder={t('chunkPresetPanel.namePlaceholder')} />
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">{t('chunkPresetPanel.description')}</div>
+            <div className="space-y-1.5">
+              <Label htmlFor="chunk-preset-description">{t('chunkPresetPanel.description')}</Label>
               <Textarea
+                id="chunk-preset-description"
                 value={saveAsDescription}
                 onChange={(e) => setSaveAsDescription(e.target.value)}
                 placeholder={t('chunkPresetPanel.descriptionPlaceholder')}

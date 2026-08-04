@@ -1,8 +1,6 @@
 /**
- * ChunkInspectorDialog - Edit chunk content/metadata before ingestion/export.
- *
- * This is a frontend-only override layer: it does NOT re-run chunking, and does not
- * affect original-text highlighting offsets.
+ * 入库或导出前编辑切块内容和元数据。
+ * 编辑仅保存在前端覆盖层，不会重新切块，也不会改变原文定位。
  */
 'use client'
 
@@ -17,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 
 import {
   Dialog,
@@ -62,7 +61,7 @@ function buildEmbeddingText(
     ''
   const headerStr = String(header || '').trim()
   if (!headerStr) return raw
-  return `[Section] ${headerStr}\n${raw}`
+  return `[章节] ${headerStr}\n${raw}`
 }
 
 export function ChunkInspectorDialog({
@@ -100,7 +99,7 @@ export function ChunkInspectorDialog({
     return t('chunkInspector.chunkLabel', { name, index: index + 1 })
   }, [index, sourceFilename, t])
 
-  // Initialize draft when dialog opens / chunk changes.
+  // 每次打开其他切块时重建草稿，避免沿用上一个切块的编辑内容。
   useEffect(() => {
     if (!open) return
     if (!chunk || index == null) return
@@ -156,8 +155,8 @@ export function ChunkInspectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[min(92vh,880px)] max-w-[min(96vw,1280px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/60 bg-popover/95 px-6 py-5 pr-14">
+      <DialogContent className="grid h-[min(92dvh,880px)] w-[calc(100vw-1.5rem)] max-w-[1280px] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-lg p-0">
+        <DialogHeader className="border-b border-border bg-background px-5 py-4 pr-12 sm:px-6">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" />
             {t('chunkInspector.title')}
@@ -169,12 +168,12 @@ export function ChunkInspectorDialog({
               {chunk ? ` · ${chunk.start_index}-${chunk.end_index}` : ''}
             </div>
             {sectionLabel ? (
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {t('chunkInspector.sectionLabel')}:{' '}
                 <span title={sectionLabel.full}>{sectionLabel.full}</span>
               </div>
             ) : null}
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               {t('chunkInspector.description')}
               {overrideUpdatedAt
                 ? t('chunkInspector.editedAt', {
@@ -185,38 +184,38 @@ export function ChunkInspectorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 gap-4 overflow-y-auto bg-muted/20 p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.8fr)] lg:overflow-hidden">
-          <section className="flex min-h-[420px] flex-col rounded-2xl border border-border/60 bg-card shadow-sm lg:min-h-0">
-            <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="grid min-h-0 gap-4 overflow-y-auto bg-background p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.8fr)] lg:overflow-hidden">
+          <section className="flex min-h-[320px] flex-col rounded-md border border-border bg-background lg:min-h-0">
+            <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <FileText className="h-4 w-4 text-primary" />
                   {t('chunkInspector.contentLabel')}
                 </div>
-                <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">
                   {t('chunkInspector.contentHelper')}
                 </div>
               </div>
-              <span className="shrink-0 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] tabular-nums text-muted-foreground">
+              <span className="w-fit shrink-0 rounded-md border border-border bg-muted/20 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
                 {t('chunkInspector.contentStats', contentStats)}
               </span>
             </div>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="min-h-[360px] flex-1 resize-none rounded-none border-0 bg-background/75 px-4 py-3 font-mono text-[12px] leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
+              className="min-h-[260px] flex-1 resize-none rounded-none border-0 bg-background px-4 py-3 font-mono text-xs leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
               aria-label={t('chunkInspector.contentLabel')}
               disabled={disabled}
             />
           </section>
 
-          <aside className="flex min-h-[420px] flex-col rounded-2xl border border-border/60 bg-card shadow-sm lg:min-h-0">
-            <div className="border-b border-border/60 px-4 py-3">
+          <aside className="flex min-h-[320px] flex-col rounded-md border border-border bg-background lg:min-h-0">
+            <div className="border-b border-border px-4 py-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Braces className="h-4 w-4 text-primary" />
                 {t('chunkInspector.sidePanelLabel')}
               </div>
-              <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
                 {t('chunkInspector.sidePanelHelper')}
               </div>
             </div>
@@ -225,11 +224,11 @@ export function ChunkInspectorDialog({
               defaultValue="metadata"
               className="flex min-h-0 flex-1 flex-col p-3"
             >
-              <TabsList className="grid h-9 w-full grid-cols-2 rounded-xl bg-muted/60 p-1">
-                <TabsTrigger value="metadata" className="h-7 text-[12px]">
+              <TabsList className="grid h-9 w-full grid-cols-2 rounded-md bg-muted p-1">
+                <TabsTrigger value="metadata" className="h-7 text-xs">
                   {t('chunkInspector.metadataTab')}
                 </TabsTrigger>
-                <TabsTrigger value="embedding" className="h-7 text-[12px]">
+                <TabsTrigger value="embedding" className="h-7 text-xs">
                   {t('chunkInspector.embeddingTab')}
                 </TabsTrigger>
               </TabsList>
@@ -238,22 +237,22 @@ export function ChunkInspectorDialog({
                 value="metadata"
                 className="mt-3 min-h-0 flex-1 data-[state=inactive]:hidden"
               >
-                <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/55 bg-background/70">
-                  <div className="flex items-start justify-between gap-3 border-b border-border/55 px-3 py-2.5">
+                <div className="flex h-full min-h-0 flex-col rounded-md border border-border bg-background">
+                  <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="text-xs font-semibold text-foreground">
                         {t('chunkInspector.metadataLabel')}
                       </div>
-                      <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">
                         {t('chunkInspector.metadataHelper')}
                       </div>
                     </div>
                     {metadataError ? (
-                      <span className="shrink-0 rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive">
+                      <span className="w-fit shrink-0 rounded-md border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
                         {metadataError}
                       </span>
                     ) : (
-                      <span className="shrink-0 rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[11px] text-success">
+                      <span className="w-fit shrink-0 rounded-md border border-success/25 bg-success/10 px-2 py-0.5 text-xs text-success">
                         {t('chunkInspector.metadataOk')}
                       </span>
                     )}
@@ -261,7 +260,7 @@ export function ChunkInspectorDialog({
                   <Textarea
                     value={metadataText}
                     onChange={(e) => setMetadataText(e.target.value)}
-                    className="min-h-[300px] flex-1 resize-none rounded-none border-0 bg-transparent px-3 py-3 font-mono text-[12px] leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
+                    className="min-h-[240px] flex-1 resize-none rounded-none border-0 bg-transparent px-3 py-3 font-mono text-xs leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
                     aria-label={t('chunkInspector.metadataLabel')}
                     aria-invalid={metadataError ? 'true' : undefined}
                     disabled={disabled}
@@ -273,14 +272,14 @@ export function ChunkInspectorDialog({
                 value="embedding"
                 className="mt-3 min-h-0 flex-1 data-[state=inactive]:hidden"
               >
-                <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/55 bg-background/70">
-                  <div className="flex items-start justify-between gap-3 border-b border-border/55 px-3 py-2.5">
+                <div className="flex h-full min-h-0 flex-col rounded-md border border-border bg-background">
+                  <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                         <Sparkles className="w-3.5 h-3.5 text-primary" />
                         {t('chunkInspector.embeddingLabel')}
                       </div>
-                      <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">
                         {embeddingPrefixEnabled
                           ? t('chunkInspector.prefixOn')
                           : t('chunkInspector.prefixOff')}
@@ -290,14 +289,15 @@ export function ChunkInspectorDialog({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-7 shrink-0 px-2 text-[11px]"
+                      className="h-8 w-fit shrink-0 px-2 text-xs"
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(
                             embeddingText || ''
                           )
+                          toast.success(t('chunkInspector.copyEmbeddingSuccess'))
                         } catch {
-                          // ignore
+                          toast.error(t('chunkInspector.copyEmbeddingFailed'))
                         }
                       }}
                       disabled={disabled || !embeddingText}
@@ -311,11 +311,11 @@ export function ChunkInspectorDialog({
                   <Textarea
                     value={embeddingText}
                     readOnly
-                    className="min-h-[280px] flex-1 resize-none rounded-none border-0 bg-muted/25 px-3 py-3 font-mono text-[12px] leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
+                    className="min-h-[220px] flex-1 resize-none rounded-none border-0 bg-muted/20 px-3 py-3 font-mono text-xs leading-relaxed shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/30 lg:min-h-0"
                     aria-label={t('chunkInspector.embeddingLabel')}
                     disabled={disabled}
                   />
-                  <div className="border-t border-border/55 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <div className="border-t border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
                     {t('chunkInspector.embeddingHint')}
                   </div>
                 </div>
@@ -324,7 +324,7 @@ export function ChunkInspectorDialog({
           </aside>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-border/60 bg-popover/95 px-6 py-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Button
             type="button"
             variant="outline"

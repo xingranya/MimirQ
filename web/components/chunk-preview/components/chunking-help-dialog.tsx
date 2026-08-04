@@ -1,6 +1,4 @@
-/**
- * ChunkingHelpDialog - 切块预览帮助（参数建议 / 策略速查 / 快捷键）
- */
+/** 切块预览的工作流、参数、策略和快捷键指南。 */
 'use client'
 
 import { Keyboard, Scissors, Settings2, Sparkles } from 'lucide-react'
@@ -20,7 +18,7 @@ export function ChunkingHelpDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[min(90dvh,800px)] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Scissors className="w-5 h-5 text-primary" />
@@ -29,14 +27,14 @@ export function ChunkingHelpDialog({
           <DialogDescription>{t("help.description")}</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh] pr-4">
-          <div className="space-y-6 text-sm">
-            <section className="rounded-xl border border-border/60 bg-card/60 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase ">
+        <ScrollArea className="min-h-0 flex-1 pr-4">
+          <div className="divide-y divide-border text-sm">
+            <section className="pb-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Sparkles className="w-3.5 h-3.5" />
                 {t("help.workflow.title")}
               </div>
-              <div className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
                 <div>{t("help.workflow.steps.parsing")}</div>
                 <div>{t("help.workflow.steps.governance")}</div>
                 <div>{t("help.workflow.steps.preview")}</div>
@@ -44,12 +42,12 @@ export function ChunkingHelpDialog({
               </div>
             </section>
 
-            <section className="rounded-xl border border-border/60 bg-card/60 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase ">
+            <section className="py-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Settings2 className="w-3.5 h-3.5" />
                 {t("help.parameters.title")}
               </div>
-              <div className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
                 <div>
                   <span className="font-mono text-foreground/90">chunk_size</span>：{t("help.parameters.chunkSize")}
                 </div>
@@ -60,12 +58,12 @@ export function ChunkingHelpDialog({
               </div>
             </section>
 
-            <section className="rounded-xl border border-border/60 bg-card/60 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase ">
+            <section className="py-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Scissors className="w-3.5 h-3.5" />
                 {t("help.strategies.title")}
               </div>
-              <div className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
                 <div>
                   <span className="font-mono text-foreground/90">auto / langchain_recursive</span>：{t("help.strategies.auto")}
                 </div>
@@ -88,12 +86,12 @@ export function ChunkingHelpDialog({
 
             </section>
 
-            <section className="rounded-xl border border-border/60 bg-card/60 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase ">
+            <section className="pt-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Keyboard className="w-3.5 h-3.5" />
                 {t("help.shortcuts.title")}
               </div>
-              <div className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
                 <div>
                   <span className="font-mono text-foreground/90">Ctrl/Cmd + Enter</span>：{t("help.shortcuts.forceRegenerate")}
                 </div>

@@ -113,11 +113,11 @@ export function ChunkAutoTuneDialog() {
       }
     }
 
-    // Always include current params as a candidate.
+    // 始终保留当前参数，便于和推荐结果直接比较。
     const currentOverlap = clampInt(chunkOverlap || 0, 0, Math.min(1000, base - 1))
     out.push({ chunkSize: base, chunkOverlap: currentOverlap })
 
-    // Dedup.
+    // 去除相同的参数组合。
     const seen = new Set<string>()
     return out.filter((c) => {
       const key = `${c.chunkSize}:${c.chunkOverlap}`
@@ -188,12 +188,12 @@ export function ChunkAutoTuneDialog() {
     chunk_strategy: chunkStrategy || 'langchain_recursive',
     dataset_id: datasetId || undefined,
     pipeline: pipelineCtx.enabled ? pipelineCtx.options : undefined,
-    // Performance: stats-only, no original text.
+    // 调优只需要统计结果，不传回原文和切块正文。
     include_original_text: false,
     include_chunks: false,
     max_chunks: 0,
     use_parse_cache: true,
-    // Strategy-specific.
+    // 仅为父子切块策略补充专用参数。
     child_ratio: chunkStrategy === 'parent_child' ? parentChildRatio : undefined,
     min_child_size: chunkStrategy === 'parent_child' ? parentChildMinChildSize : undefined,
 }
@@ -242,7 +242,7 @@ export function ChunkAutoTuneDialog() {
             error: formatApiError(err, t('autoTune.toasts.requestFailed')),
           })
         }
-        // Keep UI responsive for long runs.
+        // 分批写入结果，长任务执行时仍能看到进度。
         if (i % 2 === 1) setResults([...out])
       }
     } finally {
@@ -283,7 +283,7 @@ export function ChunkAutoTuneDialog() {
   const applyCandidate = async (c: TuneCandidate) => {
     updateSettings({ chunkSize: c.chunkSize, chunkOverlap: c.chunkOverlap })
     setOpen(false)
-    // Force a fresh preview so the user sees the actual chunk output.
+    // 强制刷新预览，让用户立即看到新参数生成的切块。
     await runPreview({ force: true })
   }
 
@@ -293,12 +293,12 @@ export function ChunkAutoTuneDialog() {
         type="button"
         size="sm"
         variant="outline"
-        className="h-6 rounded-md border-border/50 bg-background/75 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted/45 hover:text-muted-foreground"
+        className="h-8 rounded-md border-border bg-background px-2.5 text-xs font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
         onClick={() => setOpen(true)}
         disabled={!previewData || isLoading}
         title={isAutoTuneAvailable ? t('autoTune.trigger.readyTitle') : t('autoTune.trigger.disabledTitle')}
       >
-        <Wand2 className="mr-1 h-3 w-3 text-info" />
+        <Wand2 className="mr-1.5 size-3.5 text-info" />
         {t('autoTune.trigger.label')}
       </Button>
 
@@ -309,16 +309,16 @@ export function ChunkAutoTuneDialog() {
           setOpen(v)
         }}
       >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(90dvh,840px)] w-[calc(100vw-2rem)] max-w-3xl flex-col overflow-hidden rounded-lg p-0">
+          <DialogHeader className="border-b border-border px-5 py-4 pr-12 sm:px-6">
             <DialogTitle>{t('autoTune.dialog.title')}</DialogTitle>
             <DialogDescription>
               {t('autoTune.dialog.description')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+            <div className="rounded-md border border-border bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{t('autoTune.currentFile.title')}</div>
                 {running ? (
@@ -326,7 +326,7 @@ export function ChunkAutoTuneDialog() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-[11px]"
+                    className="h-8 px-2 text-xs"
                     onClick={() => abortRef.current?.abort()}
                   >
                     <X className="w-3.5 h-3.5 mr-1" />
@@ -339,7 +339,7 @@ export function ChunkAutoTuneDialog() {
                   filename,
                   sha: sha ? String(sha).slice(0, 10) : '-',
                   strategy: chunkStrategy,
-                  unit: isTokenStrategy ? 'tokens' : 'chars',
+                  unit: isTokenStrategy ? 'token' : '字符',
                 })}
               </div>
               {isAutoTuneAvailable ? null : (
@@ -351,7 +351,7 @@ export function ChunkAutoTuneDialog() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">{t('autoTune.labels.minCoverage')}</Label>
                 <Input
@@ -362,7 +362,7 @@ export function ChunkAutoTuneDialog() {
                   step={1}
                   value={minCoveragePct}
                   onChange={(e) => setMinCoveragePct(clampInt(Number(e.target.value), 0, 100))}
-                  className="h-8 font-mono text-xs"
+                  className="h-9 rounded-md font-mono text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -375,7 +375,7 @@ export function ChunkAutoTuneDialog() {
                   step={1}
                   value={maxOverlapWastePct}
                   onChange={(e) => setMaxOverlapWastePct(clampInt(Number(e.target.value), 0, 100))}
-                  className="h-8 font-mono text-xs"
+                  className="h-9 rounded-md font-mono text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -388,7 +388,7 @@ export function ChunkAutoTuneDialog() {
                   step={10}
                   value={maxChunksCap}
                   onChange={(e) => setMaxChunksCap(clampInt(Number(e.target.value), 0, 20000))}
-                  className="h-8 font-mono text-xs"
+                  className="h-9 rounded-md font-mono text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -401,13 +401,13 @@ export function ChunkAutoTuneDialog() {
                   step={1}
                   value={topN}
                   onChange={(e) => setTopN(clampInt(Number(e.target.value), 1, 20))}
-                  className="h-8 font-mono text-xs"
+                  className="h-9 rounded-md font-mono text-sm"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-muted-foreground">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs leading-5 text-muted-foreground">
                 {t('autoTune.labels.searchSpace', {
                   count: candidates.length,
                   sizeMin,
@@ -415,12 +415,12 @@ export function ChunkAutoTuneDialog() {
                   step: effectiveStep,
                 })}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 px-3 text-xs"
+                  className="h-9 px-3 text-sm"
                   onClick={() => exportJson()}
                   disabled={!results.length}
                 >
@@ -430,7 +430,7 @@ export function ChunkAutoTuneDialog() {
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 px-3 text-xs"
+                  className="h-9 px-3 text-sm"
                   onClick={() => detachPromise(runTune())}
                   disabled={!isAutoTuneAvailable || running}
                 >
@@ -440,8 +440,8 @@ export function ChunkAutoTuneDialog() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/60 overflow-hidden">
-              <table aria-label={t('autoTune.table.ariaLabel')} className="w-full text-xs">
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table aria-label={t('autoTune.table.ariaLabel')} className="min-w-[720px] w-full text-xs">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium">{t('autoTune.table.params')}</th>
@@ -475,7 +475,7 @@ export function ChunkAutoTuneDialog() {
                         </td>
                         <td className="px-3 py-2 font-mono">{r.quality?.grade || '-'}</td>
                         <td className="px-3 py-2 text-right">
-                          <Button type="button" size="sm" className="h-7 px-2 text-[11px]" onClick={() => detachPromise(applyCandidate(r))}>
+                          <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => detachPromise(applyCandidate(r))}>
                             {t('autoTune.actions.applyAndPreview')}
                           </Button>
                         </td>
