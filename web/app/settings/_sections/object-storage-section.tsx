@@ -4,6 +4,7 @@ import { SettingsSwitch } from '@/components/settings/settings-switch'
 import { Input } from '@/components/ui/input'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 import type { SystemSettings } from '@/lib/api'
+import { getObjectStorageEnabledPatch } from '@/lib/object-storage-settings'
 import { cn } from '@/lib/utils'
 import { Archive, FileText, ImageIcon, LockKeyhole, Server } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -79,12 +80,14 @@ function ToggleRow({
   checked,
   onToggle,
   label,
+  disabled = false,
 }: Readonly<{
   title: string
   description: string
   checked: boolean
-  onToggle: () => void
+  onToggle: (checked: boolean) => void
   label: string
+  disabled?: boolean
 }>) {
   return (
     <div
@@ -99,7 +102,8 @@ function ToggleRow({
       </div>
       <SettingsSwitch
         checked={checked}
-        onCheckedChange={() => onToggle()}
+        onCheckedChange={onToggle}
+        disabled={disabled}
         className="shrink-0"
         aria-label={label}
       />
@@ -125,7 +129,9 @@ export function ObjectStorageSection({
         action={
           <SettingsSwitch
             checked={isEnabled}
-            onCheckedChange={() => updateMinIO({ enabled: !isEnabled })}
+            onCheckedChange={(enabled) =>
+              updateMinIO(getObjectStorageEnabledPatch(enabled))
+            }
             className="shrink-0"
             aria-label="切换 MinIO 对象存储"
           />
@@ -188,7 +194,7 @@ export function ObjectStorageSection({
           title="使用 SSL"
           description="打开后以 HTTPS/S3 secure 模式连接 endpoint"
           checked={isSslEnabled}
-          onToggle={() => updateMinIO({ use_ssl: !isSslEnabled })}
+          onToggle={(checked) => updateMinIO({ use_ssl: checked })}
           label="切换 MinIO SSL"
         />
       </StorageCard>
@@ -201,10 +207,15 @@ export function ObjectStorageSection({
       >
         <ToggleRow
           title="存储文档对象"
-          description="关闭时仍可使用本地文件路径；开启后需要 bucket 可写"
+          description={
+            isEnabled
+              ? '关闭时仍可使用本地文件路径；开启后需要存储桶可写'
+              : '请先启用对象存储，再开启文档对象存储。'
+          }
           checked={isDocumentStorageEnabled}
-          onToggle={() => updateMinIO({ documents_enabled: !isDocumentStorageEnabled })}
+          onToggle={(checked) => updateMinIO({ documents_enabled: checked })}
           label="切换 MinIO 文档对象存储"
+          disabled={!isEnabled}
         />
       </StorageCard>
 
