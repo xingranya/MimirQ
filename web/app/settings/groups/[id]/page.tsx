@@ -41,6 +41,10 @@ import {
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
 import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
+import {
+  MAX_GROUP_MEMBERS_PER_REQUEST,
+  normalizeGroupMemberIds,
+} from '@/lib/group-member-input'
 
 const GROUP_MEMBERS_PARAMS = { limit: 500 } as const
 
@@ -54,26 +58,6 @@ function asGroupId(raw: unknown): string | null {
   if (typeof raw === 'string' && raw.trim()) return raw
   if (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0]
   return null
-}
-
-function normalizeMemberIds(raw: string): { ids: string[]; error?: string } {
-  const parts = (raw || '')
-    .split(/[\n,;]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const p of parts) {
-    if (seen.has(p)) continue
-    seen.add(p)
-    if (p.length > 255) {
-      return { ids: [], error: '成员标识过长，最多 255 个字符。' }
-    }
-    out.push(p)
-    if (out.length >= 200) break
-  }
-  return { ids: out }
 }
 
 export default function SettingsGroupDetailPage() {
@@ -276,7 +260,7 @@ function SettingsGroupDetailPageContent() {
 
   const addMembers = () => {
     if (!groupId) return
-    const { ids, error } = normalizeMemberIds(addText)
+    const { ids, error } = normalizeGroupMemberIds(addText)
     if (error) {
       toast.error(error)
       return
@@ -502,7 +486,7 @@ function SettingsGroupDetailPageContent() {
                           className="font-mono text-sm"
                         />
                         <div className="text-xs text-muted-foreground">
-                          一次最多添加 200 人；重复内容会自动去除。
+                          一次最多添加 {MAX_GROUP_MEMBERS_PER_REQUEST} 人；重复内容会自动去除。
                         </div>
                       </div>
 

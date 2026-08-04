@@ -65,6 +65,12 @@ describe('成员组页面源码契约', () => {
     expect(detailSource).toContain('onRetry={() => membersQuery.refetch()}')
   })
 
+  it('批量添加成员时使用完整输入校验而不是静默截断', () => {
+    expect(detailSource).toContain('normalizeGroupMemberIds(addText)')
+    expect(detailSource).toContain('MAX_GROUP_MEMBERS_PER_REQUEST')
+    expect(detailSource).not.toContain('if (out.length >= 200) break')
+  })
+
   it('使用扁平视觉和对外中文文案', () => {
     const sources = `${listSource}\n${detailSource}`
 
