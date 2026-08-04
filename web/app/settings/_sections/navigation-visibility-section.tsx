@@ -1,7 +1,17 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import { Eye, GitCompare, Hash, LineChart, Network, ScrollText, SlidersHorizontal, Wand2, Braces } from 'lucide-react'
+import {
+  Braces,
+  Eye,
+  GitCompare,
+  Hash,
+  LineChart,
+  Network,
+  ScrollText,
+  SlidersHorizontal,
+  Wand2,
+} from 'lucide-react'
 
 import { SettingsHelpTooltip } from '@/components/settings/settings-help-tooltip'
 import { SettingsSwitch } from '@/components/settings/settings-switch'
@@ -119,8 +129,8 @@ export function NavigationVisibilitySection({
     <section>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-            <Eye className="h-3.5 w-3.5 text-primary" />
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Eye className="size-4 text-primary" aria-hidden="true" />
             普通用户入口显示
             <SettingsHelpTooltip
               label="查看普通用户入口显示说明"
@@ -133,18 +143,19 @@ export function NavigationVisibilitySection({
         </div>
       </div>
 
-      <div className="rounded-[16px] border border-border/60 bg-card/82 p-3.5 shadow-sm">
-        <div className="grid gap-3 xl:grid-cols-3">
-          {MODULE_GROUPS.map((group) => (
-            <div
-              key={group.title}
-              className="rounded-[14px] border border-border/60 bg-card/80 p-3 shadow-[0_8px_20px_hsl(var(--foreground)/0.025)]"
-            >
-              <div className="mb-2.5">
-                <div className="text-[12px] font-semibold text-foreground">{group.title}</div>
-                <div className="mt-0.5 text-[10.5px] font-medium leading-4 text-muted-foreground">{group.description}</div>
-              </div>
-              <div className="space-y-2">
+      <div className="grid overflow-hidden rounded-lg border border-border bg-background xl:grid-cols-3 xl:divide-x xl:divide-border">
+        {MODULE_GROUPS.map((group) => (
+          <section
+            key={group.title}
+            className="border-b border-border p-3 last:border-b-0 xl:border-b-0"
+          >
+            <div className="min-h-14 pb-2">
+              <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {group.description}
+              </p>
+            </div>
+            <div className="divide-y divide-border">
                 {group.items.map((item) => {
                   const Icon = item.icon
                   const checked = visibleSet.has(item.key)
@@ -152,24 +163,24 @@ export function NavigationVisibilitySection({
                     <div
                       key={item.key}
                       className={cn(
-                        'flex items-center justify-between gap-3 rounded-[12px] border px-3 py-2 transition-colors',
+                        'flex min-h-14 items-center justify-between gap-3 px-1 py-2 transition-colors',
                         checked
-                          ? 'border-primary/25 bg-primary/10'
-                          : 'border-border/60 bg-card hover:border-muted-foreground/30'
+                          ? 'bg-primary/5'
+                          : 'hover:bg-muted/30'
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
                         <span
                           className={cn(
-                            'flex size-7 shrink-0 items-center justify-center rounded-[10px]',
+                            'flex size-8 shrink-0 items-center justify-center rounded-md',
                             checked ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'
                           )}
                         >
-                          <Icon className="size-3.5" />
+                          <Icon className="size-4" aria-hidden="true" />
                         </span>
                         <div className="min-w-0">
-                          <div className="text-[12px] font-semibold text-foreground">{item.label}</div>
-                          <div className="truncate text-[10.5px] font-medium leading-4 text-muted-foreground">
+                          <div className="text-sm font-medium text-foreground">{item.label}</div>
+                          <div className="mt-0.5 truncate text-xs leading-4 text-muted-foreground">
                             {item.description}
                           </div>
                         </div>
@@ -183,9 +194,8 @@ export function NavigationVisibilitySection({
                   )
                 })}
               </div>
-            </div>
-          ))}
-        </div>
+          </section>
+        ))}
       </div>
     </section>
   )
