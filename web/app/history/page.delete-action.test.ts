@@ -242,19 +242,39 @@ describe('history page delete action', () => {
       has_more: true,
       next_skip: 100,
     })
-    chatApiMock.getMessages.mockResolvedValue({
-      conversation_id: 'conversation-150',
-      messages: [
-        {
-          id: 'message-1',
-          role: 'assistant',
-          content: 'legacy answer',
-          created_at: '2026-01-02T00:00:00Z',
-        },
-      ],
-      returned: 1,
-      has_more: false,
-    })
+    chatApiMock.getMessages.mockImplementation(
+      async (_conversationId: string, params?: { before?: string }) => {
+        if (params?.before === 'message-1') {
+          return {
+            conversation_id: 'conversation-150',
+            messages: [
+              {
+                id: 'message-0',
+                role: 'user',
+                content: 'earlier question',
+                created_at: '2026-01-01T00:00:00Z',
+              },
+            ],
+            returned: 1,
+            has_more: false,
+          }
+        }
+
+        return {
+          conversation_id: 'conversation-150',
+          messages: [
+            {
+              id: 'message-1',
+              role: 'assistant',
+              content: 'legacy answer',
+              created_at: '2026-01-02T00:00:00Z',
+            },
+          ],
+          returned: 1,
+          has_more: true,
+        }
+      }
+    )
 
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -288,6 +308,23 @@ describe('history page delete action', () => {
     })
 
     expect(container.querySelector('[data-history-main-empty="true"]')).toBeNull()
+    const loadOlderButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent === 'loadOlderMessages'
+    )
+    expect(loadOlderButton).not.toBeUndefined()
+    expect(chatApiMock.getMessages).toHaveBeenCalledTimes(1)
+
+    act(() => loadOlderButton?.click())
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(chatApiMock.getMessages).toHaveBeenCalledWith('conversation-150', {
+          limit: 40,
+          before: 'message-1',
+        })
+      )
+      await vi.waitFor(() => expect(container.textContent).toContain('earlier question'))
+    })
+
     act(() => root.unmount())
   })
 

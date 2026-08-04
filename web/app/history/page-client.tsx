@@ -492,7 +492,7 @@ function HistoryPageContent({
   )
 
   const loadOlderMessages = useCallback(async () => {
-    if (!selectedConversation) return
+    if (!selectedConversationId) return
     if (!hasMoreMessages) return
     if (isLoadingMessages || isLoadingOlder) return
     if (!oldestMessageId) return
@@ -508,7 +508,7 @@ function HistoryPageContent({
       reportClientError('Failed to load older messages', error)
       toast.error(formatApiError(error, t('loadOlderMessagesFailed')))
     }
-  }, [selectedConversation, hasMoreMessages, isLoadingMessages, isLoadingOlder, oldestMessageId, messagesQuery, t])
+  }, [selectedConversationId, hasMoreMessages, isLoadingMessages, isLoadingOlder, oldestMessageId, messagesQuery, t])
   return (
     <AppFrame rightPanel={<DocumentViewerPanel />} withDocumentViewerPadding mainClassName="overflow-hidden">
       <PageScaffold
