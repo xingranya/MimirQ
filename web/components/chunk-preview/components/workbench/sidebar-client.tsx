@@ -1,6 +1,4 @@
-/**
- * Sidebar - 左侧配置栏
- */
+/** 切块预览参数、入库目标和质量结果侧栏。 */
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -92,17 +90,17 @@ type PluginReadinessCheck = NonNullable<
 >[number]
 
 const SIDEBAR_BASE_TONE: SidebarToneStyle = {
-  chip: 'border-border/60 bg-background/80 text-muted-foreground antialiased shadow-[0_1px_0_rgba(255,255,255,0.6)_inset]',
-  icon: 'border-border/60 bg-background/80 text-muted-foreground antialiased shadow-[0_1px_0_rgba(255,255,255,0.6)_inset]',
-  note: 'border-border/60 bg-muted/30 text-muted-foreground antialiased',
-  panel: 'border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)/0.99),hsl(var(--muted)/0.25))] antialiased shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]',
+  chip: 'border-border bg-muted/30 text-muted-foreground',
+  icon: 'border-border bg-muted text-muted-foreground',
+  note: 'border-border bg-muted/30 text-muted-foreground',
+  panel: 'border-border bg-background',
 }
 
 const SIDEBAR_PRIMARY_TONE: SidebarToneStyle = {
-  chip: 'border-primary/25 bg-primary/8 text-primary antialiased shadow-[0_1px_0_rgba(255,255,255,0.4)_inset]',
-  icon: 'border-primary/20 bg-primary/8 text-primary antialiased shadow-[0_1px_0_rgba(255,255,255,0.4)_inset]',
-  note: 'border-primary/20 bg-primary/7 text-muted-foreground antialiased',
-  panel: 'border-primary/15 bg-[linear-gradient(165deg,hsl(var(--background)/0.99),hsl(var(--primary)/0.06),hsl(var(--background)/0.95))] antialiased shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]',
+  chip: 'border-primary/25 bg-primary/10 text-primary',
+  icon: 'border-primary/20 bg-primary/10 text-primary',
+  note: 'border-primary/20 bg-primary/5 text-muted-foreground',
+  panel: 'border-border bg-background',
 }
 
 const SIDEBAR_TONE_STYLES: Record<AccentTone, SidebarToneStyle> = {
@@ -228,7 +226,7 @@ function SidebarChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.04em]',
+        'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
         SIDEBAR_TONE_STYLES[tone].chip,
         className
       )}
@@ -246,7 +244,7 @@ function SidebarNote({
   return (
     <div
       className={cn(
-        'rounded-lg border px-2.5 py-1.5 text-[11px] leading-4',
+        'rounded-md border px-2.5 py-2 text-xs leading-5',
         SIDEBAR_TONE_STYLES[tone].note,
         className
       )}
@@ -267,13 +265,13 @@ function SidebarSectionHeader({
       <div className="flex min-w-0 items-center gap-2">
         <span
           className={cn(
-            'flex h-5 w-5 items-center justify-center rounded-md border shadow-sm',
+            'flex size-7 items-center justify-center rounded-md border',
             SIDEBAR_TONE_STYLES[tone].icon
           )}
         >
-          <Icon className="h-3 w-3" strokeWidth={2.5} />
+          <Icon className="size-3.5" strokeWidth={2.25} />
         </span>
-        <h2 className="truncate text-[11px] font-bold text-foreground/90 antialiased">{label}</h2>
+        <h2 className="truncate text-sm font-semibold text-foreground">{label}</h2>
       </div>
       {aside ? <SidebarChip tone={tone}>{aside}</SidebarChip> : null}
     </div>
@@ -288,7 +286,7 @@ function SidebarPanel({
   return (
     <section
       className={cn(
-        'rounded-2xl border px-3 py-3 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_8px_24px_-16px_rgba(15,23,42,0.4)]',
+        'rounded-md border p-3',
         SIDEBAR_TONE_STYLES[tone].panel,
         className
       )}
@@ -358,7 +356,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
   const isIntegratedPipelineStrategy = strategyForUi.startsWith('integrated_')
   const isSeparatorStrategy = strategyForUi === 'separator'
   const isParentChildStrategy = strategyForUi === 'parent_child'
-  const statsUnitLabel = isTokenStrategy ? 'tok' : 'chars'
+  const statsUnitLabel = isTokenStrategy ? '词元' : '字符'
 
   const hideChunkSizeControl = isSentenceStrategy || isIntegratedPipelineStrategy
   const showOverlapControl =
@@ -372,11 +370,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
   const minMaxStatLabel = isTokenStrategy ? t('sidebar.stats.minMaxTokens') : t('sidebar.stats.minMaxLength')
   const histogramTitle = isTokenStrategy ? t('sidebar.stats.histogramTokens') : t('sidebar.stats.histogramLength')
   const compactStatCardClass =
-    'min-w-0 rounded-lg border border-border/45 bg-[linear-gradient(180deg,hsl(var(--background)/0.9),hsl(var(--muted)/0.16))] px-2 py-1.5 shadow-none'
+    'min-w-0 rounded-md border border-border bg-muted/20 px-2 py-2'
   const compactStatLabelClass =
-    'truncate text-[8.5px] font-medium leading-3 tracking-[0.01em] text-muted-foreground/72'
+    'truncate text-xs font-medium leading-4 text-muted-foreground'
   const compactStatValueClass =
-    'mt-0.5 truncate text-[13px] font-medium leading-4 tracking-[-0.02em] tabular-nums text-foreground/90'
+    'mt-0.5 truncate text-sm font-semibold leading-5 tabular-nums text-foreground'
 
   const chunkSizeMin = isTokenStrategy ? 50 : 100
   const chunkSizeMax = isTokenStrategy ? 2000 : 4000
@@ -400,6 +398,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
     return currentFileItem.source === 'knowledge_base' && currentFileItem.datasetId === datasetId
   }, [currentFileItem, datasetId])
   const canRunPreview = Boolean(currentFile && currentFileMatchesScope && !scopeSyncLoading)
+  const previewConfigFileLabel = getPreviewConfigFileLabel({
+    currentFileName: currentFile?.name,
+    currentFileMatchesScope,
+    datasetId,
+    labels: {
+      noDatasetFile: t('sidebar.previewActions.noDatasetFile'),
+      noFile: t('sidebar.previewActions.noFile'),
+    },
+  })
   const serverStats = previewData?.stats ?? null
 
   const histogramData = useMemo(() => {
@@ -475,7 +482,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
     const raw = String(separatorCustom || '').trim()
     if (!raw) return '\n\n'
     try {
-      // Same trick as context.decodeSeparatorInput: support \n, \t, \uXXXX etc.
+      // 与上下文中的分隔符解析保持一致，支持 \n、\t 和 \uXXXX 等转义写法。
       const escapedValue = raw.replaceAll('"', String.raw`\"`)
       return JSON.parse(`"${escapedValue}"`)
     } catch {
@@ -887,44 +894,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
         variant === 'pane' ? 'min-h-0' : 'flex-1 overflow-y-auto overscroll-contain no-scrollbar'
       )}
     >
-        <SidebarPanel tone="sky" className="relative overflow-hidden space-y-4">
-          {/* Background Decorative Mesh */}
-          <div className="absolute -right-8 -top-8 size-24 bg-primary/5 blur-3xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between gap-3 px-0.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="relative flex h-6 w-6 items-center justify-center rounded-lg border border-primary/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_4px_rgba(var(--primary-rgb),0.05)]">
-                <Filter className="h-3 w-3 text-primary" strokeWidth={2.8} />
-                {datasetId && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-foreground antialiased leading-none">
-                  {t('sidebar.datasetScope.title')}
-                </h2>
-                <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60 leading-none">
-                  Knowledge Context
-                </span>
-              </div>
-            </div>
-            <div
-              className={cn(
-                'flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] antialiased',
-                datasetId
-                  ? 'border-primary/30 bg-primary/10 text-primary'
-                  : 'border-border/60 bg-background/90 text-muted-foreground/90'
-              )}
-            >
-              <div className={cn('h-1 w-1 rounded-full', datasetId ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40')} />
-              {datasetId ? t('sidebar.datasetScope.scoped') : t('sidebar.datasetScope.all')}
-            </div>
-          </div>
+        <SidebarPanel tone="sky" className="space-y-3">
+          <SidebarSectionHeader
+            icon={Filter}
+            label={t('sidebar.datasetScope.title')}
+            tone="sky"
+            aside={datasetId ? t('sidebar.datasetScope.scoped') : t('sidebar.datasetScope.all')}
+          />
 
-          <div className="relative group/select">
+          <div>
             <Select
               value={datasetId || DATASET_DEFAULT_VALUE}
               onValueChange={(value) => {
@@ -933,31 +911,23 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 setDatasetId(value === DATASET_DEFAULT_VALUE ? '' : value)
               }}
             >
-              <SelectTrigger 
-                className={cn(
-                  "h-10 rounded-xl border-border/70 bg-background px-3.5 text-[11px] font-bold text-foreground shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_8px_-4px_rgba(0,0,0,0.05)] transition-all antialiased",
-                  "hover:border-primary/40 hover:bg-background/95 hover:shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_4px_12px_-4px_rgba(var(--primary-rgb),0.1)]",
-                  "focus:ring-primary/10",
-                  datasetId && "border-primary/30 bg-primary/[0.02]"
-                )}
-              >
+              <SelectTrigger className="h-9 rounded-md border-border bg-background text-sm">
                 <SelectValue placeholder={t('sidebar.datasetScope.defaultOption')} />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl border-border/80 bg-popover/98 p-1.5 backdrop-blur-2xl shadow-strong ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
-                <SelectItem value={DATASET_DEFAULT_VALUE} className="rounded-xl py-2 text-[11px] font-bold focus:bg-primary/5 focus:text-primary transition-all">
+              <SelectContent>
+                <SelectItem value={DATASET_DEFAULT_VALUE}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-muted/10 text-muted-foreground">
-                      <Globe className="h-3 w-3" strokeWidth={2.5} />
+                    <div className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <Globe className="size-3.5" />
                     </div>
                     <span className="truncate">{t('sidebar.datasetScope.defaultOption')}</span>
                   </div>
                 </SelectItem>
-                <div className="my-1 h-px bg-border/40 mx-1" />
                 {datasets.map((ds) => (
-                  <SelectItem key={ds.id} value={ds.id} className="rounded-xl py-2 text-[11px] font-bold focus:bg-primary/5 focus:text-primary transition-all">
+                  <SelectItem key={ds.id} value={ds.id}>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/5 text-primary/70">
-                        <Database className="h-3 w-3" strokeWidth={2.5} />
+                      <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <Database className="size-3.5" />
                       </div>
                       <span className="truncate">{ds.name}</span>
                     </div>
@@ -967,30 +937,28 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             </Select>
           </div>
 
-          <div className="space-y-2.5 px-0.5">
-            <div className="flex items-start gap-2.5 rounded-xl border border-border/40 bg-muted/5 p-2.5 antialiased transition-colors hover:bg-muted/10">
-              <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-primary/60" strokeWidth={2.5} />
-              <p className="text-[10px] font-bold leading-normal text-muted-foreground/85">
+          <div className="space-y-2">
+            <div className="flex items-start gap-2 rounded-md bg-muted/30 p-2.5">
+              <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+              <p className="text-xs leading-5 text-muted-foreground">
                 {datasetId ? t('sidebar.datasetScope.selectedHint') : t('sidebar.datasetScope.hint')}
               </p>
             </div>
             
             {(datasetsLoading || scopeSyncLoading) && (
-              <div className="flex items-center gap-2.5 px-1 text-[10px] font-bold text-primary/80 antialiased">
-                <div className="relative flex h-3 w-3">
-                  <Loader2 className="h-full w-full animate-spin" strokeWidth={3} />
-                </div>
+              <div className="flex items-center gap-2 px-1 text-xs text-primary">
+                <Loader2 className="size-3.5 animate-spin" />
                 {datasetsLoading ? t('sidebar.dataset.loading') : t('sidebar.datasetScope.syncing')}
               </div>
             )}
             
             {(datasetsError || scopeSyncError) && (
-              <SidebarNote tone="amber" className="py-2.5 border-warning/20 bg-warning/5 shadow-sm">
+              <SidebarNote tone="amber" className="border-warning/20 bg-warning/5">
                 <div className="flex items-start gap-2.5">
-                  <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning/10 text-warning">
-                    <AlertCircle className="h-3 w-3" strokeWidth={3} />
+                  <div className="flex size-5 shrink-0 items-center justify-center rounded-md bg-warning/10 text-warning">
+                    <AlertCircle className="size-3.5" />
                   </div>
-                  <span className="font-bold text-[10px] leading-relaxed text-warning">
+                  <span className="text-xs leading-5 text-warning">
                     {datasetsError || scopeSyncError}
                   </span>
                 </div>
@@ -998,11 +966,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             )}
           </div>
           
-          <div className="h-px bg-[linear-gradient(90deg,transparent,hsl(var(--border)/0.6),transparent)]" />
+          <div className="h-px bg-border" />
 
           <div
             data-chunk-file-queue
-            className="rounded-2xl border border-border/45 bg-background/70 p-2 shadow-none"
+            className="rounded-md border border-border bg-background p-2"
           >
             <div className="flex items-center justify-between gap-3">
               <SidebarSectionHeader
@@ -1014,11 +982,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
             <div
               data-chunk-file-list
-              className="mt-2 max-h-[216px] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-border/35 bg-muted/10 p-1 no-scrollbar"
+              className="mt-2 max-h-[240px] space-y-1 overflow-y-auto overscroll-contain rounded-md border border-border bg-muted/20 p-1 no-scrollbar"
             >
             {sortedFileList.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-3 py-4 text-center">
-                <div className="text-[11px] font-medium text-foreground/75">
+              <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center">
+                <div className="text-xs font-medium text-foreground">
                   {getEmptyFileListLabel({
                     scopeSyncLoading,
                     datasetId,
@@ -1029,7 +997,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     },
                   })}
                 </div>
-                <div className="mt-1 text-[10px] leading-4 text-muted-foreground/70">
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">
                   {datasetId ? t('sidebar.fileList.emptyDatasetHint') : t('sidebar.fileList.emptyAllHint')}
                 </div>
               </div>
@@ -1058,10 +1026,10 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 <div
                   key={f.id}
                   className={cn(
-                    'group relative overflow-hidden rounded-xl border text-[10px] transition-[background,border,box-shadow] duration-150',
+                    'flex items-stretch overflow-hidden rounded-md border text-xs transition-colors',
                     isActive
-                      ? 'border-primary/18 bg-background/78 shadow-none'
-                      : 'border-transparent bg-background/45 hover:border-border/40 hover:bg-background/70'
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-transparent bg-background hover:border-border hover:bg-muted/30'
                   )}
                 >
                   <button
@@ -1070,7 +1038,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       if (fileIndex >= 0) setCurrentFileIndex(fileIndex)
                     }}
                     aria-label={t('sidebar.fileList.selectFile', { name: f.displayName })}
-                    className="block w-full min-w-0 cursor-pointer rounded-xl py-2 pl-2.5 pr-24 text-left focus-ring"
+                    className="block min-w-0 flex-1 cursor-pointer rounded-md py-2 pl-2.5 pr-2 text-left focus-ring"
                   >
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-1">
@@ -1088,11 +1056,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         {processedStatus[f.id] === 'error' ? <AlertCircle className="h-3 w-3 shrink-0 text-destructive" /> : null}
                       </span>
                       <span
-                        className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden text-[8.5px] leading-3 text-muted-foreground/75"
+                        className="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs leading-4 text-muted-foreground"
                         title={fileMetaLabel}
                       >
                         {fileTypeLabel ? (
-                          <span className="shrink-0 rounded-md border border-border/45 bg-background/70 px-1 py-px font-medium text-muted-foreground/85">
+                          <span className="shrink-0 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 font-medium text-muted-foreground">
                             {fileTypeLabel}
                           </span>
                         ) : null}
@@ -1103,51 +1071,48 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     </span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (fileIndex >= 0) removeFile(fileIndex)
-                    }}
-                    className={cn(
-                      'absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-md px-1.5 py-1 text-[9px] font-bold text-muted-foreground/62 opacity-0 transition-colors transition-opacity duration-150 motion-reduce:transition-none',
-                      'hover:bg-destructive/8 hover:text-destructive focus-ring focus-visible:opacity-100 group-hover:opacity-100',
-                      isActive ? 'opacity-80' : ''
-                    )}
-                    aria-label={t('sidebar.fileList.removeFile', { name: f.displayName })}
-                    title={t('sidebar.fileList.removeFile', { name: f.displayName })}
-                  >
-                    {t('sidebar.fileList.removeShort')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleIngestFileSelection(f.id)}
-                    aria-pressed={isSelectedForIngest}
-                    aria-label={t('sidebar.fileList.toggleForIngest', { name: f.displayName })}
-                    title={t('sidebar.fileList.toggleForIngest', { name: f.displayName })}
-                    className={cn(
-                      'absolute right-10 top-1/2 h-5 -translate-y-1/2 cursor-pointer rounded-md border px-1.5 text-[9px] font-bold opacity-0 transition-colors transition-opacity duration-150 motion-reduce:transition-none focus-ring focus-visible:opacity-100 group-hover:opacity-100',
-                      isSelectedForIngest || isActive ? 'opacity-100' : '',
-                      isSelectedForIngest
-                        ? 'border-primary/25 bg-primary/10 text-primary shadow-none'
-                        : 'border-border/40 bg-background/70 text-muted-foreground hover:border-primary/20 hover:bg-background hover:text-primary'
-                    )}
-                  >
-                    {isSelectedForIngest ? t('sidebar.fileList.selectedForIngestShort') : t('sidebar.fileList.selectForIngestShort')}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1 pr-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleIngestFileSelection(f.id)}
+                      aria-pressed={isSelectedForIngest}
+                      aria-label={t('sidebar.fileList.toggleForIngest', { name: f.displayName })}
+                      title={t('sidebar.fileList.toggleForIngest', { name: f.displayName })}
+                      className={cn(
+                        'h-8 cursor-pointer rounded-md border px-2 text-xs font-medium focus-ring',
+                        isSelectedForIngest
+                          ? 'border-primary/25 bg-primary/10 text-primary'
+                          : 'border-border bg-background text-muted-foreground hover:border-primary/20 hover:text-primary'
+                      )}
+                    >
+                      {isSelectedForIngest ? t('sidebar.fileList.selectedForIngestShort') : t('sidebar.fileList.selectForIngestShort')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileIndex >= 0) removeFile(fileIndex)
+                      }}
+                      className="h-8 cursor-pointer rounded-md px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-ring"
+                      aria-label={t('sidebar.fileList.removeFile', { name: f.displayName })}
+                      title={t('sidebar.fileList.removeFile', { name: f.displayName })}
+                    >
+                      {t('sidebar.fileList.removeShort')}
+                    </button>
+                  </div>
                 </div>
               )
             })}
             </div>
 
-            <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-border/35 bg-muted/10 px-2 py-1.5 shadow-none">
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-2 py-2">
               <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   className={cn(
                     'h-1.5 w-1.5 shrink-0 rounded-full',
-                    selectedIngestCount > 0 ? 'bg-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]' : 'bg-muted-foreground/35'
+                    selectedIngestCount > 0 ? 'bg-primary' : 'bg-muted-foreground/35'
                   )}
                 />
-                <span className="min-w-0 truncate text-[10px] font-medium text-muted-foreground/85">
+                <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">
                   {selectedIngestCount > 0
                     ? t('sidebar.fileList.batchIngestSelected', {
                         count: selectedIngestCount,
@@ -1161,7 +1126,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 variant={selectedIngestCount > 0 ? 'default' : 'outline'}
                 onClick={submitSelectedFiles}
                 disabled={selectedIngestCount === 0 || isSubmitting}
-                className="h-6 shrink-0 rounded-lg px-2 text-[10px] shadow-none"
+                className="h-8 shrink-0 rounded-md px-2 text-xs"
               >
                 {selectedIngestCount > 0 ? t('sidebar.fileList.batchIngest') : t('sidebar.fileList.batchIngestShort')}
               </Button>
@@ -1172,11 +1137,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
           <div className="space-y-2">
             {selectedDataset?.pipeline ? (
-              <div className="rounded-xl border border-border/45 bg-background/72 px-2 py-1.5">
+              <div className="rounded-md border border-border bg-background px-2.5 py-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-medium text-foreground/82">{t('sidebar.dataset.pipelineSummary')}</div>
-                    <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                    <div className="text-xs font-medium text-foreground">{t('sidebar.dataset.pipelineSummary')}</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
                       {selectedDataset.pipeline.governance_enabled ? (
                         <span className="rounded-full border border-primary/18 bg-primary/7 px-1.5 py-0.5 text-primary">
                           {t('sidebar.dataset.badges.governanceOn')}
@@ -1215,7 +1180,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 shrink-0 rounded-lg px-2 text-[10px]"
+                    className="h-8 shrink-0 rounded-md px-2 text-xs"
                     onClick={() => {
                       applyPipelinePatch(selectedDataset.pipeline, {
                         successMessage: t('sidebar.dataset.applyPipelineSuccess'),
@@ -1233,7 +1198,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
               type="button"
               variant="outline"
               disabled={!datasetId || !currentFile || ingestionLoading}
-              className="h-8 w-full justify-start rounded-xl border-border/55 bg-background/80 text-[11px]"
+              className="h-9 w-full justify-start rounded-md border-border bg-background text-sm"
               title={!datasetId ? t('sidebar.ingestionPreview.selectDatasetFirst') : undefined}
               onClick={async () => {
                 if (!datasetId) {
@@ -1274,15 +1239,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             ) : null}
 
             {ingestionPreview ? (
-              <div className="space-y-2 rounded-xl border border-border/50 bg-background p-2.5">
+              <div className="space-y-2 rounded-md border border-border bg-background p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] text-muted-foreground">{t('sidebar.ingestionPreview.result.title')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.ingestionPreview.result.title')}</div>
                   <div className="flex items-center gap-1">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-[11px]"
+                      className="h-8 px-2 text-xs"
                       onClick={() => setIngestionDetailsOpen(true)}
                     >
                       {t('sidebar.ingestionPreview.result.details')}
@@ -1291,14 +1256,14 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-[11px]"
+                      className="h-8 px-2 text-xs"
                       onClick={() => setIngestionPreview(null)}
                     >
                       {t('sidebar.ingestionPreview.result.clear')}
                     </Button>
                   </div>
                 </div>
-                <div className="text-[11px] font-medium text-foreground/90">
+                <div className="text-xs font-medium text-foreground">
                   {ingestionPreview.rule.matched
                     ? t('sidebar.ingestionPreview.result.matchedRule', {
                       name: ingestionPreview.rule.rule_name
@@ -1307,25 +1272,25 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     })
                     : t('sidebar.ingestionPreview.result.defaultRule')}
                 </div>
-                <div className="text-[11px] text-muted-foreground font-mono">
+                <div className="font-mono text-xs text-muted-foreground">
                   {t('sidebar.ingestionPreview.result.parserStrategy', {
                     parser: ingestionPreview.rule.parser_backend,
                     strategy: ingestionPreview.rule.chunk_strategy,
                   })}
                 </div>
                 {ingestionPreview.rule.governance_profile_ref ? (
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {t('sidebar.ingestionPreview.result.governanceProfile', {
                       value: ingestionPreview.rule.governance_profile_ref,
                     })}
                   </div>
                 ) : null}
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {t('sidebar.ingestionPreview.result.preprocessSteps', {
                     count: ingestionPreview.rule.preprocess_steps.length,
                   })}
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {t('sidebar.ingestionPreview.result.preprocessLabel')}{' '}
                   <span className={cn(ingestionPreview.preprocess.changed ? 'text-warning' : 'text-muted-foreground')}>
                     {ingestionPreview.preprocess.changed
@@ -1348,7 +1313,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   <Button
                     type="button"
                     size="sm"
-                    className="h-8 px-3 text-[11px]"
+                    className="h-8 px-3 text-xs"
                     onClick={() => {
                       updateSettings({ strategy: ingestionPreview.rule.chunk_strategy })
                       toast.success(t('sidebar.ingestionPreview.result.applyRecommendationSuccess'))
@@ -1360,7 +1325,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-8 px-3 text-[11px]"
+                    className="h-8 px-3 text-xs"
                     onClick={() => runPreview({ force: true })}
                   >
                     {t('sidebar.ingestionPreview.result.previewNow')}
@@ -1386,36 +1351,28 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
         </div>
 
         <div className="space-y-4">
-          <SidebarPanel tone="amber" className="relative overflow-hidden space-y-4">
-            {/* Background Decorative Mesh */}
-            <div className="absolute -right-8 -top-8 size-24 bg-warning/5 blur-3xl pointer-events-none" />
+          <details className="rounded-md border border-border bg-background">
+            <summary className="cursor-pointer list-none px-3 py-3 focus-ring">
+              <SidebarSectionHeader
+                icon={Wand2}
+                label={t('sidebar.performance.title')}
+                tone="amber"
+                aside="高级"
+              />
+            </summary>
+            <div
+              data-preview-performance-panel
+              className="space-y-3 border-t border-border p-3"
+            >
 
-            <div data-preview-performance-panel className="space-y-2.5">
-              <div className="flex items-start justify-between gap-3 px-0.5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="relative flex h-6 w-6 items-center justify-center rounded-lg border border-warning/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_4px_rgba(245,158,11,0.05)]">
-                    <Wand2 className="h-3 w-3 text-warning" strokeWidth={2.8} />
-                  </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-foreground antialiased leading-none">
-                      {t('sidebar.performance.title')}
-                    </h2>
-                    <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60 leading-none">
-                      Engine Runtime
-                    </span>
-                  </div>
-                </div>
-                <SidebarChip tone="amber">仅预览</SidebarChip>
-              </div>
-
-              <div data-preview-performance-controls className="space-y-1.5">
-                <div className="grid gap-1.5">
-                  <div className="min-w-0 rounded-[12px] border border-border/45 bg-background/50 px-2.5 py-2 transition-all hover:bg-background/80 hover:shadow-sm">
+              <div data-preview-performance-controls className="space-y-2">
+                <div className="grid gap-2">
+                  <div className="min-w-0 rounded-md border border-border bg-background px-2.5 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-[11px] font-bold leading-4 text-foreground/88">{t('sidebar.autoPreview.title')}</div>
+                        <div className="text-xs font-medium leading-4 text-foreground">{t('sidebar.autoPreview.title')}</div>
                         <div
-                          className="text-[9.5px] font-medium leading-3.5 text-muted-foreground/70"
+                          className="text-xs leading-5 text-muted-foreground"
                           title={t('sidebar.autoPreview.description')}
                         >
                           {t('sidebar.autoPreview.description')}
@@ -1424,18 +1381,18 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       <Switch
                         checked={autoPreviewEnabled}
                         onCheckedChange={toggleAutoPreview}
-                        className="shrink-0 scale-75"
+                        className="shrink-0"
                         aria-label={t('sidebar.autoPreview.title')}
                       />
                     </div>
                   </div>
 
-                  <div className="min-w-0 rounded-[12px] border border-border/45 bg-background/50 px-2.5 py-2 transition-all hover:bg-background/80 hover:shadow-sm">
+                  <div className="min-w-0 rounded-md border border-border bg-background px-2.5 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-[11px] font-bold leading-4 text-foreground/88">{t('sidebar.performance.includeOriginalText.title')}</div>
+                        <div className="text-xs font-medium leading-4 text-foreground">{t('sidebar.performance.includeOriginalText.title')}</div>
                         <div
-                          className="text-[9.5px] font-medium leading-3.5 text-muted-foreground/70"
+                          className="text-xs leading-5 text-muted-foreground"
                           title={t('sidebar.performance.includeOriginalText.description')}
                         >
                           {t('sidebar.performance.includeOriginalText.description')}
@@ -1444,16 +1401,16 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       <Switch
                         checked={includeOriginalText}
                         onCheckedChange={(checked) => updatePerfSettings({ includeOriginalText: checked })}
-                        className="shrink-0 scale-75"
+                        className="shrink-0"
                         aria-label={t('sidebar.performance.includeOriginalText.title')}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="min-w-0 rounded-[12px] border border-border/45 bg-background/50 px-2 py-2 transition-all hover:bg-background/80 hover:shadow-sm">
-                    <div className="min-h-7 text-[9.5px] font-bold leading-3.5 text-muted-foreground/82">{t('sidebar.performance.originalTextMaxChars')}</div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="min-w-0 rounded-md border border-border bg-background px-2.5 py-2">
+                    <div className="text-xs font-medium leading-4 text-muted-foreground">{t('sidebar.performance.originalTextMaxChars')}</div>
                     <Input
                       type="number"
                       inputMode="numeric"
@@ -1462,14 +1419,14 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       step={10000}
                       value={originalTextMaxChars}
                       onChange={(e) => updatePerfSettings({ originalTextMaxChars: Number(e.target.value) })}
-                      className="mt-1 h-7 w-full border-border/40 bg-background/60 px-2 text-[11px] font-bold shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] focus:border-warning/40 focus:ring-warning/10"
+                      className="mt-1.5 h-9 w-full border-border bg-background px-2 text-sm"
                       aria-label={t('sidebar.performance.originalTextMaxCharsAria')}
                       disabled={!includeOriginalText}
                     />
                   </div>
 
-                  <div className="min-w-0 rounded-[12px] border border-border/45 bg-background/50 px-2 py-2 transition-all hover:bg-background/80 hover:shadow-sm">
-                    <div className="min-h-7 text-[9.5px] font-bold leading-3.5 text-muted-foreground/82">{t('sidebar.performance.maxChunks')}</div>
+                  <div className="min-w-0 rounded-md border border-border bg-background px-2.5 py-2">
+                    <div className="text-xs font-medium leading-4 text-muted-foreground">{t('sidebar.performance.maxChunks')}</div>
                     <Input
                       type="number"
                       inputMode="numeric"
@@ -1478,27 +1435,27 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       step={100}
                       value={maxChunks}
                       onChange={(e) => updatePerfSettings({ maxChunks: Number(e.target.value) })}
-                      className="mt-1 h-7 w-full border-border/40 bg-background/60 px-2 text-[11px] font-bold shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] focus:border-warning/40 focus:ring-warning/10"
+                      className="mt-1.5 h-9 w-full border-border bg-background px-2 text-sm"
                       aria-label={t('sidebar.performance.maxChunksAria')}
                     />
                   </div>
                 </div>
 
-                <div className="group/item relative overflow-hidden rounded-[12px] border border-border/45 bg-background/50 px-2.5 py-2 transition-all hover:bg-background/80 hover:shadow-sm">
+                <div className="rounded-md border border-border bg-background px-2.5 py-2">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <div className={cn(
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                        "flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors",
                         useParseCache 
                           ? "border-warning/30 bg-warning/10 text-warning" 
                           : "border-border/50 bg-muted/10 text-muted-foreground"
                       )}>
-                        <Database className="h-3 w-3" strokeWidth={2.5} />
+                        <Database className="size-3.5" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[11px] font-bold leading-4 text-foreground/88">{t('sidebar.performance.parseCache.title')}</div>
+                        <div className="text-xs font-medium leading-4 text-foreground">{t('sidebar.performance.parseCache.title')}</div>
                         <div
-                          className="text-[9.5px] font-medium leading-3.5 text-muted-foreground/70"
+                          className="text-xs leading-5 text-muted-foreground"
                           title={t('sidebar.performance.parseCache.description')}
                         >
                           {t('sidebar.performance.parseCache.description')}
@@ -1508,22 +1465,22 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     <Switch
                       checked={useParseCache}
                       onCheckedChange={(checked) => updatePerfSettings({ useParseCache: checked })}
-                      className="shrink-0 scale-75"
+                      className="shrink-0"
                     />
                   </div>
                 </div>
               </div>
 
               <div
-                className="flex items-start gap-2.5 rounded-xl border border-border/40 bg-muted/5 p-2.5 antialiased transition-colors hover:bg-muted/10"
+                className="flex items-start gap-2 rounded-md bg-muted/30 p-2.5"
                 title={t('sidebar.performance.maxChunksGuidance')}
               >
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" strokeWidth={2.5} />
-                <span className="text-[10px] font-bold leading-relaxed text-muted-foreground/80 italic">{t('sidebar.performance.maxChunksGuidance')}</span>
+                <span className="text-xs leading-5 text-muted-foreground">{t('sidebar.performance.maxChunksGuidance')}</span>
               </div>
 
               {previewData?.chunks_truncated ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-warning/25 bg-warning/10 px-2 py-1 text-[11px] text-warning">
+                <div className="flex items-center justify-between gap-2 rounded-md border border-warning/25 bg-warning/10 px-2 py-1.5 text-xs text-warning">
                   <span className="min-w-0">
                     {previewData.total_chunks_full && previewData.total_chunks_full !== previewData.total_chunks
                       ? t('sidebar.performance.truncatedSummaryWithFull', {
@@ -1538,7 +1495,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 shrink-0 px-2 text-[11px]"
+                    className="h-8 shrink-0 px-2 text-xs"
                     onClick={() => {
                       updatePerfSettings({ maxChunks: 0 })
                       toast.success(t('sidebar.performance.clearLimitSuccess'))
@@ -1550,7 +1507,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
               ) : null}
 
               {previewData?.warnings?.length ? (
-                <div className="space-y-1 text-[11px]">
+                <div className="space-y-1 text-xs">
                   {(previewData.warnings || []).slice(0, 6).map((w) => {
                     const formattedWarning = formatPreviewWarningMessage(w, {
                       semanticNeedsReview: (count) => t('sidebar.performance.warnings.semanticNeedsReview', { count }),
@@ -1559,7 +1516,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     return (
                       <div
                         key={w}
-                        className="flex gap-1.5 rounded-lg border border-warning/18 bg-warning/8 px-2 py-1 text-warning"
+                        className="flex gap-1.5 rounded-md border border-warning/20 bg-warning/10 px-2 py-1.5 text-warning"
                         title={formattedWarning}
                       >
                         <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -1570,41 +1527,27 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 </div>
               ) : null}
             </div>
-          </SidebarPanel>
+          </details>
 
-          <SidebarPanel tone="emerald" className="relative overflow-hidden space-y-4">
-            <div className="absolute -right-8 -top-8 size-24 bg-success/5 blur-3xl pointer-events-none" />
-
-            <div className="flex items-center justify-between gap-3 px-0.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div className="relative flex h-6 w-6 items-center justify-center rounded-lg border border-success/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_4px_rgba(16,185,129,0.05)]">
-                  <Settings className="h-3 w-3 text-success" strokeWidth={2.8} />
-                </div>
-                <div className="flex min-w-0 flex-col">
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-foreground antialiased leading-none">
-                    {t('sidebar.previewConfig.title')}
-                  </h2>
-                  <div className="mt-1 max-w-[160px] truncate text-[8px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60 leading-none">
-                    {getPreviewConfigFileLabel({
-                      currentFileName: currentFile?.name,
-                      currentFileMatchesScope,
-                      datasetId,
-                      labels: {
-                        noDatasetFile: t('sidebar.previewActions.noDatasetFile'),
-                        noFile: t('sidebar.previewActions.noFile'),
-                      },
-                    })}
-                  </div>
-                </div>
-              </div>
-              {cacheHit ? <SidebarChip tone="sky">Cache</SidebarChip> : <SidebarChip tone="emerald">配置</SidebarChip>}
+          <SidebarPanel tone="emerald" className="space-y-4">
+            <SidebarSectionHeader
+              icon={Settings}
+              label={t('sidebar.previewConfig.title')}
+              tone="emerald"
+              aside={cacheHit ? '已缓存' : '当前配置'}
+            />
+            <div
+              className="truncate text-xs text-muted-foreground"
+              title={previewConfigFileLabel}
+            >
+              {previewConfigFileLabel}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-muted/20 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={() => runPreview()}
                 disabled={isLoading || !canRunPreview}
-                className="h-9 rounded-xl border border-primary/20 bg-primary/10 text-[10px] font-black uppercase tracking-[0.18em] text-primary shadow-sm hover:bg-primary/15 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="h-9 rounded-md text-sm"
               >
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={3} />
@@ -1623,7 +1566,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   runPreview({ force: true })
                 }}
                 disabled={!isLoading && !canRunPreview}
-                className="h-9 rounded-xl border-border/60 bg-background/80 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/80 shadow-sm hover:bg-background hover:text-foreground transition-all"
+                className="h-9 rounded-md border-border bg-background text-sm text-muted-foreground hover:text-foreground"
               >
                 {getPreviewActionLabel({
                   isLoading,
@@ -1638,14 +1581,8 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             </div>
 
             <div className="space-y-3 px-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/70">{t('sidebar.strategy.title')}</div>
-                <div className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/5 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-success/80">
-                  <div className="h-1 w-1 rounded-full bg-success animate-pulse" />
-                  Core
-                </div>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-background/40 p-1 shadow-sm">
+              <div className="text-xs font-medium text-muted-foreground">{t('sidebar.strategy.title')}</div>
+              <div className="rounded-md border border-border bg-background p-1">
                 <ChunkStrategyDropdown
                   value={chunkStrategy}
                   onChange={(value) => {
@@ -1657,8 +1594,8 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 />
               </div>
               
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/60">
-                <span className="opacity-80">{t('sidebar.strategy.quickPresets')}</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                <span>{t('sidebar.strategy.quickPresets')}</span>
                 {[
                   {
                     key: 'general',
@@ -1692,7 +1629,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   <button
                     key={item.key}
                     type="button"
-                    className="rounded-lg border border-border/60 bg-background/60 px-2 py-1 text-[9px] font-black transition-all hover:border-primary/40 hover:bg-background hover:text-primary active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                    className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium transition-colors hover:border-primary/40 hover:text-primary focus-ring"
                     onClick={() => {
                       item.apply()
                       toast.success(t('sidebar.strategy.presetApplied', { label: item.label }))
@@ -1705,11 +1642,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             </div>
 
             {hideChunkSizeControl ? null : (
-              <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-3 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground/80">{chunkSizeLabel}</label>
+                  <label className="text-xs font-medium text-muted-foreground">{chunkSizeLabel}</label>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-lg border border-primary/20 bg-primary/8 px-2.5 py-1 font-mono text-[11px] font-black text-primary shadow-[0_1px_0_rgba(255,255,255,0.8)_inset]">{chunkSize}</span>
+                    <span className="rounded-md border border-primary/20 bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary">{chunkSize}</span>
                     <Input
                       type="number"
                       inputMode="numeric"
@@ -1725,7 +1662,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         const nextOverlap = clampInt(chunkOverlap, 0, nextOverlapMax)
                         updateSettings({ chunkSize: nextSize, chunkOverlap: nextOverlap })
                       }}
-                      className="h-8 w-24 border-border/40 bg-background/80 text-[11px] font-bold font-mono shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] focus:border-success/40 focus:ring-success/10 antialiased"
+                      className="h-9 w-24 border-border bg-background font-mono text-sm"
                       aria-label={chunkSizeAria}
                     />
                   </div>
@@ -1741,19 +1678,19 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     onChange={(e) => updateSettings({ chunkSize: Number(e.target.value) })}
                     className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-success/15 accent-primary transition-all hover:bg-success/25"
                   />
-                  <div className="mt-2 flex justify-between font-mono text-[9px] font-bold text-muted-foreground/50 uppercase tracking-[-0.02em]">
-                    <span>MIN:{chunkSizeMin}</span>
-                    <span>MAX:{chunkSizeMax}</span>
+                  <div className="mt-2 flex justify-between font-mono text-xs text-muted-foreground">
+                    <span>最小 {chunkSizeMin}</span>
+                    <span>最大 {chunkSizeMax}</span>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/60">
-                  <span className="opacity-80">{t('sidebar.chunkControls.presets')}</span>
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  <span>{t('sidebar.chunkControls.presets')}</span>
                   {(isTokenStrategy ? [256, 512, 1024] : [600, 800, 1000, 1500]).map((size) => (
                     <button
                       key={size}
                       type="button"
-                      className="rounded-lg border border-border/60 bg-background/60 px-2 py-1 font-mono transition-all hover:border-success/40 hover:bg-background hover:text-success active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      className="rounded-md border border-border bg-background px-2 py-1 font-mono transition-colors hover:border-primary/40 hover:text-primary focus-ring"
                       onClick={() => {
                         const nextOverlapMax = Math.min(isTokenStrategy ? 500 : 1000, Math.max(0, size - chunkSizeMin))
                         const ratio = chunkSize > 0 ? chunkOverlap / chunkSize : 0.2
@@ -1772,11 +1709,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             )}
 
             {showOverlapControl ? (
-              <div className="space-y-2.5 rounded-xl border border-border/50 bg-background/75 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+              <div className="space-y-2.5 rounded-md border border-border bg-background p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-[11px] font-medium text-muted-foreground">{overlapLabel}</label>
+                  <label className="text-xs font-medium text-muted-foreground">{overlapLabel}</label>
                   <div className="flex items-center gap-2">
-                    <span className="rounded bg-primary/8 px-2 py-0.5 font-mono text-[11px] font-medium text-primary">{chunkOverlap}</span>
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">{chunkOverlap}</span>
                     <Input
                       type="number"
                       inputMode="numeric"
@@ -1789,7 +1726,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         if (!Number.isFinite(n)) return
                         updateSettings({ chunkOverlap: clampInt(n, 0, overlapMax) })
                       }}
-                      className="h-7 w-24 bg-background text-[11px] font-mono"
+                      className="h-9 w-24 bg-background font-mono text-sm"
                       aria-label={overlapAria}
                     />
                   </div>
@@ -1804,7 +1741,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-primary/15 accent-primary transition-colors"
                 />
                 {overlapGuidance ? (
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>
                       {t('sidebar.chunkControls.overlapGuidance', {
                         min: overlapGuidance.min,
@@ -1818,13 +1755,13 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     </span>
                   </div>
                 ) : null}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{t('sidebar.chunkControls.overlapShortcuts')}</span>
                   {[10, 15, 20, 25].map((pct) => (
                     <button
                       key={pct}
                       type="button"
-                      className="rounded-full border border-border/50 bg-background/78 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-colors hover:bg-background focus-ring"
+                      className="rounded-md border border-border bg-background px-2 py-1 transition-colors hover:border-primary/40 hover:text-primary focus-ring"
                       onClick={() => {
                         const target = Math.round(chunkSize * (pct / 100))
                         updateSettings({ chunkOverlap: clampInt(target, 0, overlapMax) })
@@ -1841,17 +1778,17 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
           {isSeparatorStrategy ? (
             <SidebarPanel tone="cyan" className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] font-semibold text-foreground/82">{t('sidebar.separator.title')}</div>
+                <div className="text-sm font-semibold text-foreground">{t('sidebar.separator.title')}</div>
                 <SidebarChip tone="cyan">分隔</SidebarChip>
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] text-muted-foreground">{t('sidebar.separator.syncToPipeline')}</div>
+                <div className="text-xs text-muted-foreground">{t('sidebar.separator.syncToPipeline')}</div>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-[11px]"
+                  className="h-8 px-2 text-xs"
                   onClick={() => {
                     const preset = separatorPreset || 'paragraph'
                     const patch: ChunkStrategyParams = {
@@ -1871,13 +1808,13 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 </Button>
               </div>
               {pipelineCtx.options.chunk_strategy_params ? (
-                <div className="text-[11px] text-muted-foreground font-mono break-all">
+                <div className="break-all font-mono text-xs text-muted-foreground">
                   {t('sidebar.separator.currentPipeline', {
                     value: JSON.stringify(pipelineCtx.options.chunk_strategy_params),
                   })}
                 </div>
               ) : (
-                <div className="text-[11px] text-muted-foreground font-mono">
+                <div className="font-mono text-xs text-muted-foreground">
                   {t('sidebar.separator.currentPipeline', {
                     value: t('sidebar.separator.currentPipelineEmpty'),
                   })}
@@ -1885,12 +1822,12 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
               )}
 
               <div className="space-y-2">
-                <div className="text-[11px] font-medium text-muted-foreground">{t('sidebar.separator.presetLabel')}</div>
+                <div className="text-xs font-medium text-muted-foreground">{t('sidebar.separator.presetLabel')}</div>
                 <Select
                   value={separatorPreset}
                   onValueChange={(value) => updateSeparatorSettings({ separatorPreset: value })}
                 >
-                  <SelectTrigger className="h-8 bg-background text-[11px]">
+                  <SelectTrigger className="h-9 rounded-md bg-background text-sm">
                     <SelectValue placeholder={t('sidebar.separator.presetPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -1905,7 +1842,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   {separatorPresetOptions.find((o) => o.value === separatorPreset)?.hint || ''}
                 </SidebarNote>
                 {effectiveSeparator ? (
-                  <div className="text-[11px] text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {t('sidebar.separator.effectiveSeparator', {
                       value: JSON.stringify(effectiveSeparator).slice(1, -1) || t('sidebar.separator.currentPipelineEmpty'),
                       length: effectiveSeparator.length,
@@ -1916,11 +1853,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
               {separatorPreset === 'custom' ? (
                 <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-muted-foreground">{t('sidebar.separator.customLabel')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.separator.customLabel')}</div>
                   <Input
                     value={separatorCustom}
                     onChange={(e) => updateSeparatorSettings({ separatorCustom: e.target.value })}
-                    className="h-9 text-[11px] font-mono bg-background"
+                    className="h-9 bg-background font-mono text-sm"
                     placeholder={t('sidebar.separator.customPlaceholder')}
                     aria-label={t('sidebar.separator.customAria')}
                   />
@@ -1928,12 +1865,12 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/75 px-2.5 py-1.5">
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 py-2">
                 <div>
-                  <div className="text-[11px] font-medium text-foreground/82">{t('sidebar.separator.keepSeparator.title')}</div>
-                  <div className="text-[11px] text-muted-foreground">{t('sidebar.separator.keepSeparator.description')}</div>
+                  <div className="text-xs font-medium text-foreground">{t('sidebar.separator.keepSeparator.title')}</div>
+                  <div className="text-xs text-muted-foreground">{t('sidebar.separator.keepSeparator.description')}</div>
                 </div>
-                <label className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
+                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={keepSeparator}
@@ -1946,7 +1883,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-medium text-muted-foreground">{t('sidebar.separator.maxChunkLength')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.separator.maxChunkLength')}</div>
                   <Input
                     type="number"
                     inputMode="numeric"
@@ -1959,7 +1896,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       if (!Number.isFinite(n)) return
                       updateSeparatorSettings({ separatorMaxChunkSize: clampInt(n, 0, 20000) })
                     }}
-                    className="h-7 w-24 text-[11px] font-mono bg-background"
+                    className="h-9 w-24 bg-background font-mono text-sm"
                     aria-label={t('sidebar.separator.maxChunkLengthAria')}
                   />
                 </div>
@@ -1970,15 +1907,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
           {isParentChildStrategy ? (
             <SidebarPanel tone="emerald" className="space-y-3">
-              <div className="text-[10.5px] font-semibold text-foreground/84">{t('sidebar.parentChild.title')}</div>
+              <div className="text-sm font-semibold text-foreground">{t('sidebar.parentChild.title')}</div>
 
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[9.5px] text-muted-foreground">{t('sidebar.parentChild.syncToPipeline')}</div>
+                <div className="text-xs text-muted-foreground">{t('sidebar.parentChild.syncToPipeline')}</div>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-6 px-2 text-[11px]"
+                  className="h-8 px-2 text-xs"
                   onClick={() => {
                     const patch: ChunkStrategyParams = {
                       child_ratio: Number(parentChildRatio),
@@ -1993,13 +1930,13 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 </Button>
               </div>
               {pipelineCtx.options.chunk_strategy_params ? (
-                <div className="text-[9px] text-muted-foreground/80 font-mono break-all">
+                <div className="break-all font-mono text-xs text-muted-foreground">
                   {t('sidebar.parentChild.currentPipeline', {
                     value: JSON.stringify(pipelineCtx.options.chunk_strategy_params),
                   })}
                 </div>
               ) : (
-                <div className="text-[9px] text-muted-foreground/80 font-mono">
+                <div className="font-mono text-xs text-muted-foreground">
                   {t('sidebar.parentChild.currentPipeline', {
                     value: t('sidebar.parentChild.currentPipelineEmpty'),
                   })}
@@ -2008,7 +1945,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-muted-foreground">{t('sidebar.parentChild.ratioLabel')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.parentChild.ratioLabel')}</div>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -2021,14 +1958,14 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       if (!Number.isFinite(n)) return
                       updateParentChildSettings({ parentChildRatio: Math.max(0.05, Math.min(1, n)) })
                     }}
-                    className="h-8 text-[11px] font-mono bg-background"
+                    className="h-9 bg-background font-mono text-sm"
                     aria-label={t('sidebar.parentChild.ratioAria')}
                   />
                   <SidebarNote tone="emerald" className="py-1">{t('sidebar.parentChild.ratioHelp')}</SidebarNote>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-muted-foreground">{t('sidebar.parentChild.minChildSizeLabel')}</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.parentChild.minChildSizeLabel')}</div>
                   <Input
                     type="number"
                     inputMode="numeric"
@@ -2041,7 +1978,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       if (!Number.isFinite(n)) return
                       updateParentChildSettings({ parentChildMinChildSize: clampInt(n, 50, 4000) })
                     }}
-                    className="h-8 text-[11px] font-mono bg-background"
+                    className="h-9 bg-background font-mono text-sm"
                     aria-label={t('sidebar.parentChild.minChildSizeAria')}
                   />
                   <SidebarNote tone="emerald" className="py-1">{t('sidebar.parentChild.minChildSizeHelp')}</SidebarNote>
@@ -2049,7 +1986,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
               </div>
 
               {parentChildEffective ? (
-                <SidebarNote tone="emerald" className="font-mono text-[9px]">
+                <SidebarNote tone="emerald" className="font-mono">
                   {t('sidebar.parentChild.effectiveSummary', {
                     childSize: parentChildEffective.childSize,
                     childOverlap: parentChildEffective.childOverlap,
@@ -2062,38 +1999,29 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
             </SidebarPanel>
           ) : null}
 
-          <SidebarPanel tone="violet" className="relative overflow-hidden space-y-3.5">
-            <div className="absolute -right-8 -top-8 size-24 bg-accent/5 blur-3xl pointer-events-none" />
-            
-            <div className="flex items-center justify-between gap-3 px-0.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div className="relative flex h-6 w-6 items-center justify-center rounded-lg border border-accent/20 bg-background shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_4px_rgba(139,92,246,0.05)]">
-                  <Layers className="h-3 w-3 text-accent" strokeWidth={2.8} />
-                </div>
-                <div className="flex flex-col">
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-foreground antialiased leading-none">
-                    {t('sidebar.ingestionPipeline')}
-                  </h2>
-                  <span className="mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-muted-foreground/60 leading-none">
-                    Data Governance
-                  </span>
-                </div>
-              </div>
-              <SidebarChip tone="violet">入库</SidebarChip>
-            </div>
+          <details className="rounded-md border border-border bg-background">
+            <summary className="cursor-pointer list-none px-3 py-3 focus-ring">
+              <SidebarSectionHeader
+                icon={Layers}
+                label={t('sidebar.ingestionPipeline')}
+                tone="violet"
+                aside="高级"
+              />
+            </summary>
+            <div className="space-y-3 border-t border-border p-3">
 
             <div
               data-python-pipeline-plugin-panel
-              className="space-y-2.5 rounded-xl border border-border/45 bg-background/52 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
+              className="space-y-3 rounded-md border border-border bg-background p-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2">
-                  <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-accent/20 bg-accent/8 text-accent">
+                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
                     <FileCode2 className="h-3.5 w-3.5" strokeWidth={2.6} />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-[11px] font-bold leading-4 text-foreground/86">{t('sidebar.pythonPlugins.title')}</div>
-                    <div className="text-[9.5px] font-medium leading-3.5 text-muted-foreground/72">
+                    <div className="text-sm font-semibold leading-5 text-foreground">{t('sidebar.pythonPlugins.title')}</div>
+                    <div className="text-xs leading-5 text-muted-foreground">
                       {t('sidebar.pythonPlugins.description')}
                     </div>
                   </div>
@@ -2105,7 +2033,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
               <div className="grid gap-2">
                 <label className="grid gap-1">
-                  <span className="text-[10px] font-bold text-muted-foreground/82">{t('sidebar.pythonPlugins.governancePluginLabel')}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('sidebar.pythonPlugins.governancePluginLabel')}</span>
                   <Select
                     value={governancePluginValue}
                     onValueChange={(value) => {
@@ -2116,7 +2044,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       )
                     }}
                   >
-                    <SelectTrigger className="h-8 rounded-lg bg-background/75 text-[10.5px] font-bold">
+                    <SelectTrigger className="h-9 rounded-md bg-background text-sm">
                       <SelectValue placeholder={t('sidebar.pythonPlugins.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -2141,7 +2069,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   </Select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] font-bold text-muted-foreground/82">{t('sidebar.pythonPlugins.chunkPluginLabel')}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('sidebar.pythonPlugins.chunkPluginLabel')}</span>
                   <Select
                     value={chunkPluginValue}
                     onValueChange={(value) => {
@@ -2152,7 +2080,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       )
                     }}
                   >
-                    <SelectTrigger className="h-8 rounded-lg bg-background/75 text-[10.5px] font-bold">
+                    <SelectTrigger className="h-9 rounded-md bg-background text-sm">
                       <SelectValue placeholder={t('sidebar.pythonPlugins.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -2177,7 +2105,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   </Select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] font-bold text-muted-foreground/82">{t('sidebar.pythonPlugins.kgPluginLabel')}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('sidebar.pythonPlugins.kgPluginLabel')}</span>
                   <Select
                     value={kgPluginValue}
                     onValueChange={(value) => {
@@ -2188,7 +2116,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       )
                     }}
                   >
-                    <SelectTrigger className="h-8 rounded-lg bg-background/75 text-[10.5px] font-bold">
+                    <SelectTrigger className="h-9 rounded-md bg-background text-sm">
                       <SelectValue placeholder={t('sidebar.pythonPlugins.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -2234,10 +2162,10 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 {selectedAuditPlugin ? (
                   <div
                     data-python-pipeline-plugin-audit
-                    className="grid gap-1 rounded-lg border border-border/40 bg-muted/12 px-2 py-1.5 text-[9.5px] font-medium leading-3.5 text-muted-foreground/72"
+                    className="grid gap-1 rounded-md border border-border bg-muted/20 px-2 py-2 text-xs leading-5 text-muted-foreground"
                   >
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="truncate font-bold text-foreground/72">
+                      <span className="truncate font-medium text-foreground">
                         {t('sidebar.pythonPlugins.auditTitle')}
                       </span>
                       <span className="shrink-0 font-mono text-muted-foreground/80">
@@ -2257,7 +2185,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       ) : null}
                     </div>
                     {selectedAuditReportOwner ? (
-                      <div className="truncate font-mono text-[9px] text-muted-foreground/70">
+                      <div className="truncate font-mono text-xs text-muted-foreground">
                         {t('sidebar.pythonPlugins.auditReportOwner', { value: selectedAuditReportOwner })}
                       </div>
                     ) : null}
@@ -2266,17 +2194,17 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 {selectedChunkPlugin ? (
                   <div
                     data-python-pipeline-plugin-chunk-report
-                    className="grid gap-1.5 rounded-lg border border-border/40 bg-background/50 px-2 py-2 text-[9.5px] leading-3.5"
+                    className="grid gap-2 rounded-md border border-border bg-background px-2 py-2 text-xs leading-5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[10px] font-bold text-foreground/75">
+                      <span className="truncate text-xs font-medium text-foreground">
                         {t('sidebar.pythonPlugins.chunkReportTitle')}
                       </span>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-6 shrink-0 rounded-lg px-2 text-[10px] shadow-none"
+                        className="h-8 shrink-0 rounded-md px-2 text-xs"
                         disabled={!selectedChunkPluginRef || pluginChunkReportLoading}
                         onClick={handleBuildPluginChunkReport}
                       >
@@ -2288,15 +2216,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         {t('sidebar.pythonPlugins.chunkReportBuild')}
                       </Button>
                     </div>
-                    <div className="text-[9px] font-medium leading-3 text-muted-foreground/68">
+                    <div className="text-xs leading-5 text-muted-foreground">
                       {t('sidebar.pythonPlugins.chunkReportHint')}
                     </div>
                     {pluginChunkReport ? (
-                      <div className="grid gap-1 rounded-md border border-border/35 bg-muted/18 px-1.5 py-1 text-muted-foreground/76">
+                      <div className="grid gap-1 rounded-md border border-border bg-muted/20 px-2 py-2 text-muted-foreground">
                         <div className="flex items-center justify-between gap-2">
                           <span
                             className={cn(
-                              'rounded-full border px-1.5 py-0.5 text-[8px] font-bold',
+                              'rounded-md border px-1.5 py-0.5 text-xs font-medium',
                               pluginChunkReportReadinessPassed
                                 ? 'border-success/20 bg-success/8 text-success'
                                 : 'border-destructive/20 bg-destructive/8 text-destructive'
@@ -2310,7 +2238,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                           </span>
                         </div>
                         {failedReadinessChecks.length > 0 ? (
-                          <div className="grid gap-0.5 rounded border border-destructive/15 bg-destructive/5 px-1.5 py-1 text-[8.5px] leading-3 text-destructive/85">
+                          <div className="grid gap-1 rounded-md border border-destructive/20 bg-destructive/5 px-2 py-1.5 text-xs leading-4 text-destructive">
                             {failedReadinessChecks.slice(0, 3).map((check) => (
                               <div key={check.name} className="truncate">
                                 {t('sidebar.pythonPlugins.chunkReportErrorSummary', {
@@ -2332,7 +2260,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                           {pluginChunkReport.sections.slice(0, 4).map((section) => (
                             <span
                               key={section.knowledge_section}
-                              className="rounded-full border border-border/35 bg-background/65 px-1.5 py-0.5 font-mono text-[8px] text-muted-foreground/75"
+                              className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
                             >
                               {section.knowledge_section || '-'} · {section.chunks}
                             </span>
@@ -2345,17 +2273,17 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 {selectedPipelinePlugin ? (
                   <div
                     data-python-pipeline-plugin-templates
-                    className="grid gap-1.5 rounded-lg border border-border/40 bg-background/45 px-2 py-1.5 text-[9.5px] leading-3.5"
+                    className="grid gap-2 rounded-md border border-border bg-background px-2 py-2 text-xs leading-5"
                   >
                     <div className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="truncate text-[10px] font-bold text-foreground/75">
+                      <span className="truncate text-xs font-medium text-foreground">
                         {t('sidebar.pythonPlugins.processingTemplatesTitle')}
                       </span>
                       <SidebarChip tone="violet">
                         {selectedPluginProcessingTemplates.length}
                       </SidebarChip>
                     </div>
-                    <div className="text-[9px] font-medium leading-3 text-muted-foreground/68">
+                    <div className="text-xs leading-5 text-muted-foreground">
                       {t('sidebar.pythonPlugins.processingTemplatesHint')}
                     </div>
                     {selectedPluginProcessingTemplates.length ? (
@@ -2368,7 +2296,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                             <span className="truncate font-semibold text-foreground/72">
                               {template.name}
                             </span>
-                            <span className="shrink-0 rounded-full border border-border/40 bg-background/70 px-1.5 py-0.5 font-mono text-[8px] uppercase text-muted-foreground/72">
+                            <span className="shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                               {template.stage}
                             </span>
                           </div>
@@ -2382,9 +2310,9 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   </div>
                 ) : null}
                 {selectedGoldenPlugin?.contract?.golden?.enabled ? (
-                  <div className="grid gap-1.5 rounded-lg border border-border/40 bg-muted/12 px-2 py-2">
+                  <div className="grid gap-2 rounded-md border border-border bg-muted/20 px-2 py-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 text-[10px] font-bold text-muted-foreground/82">
+                      <span className="min-w-0 text-xs font-medium text-muted-foreground">
                         {t('sidebar.pythonPlugins.goldenTitle')}
                       </span>
                       <SidebarChip tone="violet">
@@ -2396,7 +2324,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-7 justify-center rounded-lg px-2 text-[10.5px] shadow-none"
+                        className="h-8 justify-center rounded-md px-2 text-xs"
                         disabled={!canImportGoldenDraft || goldenImportLoading || goldenRegressionLoading}
                         onClick={() => handleImportPluginGoldenDraft()}
                       >
@@ -2410,7 +2338,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       <Button
                         type="button"
                         size="sm"
-                        className="h-7 justify-center rounded-lg px-2 text-[10.5px] shadow-none"
+                        className="h-8 justify-center rounded-md px-2 text-xs"
                         disabled={!canImportGoldenDraft || goldenImportLoading || goldenRegressionLoading}
                         onClick={() => handleImportPluginGoldenDraft({ runRegression: true })}
                       >
@@ -2422,22 +2350,22 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                         {t('sidebar.pythonPlugins.importAndRunGolden')}
                       </Button>
                     </div>
-                    <div className="text-[9.5px] font-medium leading-3.5 text-muted-foreground/70">
+                    <div className="text-xs leading-5 text-muted-foreground">
                       {datasetId ? t('sidebar.pythonPlugins.importGoldenHint') : t('sidebar.pythonPlugins.importGoldenSelectDataset')}
                     </div>
                     {lastGoldenRegressionRun ? (
-                      <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/15 bg-primary/5 px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-2 py-2">
                         <div className="min-w-0">
-                          <div className="truncate text-[10px] font-bold text-primary">
-                            Run {lastGoldenRegressionRun.id.slice(0, 8)}
+                          <div className="truncate text-xs font-medium text-primary">
+                            运行 {lastGoldenRegressionRun.id.slice(0, 8)}
                           </div>
-                          <div className="text-[9px] font-medium text-muted-foreground/70">
+                          <div className="text-xs text-muted-foreground">
                             {t('sidebar.pythonPlugins.goldenRunCaseCount', {
                               count: lastGoldenRegressionRun.caseCount,
                             })}
                           </div>
                         </div>
-                        <Button asChild size="sm" variant="outline" className="h-6 shrink-0 rounded-lg px-2 text-[10px] shadow-none">
+                        <Button asChild size="sm" variant="outline" className="h-8 shrink-0 rounded-md px-2 text-xs">
                           <Link href={lastGoldenRegressionRun.href}>
                             {t('sidebar.pythonPlugins.viewGoldenRun')}
                           </Link>
@@ -2452,7 +2380,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 <Button
                   type="button"
                   size="sm"
-                  className="h-7 rounded-lg px-2 text-[10.5px] shadow-none"
+                  className="h-8 rounded-md px-2 text-xs"
                   disabled={pipelinePluginsLoading || !selectedPipelinePluginPatch}
                   onClick={applySelectedPipelinePlugin}
                 >
@@ -2462,7 +2390,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 rounded-lg px-2 text-[10.5px] shadow-none"
+                  className="h-8 rounded-md px-2 text-xs"
                   disabled={!pythonPluginActive}
                   onClick={clearPythonPlugins}
                 >
@@ -2471,10 +2399,11 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
               </div>
             </div>
             
-            <div className="rounded-xl border border-border/40 bg-background/40 p-1">
+            <div className="rounded-md border border-border bg-background p-1">
               <PipelineOptionsPanel compact />
             </div>
-          </SidebarPanel>
+            </div>
+          </details>
 
           <ChunkPresetPanel className="border-border/50 bg-background/75" />
 
@@ -2492,7 +2421,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 rounded-lg border-border/60 bg-background/80 px-2 text-[10px] font-black uppercase tracking-[-0.01em] text-muted-foreground shadow-[0_1px_0_rgba(255,255,255,0.8)_inset] hover:bg-background hover:text-foreground transition-all"
+                    className="h-8 rounded-md border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => setShowAdvancedStats((v) => !v)}
                   >
                     {showAdvancedStats ? t('sidebar.analysis.detailsHide') : t('sidebar.analysis.detailsShow')}
@@ -2502,7 +2431,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-6 rounded-lg border-border/60 bg-background/80 px-2 text-[10px] font-black uppercase tracking-[-0.01em] text-muted-foreground shadow-[0_1px_0_rgba(255,255,255,0.8)_inset] hover:bg-background hover:text-foreground transition-all"
+                  className="h-8 rounded-md border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => setAnalysisExpanded((v) => !v)}
                 >
                   {analysisExpanded ? t('sidebar.analysis.collapse') : t('sidebar.analysis.expand')}
@@ -2522,7 +2451,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     <div className={compactStatValueClass}>
                       {serverStats?.avg ?? '-'}
                       {isTokenStrategy ? (
-                        <span className="ml-1 text-[8.5px] font-black opacity-40">{statsUnitLabel}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{statsUnitLabel}</span>
                       ) : null}
                     </div>
                   </div>
@@ -2531,7 +2460,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     <div className={compactStatValueClass}>
                       {serverStats?.p95 ?? '-'}
                       {isTokenStrategy ? (
-                        <span className="ml-1 text-[8.5px] font-black opacity-40">{statsUnitLabel}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{statsUnitLabel}</span>
                       ) : null}
                     </div>
                   </div>
@@ -2553,7 +2482,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       {coverageSignals?.gapCount == null ? '-' : String(coverageSignals.gapCount)}
                     </div>
                     {coverageSignals?.largestGap == null ? null : (
-                      <div className="mt-0.5 truncate text-[7.5px] font-black uppercase tracking-[-0.02em] opacity-40">
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
                         {t('sidebar.stats.largestGap', { value: coverageSignals.largestGap })}
                       </div>
                     )}
@@ -2562,23 +2491,23 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
 
                 {showAdvancedStats && serverStats ? (
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="bg-card p-3 rounded-xl border border-border/60 shadow-sm">
-                  <div className="text-[11px] text-muted-foreground uppercase  font-medium">{minMaxStatLabel}</div>
+                <div className="rounded-md border border-border bg-background p-3">
+                  <div className="text-xs font-medium text-muted-foreground">{minMaxStatLabel}</div>
                   <div className="mt-1 text-sm font-mono text-foreground/90">
                     {serverStats.min} / {serverStats.max}
                   </div>
-                  <div className="mt-1 text-[11px] text-muted-foreground font-mono">{t('sidebar.stats.p10', { value: serverStats.p10 ?? '-' })}</div>
+                  <div className="mt-1 font-mono text-xs text-muted-foreground">{t('sidebar.stats.p10', { value: serverStats.p10 ?? '-' })}</div>
                 </div>
-                <div className="bg-card p-3 rounded-xl border border-border/60 shadow-sm">
-                  <div className="text-[11px] text-muted-foreground uppercase  font-medium">{t('sidebar.stats.qualitySignals')}</div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">
+                <div className="rounded-md border border-border bg-background p-3">
+                  <div className="text-xs font-medium text-muted-foreground">{t('sidebar.stats.qualitySignals')}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
                     {t('sidebar.stats.qualitySummary', {
                       shortCount: serverStats.short_count ?? 0,
                       duplicateCount: serverStats.duplicate_count ?? 0,
                     })}
                   </div>
                   {overlapGuidance ? (
-                    <div className={cn('mt-1 text-[11px]', overlapGuidance.outOfRange ? 'text-warning' : 'text-muted-foreground')}>
+                    <div className={cn('mt-1 text-xs', overlapGuidance.outOfRange ? 'text-warning' : 'text-muted-foreground')}>
                       {t('sidebar.stats.overlapSummary', {
                         ratio: Math.round(overlapGuidance.ratio * 100),
                         min: 10,
@@ -2589,7 +2518,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   {coverageSignals ? (
                     <div
                       className={cn(
-                        'mt-1 text-[11px]',
+                        'mt-1 text-xs',
                         coverageSignals.coveragePct != null && coverageSignals.coveragePct < 95 ? 'text-warning' : 'text-muted-foreground'
                       )}
                       title={coverageSignals.largestGap == null ? undefined : t('sidebar.stats.largestGap', { value: coverageSignals.largestGap })}
@@ -2602,8 +2531,8 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     </div>
                   ) : null}
                 </div>
-                <div className="col-span-2 bg-card p-3 rounded-xl border border-border/60 shadow-sm">
-                  <div className="text-[11px] text-muted-foreground uppercase  font-medium">{histogramTitle}</div>
+                <div className="col-span-2 rounded-md border border-border bg-background p-3">
+                  <div className="text-xs font-medium text-muted-foreground">{histogramTitle}</div>
                   {histogramData.length ? (
                     <SafeResponsiveChart className="mt-2 h-[120px]" minHeight={120}>
                       <BarChart data={histogramData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -2624,23 +2553,23 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                       </BarChart>
                     </SafeResponsiveChart>
                   ) : (
-                    <div className="mt-2 text-[11px] text-muted-foreground">{t('sidebar.stats.histogramEmpty')}</div>
+                    <div className="mt-2 text-xs text-muted-foreground">{t('sidebar.stats.histogramEmpty')}</div>
                   )}
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <div className="mt-2 flex items-center justify-between font-mono text-xs text-muted-foreground">
                     <span>0</span>
                     <span>{histogramMax || serverStats.max}</span>
                   </div>
                 </div>
                 {previewData?.recommendations?.length || previewData?.recommendation_patches?.length ? (
-                  <div className="col-span-2 bg-card p-3 rounded-xl border border-border/60 shadow-sm">
+                  <div className="col-span-2 rounded-md border border-border bg-background p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-[11px] text-muted-foreground uppercase  font-medium">{t('sidebar.recommendations.title')}</div>
+                      <div className="text-xs font-medium text-muted-foreground">{t('sidebar.recommendations.title')}</div>
                       {previewData?.recommendation_patches?.length ? (
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2 text-[11px]"
+                          className="h-8 px-2 text-xs"
                           onClick={() => {
                             for (const item of previewData.recommendation_patches || []) {
                               const target = item.target || 'preview'
@@ -2679,13 +2608,13 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                             <div key={patchItem.id || title} className="rounded-lg border border-border/60 bg-background p-2">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="min-w-0">
-                                  <div className="text-[11px] font-medium text-foreground/90">{title}</div>
-                                  {desc ? <div className="mt-0.5 text-[11px] text-muted-foreground">{desc}</div> : null}
+                                  <div className="text-xs font-medium text-foreground">{title}</div>
+                                  {desc ? <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div> : null}
                                 </div>
                                 <Button
                                   type="button"
                                   size="sm"
-                                  className="h-7 px-2 text-[11px]"
+                                  className="h-8 px-2 text-xs"
                                   onClick={() => {
                                     if (target === 'preview') {
                                       const next = buildPreviewSettingsPatch(patch)
@@ -2714,7 +2643,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                                   {t('sidebar.recommendations.apply')}
                                 </Button>
                               </div>
-                              <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                              <div className="mt-1 font-mono text-xs text-muted-foreground">
                                 {t('sidebar.recommendations.target', { value: targetLabel })}
                               </div>
                             </div>
@@ -2724,7 +2653,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     ) : null}
 
                     {previewData?.recommendations?.length ? (
-                      <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                         {(previewData.recommendations || []).slice(0, 8).map((r) => (
                           <div key={String(r)} className="flex gap-2">
                             <span className="font-mono text-muted-foreground/70">-</span>
@@ -2750,7 +2679,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-[11px]"
+                className="h-8 px-2 text-xs"
                 onClick={() => {
                   clearRunHistory()
                   toast.success(t('sidebar.history.clearSuccess'))
@@ -2765,7 +2694,7 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                   type="button"
                   key={item.id}
                   className={cn(
-                    "w-full rounded-lg border border-border/60 bg-card px-2.5 py-2 text-left text-[11px] text-muted-foreground shadow-sm",
+                    "w-full rounded-md border border-border bg-background px-2.5 py-2 text-left text-xs text-muted-foreground",
                     "hover:border-primary/25 hover:bg-primary/5 transition-colors focus-ring"
                   )}
                   onClick={() => {
@@ -2784,15 +2713,15 @@ export function Sidebar({ variant = 'panel' }: SidebarProps = {}) {
                     <span>{new Date(item.createdAt).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    <span className="px-2 py-0.5 rounded-full border border-border/60 bg-muted/60">
+                    <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5">
                       {t('sidebar.history.chunks', { count: item.totalChunks })}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full border border-border/60 bg-muted/60">
+                    <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5">
                       {t('sidebar.history.duration', { ms: item.durationMs })}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full border border-border/60 bg-muted/60">{item.strategy}</span>
+                    <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5">{item.strategy}</span>
                     {item.cacheHit && (
-                      <span className="px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/25">{t('sidebar.history.cacheHit')}</span>
+                      <span className="rounded-md border border-success/25 bg-success/10 px-2 py-0.5 text-success">{t('sidebar.history.cacheHit')}</span>
                     )}
                   </div>
                 </button>
