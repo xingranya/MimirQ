@@ -7,7 +7,7 @@ import { systemPageTokens } from '@/components/ui/system-page-tokens'
 import { BRAND_CONFIG } from '@/lib/brand'
 
 type SystemStatusSectionProps = {
-  status: SystemStatus
+  status: SystemStatus | null
   backendMeta: BackendMetaDetails | null
 }
 
@@ -70,32 +70,34 @@ export function SystemStatusSection({
   status,
   backendMeta,
 }: Readonly<SystemStatusSectionProps>) {
-  const parserEntries = Object.entries(status.parsers || {})
+  const parserEntries = Object.entries(status?.parsers || {})
 
   return (
     <section className="space-y-3">
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        <StatusCard
-          label="PostgreSQL"
-          connected={status.database.connected}
-          message={status.database.message}
-        />
-        <StatusCard
-          label="Milvus"
-          connected={status.milvus.connected}
-          message={status.milvus.message}
-        />
-        <StatusCard
-          label="大语言模型（LLM）"
-          connected={status.llm.configured}
-          message={status.llm.model}
-        />
-        <StatusCard
-          label="向量模型（Embedding）"
-          connected={status.embedding.configured}
-          message={status.embedding.model}
-        />
-      </div>
+      {status ? (
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <StatusCard
+            label="PostgreSQL"
+            connected={status.database.connected}
+            message={status.database.message}
+          />
+          <StatusCard
+            label="Milvus"
+            connected={status.milvus.connected}
+            message={status.milvus.message}
+          />
+          <StatusCard
+            label="大语言模型（LLM）"
+            connected={status.llm.configured}
+            message={status.llm.model}
+          />
+          <StatusCard
+            label="向量模型（Embedding）"
+            connected={status.embedding.configured}
+            message={status.embedding.model}
+          />
+        </div>
+      ) : null}
 
       {backendMeta || parserEntries.length ? (
         <div className="rounded-lg border border-border/70 bg-card p-3.5 shadow-none">

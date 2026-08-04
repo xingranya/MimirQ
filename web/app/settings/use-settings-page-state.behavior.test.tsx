@@ -238,6 +238,40 @@ describe('设置页保存校验', () => {
     hook.unmount()
   })
 
+  it('分别展示运行状态和后端信息错误并支持独立重试', async () => {
+    mocks.getStatus.mockRejectedValueOnce(new Error('运行状态服务暂时不可用'))
+    mocks.metaDetails.mockRejectedValueOnce(new Error('后端信息服务暂时不可用'))
+    const hook = renderHook(() => useSettingsPageState())
+
+    await waitForAssertion(() => {
+      expect(hook.result.current.loading).toBe(false)
+      expect(hook.result.current.statusLoading).toBe(false)
+      expect(hook.result.current.backendMetaLoading).toBe(false)
+    })
+
+    expect(hook.result.current.settingsWritable).toBe(true)
+    expect(hook.result.current.statusError).toContain('运行状态服务暂时不可用')
+    expect(hook.result.current.backendMetaError).toContain('后端信息服务暂时不可用')
+    expect(hook.result.current.status).toBeNull()
+    expect(hook.result.current.backendMeta).toBeNull()
+
+    mocks.getStatus.mockResolvedValueOnce({
+      database: { connected: true, message: '已连接' },
+      milvus: { connected: true, message: '已连接' },
+      llm: { configured: true, model: 'qwen3:8b' },
+      embedding: { configured: true, model: 'BAAI/bge-large-zh-v1.5' },
+      parsers: {},
+    })
+    const metadataCallCount = mocks.metaDetails.mock.calls.length
+    await act(async () => hook.result.current.refreshSystemStatus())
+
+    expect(hook.result.current.statusError).toBeNull()
+    expect(hook.result.current.status?.database.connected).toBe(true)
+    expect(mocks.metaDetails).toHaveBeenCalledTimes(metadataCallCount)
+    expect(hook.result.current.backendMetaError).not.toBeNull()
+    hook.unmount()
+  })
+
   it('功能开关切回原值后清除草稿', async () => {
     const hook = renderHook(() => useSettingsPageState())
     await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))

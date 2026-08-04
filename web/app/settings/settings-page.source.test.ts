@@ -95,4 +95,17 @@ describe('设置页信息架构', () => {
     expect(failureBranchSource).not.toContain('setTimeout')
     expect(saveSettingsSource).toContain('setSaving(false)')
   })
+
+  it('运行状态和后端信息使用独立错误与重试状态', () => {
+    expect(settingsStateSource).toContain('const loadSystemStatus = async () =>')
+    expect(settingsStateSource).toContain('const loadBackendMeta = async () =>')
+    expect(settingsStateSource).toContain("setStatusError(formatApiError(error, '运行状态加载失败'))")
+    expect(settingsStateSource).toContain("setBackendMetaError(formatApiError(error, '后端信息加载失败'))")
+    expect(settingsStateSource).not.toContain('settingsApi.getStatus().catch(() => null)')
+    expect(settingsStateSource).not.toContain('metaApi.details().catch(() => null)')
+    expect(settingsPageSource).toContain("title={state.status ? '运行状态刷新失败' : '运行状态加载失败'}")
+    expect(settingsPageSource).toContain("title={state.backendMeta ? '后端信息刷新失败' : '后端信息加载失败'}")
+    expect(settingsPageSource).toContain('onRetry={state.refreshSystemStatus}')
+    expect(settingsPageSource).toContain('onRetry={state.refreshBackendMeta}')
+  })
 })

@@ -20,6 +20,7 @@ import { AppFrame } from '@/components/app-frame'
 import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChunkStrategyPreference } from '@/contexts/chunk-strategy-context'
@@ -387,14 +388,14 @@ function SettingsPageContent() {
                   <Button
                     variant="outline"
                     onClick={refreshSettings}
-                    disabled={state.loading}
+                    disabled={state.refreshing}
                     className={SETTINGS_OUTLINE_BUTTON}
                     aria-label="刷新设置"
                   >
                     <RefreshCw
                       className={cn(
                         'size-4',
-                        state.loading && 'animate-spin motion-reduce:animate-none'
+                        state.refreshing && 'animate-spin motion-reduce:animate-none'
                       )}
                     />
                   </Button>
@@ -583,7 +584,29 @@ function SettingsContent({
             {visibleSectionIdSet.has('settings-runtime') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-runtime']}>
                 <SettingsSubsection title="系统状态">
-                  {state.status ? (
+                  {state.statusError ? (
+                    <QueryErrorState
+                      title={state.status ? '运行状态刷新失败' : '运行状态加载失败'}
+                      description={state.statusError}
+                      onRetry={state.refreshSystemStatus}
+                      retrying={state.statusLoading}
+                    />
+                  ) : null}
+                  {state.backendMetaError ? (
+                    <QueryErrorState
+                      title={state.backendMeta ? '后端信息刷新失败' : '后端信息加载失败'}
+                      description={state.backendMetaError}
+                      onRetry={state.refreshBackendMeta}
+                      retrying={state.backendMetaLoading}
+                    />
+                  ) : null}
+                  {(state.statusLoading && !state.status) ||
+                  (state.backendMetaLoading && !state.backendMeta) ? (
+                    <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                      正在读取运行状态…
+                    </div>
+                  ) : null}
+                  {state.status || state.backendMeta ? (
                     <SystemStatusSection
                       status={state.status}
                       backendMeta={state.backendMeta}

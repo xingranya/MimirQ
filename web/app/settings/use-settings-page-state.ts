@@ -415,6 +415,10 @@ export function useSettingsPageState() {
   const [backendMeta, setBackendMeta] = useState<BackendMetaDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [backendMetaLoading, setBackendMetaLoading] = useState(true)
+  const [backendMetaError, setBackendMetaError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null)
   const saveMessageTimeoutRef = useRef<number | null>(null)
@@ -522,19 +526,37 @@ export function useSettingsPageState() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [settingsData, statusData, metaData] = await Promise.all([
-        settingsApi.get(),
-        settingsApi.getStatus().catch(() => null),
-        metaApi.details().catch(() => null),
-      ])
+      const settingsData = await settingsApi.get()
       setSettings(settingsData)
-      setStatus(statusData)
-      setBackendMeta(metaData)
       setEditedSettings({})
     } catch (error) {
       setLoadError(formatApiError(error, '加载失败'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSystemStatus = async () => {
+    setStatusLoading(true)
+    setStatusError(null)
+    try {
+      setStatus(await settingsApi.getStatus())
+    } catch (error) {
+      setStatusError(formatApiError(error, '运行状态加载失败'))
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
+  const loadBackendMeta = async () => {
+    setBackendMetaLoading(true)
+    setBackendMetaError(null)
+    try {
+      setBackendMeta(await metaApi.details())
+    } catch (error) {
+      setBackendMetaError(formatApiError(error, '后端信息加载失败'))
+    } finally {
+      setBackendMetaLoading(false)
     }
   }
 
@@ -553,6 +575,8 @@ export function useSettingsPageState() {
 
   useEffect(() => {
     void loadSettings()
+    void loadSystemStatus()
+    void loadBackendMeta()
     void loadLtrModels()
 
     return () => {
@@ -659,7 +683,7 @@ export function useSettingsPageState() {
       const result = await settingsApi.update(pendingSettings)
       setSaveMessage(createSettingsSaveSuccessMessage())
       setLastUpdatedKeys(result.updated_keys || [])
-      await loadSettings()
+      await Promise.all([loadSettings(), loadSystemStatus(), loadBackendMeta()])
       refreshCapabilities().catch(() => null)
       saveMessageTimeoutRef.current = globalThis.window.setTimeout(() => {
         setSaveMessage(null)
@@ -917,7 +941,7 @@ export function useSettingsPageState() {
 
         await settingsApi.update(payload)
         setSaveMessage(createSettingsSaveSuccessMessage())
-        await loadSettings()
+        await Promise.all([loadSettings(), loadSystemStatus(), loadBackendMeta()])
       } catch (error) {
         setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
       } finally {
@@ -940,8 +964,12 @@ export function useSettingsPageState() {
 
   const refreshAll = () => {
     void loadSettings()
+    void loadSystemStatus()
+    void loadBackendMeta()
     void loadLtrModels()
   }
+
+  const refreshing = loading || statusLoading || backendMetaLoading || ltrLoading
 
   const refreshLtrModels = () => {
     void loadLtrModels()
@@ -950,6 +978,8 @@ export function useSettingsPageState() {
   return {
     activateLtrModel,
     backendMeta,
+    backendMetaError,
+    backendMetaLoading,
     cacheMerged,
     chatMerged,
     dialogOpen,
@@ -991,7 +1021,10 @@ export function useSettingsPageState() {
     textInMerged,
     ragMerged,
     refreshAll,
+    refreshBackendMeta: loadBackendMeta,
     refreshLtrModels,
+    refreshSystemStatus: loadSystemStatus,
+    refreshing,
     registerLtrModel,
     rollbackLtrModel,
     saveMessage,
@@ -1004,6 +1037,8 @@ export function useSettingsPageState() {
     setLtrUploadModelFile,
     shortId,
     status,
+    statusError,
+    statusLoading,
     toggleFeature,
     updateCache,
     updateChat,
