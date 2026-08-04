@@ -143,7 +143,7 @@ describe('auth page registration', () => {
     act(() => root.unmount())
   })
 
-  it('shows a clear bootstrap-token hint on 403 registration failures', async () => {
+  it('初始化密钥缺失时显示可执行的中文提示', async () => {
     authApiMock.register.mockRejectedValue({
       response: {
         status: 403,
@@ -168,13 +168,13 @@ describe('auth page registration', () => {
     await submitForm(container)
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('首次 owner 注册需要 bootstrap token。请填写部署时配置的 bootstrap token 后重试。')
+      expect(container.textContent).toContain('初始化密钥无效或缺失，请核对后重试。')
     })
 
     act(() => root.unmount())
   })
 
-  it('explains how an apparently fresh deployment can already have an owner', async () => {
+  it('首次设置关闭时引导登录或联系管理员', async () => {
     authApiMock.register.mockRejectedValue({
       response: {
         status: 409,
@@ -199,11 +199,11 @@ describe('auth page registration', () => {
     await submitForm(container)
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('已有初始化数据')
-      expect(container.textContent).toContain('请使用已配置账号登录')
-      expect(container.textContent).toContain('INITIAL_ADMIN_*')
-      expect(container.textContent).toContain('持久化 Docker 数据卷')
-      expect(container.textContent).toContain('bootstrap smoke')
+      expect(container.textContent).toContain('首次设置已关闭')
+      expect(container.textContent).toContain('请使用已有账号登录')
+      expect(container.textContent).toContain('联系管理员开通账号')
+      expect(container.textContent).not.toContain('INITIAL_ADMIN')
+      expect(container.textContent).not.toContain('Docker')
     })
 
     act(() => root.unmount())

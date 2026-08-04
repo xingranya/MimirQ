@@ -2,406 +2,467 @@
 
 import { useState, type ReactNode } from 'react'
 import Image from 'next/image'
-import { User, Mail, Lock, ArrowRight, Loader2, Copy } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowRight,
+  Copy,
+  Loader2,
+  Lock,
+  Mail,
+  User,
+} from 'lucide-react'
+
+import { FullScreenFrame } from '@/components/full-screen-frame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from '@/i18n/navigation'
 import { authApi } from '@/lib/api'
+import {
+  formatRequestId,
+  toApiErrorInfo,
+  type ApiErrorInfo,
+} from '@/lib/api-errors'
 import { setAuthSession } from '@/lib/auth-storage'
+import { BRAND_CONFIG } from '@/lib/brand'
 import { startOidcLogin } from '@/lib/oidc'
 import { getOidcPublicProvidersFromEnv } from '@/lib/oidc-providers'
-import { formatRequestId, toApiErrorInfo, type ApiErrorInfo } from '@/lib/api-errors'
-import { FullScreenFrame } from '@/components/full-screen-frame'
 import { cn, detachPromise } from '@/lib/utils'
-import { BRAND_CONFIG } from '@/lib/brand'
 
 type Mode = 'login' | 'register'
 
-function getAuthSsoProviderLabel(provider?: { id?: string; name?: string }): string {
-    if (provider?.name) return `Continue with ${provider.name}`
-    if (provider?.id) return `Continue with ${provider.id}`
-    return 'Continue with SSO'
+function getAuthSsoProviderLabel(provider?: {
+  id?: string
+  name?: string
+}): string {
+  const providerName = provider?.name || provider?.id
+  return providerName ? `使用 ${providerName} 登录` : '使用企业账号登录'
 }
 
 function getAuthSubmitContent(isSubmitting: boolean, mode: Mode): ReactNode {
-    if (isSubmitting) {
-        return (
-            <>
-                <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
-                处理中...
-            </>
-        )
-    }
-
+  if (isSubmitting) {
     return (
-        <>
-            {mode === 'login' ? '登 录' : '创建初始管理员'}
-            <ArrowRight className="ml-2 size-4 opacity-70" />
-        </>
+      <>
+        <Loader2
+          className="size-4 animate-spin motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+        正在处理…
+      </>
     )
+  }
+
+  return (
+    <>
+      {mode === 'login' ? '登录' : '创建管理员'}
+      <ArrowRight className="size-4" aria-hidden="true" />
+    </>
+  )
 }
 
 function toAuthPageError(err: unknown, mode: Mode): ApiErrorInfo {
-    const info = toApiErrorInfo(err, '请求失败，请重试')
-    if (mode !== 'register') return info
+  const info = toApiErrorInfo(err, '请求失败，请稍后重试')
+  if (mode !== 'register') return info
 
-    if (info.status === 403) {
-        return {
-            ...info,
-            message: '首次 owner 注册需要 bootstrap token。请填写部署时配置的 bootstrap token 后重试。',
-        }
+  if (info.status === 403) {
+    return {
+      ...info,
+      message: '初始化密钥无效或缺失，请核对后重试。',
     }
+  }
 
-    if (info.status === 409) {
-        return {
-            ...info,
-            message: '系统检测到已有初始化数据，首次设置已关闭。请使用已配置账号登录；若这是全新本地部署，请检查 INITIAL_ADMIN_*、持久化 Docker 数据卷或是否运行过 bootstrap smoke。',
-        }
+  if (info.status === 409) {
+    return {
+      ...info,
+      message: '首次设置已关闭。请使用已有账号登录，或联系管理员开通账号。',
     }
+  }
 
-    return info
+  return info
 }
 
 export default function AuthPage() {
-    const router = useRouter()
-    const oidcProviders = getOidcPublicProvidersFromEnv()
-    const oidcEnabled = oidcProviders.length > 0
-    const [mode, setMode] = useState<Mode>('login')
-    const [email, setEmail] = useState('')
-    const [username, setUsername] = useState('')
-    const [identifier, setIdentifier] = useState('')
-    const [password, setPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
-    const [bootstrapToken, setBootstrapToken] = useState('')
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [ssoProviderWorkingId, setSsoProviderWorkingId] = useState<string | null>(null)
-    const [error, setError] = useState<ApiErrorInfo | null>(null)
-    const isSsoSubmitting = ssoProviderWorkingId !== null
+  const router = useRouter()
+  const oidcProviders = getOidcPublicProvidersFromEnv()
+  const oidcEnabled = oidcProviders.length > 0
+  const [mode, setMode] = useState<Mode>('login')
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [bootstrapToken, setBootstrapToken] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [ssoProviderWorkingId, setSsoProviderWorkingId] = useState<
+    string | null
+  >(null)
+  const [error, setError] = useState<ApiErrorInfo | null>(null)
+  const isSsoSubmitting = ssoProviderWorkingId !== null
 
-    const handleSso = async (providerId: string) => {
-        setError(null)
-        setSsoProviderWorkingId(providerId)
-        try {
-            await startOidcLogin({ providerId, returnTo: '/' })
-        } catch (err: unknown) {
-            setError(toApiErrorInfo(err, 'SSO login failed'))
-            setSsoProviderWorkingId(null)
-        }
+  const switchMode = (nextMode: Mode) => {
+    setMode(nextMode)
+    setError(null)
+  }
+
+  const handleSso = async (providerId: string) => {
+    setError(null)
+    setSsoProviderWorkingId(providerId)
+    try {
+      await startOidcLogin({ providerId, returnTo: '/' })
+    } catch (err: unknown) {
+      setError(toApiErrorInfo(err, '企业账号登录失败，请稍后重试'))
+      setSsoProviderWorkingId(null)
+    }
+  }
+
+  const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+
+    if (mode === 'register' && password !== confirmPassword) {
+      setError({ message: '两次输入的密码不一致' })
+      return
     }
 
-    const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement>) => {
-        event.preventDefault()
-        setError(null)
-
-        if (mode === 'register' && password !== confirmPassword) {
-            setError({ message: '两次输入的密码不一致' })
-            return
-        }
-
-        setIsSubmitting(true)
-        try {
-            const response =
-                mode === 'login'
-                    ? await authApi.login({ identifier: identifier.trim(), password })
-                    : await authApi.register({
-                          email: email.trim(),
-                          username: username.trim(),
-                          password,
-                          bootstrapToken: bootstrapToken.trim() || undefined,
-                      })
-            setAuthSession({ token: response.token, user: response.user })
-            router.push('/')
-        } catch (err: unknown) {
-            setError(toAuthPageError(err, mode))
-        } finally {
-            setIsSubmitting(false)
-        }
+    setIsSubmitting(true)
+    try {
+      const response =
+        mode === 'login'
+          ? await authApi.login({ identifier: identifier.trim(), password })
+          : await authApi.register({
+              email: email.trim(),
+              username: username.trim(),
+              password,
+              bootstrapToken: bootstrapToken.trim() || undefined,
+            })
+      setAuthSession({ token: response.token, user: response.user })
+      router.push('/')
+    } catch (err: unknown) {
+      setError(toAuthPageError(err, mode))
+    } finally {
+      setIsSubmitting(false)
     }
+  }
 
-    let ssoSectionContent: ReactNode = null
-    if (oidcProviders.length > 1) {
-        ssoSectionContent = (
-            <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">选择 SSO 提供方</div>
-                {oidcProviders.map((provider) => {
-                    const label = getAuthSsoProviderLabel(provider)
-                    const working = ssoProviderWorkingId === provider.id
-                    return (
-                        <Button
-                            key={provider.id}
-                            type="button"
-                            variant="secondary"
-                            className="w-full h-11 rounded-xl justify-between"
-                            disabled={isSubmitting || isSsoSubmitting}
-                            onClick={() => detachPromise(handleSso(provider.id))}
-                        >
-                            <span className="inline-flex items-center">
-                                {working ? (
-                                    <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
-                                ) : null}
-                                {working ? 'Signing in…' : label}
-                            </span>
-                            <ArrowRight className="ml-2 size-4 opacity-70" aria-hidden="true" />
-                        </Button>
-                    )
-                })}
-            </div>
-        )
-    } else if (oidcProviders.length === 1) {
-        const provider = oidcProviders[0]
-        ssoSectionContent = (
+  let ssoSectionContent: ReactNode = null
+  if (oidcProviders.length > 1) {
+    ssoSectionContent = (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">选择企业登录方式</p>
+        {oidcProviders.map((provider) => {
+          const label = getAuthSsoProviderLabel(provider)
+          const working = ssoProviderWorkingId === provider.id
+          return (
             <Button
-                type="button"
-                variant="secondary"
-                className="w-full h-11 rounded-xl"
-                disabled={isSubmitting || isSsoSubmitting}
-                onClick={() => detachPromise(handleSso(provider?.id || 'default'))}
+              key={provider.id}
+              type="button"
+              variant="outline"
+              className="h-10 w-full justify-between rounded-md"
+              disabled={isSubmitting || isSsoSubmitting}
+              onClick={() => detachPromise(handleSso(provider.id))}
             >
-                {isSsoSubmitting ? (
-                    <>
-                        <Loader2 className="mr-2 size-4 animate-spin motion-reduce:animate-none" />
-                        Signing in...
-                    </>
-                ) : (
-                    <>
-                        {getAuthSsoProviderLabel(provider)}
-                        <ArrowRight className="ml-2 size-4 opacity-70" aria-hidden="true" />
-                    </>
-                )}
+              <span className="inline-flex items-center gap-2">
+                {working ? (
+                  <Loader2
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {working ? '正在跳转…' : label}
+              </span>
+              <ArrowRight className="size-4" aria-hidden="true" />
             </Button>
-        )
-    }
-
-    return (
-        <FullScreenFrame
-            className="relative w-full overflow-hidden"
-        >
-            <div className="relative z-10 w-full max-w-md p-6">
-                {/* Logo / Brand */}
-                <div className="flex flex-col items-center mb-8 space-y-4">
-                    <div className="flex size-20 items-center justify-center rounded-2xl border border-[#CAF0F8]/70 bg-card/85 shadow-[0_18px_48px_rgba(8,47,73,0.10)] backdrop-blur">
-                      <Image
-                        src={BRAND_CONFIG.wordmarkSrc}
-                        alt={BRAND_CONFIG.name}
-                        width={240}
-                        height={64}
-                        priority
-                        unoptimized
-                        className="h-16 w-60 select-none object-contain"
-                      />
-                    </div>
-                    <div className="text-center">
-                        <h1 className="text-balance text-3xl font-semibold text-foreground">
-                            {BRAND_CONFIG.name}
-                        </h1>
-                        <p className="mt-2 text-pretty text-sm text-muted-foreground font-medium">
-                            下一代智能知识库平台
-                        </p>
-                    </div>
-                </div>
-
-	                <div className="rounded-3xl border border-border bg-card p-8 shadow-strong">
-	                    {oidcEnabled && (
-	                        <div className="mb-7 space-y-3">
-                              {ssoSectionContent}
-	                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-	                                <div className="h-px flex-1 bg-border/60" />
-	                                <span>or</span>
-	                                <div className="h-px flex-1 bg-border/60" />
-                            </div>
-                        </div>
-                    )}
-                    {/* Tab Switcher */}
-                    <div className="flex p-1 bg-background/40 rounded-xl mb-8 border border-border/50">
-                        <button
-                            type="button"
-                            aria-pressed={mode === 'login'}
-                            className={cn(
-                                "focus-ring flex-1 py-2 text-sm font-medium rounded-lg transition-colors duration-200 motion-reduce:transition-none",
-                                mode === 'login'
-                                    ? "bg-card/60 text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-[#CAF0F8]/55"
-                            )}
-                            onClick={() => setMode('login')}
-                        >
-                            登录
-                        </button>
-                        <button
-                            type="button"
-                            aria-pressed={mode === 'register'}
-                            className={cn(
-                                "focus-ring flex-1 py-2 text-sm font-medium rounded-lg transition-colors duration-200 motion-reduce:transition-none",
-                                mode === 'register'
-                                    ? "bg-card/60 text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-[#CAF0F8]/55"
-                            )}
-                            onClick={() => setMode('register')}
-                        >
-                            首次设置
-                        </button>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {mode === 'register' && (
-                            <div className="space-y-4">
-                                <p className="text-xs leading-5 text-muted-foreground">
-                                    仅用于未初始化的部署。已有管理员时，请发送邮件至{' '}
-                                    <a
-                                        href={BRAND_CONFIG.contactHref}
-                                        className="font-medium text-foreground underline underline-offset-4"
-                                    >
-                                        {BRAND_CONFIG.contactEmail}
-                                    </a>
-                                    {' '}申请开通账号。
-                                </p>
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-xs text-muted-foreground">邮箱地址</Label>
-                                    <div className="relative group">
-                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors motion-reduce:transition-none" />
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="name@example.com"
-                                            className="pl-10 bg-background/50"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="username" className="text-xs text-muted-foreground">用户名</Label>
-                                    <div className="relative group">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors motion-reduce:transition-none" />
-                                        <Input
-                                            id="username"
-                                            placeholder="设置用户名"
-                                            className="pl-10 bg-background/50"
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="bootstrapToken" className="text-xs text-muted-foreground">
-                                        Bootstrap Token（可选）
-                                    </Label>
-                                    <Input
-                                        id="bootstrapToken"
-                                        type="password"
-                                        placeholder="仅首次生产注册需要"
-                                        className="bg-background/50"
-                                        value={bootstrapToken}
-                                        onChange={(e) => setBootstrapToken(e.target.value)}
-                                        autoComplete="off"
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {mode === 'login' && (
-                            <div className="space-y-2 motion-safe:animate-fade-in">
-                                <Label htmlFor="identifier" className="text-xs text-muted-foreground">账号</Label>
-                                <div className="relative group">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors motion-reduce:transition-none" />
-                                    <Input
-                                        id="identifier"
-                                        placeholder="输入邮箱或用户名"
-                                        className="pl-10 bg-background/50"
-                                        value={identifier}
-                                        onChange={(e) => setIdentifier(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-xs text-muted-foreground">
-                                {mode === 'login' ? '密码' : '设置密码'}
-                            </Label>
-                            <div className="relative group">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors motion-reduce:transition-none" />
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    className="pl-10 bg-background/50"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {mode === 'register' && (
-                            <div className="space-y-2 motion-safe:animate-fade-in">
-                                <Label htmlFor="confirmPassword" className="text-xs text-muted-foreground">确认密码</Label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors motion-reduce:transition-none" />
-                                    <Input
-                                        id="confirmPassword"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        className="pl-10 bg-background/50"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {error && (
-                            <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex items-start gap-2 motion-safe:animate-fade-in">
-                                <div className="w-1 h-1 mt-2 rounded-full bg-destructive shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs text-destructive">{error.message}</p>
-                                  {error.requestId ? (
-                                    <div className="mt-2 flex items-center justify-between gap-2">
-                                      <span className="min-w-0 truncate text-[11px] font-mono text-muted-foreground">
-                                        {formatRequestId(error.requestId)}
-                                      </span>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                                        aria-label="复制 request_id"
-                                        onClick={() => navigator.clipboard?.writeText?.(error.requestId || '')}
-                                      >
-                                        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                                      </Button>
-                                    </div>
-                                  ) : null}
-                                </div>
-                            </div>
-                        )}
-
-                        <Button
-                            type="submit"
-                            className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors duration-200 motion-reduce:transition-none"
-                            disabled={isSubmitting}
-                        >
-	                            {getAuthSubmitContent(isSubmitting, mode)}
-                        </Button>
-                    </form>
-                </div>
-
-                <div className="mt-8 text-center">
-                    <p className="text-xs text-muted-foreground">
-                        遇到问题？{" "}
-                        <a
-                            href={BRAND_CONFIG.contactHref}
-                            className="focus-ring rounded-sm font-medium text-foreground/80 underline underline-offset-4 transition-colors hover:text-foreground"
-                        >
-                            {BRAND_CONFIG.contactEmail}
-                        </a>
-                    </p>
-                </div>
-            </div>
-        </FullScreenFrame>
+          )
+        })}
+      </div>
     )
+  } else if (oidcProviders.length === 1) {
+    const provider = oidcProviders[0]
+    ssoSectionContent = (
+      <Button
+        type="button"
+        variant="outline"
+        className="h-10 w-full rounded-md"
+        disabled={isSubmitting || isSsoSubmitting}
+        onClick={() => detachPromise(handleSso(provider?.id || 'default'))}
+      >
+        {isSsoSubmitting ? (
+          <>
+            <Loader2
+              className="size-4 animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            正在跳转…
+          </>
+        ) : (
+          <>
+            {getAuthSsoProviderLabel(provider)}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </>
+        )}
+      </Button>
+    )
+  }
+
+  return (
+    <FullScreenFrame
+      showBackground={false}
+      className="w-full bg-muted/30"
+      mainClassName="px-4 py-8 sm:py-12"
+    >
+      <div className="w-full max-w-[420px]">
+        <header className="mb-6 flex flex-col items-center text-center">
+          <Image
+            src={BRAND_CONFIG.wordmarkSrc}
+            alt={BRAND_CONFIG.standardName}
+            width={300}
+            height={80}
+            priority
+            unoptimized
+            className="h-12 w-auto max-w-[220px] select-none object-contain"
+          />
+          <h1 id="auth-title" className="mt-4 text-2xl font-semibold text-foreground">
+            {BRAND_CONFIG.name}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            登录后可继续访问企业知识、引用与处理记录。
+          </p>
+        </header>
+
+        <section
+          aria-labelledby="auth-title"
+          className="rounded-md border border-border bg-card p-5 sm:p-6"
+        >
+          {oidcEnabled ? (
+            <div className="mb-6 space-y-4">
+              {ssoSectionContent}
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                <span>或</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            className="mb-6 grid grid-cols-2 gap-1 rounded-md bg-muted p-1"
+            aria-label="登录方式"
+          >
+            <button
+              type="button"
+              aria-pressed={mode === 'login'}
+              className={cn(
+                'focus-ring h-9 rounded-md text-sm font-medium transition-colors motion-reduce:transition-none',
+                mode === 'login'
+                  ? 'bg-background text-foreground'
+                  : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+              )}
+              onClick={() => switchMode('login')}
+            >
+              登录
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === 'register'}
+              className={cn(
+                'focus-ring h-9 rounded-md text-sm font-medium transition-colors motion-reduce:transition-none',
+                mode === 'register'
+                  ? 'bg-background text-foreground'
+                  : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+              )}
+              onClick={() => switchMode('register')}
+            >
+              首次设置
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'register' ? (
+              <div className="space-y-4">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  仅用于尚未创建管理员的系统。已有管理员时，请联系{' '}
+                  <a
+                    href={BRAND_CONFIG.contactHref}
+                    className="focus-ring rounded-sm font-medium text-foreground underline underline-offset-4"
+                  >
+                    {BRAND_CONFIG.contactEmail}
+                  </a>
+                  {' '}开通账号。
+                </p>
+                <AuthInputField
+                  id="email"
+                  label="邮箱地址"
+                  type="email"
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                  icon={Mail}
+                  value={email}
+                  onChange={setEmail}
+                />
+                <AuthInputField
+                  id="username"
+                  label="用户名"
+                  placeholder="设置用户名"
+                  autoComplete="username"
+                  icon={User}
+                  value={username}
+                  onChange={setUsername}
+                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bootstrapToken" className="text-sm">
+                    初始化密钥（可选）
+                  </Label>
+                  <Input
+                    id="bootstrapToken"
+                    type="password"
+                    placeholder="输入系统管理员提供的密钥"
+                    className="h-10 rounded-md bg-background"
+                    value={bootstrapToken}
+                    onChange={(event) => setBootstrapToken(event.target.value)}
+                    autoComplete="off"
+                  />
+                  <p className="text-sm leading-5 text-muted-foreground">
+                    仅在首次创建管理员时需要。
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <AuthInputField
+                id="identifier"
+                label="账号"
+                placeholder="输入邮箱或用户名"
+                autoComplete="username"
+                icon={User}
+                value={identifier}
+                onChange={setIdentifier}
+              />
+            )}
+
+            <AuthInputField
+              id="password"
+              label={mode === 'login' ? '密码' : '设置密码'}
+              type="password"
+              placeholder="输入密码"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              icon={Lock}
+              value={password}
+              onChange={setPassword}
+            />
+
+            {mode === 'register' ? (
+              <AuthInputField
+                id="confirmPassword"
+                label="确认密码"
+                type="password"
+                placeholder="再次输入密码"
+                autoComplete="new-password"
+                icon={Lock}
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+              />
+            ) : null}
+
+            {error ? (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/5 p-3"
+              >
+                <AlertCircle
+                  className="mt-0.5 size-4 shrink-0 text-destructive"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-5 text-destructive">
+                    {error.message}
+                  </p>
+                  {error.requestId ? (
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                        请求编号：{formatRequestId(error.requestId)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                        aria-label="复制请求编号"
+                        title="复制请求编号"
+                        onClick={() =>
+                          navigator.clipboard?.writeText?.(error.requestId || '')
+                        }
+                      >
+                        <Copy className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="h-10 w-full rounded-md font-medium"
+              disabled={isSubmitting || isSsoSubmitting}
+            >
+              {getAuthSubmitContent(isSubmitting, mode)}
+            </Button>
+          </form>
+        </section>
+
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          无法登录？请联系{' '}
+          <a
+            href={BRAND_CONFIG.contactHref}
+            className="focus-ring rounded-sm font-medium text-foreground underline underline-offset-4"
+          >
+            {BRAND_CONFIG.contactEmail}
+          </a>
+        </p>
+      </div>
+    </FullScreenFrame>
+  )
+}
+
+function AuthInputField({
+  id,
+  label,
+  type = 'text',
+  placeholder,
+  autoComplete,
+  icon: Icon,
+  value,
+  onChange,
+}: Readonly<{
+  id: string
+  label: string
+  type?: 'text' | 'email' | 'password'
+  placeholder: string
+  autoComplete: string
+  icon: typeof User
+  value: string
+  onChange: (value: string) => void
+}>) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-sm">
+        {label}
+      </Label>
+      <div className="relative">
+        <Icon
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          id={id}
+          type={type}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          className="h-10 rounded-md bg-background pl-10"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required
+        />
+      </div>
+    </div>
+  )
 }
