@@ -113,6 +113,12 @@ export default function ReportsCenterPage() {
   const report = reportQuery.data ?? null
   const isLoadingDatasets = datasetsQuery.isFetching
   const isLoadingReport = reportQuery.isFetching
+  const datasetsErrorMessage = datasetsQuery.error
+    ? formatApiError(datasetsQuery.error, '数据集列表加载失败，请稍后重试')
+    : ''
+  const categoriesErrorMessage = categoriesQuery.error
+    ? formatApiError(categoriesQuery.error, '分类数据加载失败，请稍后重试')
+    : ''
   const reportErrorMessage = reportQuery.error
     ? formatApiError(reportQuery.error, '报告加载失败')
     : ''
@@ -678,6 +684,8 @@ export default function ReportsCenterPage() {
               datasetId={datasetId}
               datasets={datasets}
               isLoadingDatasets={isLoadingDatasets}
+              datasetsLoaded={datasetsQuery.isSuccess}
+              datasetsErrorMessage={datasetsErrorMessage}
               pipelineVersionSelectValue={pipelineVersionSelectValue}
               pipelineVersionOptions={pipelineVersionOptions}
               connectorRunsLimit={connectorRunsLimit}
@@ -707,7 +715,12 @@ export default function ReportsCenterPage() {
             <ReportsResultSection
               report={report}
               datasetId={datasetId}
+              datasetsCount={datasets.length}
+              datasetsLoaded={datasetsQuery.isSuccess}
+              isLoadingDatasets={isLoadingDatasets}
               isLoadingReport={isLoadingReport}
+              datasetsErrorMessage={datasetsErrorMessage}
+              categoriesErrorMessage={categoriesErrorMessage}
               reportErrorMessage={reportErrorMessage}
               totalDocs={totalDocs}
               totalBytes={totalBytes}
@@ -739,7 +752,9 @@ export default function ReportsCenterPage() {
               categoryBarData={categoryBarData}
               versionTotal={versionTotal}
               issueRows={issueRows}
-              onRetry={handleRefresh}
+              onRetryDatasets={datasetsQuery.refetch}
+              onRetryCategories={categoriesQuery.refetch}
+              onRetryReport={reportQuery.refetch}
             />
           </div>
         </AnalysisPageShell>

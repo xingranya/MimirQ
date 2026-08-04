@@ -61,6 +61,8 @@ export function ReportsControlPanel({
   datasetId,
   datasets,
   isLoadingDatasets,
+  datasetsLoaded,
+  datasetsErrorMessage,
   pipelineVersionSelectValue,
   pipelineVersionOptions,
   connectorRunsLimit,
@@ -89,6 +91,8 @@ export function ReportsControlPanel({
   datasetId: string
   datasets: DatasetOption[]
   isLoadingDatasets: boolean
+  datasetsLoaded: boolean
+  datasetsErrorMessage: string
   pipelineVersionSelectValue: string
   pipelineVersionOptions: PipelineVersionOption[]
   connectorRunsLimit: number
@@ -124,13 +128,25 @@ export function ReportsControlPanel({
           >
             数据集
           </Label>
-          <Select value={datasetId} onValueChange={onDatasetChange}>
+          <Select
+            value={datasetId}
+            onValueChange={onDatasetChange}
+            disabled={datasets.length === 0}
+          >
             <SelectTrigger
               id="dataset-select"
               className={REPORT_SELECT_TRIGGER_CLASS}
             >
               <SelectValue
-                placeholder={isLoadingDatasets ? '加载中…' : '请选择数据集'}
+                placeholder={
+                  datasetsErrorMessage
+                    ? '数据集加载失败'
+                    : isLoadingDatasets
+                      ? '正在加载…'
+                      : datasetsLoaded
+                        ? '暂无可用数据集'
+                        : '请选择数据集'
+                }
               />
             </SelectTrigger>
             <SelectContent>

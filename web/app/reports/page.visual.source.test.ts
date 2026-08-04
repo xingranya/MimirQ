@@ -51,9 +51,13 @@ describe('数据报告页面视觉与交互契约', () => {
   })
 
   it('报告失败时提供页面内恢复入口', () => {
-    expect(resultSource).toContain('onRetry: () => void')
+    expect(resultSource).toContain('onRetryDatasets: () => void')
+    expect(resultSource).toContain('onRetryCategories: () => void')
+    expect(resultSource).toContain('onRetryReport: () => void')
+    expect(resultSource).toContain('数据集加载失败')
+    expect(resultSource).toContain('分类加载失败')
     expect(resultSource).toContain('报告加载失败')
-    expect(resultSource).toContain('重新加载')
+    expect(resultSource).toContain('暂无可用数据集')
   })
 
   it('使用面向用户的中文审计文案', () => {
