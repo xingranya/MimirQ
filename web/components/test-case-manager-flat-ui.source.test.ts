@@ -60,9 +60,15 @@ describe('基准评测样本管理界面', () => {
   })
 
   it('准确说明基准草稿取消人工确认后的状态', () => {
-    expect(source).toContain('hasGolden && hasGoldenDraft')
+    expect(source).toContain('toggleManualGoldenTag')
+    expect(source).toContain('hasManualGolden && hasDraftGolden')
     expect(source).toContain('已取消人工确认，样本仍保留为基准草稿')
     expect(source).toContain('取消人工确认，保留基准草稿')
+  })
+
+  it('评测样本列表只绘制一套分隔线', () => {
+    expect(source).not.toContain('divide-y')
+    expect(source).toContain('last:border-b-0')
   })
 
   it('移除旧视觉和用户可见的内部术语', () => {

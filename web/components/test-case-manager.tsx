@@ -44,6 +44,12 @@ import { formatApiError } from '@/lib/api-errors'
 import { resolveEvidencePackDataset } from '@/lib/evaluation-evidence-pack'
 import { queryKeys } from '@/lib/query-keys'
 import {
+  GOLDEN_DRAFT_TAG,
+  GOLDEN_TAG,
+  getGoldenTagState,
+  toggleManualGoldenTag,
+} from '@/lib/regression-case-tags'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -90,8 +96,6 @@ type TestCaseRowProps = {
   onDelete: (caseId: string) => Promise<void>
 }
 
-const GOLDEN_TAG = 'golden'
-const GOLDEN_DRAFT_TAG = 'golden_draft'
 const TEST_CASE_TAG_LABELS: Readonly<Record<string, string>> = {
   [GOLDEN_TAG]: '基准',
   [GOLDEN_DRAFT_TAG]: '基准草稿',
@@ -100,8 +104,7 @@ const TEST_CASE_TAG_LABELS: Readonly<Record<string, string>> = {
 }
 
 function isGoldenCase(caseItem: RegressionCase): boolean {
-  const tags = Array.isArray(caseItem.tags) ? caseItem.tags : []
-  return tags.includes(GOLDEN_TAG) || tags.includes(GOLDEN_DRAFT_TAG)
+  return getGoldenTagState(caseItem.tags).isGolden
 }
 
 function testCaseTagLabel(tag: string): string {
@@ -133,10 +136,7 @@ function TestCaseRow({
     detachPromise(onToggleGolden(caseItem))
   }
 
-  const hasManualGolden =
-    Array.isArray(caseItem.tags) && caseItem.tags.includes(GOLDEN_TAG)
-  const hasDraftGolden =
-    Array.isArray(caseItem.tags) && caseItem.tags.includes(GOLDEN_DRAFT_TAG)
+  const { hasManualGolden, hasDraftGolden } = getGoldenTagState(caseItem.tags)
   const goldenActionLabel = hasManualGolden
     ? hasDraftGolden
       ? '取消人工确认，保留基准草稿'
@@ -768,12 +768,11 @@ export function TestCaseManager({
   }
 
   const handleToggleGolden = async (caseItem: RegressionCase) => {
-    const prevTags = Array.isArray(caseItem.tags) ? caseItem.tags : []
-    const hasGolden = prevTags.includes(GOLDEN_TAG)
-    const hasGoldenDraft = prevTags.includes(GOLDEN_DRAFT_TAG)
-    const nextTags = hasGolden
-      ? prevTags.filter((t) => t !== GOLDEN_TAG)
-      : [...prevTags, GOLDEN_TAG]
+    const {
+      hasManualGolden,
+      hasDraftGolden,
+      nextTags,
+    } = toggleManualGoldenTag(caseItem.tags)
 
     try {
       const updated = await patchCaseTagsMutation.mutateAsync({
@@ -784,10 +783,12 @@ export function TestCaseManager({
         setSelectedCase(updated)
         onCaseSelected?.(updated.id)
       }
-      if (hasGolden && hasGoldenDraft) {
+      if (hasManualGolden && hasDraftGolden) {
         toast.success('已取消人工确认，样本仍保留为基准草稿')
       } else {
-        toast.success(hasGolden ? '已移出基准样本' : '已设为基准样本')
+        toast.success(
+          hasManualGolden ? '已移出基准样本' : '已设为基准样本'
+        )
       }
     } catch (error) {
       console.error('更新基准标记失败:', error)
