@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react'
 
@@ -26,7 +25,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { reportClientWarning } from '@/lib/client-logging'
 import type { GraphClusterResult } from '@/lib/graph-clustering'
 import type { GraphData } from '@/lib/graph-parser'
-import { detachPromise } from '@/lib/utils'
+import { cn, detachPromise } from '@/lib/utils'
 import type { GraphClusteringWorkerApi } from '@/workers/graph-clustering.worker'
 
 import type { GraphLinkLike, GraphNodeLike } from '../graph-page-utils'
@@ -34,14 +33,7 @@ import { getNextKeyboardRovingIndex } from './graph-keyboard-roving'
 
 const SEMANTIC_LIST_ITEM_LIMIT = 200
 const FRONTEND_TRACE_MIN_DURATION_MS = 12
-const SEMANTIC_PANEL_MIN_TOP = 16
-const SEMANTIC_PANEL_SIDE_MARGIN = 16
-const SEMANTIC_PANEL_TOP_OFFSET = 84
 const SEMANTIC_NODE_TONES = ['#89dfe6', '#b6e3ff', '#d3f3b8', '#f3dfb3', '#d7dcff', '#f8cfd8'] as const
-
-function clampNumber(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
 
 function getSemanticNodeTone(seed: string) {
   let hash = 0
@@ -58,33 +50,7 @@ function primitiveText(value: unknown, fallback = ''): string {
 }
 
 function getCanvasBackdropStyle(isDark: boolean) {
-  if (isDark) {
-    return {
-      backgroundColor: '#0f1722',
-      backgroundImage: [
-        'radial-gradient(circle at 18% 16%, rgba(56, 189, 248, 0.08), transparent 26%)',
-        'radial-gradient(circle at 82% 20%, rgba(59, 130, 246, 0.07), transparent 24%)',
-        'linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px)',
-        'linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px)',
-        'linear-gradient(rgba(96, 165, 250, 0.11) 1px, transparent 1px)',
-        'linear-gradient(90deg, rgba(96, 165, 250, 0.11) 1px, transparent 1px)',
-      ].join(','),
-      backgroundSize: '100% 100%, 100% 100%, 22px 22px, 22px 22px, 110px 110px, 110px 110px',
-      backgroundPosition: '0 0, 0 0, -1px -1px, -1px -1px, -1px -1px, -1px -1px',
-    } as const
-  }
-
-  return {
-    backgroundColor: '#f8faff',
-    backgroundImage: [
-      'radial-gradient(circle at 44% 38%, rgba(96, 165, 250, 0.105), transparent 34%)',
-      'radial-gradient(circle at 72% 18%, rgba(139, 92, 246, 0.055), transparent 30%)',
-      'radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.92), transparent 28%)',
-      'linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(245, 248, 253, 0.98) 100%)',
-    ].join(','),
-    backgroundSize: '100% 100%, 100% 100%, 100% 100%, 100% 100%',
-    backgroundPosition: '0 0, 0 0, 0 0, 0 0',
-  } as const
+  return { backgroundColor: isDark ? '#0f1722' : '#f8fafc' } as const
 }
 
 function getNowMs(): number {
@@ -131,11 +97,11 @@ const KnowledgeGraph3D = dynamic(
     ssr: false,
     loading: () => (
       <div className="absolute inset-0 z-10 flex items-center justify-center">
-        <div className="flex w-full max-w-lg flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card/90 p-6 shadow-soft backdrop-blur-sm">
+        <div className="flex w-full max-w-lg flex-col items-center gap-3 rounded-md border border-border bg-background p-5">
           <GraphLoadingIndicator
             className="min-h-0"
-            message="正在构建 3D 图谱..."
-            srMessage="Loading graph canvas"
+            message="正在构建 3D 图谱…"
+            srMessage="正在加载图谱画布"
             hint="正在同步节点布局与交互层"
           />
           <div className="grid w-full gap-2">
@@ -224,7 +190,6 @@ export function GraphCanvas({
   const [clusterResult, setClusterResult] = useState<GraphClusterResult | null>(null)
   const [effectiveGraphRenderData, setEffectiveGraphRenderData] = useState<GraphData>(graphRenderData)
   const [keyboardRovingIndex, setKeyboardRovingIndex] = useState(-1)
-  const [semanticPanelPosition, setSemanticPanelPosition] = useState<{ x: number; y: number } | null>(null)
   const semanticPanelId = useId()
   const semanticNodeCount = graphRenderData.nodes.length
   const semanticLinkCount = graphRenderData.links.length
@@ -238,14 +203,6 @@ export function GraphCanvas({
   const lastClusterTraceKeyRef = useRef<string | null>(null)
   const lastPaletteTraceKeyRef = useRef<string | null>(null)
   const semanticNodeButtonRefs = useRef(new Map<string, HTMLButtonElement>())
-  const semanticPanelRef = useRef<HTMLDivElement | null>(null)
-  const semanticPanelDragStateRef = useRef<{
-    pointerId: number
-    startX: number
-    startY: number
-    originX: number
-    originY: number
-  } | null>(null)
 
   useEffect(() => {
     if (viewMode === '3d') {
@@ -489,88 +446,12 @@ export function GraphCanvas({
     moveKeyboardRovingFocus(event.shiftKey ? -1 : 1)
   }, [moveKeyboardRovingFocus, viewMode])
 
-  const clampSemanticPanelPosition = useCallback((position: { x: number; y: number }) => {
-    if (graphViewportWidth <= 0 || graphViewportHeight <= 0) {
-      return position
-    }
-
-    const panelWidth = semanticPanelRef.current?.offsetWidth ?? (isSemanticListVisible ? 352 : 52)
-    const panelHeight = semanticPanelRef.current?.offsetHeight ?? (isSemanticListVisible ? 360 : 48)
-    const maxX = Math.max(SEMANTIC_PANEL_SIDE_MARGIN, graphViewportWidth - panelWidth - SEMANTIC_PANEL_SIDE_MARGIN)
-    const maxY = Math.max(SEMANTIC_PANEL_MIN_TOP, graphViewportHeight - panelHeight - SEMANTIC_PANEL_SIDE_MARGIN)
-
-    return {
-      x: clampNumber(position.x, SEMANTIC_PANEL_SIDE_MARGIN, maxX),
-      y: clampNumber(position.y, SEMANTIC_PANEL_MIN_TOP, maxY),
-    }
-  }, [graphViewportHeight, graphViewportWidth, isSemanticListVisible])
-
-  const handleSemanticPanelPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return
-
-    const panelElement = semanticPanelRef.current
-    semanticPanelDragStateRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: semanticPanelPosition?.x ?? panelElement?.offsetLeft ?? SEMANTIC_PANEL_SIDE_MARGIN,
-      originY: semanticPanelPosition?.y ?? panelElement?.offsetTop ?? SEMANTIC_PANEL_TOP_OFFSET,
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-    event.preventDefault()
-  }, [semanticPanelPosition])
-
-  const handleSemanticPanelPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    const dragState = semanticPanelDragStateRef.current
-    if (dragState?.pointerId !== event.pointerId) return
-
-    const nextPosition = clampSemanticPanelPosition({
-      x: dragState.originX + (event.clientX - dragState.startX),
-      y: dragState.originY + (event.clientY - dragState.startY),
-    })
-
-    setSemanticPanelPosition((current) => {
-      if (current?.x === nextPosition.x && current.y === nextPosition.y) {
-        return current
-      }
-      return nextPosition
-    })
-  }, [clampSemanticPanelPosition])
-
-  const handleSemanticPanelPointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (semanticPanelDragStateRef.current?.pointerId !== event.pointerId) return
-    semanticPanelDragStateRef.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }, [])
-
   useEffect(() => {
     setKeyboardRovingIndex((currentIndex) => {
       if (!semanticNodes.length) return -1
       return currentIndex >= semanticNodes.length ? semanticNodes.length - 1 : currentIndex
     })
   }, [semanticNodes.length])
-
-  useEffect(() => {
-    if (!semanticPanelPosition) return
-
-    const frame = globalThis.window.requestAnimationFrame(() => {
-      setSemanticPanelPosition((current) => {
-        if (!current) return current
-        const next = clampSemanticPanelPosition(current)
-        if (next.x === current.x && next.y === current.y) {
-          return current
-        }
-        return next
-      })
-    })
-
-    return () => {
-      globalThis.window.cancelAnimationFrame(frame)
-    }
-  }, [clampSemanticPanelPosition, graphViewportHeight, graphViewportWidth, isSemanticListVisible, semanticPanelPosition])
 
   return (
     <div
@@ -586,8 +467,6 @@ export function GraphCanvas({
         className="absolute inset-0 z-0"
         style={getCanvasBackdropStyle(isDark)}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,transparent_52%,hsl(var(--info)/0.025)_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_42%,hsl(var(--background)/0.36)_100%)]" />
-
       {graphRenderData.nodes.length > 0 ? (
         <>
           {viewMode === '3d' ? (
@@ -612,9 +491,9 @@ export function GraphCanvas({
             ) : (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <GraphLoadingIndicator
-                  className="rounded-2xl border border-border/60 bg-card/82 px-6 py-5 shadow-soft backdrop-blur-sm"
-                  message="正在准备图谱画布..."
-                  srMessage="Loading graph viewport"
+                  className="rounded-md border border-border bg-background px-6 py-5"
+                  message="正在准备图谱画布…"
+                  srMessage="正在准备图谱画布"
                 />
               </div>
             )
@@ -636,119 +515,98 @@ export function GraphCanvas({
             />
           )}
           <aside
-            className="absolute z-20 pointer-events-none"
-            style={
-              semanticPanelPosition
-                ? { left: semanticPanelPosition.x, top: semanticPanelPosition.y }
-                : { right: SEMANTIC_PANEL_SIDE_MARGIN, top: SEMANTIC_PANEL_TOP_OFFSET }
-            }
+            className={cn(
+              'pointer-events-none absolute z-20',
+              isSemanticListVisible
+                ? 'inset-x-2 bottom-2 md:inset-x-auto md:bottom-auto md:right-4 md:top-20 md:w-72'
+                : 'right-3 top-20'
+            )}
           >
-            <div
-              ref={semanticPanelRef}
-              className={`pointer-events-auto overflow-hidden border border-border/60 bg-card/88 shadow-[12px_18px_46px_-28px_rgba(15,23,42,0.44)] backdrop-blur-xl supports-[backdrop-filter]:bg-card/78 ${
-                isSemanticListVisible ? 'w-[min(16.75rem,calc(100vw-2rem))] rounded-[1.35rem]' : 'rounded-[1.35rem]'
-              }`}
-            >
+            <TooltipProvider delayDuration={100}>
               <div
-                className={`flex items-center gap-2 px-3 py-2.5 ${isSemanticListVisible ? 'border-b border-border/55' : ''}`}
+                className={cn(
+                  'pointer-events-auto overflow-hidden rounded-md border border-border bg-background',
+                  isSemanticListVisible && 'max-h-[min(50dvh,26rem)] md:w-72 md:max-h-[calc(100dvh-12rem)]'
+                )}
               >
-                <button
-                  type="button"
-                  className="flex h-8 w-8 shrink-0 cursor-grab appearance-none items-center justify-center rounded-xl border border-border/60 bg-card/55 p-0 text-muted-foreground touch-none select-none active:cursor-grabbing"
-                  aria-label="拖动语义图谱列表"
-                  onPointerDown={handleSemanticPanelPointerDown}
-                  onPointerMove={handleSemanticPanelPointerMove}
-                  onPointerUp={handleSemanticPanelPointerUp}
-                  onPointerCancel={handleSemanticPanelPointerUp}
+                <div
+                  className={cn(
+                    'flex items-center gap-2',
+                    isSemanticListVisible ? 'border-b border-border px-3 py-2' : 'p-1'
+                  )}
                 >
-                  <div className="grid grid-cols-2 gap-[3px]">
-                    {Array.from({ length: 6 }, (_, dotIndex) => dotIndex).map((dotIndex) => (
-                      <span key={`semantic-drag-dot-${dotIndex}`} className="h-1 w-1 rounded-full bg-current/60" />
-                    ))}
-                  </div>
-                </button>
-
-                {isSemanticListVisible ? (
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-xl border border-border/70 bg-card/60 shadow-[0_10px_20px_-16px_rgba(15,23,42,0.45)]">
-                        <div className="grid grid-cols-2 gap-1">
-                          {SEMANTIC_NODE_TONES.slice(0, 4).map((tone) => (
-                            <span
-                              key={tone}
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: tone }}
-                            />
-                          ))}
-                        </div>
+                  {isSemanticListVisible ? (
+                    <>
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <Network className="size-4" aria-hidden="true" />
                       </div>
-                      <div className="min-w-0">
-                        <h2 className="truncate text-sm font-medium text-foreground">语义索引</h2>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          当前数据：{semanticNodeCount} 个节点，{semanticLinkCount} 条连线
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-sm font-medium text-foreground">语义索引</h2>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {semanticNodeCount} 个节点，{semanticLinkCount} 条关系
                         </p>
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="pr-1 text-[11px] text-muted-foreground">
-                    语义列表
-                  </div>
-                )}
+                    </>
+                  ) : null}
 
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 shrink-0 rounded-lg px-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  aria-label={isSemanticListVisible ? '隐藏语义列表' : '显示语义列表'}
-                  title={isSemanticListVisible ? '隐藏语义列表' : '显示语义列表'}
-                  aria-expanded={isSemanticListVisible}
-                  aria-controls={semanticPanelId}
-                  onClick={() => setIsSemanticListVisible((visible) => !visible)}
-                >
-                  {isSemanticListVisible ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                  <span className="sr-only">{isSemanticListVisible ? '隐藏语义列表' : '显示语义列表'}</span>
-                </Button>
-              </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-10 shrink-0 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={isSemanticListVisible ? '隐藏语义列表' : '显示语义列表'}
+                        aria-expanded={isSemanticListVisible}
+                        aria-controls={semanticPanelId}
+                        onClick={() => setIsSemanticListVisible((visible) => !visible)}
+                      >
+                        {isSemanticListVisible ? (
+                          <PanelRightClose className="size-4" aria-hidden="true" />
+                        ) : (
+                          <PanelRightOpen className="size-4" aria-hidden="true" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="rounded-md text-xs">
+                      {isSemanticListVisible ? '隐藏语义列表' : '显示语义列表'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
 
-              {viewMode === '3d' ? (
+                {viewMode === '3d' ? (
+                  <p id={`${semanticPanelId}-keyboard-help`} className="sr-only">
+                    3D 视图为视觉展示，语义列表提供可读结构；按 Tab 键逐个聚焦节点，按 Shift 与 Tab 键反向切换。
+                  </p>
+                ) : null}
                 <p
-                  id={`${semanticPanelId}-keyboard-help`}
+                  id={`${semanticPanelId}-keyboard-status`}
+                  aria-live="polite"
                   className="sr-only"
                 >
-                  3D 视图为视觉展示，语义列表提供可读结构，便于键盘与屏幕阅读器访问；按 Tab 键可逐个聚焦节点，Shift + Tab 可反向切换。
+                  {keyboardRovingIndex >= 0 && semanticNodes[keyboardRovingIndex]
+                    ? `键盘当前聚焦：${semanticNodes[keyboardRovingIndex].label}（${keyboardRovingIndex + 1}/${semanticNodes.length}）`
+                    : '键盘当前聚焦：尚未选中节点'}
                 </p>
-              ) : null}
-              <p
-                id={`${semanticPanelId}-keyboard-status`}
-                aria-live="polite"
-                className="sr-only"
-              >
-                {keyboardRovingIndex >= 0 && semanticNodes[keyboardRovingIndex]
-                  ? `键盘当前聚焦：${semanticNodes[keyboardRovingIndex].label}（${keyboardRovingIndex + 1}/${semanticNodes.length}）`
-                  : '键盘当前聚焦：尚未选中节点'}
-              </p>
-              <section
-                id={semanticPanelId}
-                hidden={!isSemanticListVisible}
-                aria-label="知识图谱语义化结构列表"
-                className="space-y-3 px-3 py-3 max-h-[min(22rem,calc(100vh-12rem))] overflow-auto"
-              >
-                {isSemanticListVisible ? (
-                  <>
-                    <section aria-labelledby={`${semanticPanelId}-nodes`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 id={`${semanticPanelId}-nodes`} className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                          节点
-                        </h3>
-                        <div className="inline-flex items-center gap-1 rounded-full border border-border/65 bg-card/55 px-2 py-0.5 text-[11px] text-muted-foreground">
-                          <Rows3 className="h-3 w-3" />
-                          {semanticNodeCount}
+                <section
+                  id={semanticPanelId}
+                  hidden={!isSemanticListVisible}
+                  aria-label="知识图谱语义结构列表"
+                  className="max-h-[calc(50dvh-3.5rem)] space-y-4 overflow-y-auto p-3 md:max-h-[calc(100dvh-16rem)]"
+                >
+                  {isSemanticListVisible ? (
+                    <>
+                      <section aria-labelledby={`${semanticPanelId}-nodes`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 id={`${semanticPanelId}-nodes`} className="text-xs font-medium text-muted-foreground">
+                            节点
+                          </h3>
+                          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                            <Rows3 className="size-3.5" aria-hidden="true" />
+                            {semanticNodeCount}
+                          </span>
                         </div>
-                      </div>
-                      <TooltipProvider delayDuration={100}>
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-7 md:grid-cols-5">
                           {semanticNodes.map((node, index) => {
                             const tone = getSemanticNodeTone(`${node.id}:${node.type}:${node.kind}`)
                             const isActive = selectedNodeId === node.id || keyboardRovingIndex === index
@@ -757,11 +615,16 @@ export function GraphCanvas({
                               <Tooltip key={node.id}>
                                 <TooltipTrigger asChild>
                                   <button
-                                     ref={(element) => setSemanticNodeButtonRef(node.id, element)}
-                                     type="button"
-                                     className="group/node relative flex h-7 w-7 items-center justify-center rounded-xl border border-border/65 bg-card/52 shadow-[0_10px_22px_-18px_rgba(15,23,42,0.45)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.04] hover:border-foreground/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
-                                     aria-label={`聚焦节点：${node.label}`}
-                                     aria-pressed={selectedNodeId === node.id}
+                                    ref={(element) => setSemanticNodeButtonRef(node.id, element)}
+                                    type="button"
+                                    className={cn(
+                                      'flex size-11 items-center justify-center rounded-md border bg-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                                      isActive
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-border hover:border-primary/40 hover:bg-muted/50'
+                                    )}
+                                    aria-label={`聚焦节点：${node.label}`}
+                                    aria-pressed={selectedNodeId === node.id}
                                     onFocus={() => {
                                       setKeyboardRovingIndex(index)
                                       focusSemanticNode(node.id)
@@ -769,107 +632,96 @@ export function GraphCanvas({
                                     onClick={() => {
                                       setKeyboardRovingIndex(index)
                                       focusSemanticNode(node.id)
+                                      if (globalThis.window.matchMedia('(max-width: 767px)').matches) {
+                                        setIsSemanticListVisible(false)
+                                      }
                                       onNodeClick(node.raw)
                                     }}
                                   >
                                     <span
-                                      className="absolute inset-[5px] rounded-full opacity-20 transition-opacity duration-200 group-hover/node:opacity-35"
+                                      className="size-3 rounded-full border border-foreground/10"
                                       style={{ backgroundColor: tone }}
-                                    />
-                                    <span
-                                      className="relative h-2.5 w-2.5 rounded-full"
-                                      style={{
-                                        backgroundColor: tone,
-                                        boxShadow: isActive
-                                          ? `0 0 0 4px hsl(var(--background) / 0.62), 0 0 0 1px ${tone}`
-                                          : '0 0 0 4px hsl(var(--background) / 0.5)',
-                                      }}
                                     />
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent
                                   side="left"
                                   align="center"
-                                  className="rounded-2xl border-border/55 bg-popover/95 px-3 py-2 text-[11px] text-foreground shadow-[12px_18px_42px_-24px_rgba(15,23,42,0.38)] backdrop-blur-xl"
+                                  className="max-w-64 rounded-md border-border bg-popover px-3 py-2 text-xs text-foreground"
                                 >
-                                  <div className="flex items-start gap-2">
-                                    <span className="mt-1 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tone }} />
-                                    <div className="space-y-1">
-                                      <div className="font-semibold leading-4 text-foreground">{node.label}</div>
-                                      <div className="text-[11px] leading-4 text-muted-foreground">
-                                        ID {node.id} · {node.kind} · {node.type}
-                                      </div>
-                                    </div>
-                                  </div>
+                                  <p className="font-medium leading-5">{node.label}</p>
+                                  <p className="mt-0.5 break-all leading-5 text-muted-foreground">
+                                    节点编号：{node.id} · {node.kind} · {node.type}
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
                             )
                           })}
                         </div>
-                      </TooltipProvider>
-                    </section>
-                    <section aria-labelledby={`${semanticPanelId}-links`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 id={`${semanticPanelId}-links`} className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                          关系
-                        </h3>
-                        <div className="inline-flex items-center gap-1 rounded-full border border-border/65 bg-card/55 px-2 py-0.5 text-[11px] text-muted-foreground">
-                          {semanticLinkCount}
+                      </section>
+
+                      <section aria-labelledby={`${semanticPanelId}-links`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 id={`${semanticPanelId}-links`} className="text-xs font-medium text-muted-foreground">
+                            关系
+                          </h3>
+                          <span className="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                            {semanticLinkCount}
+                          </span>
                         </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {semanticRelationSummary.map((item) => (
-                          <span
-                            key={item.relation}
-                            className="inline-flex items-center gap-1 rounded-full border border-border/65 bg-card/58 px-2 py-1 text-[11px] text-muted-foreground shadow-[0_8px_20px_-18px_rgba(15,23,42,0.35)]"
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/80" />
-                            {item.relation}
-                            <span className="text-muted-foreground">{item.count}</span>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {semanticRelationSummary.map((item) => (
+                            <span
+                              key={item.relation}
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-1 text-xs text-muted-foreground"
+                            >
+                              {item.relation}
+                              <span className="tabular-nums text-foreground">{item.count}</span>
+                            </span>
+                          ))}
+                          {isSemanticListTruncated ? (
+                            <span className="inline-flex items-center rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted-foreground">
+                              仅显示前 {SEMANTIC_LIST_ITEM_LIMIT} 项
+                            </span>
+                          ) : null}
+                        </div>
+                      </section>
+
+                      {keyboardRovingIndex >= 0 && semanticNodes[keyboardRovingIndex] ? (
+                        <p className="border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+                          当前聚焦：
+                          <span className="font-medium text-foreground">
+                            {semanticNodes[keyboardRovingIndex].label}
                           </span>
-                        ))}
-                        {isSemanticListTruncated ? (
-                          <span className="inline-flex items-center rounded-full border border-dashed border-border/70 bg-card/42 px-2 py-1 text-[11px] text-muted-foreground">
-                            仅显示前 {SEMANTIC_LIST_ITEM_LIMIT} 项
-                          </span>
-                        ) : null}
-                      </div>
-                    </section>
-                    {keyboardRovingIndex >= 0 && semanticNodes[keyboardRovingIndex] ? (
-                      <div className="rounded-2xl border border-border/60 bg-card/48 px-2.5 py-2 text-[11px] text-muted-foreground shadow-[0_10px_26px_-22px_rgba(15,23,42,0.38)]">
-                        当前聚焦：<span className="font-semibold text-foreground">{semanticNodes[keyboardRovingIndex].label}</span>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </section>
-            </div>
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </section>
+              </div>
+            </TooltipProvider>
           </aside>
         </>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 top-16 z-10 flex items-center justify-center px-6 py-6 pr-28">
+        <div className="absolute inset-x-0 bottom-0 top-16 z-10 flex items-center justify-center px-4 py-6 md:px-6">
           {isLoading ? (
-            <div className="w-full max-w-2xl rounded-2xl border border-border/60 bg-card/70 p-6 shadow-soft">
+            <div className="w-full max-w-xl border-y border-border py-6">
               <div className="flex items-center gap-3">
-                <Skeleton className="h-11 w-11 rounded-xl" />
+                <Skeleton className="size-10 rounded-md" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-5 w-44" />
-                  <Skeleton className="h-4 w-72" />
+                  <Skeleton className="h-4 max-w-72" />
                 </div>
               </div>
-              <div className="mt-6 grid gap-3">
-                <Skeleton className="h-20 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-                <Skeleton className="h-20 w-full rounded-xl" />
-              </div>
-              <div className="mt-6 flex items-center gap-3">
-                <Skeleton className="h-10 w-32 rounded-xl" />
-                <Skeleton className="h-10 w-28 rounded-xl" />
+              <div className="mt-5 space-y-3">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="h-3 w-2/3" />
               </div>
             </div>
           ) : (
-            <section className="mx-auto flex w-full max-w-[36rem] flex-col items-center justify-center px-8 py-14 text-center md:px-10 md:py-16">
-              <div className="mb-7 flex items-center justify-center">
+            <section className="mx-auto flex w-full max-w-[36rem] flex-col items-center justify-center px-4 py-10 text-center md:px-8 md:py-14">
+              <div className="mb-5 flex items-center justify-center">
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 180 72"
@@ -892,29 +744,27 @@ export function GraphCanvas({
                   <circle cx="90" cy="22" r="2.7" fill="hsl(var(--primary))" />
                 </svg>
               </div>
-              <h2 className="mx-auto w-full max-w-[19rem] text-balance text-[1.42rem] font-semibold  text-foreground md:text-[1.56rem]">
+              <h2 className="mx-auto w-full max-w-[19rem] text-xl font-semibold text-foreground">
                 {hasActiveScope ? '当前范围暂无图谱' : '选择知识库图谱'}
               </h2>
-              <div className="mx-auto mt-3 w-full max-w-[30rem] text-pretty text-sm leading-7 text-muted-foreground md:text-[15px]">
+              <p className="mx-auto mt-3 w-full max-w-[30rem] text-sm leading-6 text-muted-foreground">
                 {hasActiveScope ? (
-                  '当前知识库范围还没有可视化结果。请先执行 KG 抽取，或切换到其他已有图谱的范围。'
+                  '当前知识库范围还没有可视化结果。请先执行知识图谱抽取，或切换到其他已有图谱的范围。'
                 ) : (
-                  '优先查看已有知识库 KG；外部图谱统一使用 KG JSON / JSONL 导入。'
+                  '选择已有知识库图谱，或导入 JSON、JSONL 格式的图谱文件。'
                 )}
-              </div>
-              <div className="mx-auto mt-7 flex w-full max-w-[30rem] flex-wrap items-center justify-center gap-3">
+              </p>
+              <div className="mx-auto mt-6 flex w-full max-w-[30rem] flex-wrap items-center justify-center gap-2">
                 <Button
-                  size="lg"
-                  className="h-10 rounded-lg px-4 text-[13px] font-semibold shadow-soft hover:bg-primary hover:opacity-96"
+                  className="h-10 rounded-md px-4 text-sm font-medium"
                   onClick={onTriggerManualKgUpload}
                 >
-                  <Network className="h-4 w-4" />
-                  导入 KG JSON / JSONL
+                  <Network className="size-4" aria-hidden="true" />
+                  导入图谱文件
                 </Button>
                 <Button
-                  size="lg"
                   variant="outline"
-                  className="h-10 rounded-lg px-4 text-[13px] font-semibold shadow-soft hover:bg-primary hover:opacity-96"
+                  className="h-10 rounded-md px-4 text-sm font-medium"
                   onClick={onOpenGraphPicker}
                 >
                   选择图谱

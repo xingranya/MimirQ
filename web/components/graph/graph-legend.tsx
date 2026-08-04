@@ -85,9 +85,9 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
     }
 
     const labels: Record<string, string> = {
-      entity_relation: '有向关系 / Directed Edge',
-      event_entity: '事件实体 / Event Edge',
-      entity_entity: '实体关系 / Entity Edge',
+      entity_relation: '有向关系',
+      event_entity: '事件关联',
+      entity_entity: '实体关系',
     }
 
     const entries: EdgeKindEntry[] = []
@@ -106,7 +106,7 @@ export function GraphLegend({ nodes, links = [], activeTypeFilters = [], onToggl
 
   return (
     <div className="absolute bottom-4 left-4 z-10 md:bottom-8 md:left-8">
-      <div className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-card md:max-w-[340px]">
+      <div className="max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-border bg-card md:max-w-[340px]">
           <button
             type="button"
             onClick={() => setCollapsed(prev => !prev)}

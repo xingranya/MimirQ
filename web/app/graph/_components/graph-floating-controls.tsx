@@ -106,47 +106,47 @@ export function GraphFloatingControls({
         )}
       >
         <div className="flex w-[3.125rem] flex-col gap-1 rounded-md border border-border bg-card p-1.5">
-          <Button variant="ghost" size="icon" onClick={onZoomIn} className="rounded-lg" title="放大" aria-label="放大">
-            <ZoomIn className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={onZoomIn} className="size-10 rounded-md" title="放大" aria-label="放大">
+            <ZoomIn className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onZoomOut} className="rounded-lg" title="缩小" aria-label="缩小">
-            <ZoomOut className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={onZoomOut} className="size-10 rounded-md" title="缩小" aria-label="缩小">
+            <ZoomOut className="size-4" />
           </Button>
           <div className="h-px bg-muted mx-2 my-0.5" />
-          <Button variant="ghost" size="icon" onClick={onZoomToFit} className="rounded-lg" title="适应屏幕" aria-label="适应屏幕">
-            <Maximize className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={onZoomToFit} className="size-10 rounded-md" title="适应屏幕" aria-label="适应屏幕">
+            <Maximize className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleViewMode}
-            className={cn('rounded-lg', viewMode === '3d' && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
+            className={cn('size-10 rounded-md', viewMode === '3d' && 'bg-primary/10 text-primary')}
             title={viewMode === '3d' ? '切换至 2D 平面' : '切换至 3D 空间'}
             aria-label={viewMode === '3d' ? '切换至 2D 平面' : '切换至 3D 空间'}
           >
-            {viewMode === '3d' ? <Box className="w-5 h-5" /> : <BoxSelect className="w-5 h-5" />}
+            {viewMode === '3d' ? <Box className="size-4" /> : <BoxSelect className="size-4" />}
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
             onClick={onStartExplainMode}
-            className={cn('rounded-lg', isExplainMode && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
-            title="推理演示 (Explain)"
+            className={cn('size-10 rounded-md', isExplainMode && 'bg-primary/10 text-primary')}
+            title="演示推理路径"
             aria-label="推理演示"
           >
-            <PlayCircle className="w-5 h-5" />
+            <PlayCircle className="size-4" />
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
             onClick={onCycleLayoutMode}
-            className="rounded-lg"
-            title={`切换布局: ${layoutLabel}`}
+            className="size-10 rounded-md"
+            title={`切换布局：${layoutLabel}`}
             aria-label={`切换布局：${layoutLabel}`}
           >
-            <Layout className="w-5 h-5" />
+            <Layout className="size-4" />
             <span className="sr-only">{layoutLabel}</span>
           </Button>
 
@@ -154,22 +154,22 @@ export function GraphFloatingControls({
             variant="ghost"
             size="icon"
             onClick={onTogglePathMode}
-            className={cn('rounded-lg', isPathMode && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
-            title="路径发现 (Shortest Path)"
+            className={cn('size-10 rounded-md', isPathMode && 'bg-primary/10 text-primary')}
+            title="查找最短路径"
             aria-label="路径发现"
           >
-            <Route className="w-5 h-5" />
+            <Route className="size-4" />
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleShowEdgeLabels}
-            className={cn('rounded-lg', showEdgeLabels && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
+            className={cn('size-10 rounded-md', showEdgeLabels && 'bg-primary/10 text-primary')}
             title="显示/隐藏连线标签"
             aria-label="显示或隐藏连线标签"
           >
-            <Type className="w-5 h-5" />
+            <Type className="size-4" />
           </Button>
           <div className="h-px bg-muted mx-2 my-0.5" />
 
@@ -177,11 +177,11 @@ export function GraphFloatingControls({
             variant="ghost"
             size="icon"
             onClick={onToggleFullscreen}
-            className={cn('rounded-lg', isFullscreen && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
+            className={cn('size-10 rounded-md', isFullscreen && 'bg-primary/10 text-primary')}
             title={isFullscreen ? '退出全屏' : '全屏模式'}
             aria-label={isFullscreen ? '退出全屏模式' : '进入全屏模式'}
           >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
           </Button>
           <div className="h-px bg-muted mx-2 my-0.5" />
 
@@ -190,11 +190,11 @@ export function GraphFloatingControls({
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn('rounded-lg', exportOpen && 'bg-primary/10 text-primary ring-1 ring-primary/20')}
-                title="导出 PNG/SVG"
+                className={cn('size-10 rounded-md', exportOpen && 'bg-primary/10 text-primary')}
+                title="导出图谱"
                 aria-label="导出图谱"
               >
-                <Download className="w-5 h-5" />
+                <Download className="size-4" />
               </Button>
             </PopoverTrigger>
             <PopoverContent side="left" align="end" className="w-64 p-2">
@@ -210,11 +210,11 @@ export function GraphFloatingControls({
               <div className="grid grid-cols-2 gap-2 p-1">
                 <Button type="button" size="sm" variant="ghost" className="h-8 justify-start" onClick={onExportPngCopy}>
                   <Copy className="w-4 h-4 mr-2" />
-                  Copy PNG
+                  复制 PNG
                 </Button>
                 <Button type="button" size="sm" variant="ghost" className="h-8 justify-start" onClick={onExportSvgCopy}>
                   <Copy className="w-4 h-4 mr-2" />
-                  Copy SVG
+                  复制 SVG
                 </Button>
               </div>
               <div className="px-2 pb-1 text-xs text-muted-foreground">当前视图：{viewMode === '3d' ? '3D' : '2D'}</div>
