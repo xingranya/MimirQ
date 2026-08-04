@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { AppFrame } from '@/components/app-frame'
 import { ProviderIcon } from '@/components/provider-icon'
 import { PageScaffold } from '@/components/ui/page-scaffold'
@@ -38,6 +39,10 @@ const backgroundOptions = [
 ] as const
 
 export default function LogosPreviewPage() {
+  if (process.env.NODE_ENV === 'production') {
+    notFound()
+  }
+
   return (
     <AppFrame>
       <PageScaffold

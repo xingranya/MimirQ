@@ -5,6 +5,12 @@ import { describe, expect, it } from 'vitest'
 const pageSource = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8')
 
 describe('供应商图标页视觉契约', () => {
+  it('仅在开发环境提供品牌资源检查入口', () => {
+    expect(pageSource).toContain("import { notFound } from 'next/navigation'")
+    expect(pageSource).toContain("process.env.NODE_ENV === 'production'")
+    expect(pageSource).toContain('notFound()')
+  })
+
   it('使用单层扁平分区并支持窄屏布局', () => {
     expect(pageSource).toContain('data-provider-icon-catalog="true"')
     expect(pageSource).toContain('grid-cols-1 sm:grid-cols-2 xl:grid-cols-3')
