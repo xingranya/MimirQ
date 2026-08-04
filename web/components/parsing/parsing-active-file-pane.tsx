@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import {
  Blocks,
  Check,
- ChevronRight,
  Clock,
  Code,
  Copy,
@@ -116,6 +115,12 @@ function getQualityBadgeClass(qualityGrade: string): string {
  return 'border-success/20 bg-success/10 text-success'
 }
 
+function getQualityGradeLabel(qualityGrade: string): string {
+ if (qualityGrade === 'fail') return '未通过'
+ if (qualityGrade === 'warn') return '需检查'
+ return '已通过'
+}
+
 function buildQualityEvidenceSummary(qualityGate: unknown, pdfQuality: unknown): string {
  const pieces: string[] = []
  const gateEvidence = isRecord(qualityGate) && isRecord(qualityGate.evidence) ? qualityGate.evidence : {}
@@ -134,13 +139,13 @@ function buildQualityEvidenceSummary(qualityGate: unknown, pdfQuality: unknown):
  }
 
  if (isRecord(pdfQuality) && typeof pdfQuality.score === 'number') {
- pieces.push(`pdf_score=${Number(pdfQuality.score).toFixed(3)}`)
+ pieces.push(`PDF 得分 ${Number(pdfQuality.score).toFixed(3)}`)
  }
- if (typeof parseQuality.score === 'number') pieces.push(`parse_score=${Number(parseQuality.score).toFixed(3)}`)
- if (typeof textQuality.content_chars === 'number') pieces.push(`content_chars=${textQuality.content_chars}`)
- if (typeof textQuality.density === 'number') pieces.push(`density=${Number(textQuality.density).toFixed(3)}`)
+ if (typeof parseQuality.score === 'number') pieces.push(`解析得分 ${Number(parseQuality.score).toFixed(3)}`)
+ if (typeof textQuality.content_chars === 'number') pieces.push(`字符 ${textQuality.content_chars}`)
+ if (typeof textQuality.density === 'number') pieces.push(`密度 ${Number(textQuality.density).toFixed(3)}`)
  if (typeof textQuality.replacement_ratio === 'number') {
- pieces.push(`replacement_ratio=${Number(textQuality.replacement_ratio).toFixed(3)}`)
+ pieces.push(`替换比例 ${Number(textQuality.replacement_ratio).toFixed(3)}`)
  }
  if (fallbackAttempts.length > 0) {
  const fallbackBackends = [
@@ -148,7 +153,7 @@ function buildQualityEvidenceSummary(qualityGate: unknown, pdfQuality: unknown):
  readBackendName(gateEvidence.fallback_final_backend),
  ].filter((value): value is string => value != null)
  if (fallbackBackends.length > 0) {
- pieces.push(`fallback=${fallbackBackends.join('→')}`)
+ pieces.push(`解析回退 ${fallbackBackends.join(' -> ')}`)
  }
  }
  const activeFlags = Object.entries(parseQualityFlags)
@@ -284,8 +289,8 @@ function getQualitySectionClass(hasDivider: boolean): string {
 
 function getToggleButtonClass(active: boolean): string {
  return active
- ? 'bg-card text-foreground shadow-sm dark:bg-background dark:text-foreground dark:shadow-none'
- : 'text-muted-foreground hover:text-foreground/80 dark:text-muted-foreground dark:hover:text-muted-foreground'
+ ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+ : 'text-muted-foreground hover:bg-muted hover:text-foreground'
 }
 
 function buildExtractEvidencePosition(
@@ -736,11 +741,10 @@ export function ParsingActiveFilePane({
  const submitToGovernanceButton = isEditing ? null : (
  <Button
  onClick={onSubmitToGovernance}
- className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+ className="gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
  >
  <ShieldCheck className="h-4 w-4" />
  提交到数据治理
- <ChevronRight className="h-4 w-4" />
  </Button>
  )
 
@@ -759,17 +763,25 @@ export function ParsingActiveFilePane({
 
  <>
  {parsedStatItems.length > 0 || activeQualityGate || activeElementSummaryItems.length > 0 ? (
- <div className="border-b border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)/0.96),hsl(var(--muted)/0.35))] px-5 py-3 dark:bg-card">
+ <details className="group border-b border-border bg-muted/20">
+ <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-xs [&::-webkit-details-marker]:hidden">
+ <span className="font-medium text-foreground">解析摘要</span>
+ <span className="text-muted-foreground">
+ <span className="group-open:hidden">展开</span>
+ <span className="hidden group-open:inline">收起</span>
+ </span>
+ </summary>
+ <div className="space-y-3 border-t border-border px-4 py-3">
  {parsedStatItems.length > 0 ? (
  <div className="flex flex-wrap items-center gap-1.5">
  {parsedStatItems.map(({ icon: Icon, label, value }) => (
  <div
  key={label}
- className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/88 px-2.5 py-1 text-[11px] text-muted-foreground shadow-[0_1px_0_hsl(var(--background))] dark:bg-card"
+ className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground"
  >
  <Icon className="h-3.5 w-3.5 text-primary/65" />
  <span>{label}</span>
- <span className="font-mono text-[12px] font-medium tabular-nums text-foreground">
+ <span className="font-mono text-xs font-medium tabular-nums text-foreground">
  {value}
  </span>
  </div>
@@ -781,21 +793,21 @@ export function ParsingActiveFilePane({
  <div className="flex items-center gap-2">
  <span
  className={cn(
- 'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.12em]',
+ 'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
  getQualityBadgeClass(qualityGrade)
  )}
- title="解析质量门禁（best-effort）"
+ title="解析质量检查结果"
  >
- {String(qualityGrade || 'pass')}
+ {getQualityGradeLabel(qualityGrade)}
  </span>
- <div className="text-[11px] text-muted-foreground">
+ <div className="text-xs text-muted-foreground">
  {qualityReasons.length ? qualityReasons.join(' · ') : '无明显风险信号'}
  </div>
  </div>
  {qualityEvidenceItems.map((item) => (
  <span
  key={item}
- className="rounded-full border border-border/60 bg-card px-2 py-0.5 font-mono text-[11px] text-muted-foreground/90"
+ className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs text-muted-foreground"
  >
  {item}
  </span>
@@ -809,13 +821,13 @@ export function ParsingActiveFilePane({
  getQualitySectionClass(Boolean(activeQualityGate))
  )}
  >
- <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/75">
+ <span className="text-xs font-medium text-muted-foreground">
  结构元素
  </span>
  {activeElementSummaryItems.map((item) => (
  <span
  key={item.kind}
- className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-0.5 text-[11px] text-muted-foreground"
+ className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground"
  >
  <span>{item.label}</span>
  <span className="font-mono font-semibold text-foreground">{item.count}</span>
@@ -833,9 +845,9 @@ export function ParsingActiveFilePane({
  {activeElementHighlightItems.map((item) => (
  <div
  key={item.key}
- className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground"
+ className="inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground"
  >
- <span className="font-semibold uppercase tracking-[0.1em] text-foreground/78">{item.label}</span>
+ <span className="font-semibold text-foreground/80">{item.label}</span>
  <span className="max-w-[280px] truncate font-medium text-foreground">{item.value}</span>
  {item.meta ? <span className="font-mono text-muted-foreground/85">{item.meta}</span> : null}
  </div>
@@ -844,10 +856,10 @@ export function ParsingActiveFilePane({
  ) : null}
  {selectedExtractEvidence ? (
  <div className="mt-2 border-t border-border/60 pt-2">
- <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/75">证据定位</div>
- <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground">
+ <div className="text-xs font-medium text-muted-foreground">证据定位</div>
+ <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
  <span className="font-semibold text-foreground/80">{selectedExtractEvidence.fieldName}</span>
- <span>{selectedExtractElement?.kind || selectedExtractEvidence.evidence.kind || 'unknown'}</span>
+ <span>{selectedExtractElement?.kind || selectedExtractEvidence.evidence.kind || '未知类型'}</span>
  {selectedExtractEvidence.evidence.visual_kind ? <span>{selectedExtractEvidence.evidence.visual_kind}</span> : null}
  {selectedExtractElement?.id || selectedExtractEvidence.evidence.element_id ? (
  <span>{selectedExtractElement?.id || selectedExtractEvidence.evidence.element_id}</span>
@@ -857,7 +869,7 @@ export function ParsingActiveFilePane({
  ) : null}
  {formatElementBbox(selectedExtractElement?.bbox || selectedExtractEvidence.evidence.bbox) ? (
  <span className="font-mono">
- {formatElementBbox(selectedExtractElement?.bbox || selectedExtractEvidence.evidence.bbox)}
+ 坐标 {formatElementBbox(selectedExtractElement?.bbox || selectedExtractEvidence.evidence.bbox)}
  </span>
  ) : null}
  {selectedExtractElement?.text || selectedExtractEvidence.evidence.text ? (
@@ -869,22 +881,23 @@ export function ParsingActiveFilePane({
  </div>
  ) : null}
  </div>
+ </details>
  ) : null}
 
- <div className="border-b border-border/60 bg-card/96 px-4 py-2.5 shadow-soft dark:bg-background/75">
+ <div className="border-b border-border bg-background px-4 py-2.5">
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between">
  <div className="flex min-w-0 flex-1 items-center gap-2">
  <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
  {activeFile.file.name}
  </span>
- <span className="shrink-0 rounded-md border border-border/60 bg-muted/45 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+ <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
  {activeFile.parserLabel}
  </span>
- <span className="shrink-0 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+ <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
  {activeFile.status === 'parsed' ? '已生成' : activeFile.status === 'pending' ? '待解析' : activeFile.status === 'error' ? '失败' : '解析中'}
  </span>
  {isEditing ? (
- <span className="shrink-0 rounded-md bg-info/10 px-2 py-0.5 text-[11px] font-medium text-info">
+ <span className="shrink-0 rounded-md bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
  编辑中
  </span>
  ) : null}
@@ -892,7 +905,7 @@ export function ParsingActiveFilePane({
  <select
  value={activeRun?.id || ''}
  onChange={(event) => onSelectRun(event.target.value)}
- className="h-7 max-w-[12rem] shrink-0 rounded-md border border-border/60 bg-background px-2 text-[11px] text-foreground/80 outline-none focus:border-info/50 dark:border-border dark:bg-muted dark:text-muted-foreground"
+ className="h-8 max-w-[12rem] shrink-0 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
  >
  {activeFile.runs.map((run) => (
  <option key={run.id} value={run.id}>
@@ -976,7 +989,7 @@ export function ParsingActiveFilePane({
  >
  <FileStack className="h-3.5 w-3.5" />
  定位块
- <span className="font-mono text-[11px] tabular-nums opacity-75">
+ <span className="font-mono text-xs tabular-nums opacity-75">
  {layoutEntries.length}
  </span>
  </button>
@@ -997,10 +1010,6 @@ export function ParsingActiveFilePane({
  <Edit3 className="h-4 w-4" />
  编辑
  </Button>
- <Button variant="outline" size="sm" onClick={onSaveEdit} className="h-8 shrink-0 gap-1.5 rounded-md px-2.5 text-xs">
- <Save className="h-4 w-4" />
- 保存
- </Button>
  <Button variant="outline" size="sm" onClick={onCopyMarkdown} className="h-8 shrink-0 gap-1.5 rounded-md px-2.5 text-xs">
  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
  {copied ? '已复制' : '复制'}
@@ -1020,14 +1029,14 @@ export function ParsingActiveFilePane({
  {activeFile.status === 'pending' ? (
  <div className="flex h-full items-center justify-center">
  <div className="text-center">
- <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-info/15 dark:bg-info/30">
- <Sparkles className="h-8 w-8 text-info dark:text-info" />
+ <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-primary/10">
+ <Sparkles className="size-5 text-primary" />
  </div>
- <p className="mb-2 text-foreground/80 dark:text-muted-foreground">准备就绪</p>
+ <p className="mb-2 font-medium text-foreground">准备解析</p>
  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
- 上传只登记到解析工作区；点击下方“用当前解析器开始解析”才会运行（当前：{activeFile.parserLabel}）
+ 选择解析器后开始处理。当前解析器：{activeFile.parserLabel}
  </p>
- <div className="mt-5 flex flex-col items-stretch justify-center gap-3 rounded-2xl border border-border/60 bg-card/86 p-3 shadow-soft sm:flex-row sm:items-center">
+ <div className="mt-5 flex flex-col items-stretch justify-center gap-3 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center">
  <div className="min-w-0 sm:w-72">
  <ParserDropdown
  value={activeFile.parserBackend}
@@ -1043,10 +1052,10 @@ export function ParsingActiveFilePane({
  </div>
  <Button
  onClick={() => onParseFile(activeFile.id, activeFile.parserBackend)}
- className="gap-2 bg-info hover:bg-info"
+ className="gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
  >
- <Sparkles className="h-4 w-4 text-info" />
- 用当前解析器开始解析
+ <Sparkles className="h-4 w-4" />
+ 开始解析
  </Button>
  </div>
  </div>
@@ -1064,7 +1073,7 @@ export function ParsingActiveFilePane({
  </span>
  </div>
  </div>
- <p className="mt-4 text-foreground/80 dark:text-muted-foreground">正在解析...</p>
+ <p className="mt-4 font-medium text-foreground">正在解析</p>
  <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">{activeFile.parserLabel}</p>
  </div>
  </div>
@@ -1073,8 +1082,8 @@ export function ParsingActiveFilePane({
  {activeFile.status === 'error' ? (
  <div className="flex h-full items-center justify-center">
  <div className="max-w-md text-center">
- <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/10">
- <FileText className="h-8 w-8 text-destructive" />
+ <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md bg-destructive/10">
+ <FileText className="size-5 text-destructive" />
  </div>
  <p className="mb-2 font-medium text-destructive">解析失败</p>
  <p className="text-sm text-muted-foreground dark:text-muted-foreground">{activeFile.error}</p>
@@ -1112,11 +1121,11 @@ export function ParsingActiveFilePane({
  </div>
  {Array.isArray(activeFile.parseDiagnostics.pdf_sample.samples) &&
  activeFile.parseDiagnostics.pdf_sample.samples.length > 0 ? (
- <div className="mt-2 max-h-48 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border/60 bg-muted/30 p-2 dark:border-border/60 dark:bg-background/40">
+ <div className="mt-2 max-h-48 divide-y divide-border overflow-y-auto overscroll-contain rounded-md border border-border bg-background">
  {activeFile.parseDiagnostics.pdf_sample.samples.slice(0, 3).map((sample) => (
  <div
  key={sample.page}
- className="rounded-md border border-border/40 bg-card/95 p-2 dark:border-border/60 dark:bg-card"
+ className="px-3 py-2"
  >
  <div className="text-xs text-muted-foreground">
  页 {sample.page} · {sample.text_chars} 字符
@@ -1146,13 +1155,13 @@ export function ParsingActiveFilePane({
  ref={editorRef}
  value={editedContent}
  onChange={(event) => onEditedContentChange(event.target.value)}
- className="min-h-[500px] w-full resize-none rounded-xl border border-border bg-muted p-4 font-mono text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap focus:border-transparent focus:outline-none focus:ring-2 focus:ring-info dark:border-border dark:bg-background dark:text-muted-foreground"
+ className="min-h-[500px] w-full resize-none rounded-md border border-border bg-background p-4 font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
  placeholder="在此编辑内容..."
  autoFocus
  />
  </div>
  ) : (
- <div className="flex h-full min-h-[560px] min-w-0 flex-col bg-[radial-gradient(circle_at_30%_0%,hsl(var(--primary)/0.04),transparent_34%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.22))] xl:flex-row">
+ <div className="flex h-full min-h-[560px] min-w-0 flex-col bg-background xl:flex-row">
  {isPdf ? (
  <div className="relative flex h-full min-h-0 min-w-0 w-full flex-col border-b border-border/60 bg-muted/60 dark:border-border/60 dark:bg-background/40 xl:flex-[1.42] xl:border-b-0 xl:border-r">
  <div className="min-h-0 flex-1">
@@ -1173,23 +1182,23 @@ export function ParsingActiveFilePane({
  <div className={isPdf ? 'w-full min-w-0 xl:flex-[0.92]' : 'w-full min-w-0'}>
  {rightPanelMode === 'blocks' && layoutEntries.length > 0 ? (
  <ParsingRightPanel className="h-full no-scrollbar p-4 lg:p-4">
- <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-soft">
- <div className="border-b border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)/0.92),hsl(var(--muted)/0.36))] px-4 py-3 dark:bg-background/72">
+ <div className="overflow-hidden rounded-md border border-border bg-background">
+ <div className="border-b border-border bg-muted/20 px-4 py-3">
  <div className="flex flex-wrap items-center justify-between gap-2">
  <div className="min-w-0">
- <div className="text-[11px] font-medium tracking-[0.06em] text-foreground/78">
+ <div className="text-xs font-medium text-foreground">
  解析定位块
  </div>
- <div className="mt-0.5 text-[11px] leading-5 text-muted-foreground/78">
+ <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
  点击左侧 PDF 框选可跳到这里，点击定位块也会高亮原页
  </div>
  </div>
- <div className="rounded-full border border-border/60 bg-card px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
- {reviewEntries.length} segments
+ <div className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs text-muted-foreground">
+ {reviewEntries.length} 个片段
  </div>
  </div>
  </div>
- <div className="space-y-2.5 bg-muted/20 p-3">
+ <div className="space-y-2 bg-background p-3">
  {reviewEntries.map((reviewEntry, index) => {
  if (reviewEntry.type === 'image') {
  const element = reviewEntry.element
@@ -1213,15 +1222,15 @@ export function ParsingActiveFilePane({
  onMouseEnter={() => onHoveredBlockIdChange(String(element.id || '').trim() || null)}
  onMouseLeave={() => onHoveredBlockIdChange(null)}
  className={cn(
- 'group w-full overflow-hidden rounded-xl border text-left transition',
+ 'group w-full overflow-hidden rounded-md border text-left transition-colors',
  isActive
- ? 'border-warning/70 bg-warning/5 shadow-soft ring-1 ring-warning/40'
+ ? 'border-warning/70 bg-warning/5 ring-1 ring-warning/30'
  : 'border-warning/30 bg-card/90 hover:border-warning/70 hover:bg-warning/5 dark:bg-background/35 dark:hover:bg-warning/18'
  )}
  title={String(element.text || element.id || '')}
  >
  <div className="flex gap-3 p-3">
- <div className="relative h-24 w-28 shrink-0 overflow-hidden rounded-lg border border-warning/30 bg-[linear-gradient(135deg,hsl(var(--muted)),hsl(var(--background)))]">
+ <div className="relative h-24 w-28 shrink-0 overflow-hidden rounded-md border border-warning/30 bg-muted/20">
  {reviewEntry.src ? (
  <AuthImage
  src={reviewEntry.src}
@@ -1232,24 +1241,24 @@ export function ParsingActiveFilePane({
  className="h-full w-full object-contain p-1.5"
  />
  ) : (
- <div className="flex h-full items-center justify-center text-[11px] text-muted-foreground">无预览</div>
+ <div className="flex h-full items-center justify-center text-xs text-muted-foreground">无预览</div>
  )}
  </div>
  <div className="min-w-0 flex-1">
  <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
- <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+ <span className="inline-flex items-center rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
  图片
  </span>
- <span className="font-mono text-[11px] text-muted-foreground">片段 {index + 1}</span>
- {pageLabel ? <span className="font-mono text-[11px] text-muted-foreground">{pageLabel}</span> : null}
- <span className="font-mono text-[11px] text-muted-foreground">
+ <span className="font-mono text-xs text-muted-foreground">片段 {index + 1}</span>
+ {pageLabel ? <span className="font-mono text-xs text-muted-foreground">{pageLabel}</span> : null}
+ <span className="font-mono text-xs text-muted-foreground">
  {element.bbox ? '可定位' : '无坐标'}
  </span>
  </div>
  <div className="truncate text-sm font-medium text-foreground/82">
  {String(element.text || element.id || `图片 ${reviewEntry.imageIndex + 1}`)}
  </div>
- <div className="mt-1 text-[11px] leading-5 text-muted-foreground">
+ <div className="mt-1 text-xs leading-5 text-muted-foreground">
  共 {activeImageElements.length} 张图片，{positionedImageElementCount} 张可定位到 PDF 框选
  </div>
  </div>
@@ -1277,37 +1286,37 @@ export function ParsingActiveFilePane({
  onMouseEnter={() => onHoveredBlockIdChange(entry.id)}
  onMouseLeave={() => onHoveredBlockIdChange(null)}
  className={cn(
- 'group w-full rounded-xl border px-3.5 py-3 text-left transition',
+ 'group w-full rounded-md border px-3.5 py-3 text-left transition-colors',
  isActive
- ? 'border-primary/55 bg-primary/[0.06] shadow-soft ring-1 ring-primary/[0.12]'
+ ? 'border-primary/55 bg-primary/[0.06] ring-1 ring-primary/[0.12]'
  : 'border-border/48 bg-card/86 hover:border-primary/[0.24] hover:bg-card'
  )}
  >
  <div className="flex items-start gap-3">
- <span className={cn('mt-2 h-2 w-2 flex-none rounded-full shadow-[0_0_0_3px_hsl(var(--background))]', layoutMeta.dotClassName)} />
+ <span className={cn('mt-2 h-2 w-2 flex-none rounded-full', layoutMeta.dotClassName)} />
  <div className="min-w-0 flex-1">
  <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
  <span
  className={cn(
- 'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+ 'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
  layoutMeta.chipClassName
  )}
  >
  {layoutMeta.label}
  </span>
- <span className="font-mono text-[11px] text-muted-foreground">
+ <span className="font-mono text-xs text-muted-foreground">
  片段 {index + 1}
  </span>
  {Number.isFinite(entry.pageIndex) ? (
- <span className="font-mono text-[11px] text-muted-foreground">
+ <span className="font-mono text-xs text-muted-foreground">
  页 {Number(entry.pageIndex) + 1}
  </span>
  ) : null}
- <span className="font-mono text-[11px] text-muted-foreground">
+ <span className="font-mono text-xs text-muted-foreground">
  {entry.charCount} 字
  </span>
  {entry.lineCount > 1 ? (
- <span className="font-mono text-[11px] text-muted-foreground">
+ <span className="font-mono text-xs text-muted-foreground">
  {entry.lineCount} 行
  </span>
  ) : null}
@@ -1347,14 +1356,14 @@ export function ParsingActiveFilePane({
  </div>
  {tocEnabled ? (
  <aside className="hidden w-64 shrink-0 self-start 2xl:sticky 2xl:top-0 2xl:block">
- <div className="max-h-[min(72vh,calc(100vh-13rem))] overflow-y-auto overscroll-contain custom-scrollbar rounded-2xl border border-border/60 bg-card/82 p-3 pr-2 shadow-soft">
+ <div className="max-h-[min(72vh,calc(100vh-13rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-background p-3 pr-2 custom-scrollbar">
  <MarkdownToc markdown={activeMarkdown} scrollContainerSelector=".parsing-md-scroll" />
  </div>
  </aside>
  ) : null}
  </div>
  ) : (
- <pre className="whitespace-pre-wrap rounded-xl border border-border bg-muted/60 p-6 font-mono text-sm leading-relaxed text-foreground/80 dark:border-border dark:bg-background/40 dark:text-muted-foreground">
+ <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-4 font-mono text-sm leading-relaxed text-foreground">
  {activeMarkdown}
  </pre>
  )}
@@ -1379,9 +1388,9 @@ export function ParsingActiveFilePane({
  </div>
 
  {activeFile.status === 'parsed' && activeMarkdown ? (
- <div className="relative z-10 border-t border-border/60 bg-card px-6 py-4 shadow-[0_-10px_24px_-18px_rgba(15,23,42,0.22)] backdrop-blur-xl dark:bg-card dark:shadow-[0_-12px_28px_-18px_rgba(0,0,0,0.42)]">
+ <div className="relative z-10 border-t border-border bg-background px-4 py-3 md:px-6">
  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
- <div className="text-[11px] leading-5 text-muted-foreground/72 dark:text-muted-foreground/70">
+ <div className="text-xs leading-5 text-muted-foreground">
  {isEditing ? '编辑完成后点击"保存修改"，然后提交到数据治理' : '确认解析内容无误后，提交到数据治理工作台'}
  </div>
  <div className="flex items-center gap-3">

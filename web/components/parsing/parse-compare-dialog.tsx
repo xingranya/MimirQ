@@ -1,7 +1,5 @@
 /**
- * ParseCompareDialog - A/B compare two parsing runs (best-effort).
- *
- * Keeps the diff computation fully client-side (no persistence).
+ * 在浏览器中比较同一文件的两次解析结果，不会写入后端。
  */
 'use client'
 
@@ -36,6 +34,7 @@ type Props = {
 }
 
 type CompareMode = 'cleaned' | 'raw'
+const NO_DIFF_TEXT = '（无差异）'
 
 function safeLabel(run: ParseCompareRun): string {
   return run.parserLabel || run.parserBackend || run.id
@@ -86,7 +85,7 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
     const a = safeLabel(baseRun)
     const b = safeLabel(compareRun)
     const patch = createTwoFilesPatch(a, b, baseText || '', compareText || '', '', '', { context: 3 })
-    return patch.trim() ? patch : '(no diff)'
+    return patch.trim() ? patch : NO_DIFF_TEXT
   }, [baseRun, baseText, compareRun, compareText, tooLarge])
   const elementDiffSummary = useMemo(() => {
     if (!baseRun || !compareRun) return null
@@ -96,14 +95,14 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
     const summary = elementDiffSummary
     if (!summary) return []
     const pairs = [
-      { label: '新增 seal', value: summary.addedByKind.seal || 0 },
-      { label: '移除 seal', value: summary.removedByKind.seal || 0 },
-      { label: '新增 image', value: summary.addedByKind.image || 0 },
-      { label: '移除 image', value: summary.removedByKind.image || 0 },
+      { label: '新增印章', value: summary.addedByKind.seal || 0 },
+      { label: '移除印章', value: summary.removedByKind.seal || 0 },
+      { label: '新增图片', value: summary.addedByKind.image || 0 },
+      { label: '移除图片', value: summary.removedByKind.image || 0 },
       { label: '新增图像子类', value: summary.addedImageVisualKinds.length || 0 },
       { label: '移除图像子类', value: summary.removedImageVisualKinds.length || 0 },
-      { label: '新增 equation', value: summary.addedByKind.equation || 0 },
-      { label: '移除 equation', value: summary.removedByKind.equation || 0 },
+      { label: '新增公式', value: summary.addedByKind.equation || 0 },
+      { label: '移除公式', value: summary.removedByKind.equation || 0 },
     ]
     return pairs.filter((item) => item.value > 0)
   }, [elementDiffSummary])
@@ -114,21 +113,21 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCompare className="h-5 w-5" />
-            解析对比（A/B）
+            解析版本对比
           </DialogTitle>
           <DialogDescription>
-            对比同一文件不同解析 run 的输出差异（best-effort）。选择右侧版本可一键切换为当前预览。
+            比较同一文件的两次解析结果，并选择要用于当前预览的版本。
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">Base</div>
+              <div className="text-sm font-medium text-foreground">基准版本</div>
               <select
                 value={baseId}
                 onChange={(e) => setBaseId(e.target.value)}
-                className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card text-foreground"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 {(runs || []).map((run) => (
                   <option key={run.id} value={run.id}>
@@ -138,11 +137,11 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
               </select>
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">Compare</div>
+              <div className="text-sm font-medium text-foreground">对比版本</div>
               <select
                 value={compareId}
                 onChange={(e) => setCompareId(e.target.value)}
-                className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card text-foreground"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 {(runs || []).map((run) => (
                   <option key={run.id} value={run.id}>
@@ -154,19 +153,19 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex items-center rounded-lg border border-border bg-muted/20 p-1">
+            <div className="inline-flex items-center rounded-md border border-border bg-muted/20 p-1">
 	              <button
 	                type="button"
 	                onClick={() => setMode('cleaned')}
 	                className={cn(
 	                  'px-3 py-1.5 text-xs rounded-md flex items-center gap-1 focus-ring transition-colors duration-200 motion-reduce:transition-none',
 	                  mode === 'cleaned'
-	                    ? 'bg-card text-foreground shadow-sm'
-	                    : 'text-muted-foreground hover:text-foreground/80'
+	                    ? 'bg-background text-primary ring-1 ring-border'
+	                    : 'text-muted-foreground hover:text-foreground'
 	                )}
               >
                 <FileText className="w-3.5 h-3.5" />
-                Cleaned
+                清理结果
               </button>
 	              <button
 	                type="button"
@@ -174,12 +173,12 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
 	                className={cn(
 	                  'px-3 py-1.5 text-xs rounded-md flex items-center gap-1 focus-ring transition-colors duration-200 motion-reduce:transition-none',
 	                  mode === 'raw'
-	                    ? 'bg-card text-foreground shadow-sm'
-	                    : 'text-muted-foreground hover:text-foreground/80'
+	                    ? 'bg-background text-primary ring-1 ring-border'
+	                    : 'text-muted-foreground hover:text-foreground'
 	                )}
               >
                 <FileText className="w-3.5 h-3.5" />
-                Raw
+                原始结果
               </button>
             </div>
 
@@ -191,7 +190,7 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
                 disabled={!baseRun || !onUseRun}
                 onClick={() => baseRun && onUseRun?.(baseRun.id)}
               >
-                使用 Base
+                使用基准版本
               </Button>
               <Button
                 type="button"
@@ -199,17 +198,19 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
                 disabled={!compareRun || !onUseRun}
                 onClick={() => compareRun && onUseRun?.(compareRun.id)}
               >
-                使用 Compare
+                使用对比版本
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!diffText || diffText === '(no diff)'}
+                disabled={!diffText || diffText === NO_DIFF_TEXT}
+                aria-label="复制差异"
+                title="复制差异"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(diffText)
-                    toast.success('已复制 diff')
+                    toast.success('已复制差异')
                   } catch {
                     toast.error('复制失败')
                   }
@@ -221,23 +222,23 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
           </div>
 
           {elementDiffSummary ? (
-            <div className="rounded-xl border border-border bg-muted/15 p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <div className="rounded-md border border-border bg-muted/15 p-3">
+              <div className="mb-2 text-sm font-semibold text-foreground">
                 结构差异
               </div>
               <div className="flex flex-wrap gap-2">
-                <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                  <span>Base</span>
+                <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                  <span>基准版本</span>
                   <span className="font-mono font-semibold text-foreground">{elementDiffSummary.totalBase}</span>
                 </div>
-                <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-1 text-[11px] text-muted-foreground">
-                  <span>Compare</span>
+                <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                  <span>对比版本</span>
                   <span className="font-mono font-semibold text-foreground">{elementDiffSummary.totalCompare}</span>
                 </div>
                 {structureSummaryItems.map((item) => (
                   <div
                     key={item.label}
-                    className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-1 text-[11px] text-muted-foreground"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
                   >
                     <span>{item.label}</span>
                     <span className="font-mono font-semibold text-foreground">{item.value}</span>
@@ -268,8 +269,8 @@ export function ParseCompareDialog({ open, onOpenChange, runs, defaultBaseRunId,
           ) : null}
 
           {tooLarge ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-              文本过大，已跳过 diff 计算（超过 300k chars）。你仍可分别切换 run 查看输出。
+            <div className="rounded-md border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+              内容超过 30 万字符，已跳过差异计算。你仍可分别切换解析记录查看结果。
             </div>
           ) : (
             <Textarea value={diffText} readOnly className="font-mono min-h-[420px] text-xs" />

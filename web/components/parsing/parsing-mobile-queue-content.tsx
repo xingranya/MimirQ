@@ -55,11 +55,11 @@ export function ParsingMobileQueueContent({
 
  return (
  <>
- <div className="flex-none border-b border-border/60 bg-card/95 p-3">
+ <div className="flex-none border-b border-border bg-background p-3">
  <div className="flex items-center justify-between gap-3">
  <div className="min-w-0">
  <div className="text-sm font-semibold text-foreground">{t('mobileQueue.title')}</div>
- <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">{queueCountLabel}</div>
+ <div className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">已解析 {queueCountLabel}</div>
  </div>
 
  {parseableCount > 0 ? (
@@ -71,8 +71,8 @@ export function ParsingMobileQueueContent({
  </div>
  </div>
 
- <div className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain no-scrollbar bg-muted/20 p-3">
- <div className="rounded-2xl border border-border/60 bg-card p-2">
+ <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background no-scrollbar">
+ <div className="border-b border-border p-3">
  <DocumentFolderTree
  onRequestUpload={onRequestUploadToFolder}
  onRequestUploadFolder={onRequestUploadFolder}
@@ -91,10 +91,10 @@ export function ParsingMobileQueueContent({
  </div>
 
  {visibleQueueFiles.length > 0 ? (
- <div className="rounded-2xl border border-border/60 bg-card p-2">
- <div className="flex items-center justify-between px-2 pb-2">
+ <section className="border-b border-border p-3">
+ <div className="flex items-center justify-between pb-2">
  <div className="text-sm font-semibold text-foreground">{t('mobileQueue.currentSession')}</div>
- <div className="font-mono text-[11px] tabular-nums text-muted-foreground">{visibleQueueFiles.length}</div>
+ <div className="font-mono text-xs tabular-nums text-muted-foreground">{visibleQueueFiles.length}</div>
  </div>
  <div className="space-y-1">
  {visibleQueueFiles.map((file) => (
@@ -123,14 +123,14 @@ export function ParsingMobileQueueContent({
  />
  ))}
  </div>
- </div>
+ </section>
  ) : null}
 
  {visibleLibraryOnlyFiles.length > 0 ? (
- <div className="rounded-2xl border border-border/60 bg-card p-2">
- <div className="flex items-center justify-between px-2 pb-2">
+ <section className="p-3">
+ <div className="flex items-center justify-between pb-2">
  <div className="text-sm font-semibold text-foreground">{t('mobileQueue.library')}</div>
- <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
+ <div className="font-mono text-xs tabular-nums text-muted-foreground">
  {visibleLibraryOnlyFiles.length}
  </div>
  </div>
@@ -154,7 +154,7 @@ export function ParsingMobileQueueContent({
  />
  ))}
  </div>
- </div>
+ </section>
  ) : null}
  </div>
  </>

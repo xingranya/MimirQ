@@ -243,45 +243,45 @@ export function ParsingExtractPanel({
  }
 
  return (
- <div className={cn('border-b border-border/60 bg-muted/10 px-5 py-3', className)}>
+ <div className={cn('border-b border-border bg-background px-4 py-3', className)}>
  <div className="flex flex-wrap items-start justify-between gap-3">
  <div className="min-w-0">
- <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+ <div className="text-sm font-semibold text-foreground">
  结构化抽取
  </div>
- <div className="mt-1 text-[12px] leading-5 text-muted-foreground/80">
- 基于当前解析结果快速抽取字段，并返回页码与 bbox 证据。
+ <div className="mt-1 text-xs leading-5 text-muted-foreground">
+ 从当前解析结果中提取字段，并返回对应页码和位置。
  </div>
  </div>
  <div className="flex items-center gap-2">
  <button
  type="button"
  onClick={() => setIsCollapsed((current) => !current)}
- className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground/80"
+ className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
  >
  {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
  {isCollapsed ? '展开' : '收起'}
  </button>
- <div className="inline-flex items-center rounded-lg border border-border bg-card p-1">
+ <div className="inline-flex items-center rounded-md border border-border bg-muted/30 p-1">
  <button
  type="button"
  onClick={() => setMode('schema')}
  className={cn(
  'rounded-md px-3 py-1.5 text-xs transition-colors duration-150',
- mode === 'schema' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground/80'
+ mode === 'schema' ? 'bg-background text-primary ring-1 ring-border' : 'text-muted-foreground hover:text-foreground'
  )}
  >
- Schema
+ 按字段
  </button>
  <button
  type="button"
  onClick={() => setMode('prompt')}
  className={cn(
  'rounded-md px-3 py-1.5 text-xs transition-colors duration-150',
- mode === 'prompt' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground/80'
+ mode === 'prompt' ? 'bg-background text-primary ring-1 ring-border' : 'text-muted-foreground hover:text-foreground'
  )}
  >
- Prompt
+ 按要求
  </button>
  </div>
  </div>
@@ -289,10 +289,10 @@ export function ParsingExtractPanel({
 
  {isCollapsed ? null : (
  <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
- <div className="rounded-xl border border-border/60 bg-card p-3">
+ <div className="rounded-md border border-border bg-background p-3">
  <div className="grid gap-3 sm:grid-cols-2">
  <div className="space-y-1.5">
- <div className="text-[11px] font-medium text-muted-foreground">字段名</div>
+ <div className="text-xs font-medium text-muted-foreground">字段名</div>
  <Input
  value={mode === 'schema' ? schemaFieldName : promptFieldName}
  onChange={(event) =>
@@ -302,13 +302,13 @@ export function ParsingExtractPanel({
  />
  </div>
  <div className="space-y-1.5">
- <div className="text-[11px] font-medium text-muted-foreground">来源 kind</div>
+ <div className="text-xs font-medium text-muted-foreground">来源类型</div>
  <select
  value={mode === 'schema' ? schemaSourceKind : promptSourceKind}
  onChange={(event) =>
  mode === 'schema' ? setSchemaSourceKind(event.target.value) : setPromptSourceKind(event.target.value)
  }
- className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm"
+ className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
  >
  {availableKinds.map((kind) => (
  <option key={kind || 'auto'} value={kind}>
@@ -321,7 +321,7 @@ export function ParsingExtractPanel({
 
  {showVisualKindField ? (
  <div className="mt-3 space-y-1.5">
- <div className="text-[11px] font-medium text-muted-foreground">来源 visual kind</div>
+ <div className="text-xs font-medium text-muted-foreground">图片类型</div>
  <select
  value={mode === 'schema' ? schemaSourceVisualKind : promptSourceVisualKind}
  onChange={(event) =>
@@ -329,7 +329,7 @@ export function ParsingExtractPanel({
  ? setSchemaSourceVisualKind(event.target.value)
  : setPromptSourceVisualKind(event.target.value)
  }
- className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm"
+ className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
  >
  {availableVisualKinds.map((visualKind) => (
  <option key={visualKind || 'auto'} value={visualKind}>
@@ -341,7 +341,7 @@ export function ParsingExtractPanel({
  ) : null}
 
  <div className="mt-3 space-y-1.5">
- <div className="text-[11px] font-medium text-muted-foreground">别名</div>
+ <div className="text-xs font-medium text-muted-foreground">别名</div>
  <Input
  value={mode === 'schema' ? schemaAliases : promptAliases}
  onChange={(event) =>
@@ -353,7 +353,7 @@ export function ParsingExtractPanel({
 
  {mode === 'prompt' ? (
  <div className="mt-3 space-y-1.5">
- <div className="text-[11px] font-medium text-muted-foreground">提示词</div>
+ <div className="text-xs font-medium text-muted-foreground">提取要求</div>
  <Textarea
  value={promptText}
  onChange={(event) => setPromptText(event.target.value)}
@@ -364,8 +364,8 @@ export function ParsingExtractPanel({
  ) : null}
 
  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
- <div className="text-[11px] text-muted-foreground/80">
- {documentId ? `doc: ${documentId}` : '当前文件尚未持久化，无法抽取'}
+ <div className="text-xs text-muted-foreground">
+ {documentId ? '已连接当前文档' : '当前文件尚未保存，暂时无法抽取'}
  </div>
  <Button
  type="button"
@@ -377,24 +377,24 @@ export function ParsingExtractPanel({
  运行抽取
  </Button>
  </div>
- {error ? <div className="mt-2 text-xs text-destructive">{error}</div> : null}
+ {error ? <div role="alert" className="mt-2 text-xs text-destructive">{error}</div> : null}
  </div>
 
- <div className="rounded-xl border border-border/60 bg-card p-3">
- <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+ <div className="rounded-md border border-border bg-background p-3">
+ <div className="text-sm font-semibold text-foreground">
  抽取结果
  </div>
  {result ? (
  <div className="mt-2 space-y-2">
  {Object.entries(result.result || {}).map(([fieldName, field]) => (
- <div key={fieldName} className="rounded-lg border border-border/60 bg-muted/10 p-2.5">
+ <div key={fieldName} className="rounded-md border border-border bg-muted/20 p-2.5">
  <div className="flex flex-wrap items-center gap-2">
- <span className="text-[11px] font-medium text-foreground">{fieldName}</span>
- <span className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground">
- {field.strategy || 'unknown'}
+ <span className="text-xs font-medium text-foreground">{fieldName}</span>
+ <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+ {field.strategy || '自动识别'}
  </span>
  {typeof field.confidence === 'number' ? (
- <span className="font-mono text-[11px] text-muted-foreground">{field.confidence.toFixed(2)}</span>
+ <span className="font-mono text-xs text-muted-foreground">置信度 {field.confidence.toFixed(2)}</span>
  ) : null}
  </div>
  <div className="mt-1 text-sm font-medium text-foreground">{field.value || '无结果'}</div>
@@ -406,7 +406,7 @@ export function ParsingExtractPanel({
  type="button"
  onClick={() => onSelectEvidence?.({ fieldName, evidence })}
  data-testid="extract-evidence-button"
- className="w-full rounded-md border border-border/60 bg-card px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+ className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
  >
  <div className="flex flex-wrap items-center gap-2">
  {formatEvidencePages(evidence) ? <span>{formatEvidencePages(evidence)}</span> : null}
@@ -415,8 +415,8 @@ export function ParsingExtractPanel({
  {evidence.element_id ? <span>{evidence.element_id}</span> : null}
  </div>
  {evidence.bbox ? (
- <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/85">
- bbox {formatBbox(evidence.bbox)}
+ <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+ 坐标 {formatBbox(evidence.bbox)}
  </div>
  ) : null}
  </button>
@@ -427,7 +427,7 @@ export function ParsingExtractPanel({
  ))}
  </div>
  ) : (
- <div className="mt-3 text-sm text-muted-foreground/80">运行抽取后，这里会显示 value、confidence 和 evidence。</div>
+ <div className="mt-3 text-sm text-muted-foreground">运行抽取后，这里会显示字段值、置信度和证据位置。</div>
  )}
  </div>
  </div>

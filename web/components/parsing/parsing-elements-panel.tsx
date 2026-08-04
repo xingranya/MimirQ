@@ -124,20 +124,20 @@ export function ParsingElementsPanel({
  if (!elements.length) return null
 
  return (
- <div className={cn('border-b border-border/60 bg-card px-5 py-2.5', className)}>
+ <div className={cn('border-b border-border bg-background px-4 py-3', className)}>
  <div className="flex flex-wrap items-center justify-between gap-3">
  <div>
  <div className="flex flex-wrap items-center gap-2">
- <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
- 结构元素列表
+ <div className="text-sm font-semibold text-foreground">
+ 结构元素
  </div>
- <span className="rounded-full border border-border/60 bg-card px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
- {elements.length} items
+ <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs text-muted-foreground">
+ {elements.length} 项
  </span>
  </div>
  {isCollapsed ? null : (
- <div className="mt-1 text-[12px] leading-5 text-muted-foreground/80">
- 直接筛选并审阅印章、公式、表格、图片等结构元素。
+ <div className="mt-1 text-xs leading-5 text-muted-foreground">
+ 筛选并检查印章、公式、表格和图片等内容。
  </div>
  )}
  </div>
@@ -152,10 +152,10 @@ export function ParsingElementsPanel({
  if (kind !== 'image') setFilterVisualKind('all')
  }}
  className={cn(
- 'rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+ 'rounded-md border px-2.5 py-1 text-xs transition-colors',
  filterKind === kind
  ? 'border-primary/40 bg-primary/10 text-foreground'
- : 'border-border/60 bg-card text-muted-foreground hover:text-foreground/80'
+ : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
  )}
  >
  {kind === 'all' ? '全部' : kindLabel(kind)}
@@ -165,7 +165,7 @@ export function ParsingElementsPanel({
  <button
  type="button"
  onClick={() => setIsCollapsed((current) => !current)}
- className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground/80"
+ className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
  >
  {isCollapsed ? '展开' : '收起'}
  </button>
@@ -180,10 +180,10 @@ export function ParsingElementsPanel({
  type="button"
  onClick={() => setFilterVisualKind(visualKind)}
  className={cn(
- 'rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+ 'rounded-md border px-2.5 py-1 text-xs transition-colors',
  filterVisualKind === visualKind
  ? 'border-primary/40 bg-primary/10 text-foreground'
- : 'border-border/60 bg-card text-muted-foreground hover:text-foreground/80'
+ : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
  )}
  >
  {visualKind === 'all' ? '全部图片子类' : visualKind}
@@ -210,10 +210,10 @@ export function ParsingElementsPanel({
  key={String(element.id)}
  type="button"
  onClick={() => onSelectElement?.(element)}
- className="rounded-xl border border-border/60 bg-card px-3 py-2 text-left transition-colors hover:border-primary/35 hover:bg-primary/5"
+ className="rounded-md border border-border bg-background px-3 py-2 text-left transition-colors hover:border-primary/35 hover:bg-primary/5"
  >
  {imageSrc ? (
- <div className="mb-2 overflow-hidden rounded-lg border border-border/60 bg-muted/35">
+ <div className="mb-2 overflow-hidden rounded-md border border-border bg-muted/20">
  <AuthImage
  src={imageSrc}
  alt={String(element.text || element.id || 'image')}
@@ -225,31 +225,31 @@ export function ParsingElementsPanel({
  </div>
  ) : null}
  <div className="flex flex-wrap items-center gap-2">
- <span className="text-[11px] font-medium text-foreground">{kindLabel(String(element.kind || 'paragraph'))}</span>
- {pageLabel ? <span className="font-mono text-[11px] text-muted-foreground">{pageLabel}</span> : null}
- <span className="font-mono text-[11px] text-muted-foreground">{element.id}</span>
+ <span className="text-xs font-medium text-foreground">{kindLabel(String(element.kind || 'paragraph'))}</span>
+ {pageLabel ? <span className="font-mono text-xs text-muted-foreground">{pageLabel}</span> : null}
+ <span className="font-mono text-xs text-muted-foreground">编号 {element.id}</span>
 	 {typeof attributes?.source_content_type === 'string' ? (
-	 <span className="rounded-full border border-border/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-	 {attributes.source_content_type}
+	 <span className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground">
+	 来源 {attributes.source_content_type}
 	 </span>
 	 ) : null}
 	 {visualKind ? (
-	 <span className="rounded-full border border-border/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-	 {visualKind}
+	 <span className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground">
+	 图片类型 {visualKind}
 	 </span>
 	 ) : null}
 	 {typeof element.confidence === 'number' ? (
-	 <span className="font-mono text-[11px] text-muted-foreground">{element.confidence.toFixed(2)}</span>
+	 <span className="font-mono text-xs text-muted-foreground">置信度 {element.confidence.toFixed(2)}</span>
 	 ) : null}
  {crossPageLabel ? (
- <span className="rounded-full border border-border/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+ <span className="rounded-md border border-border px-1.5 py-0.5 text-xs text-muted-foreground">
  {crossPageLabel}
  </span>
  ) : null}
  </div>
  {element.text ? <div className="mt-1 truncate text-sm text-foreground/85">{element.text}</div> : null}
  {element.bbox ? (
- <div className="mt-1 font-mono text-[11px] text-muted-foreground">bbox {formatBbox(element.bbox)}</div>
+ <div className="mt-1 font-mono text-xs text-muted-foreground">坐标 {formatBbox(element.bbox)}</div>
  ) : null}
  </button>
  )

@@ -1432,8 +1432,8 @@ export function PdfViewer({
  if (loadError || !pdfDoc) {
  return (
  <div className="flex h-full items-center justify-center px-6">
- <div className="max-w-md rounded-2xl border border-border/60 bg-card p-5 text-center shadow-sm">
- <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+ <div className="max-w-md rounded-md border border-border bg-background p-5 text-center">
+ <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-md bg-destructive/10 text-destructive">
  <AlertCircle className="h-5 w-5" />
  </div>
  <div className="text-sm font-semibold text-foreground">PDF 加载失败</div>
@@ -1477,7 +1477,7 @@ export function PdfViewer({
  pageRefs.current.delete(index)
  }}
  data-page-index={index}
- className="relative rounded-xl bg-card shadow-sm ring-1 ring-border/60"
+ className="relative overflow-hidden rounded-md bg-background ring-1 ring-border"
  style={pageStyle}
  >
  <canvas
@@ -1488,20 +1488,20 @@ export function PdfViewer({
  }
  canvasRefs.current.delete(index)
  }}
- className="block h-auto w-full rounded-xl"
+ className="block h-auto w-full"
  style={pageAspectRatio ? { aspectRatio: String(pageAspectRatio) } : undefined}
  />
  {isRendered ? null : isPageFailed ? (
  <button
  type="button"
- className="absolute inset-0 flex items-center justify-center rounded-xl bg-card text-xs font-medium text-foreground transition hover:bg-card"
+ className="absolute inset-0 flex items-center justify-center bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted"
  onClick={() => retryPageRender(index)}
  >
  <RotateCcw className="mr-2 h-4 w-4" />
  {failedPlaceholderLabel}
  </button>
  ) : (
- <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-card text-xs text-muted-foreground" aria-label={pagePlaceholderLabel}>
+ <div className="absolute inset-0 flex items-center justify-center bg-background text-xs text-muted-foreground" aria-label={pagePlaceholderLabel}>
  {isPageLoading ? (
  <>
  <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />

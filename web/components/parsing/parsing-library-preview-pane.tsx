@@ -99,16 +99,16 @@ export function ParsingLibraryPreviewPane({
 
  return (
  <div className="flex flex-1 flex-col min-h-0">
- <div className="border-b border-border/60 bg-card/95 px-6 py-2 dark:bg-card">
+ <div className="border-b border-border bg-background px-4 py-3">
  <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
  <div className="min-w-0">
  <div className="flex flex-wrap items-center gap-2">
- <span className="inline-flex max-w-[560px] min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-card px-2.5 py-1 text-sm font-semibold text-foreground dark:bg-background/20">
- {getFileIcon(file.filename, 'w-7 h-7 rounded-lg')}
+ <span className="inline-flex max-w-[560px] min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+ {getFileIcon(file.filename, 'size-7 rounded-md')}
  <span className="min-w-0 truncate">{file.filename}</span>
  </span>
  <span
- className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground dark:bg-muted/60 dark:text-muted-foreground"
+ className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
  title={folderPathLabel}
  >
  <FolderOpen className="h-3 w-3" />
@@ -116,7 +116,7 @@ export function ParsingLibraryPreviewPane({
  </span>
  {statusBadge ? (
  <span
- className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', statusBadge.cls)}
+ className={cn('rounded-md border px-2 py-0.5 text-xs font-medium', statusBadge.cls)}
  title={file.status}
  >
  {statusBadge.label}
@@ -143,7 +143,7 @@ export function ParsingLibraryPreviewPane({
  {pendingParseAction ? (
  <Button
  size="sm"
- className="h-8 gap-1.5 rounded-full bg-info px-3 text-[11px] hover:bg-info"
+ className="h-8 gap-1.5 rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
  onClick={pendingParseAction.onClick}
  title={pendingParseAction.title}
  >
@@ -157,7 +157,7 @@ export function ParsingLibraryPreviewPane({
  <Button
  variant="outline"
  size="icon"
- className="h-8 w-8 rounded-full"
+ className="h-8 w-8 rounded-md"
  aria-label={t('libraryPreview.moreActions')}
  title={t('libraryPreview.more')}
  >
@@ -201,14 +201,14 @@ export function ParsingLibraryPreviewPane({
 
  <div className="flex-1 overflow-hidden min-h-0">
  {activeMarkdown ? (
- <ParsingRightPanel className="h-full no-scrollbar px-6 py-6">
+ <ParsingRightPanel className="h-full px-4 py-4 no-scrollbar md:px-6 md:py-5">
  <MarkdownRenderer markdown={activeMarkdown} />
  </ParsingRightPanel>
  ) : (
  <div className="flex h-full items-center justify-center">
  <div className="max-w-md text-center">
- <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-2xl border border-border/60 bg-card shadow-soft">
- <FolderOpen className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" />
+ <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-md border border-border bg-muted">
+ <FolderOpen className="size-5 text-muted-foreground" />
  </div>
  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{t('libraryPreview.emptyTitle')}</p>
  <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">{t('libraryPreview.emptyDescription')}</p>

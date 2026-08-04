@@ -40,11 +40,6 @@ import { ParsingMobileQueueContent } from '@/components/parsing/parsing-mobile-q
 import { ParsingSidebarPane } from '@/components/parsing/parsing-sidebar-pane'
 import { Button } from '@/components/ui/button'
 import {
-  KnowledgeOpsFlowCard,
-  KnowledgeOpsHero,
-  KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS,
-} from '@/components/ui/knowledge-ops-hero'
-import {
   PipelineRail,
   WorkbenchPanelDialog,
   WorkbenchScaffold,
@@ -281,13 +276,6 @@ function parsingRunActionLabel(status: string | null) {
   return '开始'
 }
 
-function parsingGovernanceButtonClass(canSubmitToGovernance: boolean) {
-  if (canSubmitToGovernance) {
-    return 'border-info/25 bg-[linear-gradient(90deg,hsl(var(--info)),hsl(var(--primary)))] text-info-foreground shadow-[0_12px_24px_-20px_hsl(var(--info)/0.85)] hover:brightness-105'
-  }
-  return 'border-info/20 bg-info/[0.10] text-info/70'
-}
-
 function ParsingInspectorCard({
   title,
   icon: Icon,
@@ -298,12 +286,12 @@ function ParsingInspectorCard({
   children: React.ReactNode
 }>) {
   return (
-    <section className="rounded-[18px] border border-border/60 bg-background/55 p-4 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.24)]">
+    <section className="rounded-md border border-border bg-background p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex size-6 items-center justify-center rounded-lg bg-info/[0.08] text-info">
+        <span className="flex size-7 items-center justify-center rounded-md bg-muted text-primary">
           <Icon className="size-3.5" />
         </span>
-        <h2 className="text-[13px] font-semibold text-foreground">{title}</h2>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       </div>
       {children}
     </section>
@@ -324,21 +312,21 @@ function ParsingInspectorDisclosure({
   return (
     <details
       open={defaultOpen}
-      className="group rounded-[18px] border border-border/60 bg-background/55 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.24)]"
+      className="group rounded-md border border-border bg-background"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="flex size-6 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <span className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
             <Icon className="size-3.5" />
           </span>
-          <span className="truncate text-[13px] font-semibold text-foreground">{title}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{title}</span>
         </span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           <span className="group-open:hidden">展开</span>
           <span className="hidden group-open:inline">收起</span>
         </span>
       </summary>
-      <div className="border-t border-border/55 px-4 py-3">{children}</div>
+      <div className="border-t border-border px-4 py-3">{children}</div>
     </details>
   )
 }
@@ -349,11 +337,11 @@ function ParsingMetricGrid({
   items: Array<{ label: string; value: string | number }>
 }>) {
   return (
-    <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-border/55 bg-card/80">
+    <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border bg-background">
       {items.map((item) => (
         <div key={item.label} className="border-b border-r border-border/50 px-3 py-2 last:border-r-0">
-          <div className="text-[11px] text-muted-foreground">{item.label}</div>
-          <div className="mt-0.5 font-mono text-[13px] font-semibold tabular-nums text-foreground">
+          <div className="text-xs text-muted-foreground">{item.label}</div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-foreground">
             {item.value}
           </div>
         </div>
@@ -407,18 +395,18 @@ function ParsingStatusMetricGrid({
           <div
             key={item.label}
             className={cn(
-              'rounded-xl border px-3 py-2 shadow-[inset_0_1px_0_hsl(var(--background)/0.65)]',
+              'rounded-md border px-3 py-2',
               tone.card
             )}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <span className={cn('size-1.5 shrink-0 rounded-full', tone.dot)} />
                 <span className="truncate">{item.label}</span>
               </span>
               <span
                 className={cn(
-                  'font-mono text-[15px] font-semibold tabular-nums leading-none',
+                  'font-mono text-base font-semibold tabular-nums leading-none',
                   tone.value
                 )}
               >
@@ -454,7 +442,6 @@ function ParsingInspectorPanel({
   onRestoreLibraryFile,
   onRequestRebindLibraryFile,
   onSubmitSelectedToGovernance,
-  onSubmitToGovernance,
 }: Readonly<{
   activeFile: ParsedFile | null
   activeLibraryFile: ParsedFileData | null
@@ -477,7 +464,6 @@ function ParsingInspectorPanel({
   onRestoreLibraryFile: (autoParse: boolean) => void
   onRequestRebindLibraryFile: (autoParse: boolean) => void
   onSubmitSelectedToGovernance: () => void
-  onSubmitToGovernance: () => void
 }>) {
   const selectedName = activeFile?.file.name || activeLibraryFile?.filename || ''
   const selectedSize = activeFile?.file.size ?? activeLibraryFile?.fileSize ?? null
@@ -520,7 +506,6 @@ function ParsingInspectorPanel({
     },
   ]
   const canUseMarkdownActions = Boolean(markdown.trim())
-  const canSubmitToGovernance = Boolean(activeFile && canUseMarkdownActions)
   const hasSelection = Boolean(selectedName)
   const selectedError = activeFile?.error || activeLibraryFile?.error || ''
   const selectedProgress = Math.round(activeFile?.progress || (activeFile?.status === 'parsed' ? 100 : 0))
@@ -542,7 +527,7 @@ function ParsingInspectorPanel({
         <Button
           type="button"
           size="sm"
-          className="h-8 gap-1.5 rounded-xl bg-primary text-[12px]"
+          className="h-8 gap-1.5 rounded-md bg-primary text-xs"
           onClick={() => onParseFile(activeFile.id)}
         >
           <RotateCcw className="size-3.5" />
@@ -555,7 +540,7 @@ function ParsingInspectorPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 gap-1.5 rounded-xl text-[12px]"
+            className="h-8 gap-1.5 rounded-md text-xs"
             onClick={() => onRestoreLibraryFile(false)}
           >
             <FileStack className="size-3.5" />
@@ -565,7 +550,7 @@ function ParsingInspectorPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 gap-1.5 rounded-xl text-[12px]"
+            className="h-8 gap-1.5 rounded-md text-xs"
             onClick={() => onRequestRebindLibraryFile(false)}
           >
             <RotateCcw className="size-3.5" />
@@ -577,7 +562,7 @@ function ParsingInspectorPanel({
         type="button"
         size="sm"
         variant="outline"
-        className="h-8 gap-1.5 rounded-xl text-[12px]"
+        className="h-8 gap-1.5 rounded-md text-xs"
         disabled={!canUseMarkdownActions}
         onClick={onCopyMarkdown}
       >
@@ -588,48 +573,35 @@ function ParsingInspectorPanel({
         type="button"
         size="sm"
         variant="outline"
-        className="h-8 gap-1.5 rounded-xl text-[12px]"
+        className="h-8 gap-1.5 rounded-md text-xs"
         disabled={!canUseMarkdownActions}
         onClick={onDownloadMarkdown}
       >
         <Download className="size-3.5" />
         导出
       </Button>
-      <Button
-        type="button"
-        size="sm"
-        className={cn(
-          'col-span-2 h-8 gap-1.5 rounded-xl border text-[12px] font-semibold shadow-none disabled:opacity-100',
-          parsingGovernanceButtonClass(canSubmitToGovernance)
-        )}
-        disabled={!canSubmitToGovernance}
-        onClick={onSubmitToGovernance}
-      >
-        <ShieldCheck className="size-3.5" />
-        提交到数据治理
-      </Button>
     </div>
   )
 
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain rounded-[24px] border border-border/70 bg-card/96 p-4 shadow-[0_24px_60px_-46px_rgba(15,23,42,0.42)] backdrop-blur-sm">
+    <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain rounded-md border border-border bg-background p-3">
       {readyGovernanceCount > 0 ? (
         <ParsingInspectorCard title="批量提交" icon={ShieldCheck}>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-[12px]">
-              <div className="rounded-xl border border-warning/25 bg-warning/[0.08] px-3 py-2">
-                <div className="text-[11px] text-muted-foreground">待提交</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-warning">{readyGovernanceCount}</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-md border border-warning/25 bg-warning/[0.08] px-3 py-2">
+                <div className="text-xs text-muted-foreground">待提交</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-warning">{readyGovernanceCount}</div>
               </div>
-              <div className="rounded-xl border border-info/25 bg-info/[0.08] px-3 py-2">
-                <div className="text-[11px] text-muted-foreground">已选择</div>
-                <div className="mt-0.5 font-mono text-[16px] font-semibold text-info">{selectedReadyGovernanceCount}</div>
+              <div className="rounded-md border border-info/25 bg-info/[0.08] px-3 py-2">
+                <div className="text-xs text-muted-foreground">已选择</div>
+                <div className="mt-0.5 font-mono text-base font-semibold text-info">{selectedReadyGovernanceCount}</div>
               </div>
             </div>
             <Button
               type="button"
               size="sm"
-              className="h-9 w-full gap-1.5 rounded-xl bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary/90"
+              className="h-9 w-full gap-1.5 rounded-md bg-primary text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               disabled={selectedReadyGovernanceCount === 0}
               onClick={onSubmitSelectedToGovernance}
             >
@@ -645,35 +617,35 @@ function ParsingInspectorPanel({
           <details
             open
             data-testid="parsing-selected-file-summary"
-            className="group rounded-[18px] border border-border/70 bg-card/96 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.36)]"
+            className="group rounded-md border border-border bg-background"
           >
             <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-4 [&::-webkit-details-marker]:hidden">
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <div className="truncate text-[13px] font-semibold text-foreground" title={selectedName}>
+                  <div className="truncate text-sm font-semibold text-foreground" title={selectedName}>
                     {selectedName}
                   </div>
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     <span className="group-open:hidden">展开</span>
                     <span className="hidden group-open:inline">收起</span>
                   </span>
                 </div>
               </div>
-              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold ${statusToneClass}`}>
+              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${statusToneClass}`}>
                 {statusIcon}
                 {statusLabel}
               </span>
             </summary>
 
             <div className="border-t border-border/55 px-4 pb-4 pt-3">
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="rounded-full border border-border/60 bg-background px-2 py-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="rounded-md border border-border bg-background px-2 py-0.5">
                   {getFileExtension(selectedName)}
                 </span>
-                <span className="rounded-full border border-border/60 bg-background px-2 py-0.5">
+                <span className="rounded-md border border-border bg-background px-2 py-0.5">
                   {formatFileSize(selectedSize)}
                 </span>
-                <span className="rounded-full border border-border/60 bg-background px-2 py-0.5">
+                <span className="rounded-md border border-border bg-background px-2 py-0.5">
                   {selectedParser}
                 </span>
               </div>
@@ -681,17 +653,17 @@ function ParsingInspectorPanel({
               {selectedError || activeFile ? (
                 <div className="mt-3">
                   {selectedError ? (
-                    <div className="rounded-xl border border-destructive/20 bg-destructive/[0.06] p-3">
-                      <div className="flex items-center gap-2 text-[12px] font-semibold text-destructive">
+                    <div className="rounded-md border border-destructive/20 bg-destructive/[0.06] p-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
                         <AlertCircle className="size-3.5" />
                         解析失败
                       </div>
-                      <p className="mt-2 text-[12px] leading-5 text-destructive/85">{selectedError}</p>
+                      <p className="mt-2 text-xs leading-5 text-destructive/85">{selectedError}</p>
                       {activeFile ? (
                         <Button
                           type="button"
                           size="sm"
-                          className="mt-3 h-8 gap-1.5 rounded-xl bg-destructive text-[12px] text-destructive-foreground hover:bg-destructive/90"
+                          className="mt-3 h-8 gap-1.5 rounded-md bg-destructive text-xs text-destructive-foreground hover:bg-destructive/90"
                           onClick={() => onParseFile(activeFile.id)}
                         >
                           <RotateCcw className="size-3.5" />
@@ -702,15 +674,15 @@ function ParsingInspectorPanel({
                   ) : null}
 
                   {activeFile ? (
-                    <div className={cn('grid grid-cols-2 gap-2 text-[12px]', selectedError && 'mt-3')}>
-                      <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-                        <div className="text-[11px] text-muted-foreground">解析耗时</div>
+                    <div className={cn('grid grid-cols-2 gap-2 text-xs', selectedError && 'mt-3')}>
+                      <div className="rounded-md border border-border bg-background px-3 py-2">
+                        <div className="text-xs text-muted-foreground">解析耗时</div>
                         <div className="mt-0.5 font-mono font-semibold text-foreground">
                           {typeof activeFile.duration === 'number' ? `${activeFile.duration}s` : '-'}
                         </div>
                       </div>
-                      <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-                        <div className="text-[11px] text-muted-foreground">完成进度</div>
+                      <div className="rounded-md border border-border bg-background px-3 py-2">
+                        <div className="text-xs text-muted-foreground">完成进度</div>
                         <div className="mt-0.5 font-mono font-semibold text-foreground">{selectedProgress}%</div>
                       </div>
                     </div>
@@ -721,15 +693,15 @@ function ParsingInspectorPanel({
           </details>
 
           <ParsingInspectorDisclosure title="解析详情" icon={Info}>
-            <div className="space-y-3 text-[12px]">
+            <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">解析器</span>
-                <span className="rounded-xl border border-border/60 bg-background px-2.5 py-1 font-semibold text-foreground">
+                <span className="rounded-md border border-border bg-background px-2.5 py-1 font-semibold text-foreground">
                   {selectedParser}
                 </span>
               </div>
               <p className="leading-5 text-muted-foreground">
-                系统根据文件类型选择解析策略，并把结果转换为 Markdown，后续可进入治理、切块和对话链路。
+                系统会按文件类型选择解析方式，并将内容转为 Markdown。确认内容后即可提交治理。
               </p>
               <div className="h-px bg-border/60" />
               {fileInfoRows.map(([label, value]) => (
@@ -756,19 +728,19 @@ function ParsingInspectorPanel({
           <ParsingInspectorCard title="解析信息" icon={Info}>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-[12px] font-medium text-muted-foreground">解析器</div>
-                <div className="rounded-xl border border-border/60 bg-background px-2.5 py-1 text-[12px] font-semibold text-foreground">
+                <div className="text-xs font-medium text-muted-foreground">解析器</div>
+                <div className="rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground">
                   {selectedParser}
                 </div>
               </div>
-              <p className="text-[12px] leading-5 text-muted-foreground">
-                系统根据文件类型选择解析策略，并把结果转换为 Markdown，后续可进入治理、切块和对话链路。
+              <p className="text-xs leading-5 text-muted-foreground">
+                系统会按文件类型选择解析方式，并将内容转为 Markdown。确认内容后即可提交治理。
               </p>
             </div>
           </ParsingInspectorCard>
 
           <ParsingInspectorCard title="文件信息" icon={FileText}>
-            <div className="space-y-2.5 text-[12px]">
+            <div className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">当前范围</span>
                 <span className="font-medium text-foreground">
@@ -784,7 +756,7 @@ function ParsingInspectorPanel({
 
           <ParsingInspectorCard title="解析状态" icon={CheckCircle2}>
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-success/25 bg-success/[0.08] px-3 py-1 text-[12px] font-semibold text-success">
+              <div className="inline-flex items-center gap-2 rounded-md border border-success/25 bg-success/[0.08] px-3 py-1 text-xs font-semibold text-success">
                 <CheckCircle2 className="size-3.5" />
                 {statusLabel}
               </div>
@@ -924,7 +896,7 @@ function ResizableParsingInspectorRail({
   return (
     <aside
       data-testid="parsing-static-inspector"
-      className="group/inspector relative hidden min-h-0 shrink-0 overflow-visible transition-[width] duration-200 ease-out motion-reduce:transition-none 2xl:flex"
+      className="group/inspector relative hidden min-h-0 shrink-0 overflow-visible transition-[width] duration-150 ease-out motion-reduce:transition-none 2xl:flex"
       style={{ width: inspectorCollapsed ? COLLAPSED_PARSING_INSPECTOR_HOTZONE_WIDTH : inspectorWidth }}
     >
       <Button
@@ -934,8 +906,7 @@ function ResizableParsingInspectorRail({
         aria-label={inspectorCollapsed ? '展开解析信息侧栏' : '收起解析信息侧栏'}
         title={inspectorCollapsed ? '展开解析信息侧栏' : '收起解析信息侧栏'}
         className={cn(
-          'absolute top-3 z-30 size-8 rounded-xl border border-border/60 bg-card/95 text-muted-foreground shadow-[0_14px_28px_-22px_rgba(15,23,42,0.50)] backdrop-blur-sm transition-[left,opacity,background-color,color,box-shadow] duration-200 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-info/35',
-          'opacity-0 hover:opacity-100 focus-visible:opacity-100',
+          'absolute top-3 z-30 size-8 rounded-md border border-border bg-background text-muted-foreground transition-[left,background-color,color] duration-150 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-info/35',
           inspectorCollapsed ? 'left-0' : 'left-[-0.875rem]'
         )}
         onClick={() => setInspectorCollapsed((collapsed) => !collapsed)}
@@ -1259,71 +1230,41 @@ export function ParsingWorkbenchShell({
   ])
 
   return (
-    <AppFrame mainClassName="bg-[radial-gradient(circle_at_82%_0%,hsl(var(--info)/0.12),transparent_30%),radial-gradient(circle_at_18%_6%,hsl(var(--primary)/0.06),transparent_24%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.18)_48%,hsl(var(--background))_100%)]">
+    <AppFrame showBackground={false}>
       <WorkbenchScaffold
         title={t('title')}
         description={t('description')}
-        header={
-          <header data-testid="parsing-workbench-title">
-            <KnowledgeOpsHero
-              iconImage="parsing"
-              badge="文档资产治理中枢"
-              title={t('title')}
-              description={t('description')}
-              summary={
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className={KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS}>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="size-1 rounded-full bg-info/70" aria-hidden />
-                      {selectedDatasetId ? '数据集' : '全部来源'}
-                    </span>
-                    <span className="min-w-0 truncate font-medium text-foreground">
-                      {selectedDatasetId || activeFolderPathLabel}
-                    </span>
-                    <span className="h-3.5 w-px bg-border/70" />
-                    <span>文件</span>
-                    <span className="font-mono tabular-nums text-foreground">
-                      {currentFolderFileCount}
-                    </span>
-                  </div>
-                  <KnowledgeOpsFlowCard
-                    steps={[
-                      { icon: UploadCloud, label: '上传' },
-                      { icon: FileText, label: '解析' },
-                      { icon: ShieldCheck, label: '治理' },
-                    ]}
-                  />
-                </div>
-              }
-              actions={
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 lg:hidden"
-                    onClick={() => setQueueOpen(true)}
-                  >
-                    <FileStack className="w-4 h-4" />
-                    {t('queue')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 lg:hidden"
-                    onClick={() => setInspectorOpen(true)}
-                  >
-                    <Settings2 className="w-4 h-4" />
-                    {t('tools')}
-                  </Button>
-                </>
-              }
-            />
-          </header>
+        iconImage="parsing"
+        badge={`${currentFolderFileCount} 个文件`}
+        actions={
+          <div
+            data-testid="parsing-workbench-title"
+            className="flex items-center gap-2 2xl:hidden"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 lg:hidden"
+              onClick={() => setQueueOpen(true)}
+            >
+              <FileStack className="size-4" />
+              {t('queue')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setInspectorOpen(true)}
+            >
+              <Settings2 className="size-4" />
+              {t('tools')}
+            </Button>
+          </div>
         }
         size="full"
-        bodyClassName="pb-5"
+        bodyClassName="pb-4 md:pb-6"
         pipelineRail={<PipelineRail />}
         mainPanel={
           <div
@@ -1410,10 +1351,10 @@ export function ParsingWorkbenchShell({
             <ParsingMainPanel
               data-testid="parsing-main-panel"
               className={cn(
-                'relative overflow-hidden rounded-[24px] border bg-card/96 shadow-[0_24px_64px_-48px_rgba(15,23,42,0.42)] backdrop-blur-sm',
+                'relative overflow-hidden rounded-md border bg-background',
                 activeFile || activeLibraryFile
-                  ? 'border-border/70'
-                  : 'border-dashed border-info/30'
+                  ? 'border-border'
+                  : 'border-dashed border-border'
               )}
             >
               <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background">
@@ -1498,7 +1439,7 @@ export function ParsingWorkbenchShell({
                 ) : (
                   <button
                     type="button"
-                    className="relative flex flex-1 items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_38%,hsl(var(--info)/0.10),transparent_24%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--info)/0.05)_48%,hsl(var(--background)))]"
+                    className="flex flex-1 items-center justify-center overflow-hidden bg-background px-6 py-10 text-left transition-colors hover:bg-muted/20"
                     onClick={() => requestUploadToFolder(currentFolderId)}
                     onDragOver={(event) =>
                       handleFolderDragOver(event, currentFolderId)
@@ -1506,35 +1447,21 @@ export function ParsingWorkbenchShell({
                     onDragLeave={handleFolderDragLeave}
                     onDrop={(event) => handleFolderDrop(event, currentFolderId)}
                   >
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 bg-[linear-gradient(hsl(var(--info)/0.055)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--info)/0.055)_1px,transparent_1px)] bg-[size:42px_42px]"
-                    />
-                    <div className="relative max-w-md px-8 text-center">
-                      <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-[30px] border border-info/20 bg-card shadow-[0_24px_58px_-40px_hsl(var(--info)/0.75)]">
-                        <div className="relative flex h-20 w-16 items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.55))] shadow-[0_14px_30px_-20px_rgba(15,23,42,0.45)]">
-                          <div className="absolute right-0 top-0 size-7 rounded-bl-2xl bg-info/15" />
-                          <div className="space-y-2">
-                            <div className="h-1 w-8 rounded-full bg-info" />
-                            <div className="h-1 w-11 rounded-full bg-info/35" />
-                            <div className="h-1 w-10 rounded-full bg-info/25" />
-                          </div>
-                          <span className="absolute -bottom-3 -right-3 flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_32px_-18px_hsl(var(--primary)/0.75)]">
-                            <UploadCloud className="size-4" />
-                          </span>
-                        </div>
+                    <div className="max-w-md text-center">
+                      <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-md border border-border bg-muted text-primary">
+                        <UploadCloud className="size-5" />
                       </div>
-                      <h3 className="mb-2 text-[22px] font-semibold tracking-[-0.03em] text-foreground">
+                      <h3 className="mb-2 text-xl font-semibold text-foreground">
                         {t('emptyTitle')}
                       </h3>
-                      <p className="mx-auto max-w-[34ch] text-[14px] leading-6 text-muted-foreground">
+                      <p className="mx-auto max-w-[42ch] text-sm leading-6 text-muted-foreground">
                         {t('emptyDescription')}
                       </p>
-                      <span className="mt-6 inline-flex h-11 min-w-36 items-center justify-center gap-2 rounded-[16px] bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_34px_-20px_hsl(var(--primary)/0.78)] transition-colors hover:bg-primary/90">
+                      <span className="mt-5 inline-flex h-10 min-w-36 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground">
                         <UploadCloud className="size-4" />
                         {t('sidebar.uploadFile')}
                       </span>
-                      <div className="mt-3 text-[12px] text-muted-foreground/75">
+                      <div className="mt-3 text-xs text-muted-foreground">
                         或将文件拖拽到此区域
                       </div>
                     </div>
@@ -1573,7 +1500,6 @@ export function ParsingWorkbenchShell({
                   requestRebindForLibraryFile(activeLibraryFile.id, autoParse)
                 }}
                 onSubmitSelectedToGovernance={onSubmitSelectedToGovernance}
-                onSubmitToGovernance={handleSubmitToGovernance}
               />
             </ResizableParsingInspectorRail>
           </div>
@@ -1654,7 +1580,7 @@ export function ParsingWorkbenchShell({
             onDownloadMarkdown={downloadMarkdown}
           />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/10 p-4 no-scrollbar">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background p-4 no-scrollbar">
             <div className="text-sm text-muted-foreground">
               {t('inspectorEmpty')}
             </div>

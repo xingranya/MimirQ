@@ -200,7 +200,7 @@ export function ParsingSidebarPane({
     >
       <div
         className={cn(
-          'sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border/55 bg-card/96 px-4 py-3.5'
+          'sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-background px-3 py-3'
         )}
       >
         <button
@@ -212,20 +212,20 @@ export function ParsingSidebarPane({
           onDrop={(event) => onFolderDrop(event, currentFolderId)}
           title={t('sidebar.uploadCurrentFolderTitle')}
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-info/20 bg-info/[0.10] text-info shadow-[0_6px_16px_-14px_hsl(var(--info))]">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
             <FileText className="size-3.5" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-1.5">
-              <span className="truncate text-[13px] font-semibold text-foreground">
+              <span className="truncate text-sm font-semibold text-foreground">
                 {t('sidebar.documentList')}
               </span>
-              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/75">
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {currentFolderFileCount}
               </span>
             </div>
             <div
-              className="mt-0.5 truncate text-[11px] text-muted-foreground/65"
+              className="mt-0.5 truncate text-xs text-muted-foreground"
               title={activeFolderPathLabel}
             >
               {activeFolderPathLabel}
@@ -239,7 +239,7 @@ export function ParsingSidebarPane({
               variant="ghost"
               size="sm"
               onClick={onParseAllPending}
-              className="h-7 gap-1 rounded-md px-2 text-[11px] font-medium text-info hover:bg-info/[0.08] hover:text-info"
+              className="h-8 gap-1 rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/10 hover:text-primary"
             >
               <Play className="size-3" />
               {t('sidebar.parse')}
@@ -251,7 +251,7 @@ export function ParsingSidebarPane({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="size-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 title={t('sidebar.defaultParser')}
                 aria-label={t('sidebar.defaultParser')}
               >
@@ -273,7 +273,7 @@ export function ParsingSidebarPane({
                     value={draftParserBackend}
                     onChange={setDraftParserBackend}
                   />
-                  <div className="rounded-xl border border-info/20 bg-info/[0.07] px-3 py-2 text-xs leading-snug text-info">
+                  <div className="rounded-md border border-info/20 bg-info/[0.07] px-3 py-2 text-xs leading-snug text-info">
                     {t('sidebar.parserApplyHint')}
                   </div>
                   <p className="text-xs leading-snug text-muted-foreground">
@@ -284,7 +284,7 @@ export function ParsingSidebarPane({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-8 rounded-lg px-3 text-xs"
+                      className="h-8 rounded-md px-3 text-xs"
                       onClick={() => {
                         setDraftParserBackend(parserBackend)
                         setParserSettingsOpen(false)
@@ -295,7 +295,7 @@ export function ParsingSidebarPane({
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 rounded-lg px-3 text-xs"
+                      className="h-8 rounded-md px-3 text-xs"
                       disabled={!hasParserDraftChange}
                       onClick={() => {
                         if (!hasParserDraftChange) return
@@ -363,7 +363,7 @@ export function ParsingSidebarPane({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="size-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t('sidebar.uploadActions')}
                 title={t('sidebar.uploadActions')}
               >
@@ -393,19 +393,15 @@ export function ParsingSidebarPane({
       </div>
 
       {collapsed ? null : (
-        <div className="relative border-b border-border/60">
-          <div
-            aria-hidden
-            className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-info/70"
-          />
-          <div className="space-y-2 bg-[linear-gradient(90deg,hsl(var(--info)/0.07),transparent)] py-3 pl-3.5 pr-2.5 dark:from-info/[0.10]">
+        <div className="border-b border-border bg-muted/20 px-3 py-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-info/85 dark:text-info">
+              <span className="text-xs font-medium text-muted-foreground">
                 {t('sidebar.datasetScope')}
               </span>
               <span
                 className={cn(
-                  'rounded-full border px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors',
+                  'rounded-md border px-1.5 py-0.5 text-xs font-medium tabular-nums transition-colors',
                   selectedDatasetId
                     ? 'border-info/30 bg-info/15 text-info'
                     : 'border-border/60 bg-muted/60 text-muted-foreground'
@@ -424,7 +420,7 @@ export function ParsingSidebarPane({
             >
               <SelectTrigger
                 className={cn(
-                  'h-9 rounded-xl text-[12px] font-medium bg-card border-border/60 text-foreground shadow-[inset_0_1px_0_hsl(var(--background))] transition-colors duration-200 motion-reduce:transition-none',
+                  'h-9 rounded-md border-border bg-background text-xs font-medium text-foreground shadow-none transition-colors duration-150 motion-reduce:transition-none',
                   'hover:border-info/40 focus:border-info/60 data-[state=open]:border-info/60',
                   'focus-visible:ring-2 focus-visible:ring-info/20 focus-visible:ring-offset-0'
                 )}
@@ -434,8 +430,8 @@ export function ParsingSidebarPane({
                   <SelectValue placeholder={t('sidebar.allDatasetScope')} />
                 </div>
               </SelectTrigger>
-              <SelectContent className="bg-card border-border/60 text-foreground">
-                <SelectItem value={DATASET_ALL_VALUE} className="text-[12px]">
+              <SelectContent className="border-border bg-background text-foreground">
+                <SelectItem value={DATASET_ALL_VALUE} className="text-xs">
                   <span className="flex items-center gap-1.5">
                     <span
                       aria-hidden
@@ -448,7 +444,7 @@ export function ParsingSidebarPane({
                   <SelectItem
                     key={dataset.id}
                     value={dataset.id}
-                    className="text-[12px]"
+                    className="text-xs"
                   >
                     <span className="flex items-center gap-1.5">
                       <span
@@ -457,7 +453,7 @@ export function ParsingSidebarPane({
                       />
                       <span className="truncate">{dataset.name}</span>
                       {typeof dataset.count === 'number' ? (
-                        <span className="ml-auto pl-2 text-[10px] tabular-nums text-muted-foreground/70">
+                        <span className="ml-auto pl-2 text-xs tabular-nums text-muted-foreground">
                           {dataset.count}
                         </span>
                       ) : null}
@@ -470,7 +466,7 @@ export function ParsingSidebarPane({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar bg-background/35 px-3 py-3 dark:bg-card">
+      <div className="flex-1 overflow-y-auto overscroll-contain bg-background px-3 py-3 no-scrollbar">
         {isLibraryLoaded ? (
           <DocumentFolderTree
             className="pb-1"
@@ -488,7 +484,7 @@ export function ParsingSidebarPane({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-            <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted/60">
+            <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground motion-reduce:animate-none" />
             </div>
             <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
@@ -526,12 +522,12 @@ export function ParsingSidebarPane({
       />
 
       {currentFolderFileCount > 0 ? (
-        <div className="border-t border-border/60 bg-[linear-gradient(180deg,hsl(var(--background)/0.82),hsl(var(--muted)/0.28))] px-3.5 py-3 backdrop-blur-sm">
-          <div className="grid grid-cols-4 gap-1.5 text-[11px] tabular-nums">
+        <div className="border-t border-border bg-muted/20 px-3 py-2.5">
+          <div className="grid grid-cols-4 gap-1.5 text-xs tabular-nums">
             {fileTypeSummary.map(({ icon: Icon, label, value }) => (
               <span
                 key={label}
-                className="inline-flex items-center justify-center gap-1 rounded-md border border-border/60 bg-card/70 px-1.5 py-1 text-muted-foreground/80 transition-colors"
+                className="inline-flex items-center justify-center gap-1 rounded-md border border-border bg-background px-1.5 py-1 text-muted-foreground transition-colors"
               >
                 <Icon className="size-3 text-muted-foreground/70" />
                 <span>{label}</span>
