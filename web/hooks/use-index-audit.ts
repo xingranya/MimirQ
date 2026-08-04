@@ -37,26 +37,26 @@ export function useIndexAudit({ selectedDatasetId }: UseIndexAuditOptions) {
 
   const runIndexAudit = useCallback(async () => {
     if (!selectedDatasetId) {
-      toast.error('请先选择数据集再运行 Index Audit')
+      toast.error('请先选择数据集')
       return
     }
 
     const result = await refetch()
     if (result.error) {
       reportClientError('Index audit failed', result.error)
-      toast.error(formatApiError(result.error, 'Index Audit 失败'))
+      toast.error(formatApiError(result.error, '索引审计失败'))
       return
     }
 
     if (result.data) {
-      toast.success('Index Audit 完成')
+      toast.success('索引审计已完成')
     }
   }, [refetch, selectedDatasetId])
 
   return {
     indexAudit: data ?? null,
     indexAuditLoading: isFetching,
-    indexAuditError: error ? formatApiError(error, 'Index Audit 失败') : null,
+    indexAuditError: error ? formatApiError(error, '索引审计失败') : null,
     runIndexAudit,
   }
 }

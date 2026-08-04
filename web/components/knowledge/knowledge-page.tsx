@@ -1203,6 +1203,7 @@ export default function KnowledgePage() {
               {activeTab === 'retrieval' ? (
                 <KnowledgeRetrievalPanel
                   selectedDatasetId={selectedDatasetId}
+                  selectedDatasetLabel={selectedDatasetLabel}
                   aggregateDocuments={totalDocs}
                   aggregateChunks={totalChunksValue}
                   compact
