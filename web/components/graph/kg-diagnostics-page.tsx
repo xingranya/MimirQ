@@ -61,34 +61,34 @@ import type { JsonObject } from '@/types'
 
 const KG_EXTRACT_MODE_VALUES = ['auto', 'on', 'off'] as const
 const DIAGNOSTICS_SECTION_TITLE_CLASS =
-  'text-[14px] font-medium leading-5 text-foreground/85'
+  'text-sm font-semibold leading-5 text-foreground'
 const DIAGNOSTICS_SECTION_DESCRIPTION_CLASS =
-  'text-[12px] font-normal leading-5 text-muted-foreground'
+  'text-xs leading-5 text-muted-foreground'
 const DIAGNOSTICS_FIELD_LABEL_CLASS =
-  'text-[12px] font-normal leading-5 text-muted-foreground'
+  'text-xs font-medium leading-5 text-muted-foreground'
 const DIAGNOSTICS_FIELD_VALUE_CLASS =
-  'text-[14px] font-normal text-foreground/90'
+  'text-sm text-foreground'
 const DIAGNOSTICS_HEADER_ACTION_DOCK_CLASS =
-  'flex min-w-0 flex-wrap items-center justify-end gap-1.5 rounded-full border border-border/44 bg-card/54 p-1 shadow-[inset_0_1px_0_hsl(var(--card)/0.72)]'
+  'flex min-w-0 flex-wrap items-center gap-2 sm:justify-end'
 const DIAGNOSTICS_HEADER_ACTION_BUTTON_CLASS =
-  'h-8 gap-1.5 rounded-full border-border/36 bg-background/58 px-3 text-[11.5px] font-medium text-foreground/82 shadow-none hover:border-primary/28 hover:bg-background/76 hover:text-foreground'
+  'h-9 gap-2 rounded-md border-border bg-background px-3 text-xs font-medium text-foreground shadow-none hover:border-primary/30 hover:bg-muted'
 const DIAGNOSTICS_ACTION_CARD_CLASS =
-  'rounded-[1.15rem] border border-border/36 bg-card/62 p-2.5 shadow-[0_16px_38px_-34px_hsl(var(--foreground)/0.35),inset_0_1px_0_hsl(var(--card)/0.7)]'
+  'rounded-md border border-border bg-card p-3'
 const DIAGNOSTICS_PRIMARY_ACTION_BUTTON_CLASS =
-  'h-10 w-full gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-[0_16px_32px_-22px_hsl(var(--primary)/0.72)] transition-shadow hover:bg-primary/92 hover:shadow-[0_18px_38px_-24px_hsl(var(--primary)/0.72)]'
+  'h-10 w-full gap-2 rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90'
 const DIAGNOSTICS_SECONDARY_ACTION_BUTTON_CLASS =
-  'h-8 gap-1.5 rounded-full border-border/38 bg-background/50 px-2.5 text-[11.5px] font-medium text-muted-foreground shadow-none hover:border-primary/28 hover:bg-background/72 hover:text-foreground'
+  'h-9 gap-2 rounded-md border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-none hover:border-primary/30 hover:bg-muted hover:text-foreground'
 const DIAGNOSTICS_METRIC_LABELS: Record<string, string> = {
   baseline_hit_rate: '基线命中率',
-  baseline_mrr: 'Baseline MRR',
-  baseline_recall: 'Baseline Recall',
-  baseline_ndcg: 'Baseline NDCG@K',
-  baseline_map: 'Baseline MAP@K',
+  baseline_mrr: '基线 MRR',
+  baseline_recall: '基线召回率',
+  baseline_ndcg: '基线 NDCG@K',
+  baseline_map: '基线 MAP@K',
   hardcase_hit_rate: '难例命中率',
-  hardcase_mrr: 'Hardcase MRR',
-  hardcase_recall: 'Hardcase Recall',
-  hardcase_ndcg: 'Hardcase NDCG@K',
-  hardcase_map: 'Hardcase MAP@K',
+  hardcase_mrr: '难例 MRR',
+  hardcase_recall: '难例召回率',
+  hardcase_ndcg: '难例 NDCG@K',
+  hardcase_map: '难例 MAP@K',
   hardcases_generated: '生成难例数',
   documents: '文档数',
   events: '事件数',
@@ -310,8 +310,8 @@ function diagnosticsMetricValueClass(
 
 function diagnosticsTabClass(isActive: boolean): string {
   return isActive
-    ? 'bg-info text-primary-foreground shadow-sm'
-    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+    ? 'bg-primary text-primary-foreground'
+    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
 }
 
 function diagnosticsDeltaClass(delta: number): string {
@@ -508,13 +508,13 @@ function DiagnosticsInlineStat({
   tone?: DiagnosticsTone
 }>) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/90 px-2.5 py-1">
-      <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1">
+      <span className="text-xs text-muted-foreground">
         {label}
       </span>
       <span
         className={cn(
-          'font-mono text-[11px] tabular-nums',
+          'font-mono text-xs tabular-nums',
           diagnosticsInlineToneClass(tone)
         )}
       >
@@ -540,7 +540,7 @@ function DiagnosticsInfoTooltip({
           <button
             type="button"
             aria-label={label}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-info/10 hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Info className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -548,7 +548,7 @@ function DiagnosticsInfoTooltip({
         <TooltipContent
           side={side}
           align="center"
-          className="max-w-[260px] text-[11px] leading-5"
+          className="max-w-[260px] text-xs leading-5"
         >
           {children}
         </TooltipContent>
@@ -573,7 +573,7 @@ function DiagnosticsHeaderPill({
   return (
     <div
       className={cn(
-        'inline-flex h-8 items-center gap-2.5 rounded-full border border-border/40 bg-background/58 px-3 shadow-none',
+        'inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3',
         className
       )}
     >
@@ -582,7 +582,7 @@ function DiagnosticsHeaderPill({
           {icon}
         </span>
       ) : null}
-      <span className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <div className="min-w-0 flex-1">
@@ -608,7 +608,7 @@ function DiagnosticsStepper({
   onChange: (value: number) => void
 }>) {
   return (
-    <div className="flex h-9 items-center rounded-lg border border-border/70 bg-card/95 shadow-sm">
+    <div className="flex h-9 items-center rounded-md border border-border bg-card">
       <Button
         type="button"
         variant="ghost"
@@ -619,7 +619,7 @@ function DiagnosticsStepper({
       >
         <Minus className="h-4 w-4" aria-hidden="true" />
       </Button>
-      <div className="flex flex-1 items-center justify-center border-x border-border/70 text-[15px] font-medium tabular-nums text-foreground/90">
+      <div className="flex flex-1 items-center justify-center border-x border-border text-sm font-medium tabular-nums text-foreground">
         {value}
       </div>
       <Button
@@ -650,7 +650,7 @@ function DiagnosticsSection({
   return (
     <section
       className={cn(
-        'space-y-2.5 rounded-lg border border-border/70 bg-card px-3.5 py-3',
+        'space-y-2.5 rounded-md border border-border bg-card px-3.5 py-3',
         className
       )}
     >
@@ -687,13 +687,13 @@ function DiagnosticsMetricTile({
   return (
     <div
       className={cn(
-        'flex min-h-[86px] flex-col items-center justify-center rounded-xl border px-3 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]',
+        'flex min-h-[80px] flex-col items-center justify-center rounded-md border px-3 py-2.5 text-center',
         accentClasses.surface
       )}
     >
       <div
         className={cn(
-          'flex items-center justify-center gap-1.5 text-[11.5px] font-semibold ',
+          'flex items-center justify-center gap-1.5 text-xs font-medium',
           accentClasses.label
         )}
       >
@@ -703,7 +703,7 @@ function DiagnosticsMetricTile({
           </span>
         ) : (
           <span
-            className={cn('h-1.5 w-1.5 rounded-full', accentClasses.dot)}
+            className={cn('size-1.5 rounded-sm', accentClasses.dot)}
             aria-hidden="true"
           />
         )}
@@ -711,12 +711,12 @@ function DiagnosticsMetricTile({
       </div>
       <div
         className={cn(
-          'mt-2 text-[15px] font-semibold tabular-nums',
+          'mt-2 text-base font-semibold tabular-nums',
           valueClass
         )}
       >
         {isPending ? (
-          <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+          <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             待评测
           </span>
         ) : (
@@ -725,7 +725,7 @@ function DiagnosticsMetricTile({
       </div>
       {caption ? (
         <div
-          className={cn('mt-1 text-[10.5px] leading-4', accentClasses.caption)}
+          className={cn('mt-1 text-xs leading-4', accentClasses.caption)}
         >
           {isPending ? '运行后显示' : caption}
         </div>
@@ -767,7 +767,7 @@ function DiagnosticsToggleCard({
   return (
     <div
       className={cn(
-        'block cursor-pointer select-none rounded-lg border px-3 py-1.5 transition-colors',
+        'block cursor-pointer select-none rounded-md border px-3 py-2.5 transition-colors',
         toneClasses.surface
       )}
     >
@@ -777,28 +777,28 @@ function DiagnosticsToggleCard({
             <div className="min-w-0">
               <div
                 className={cn(
-                  'flex items-center gap-1.5 text-[10.5px] font-normal ',
+                  'flex items-center gap-1.5 text-xs font-medium',
                   toneClasses.badge
                 )}
               >
                 <span
-                  className={cn('h-1.5 w-1.5 rounded-full', toneClasses.dot)}
+                  className={cn('size-1.5 rounded-sm', toneClasses.dot)}
                 />
                 <span>{badge}</span>
               </div>
-              <div className="mt-0.5 text-[13px] font-medium leading-4 text-foreground/90">
+              <div className="mt-1 text-sm font-medium leading-5 text-foreground">
                 {title}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="inline-flex items-center rounded-full border border-border/70 bg-card/90 px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
+              <span className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-xs text-muted-foreground">
                 {stateLabel}
               </span>
               <Switch aria-label={title} checked={checked} onCheckedChange={onCheckedChange} />
             </div>
           </div>
           {description ? (
-            <p className="mt-0.5 truncate text-[11px] font-normal leading-5 text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -822,19 +822,19 @@ function DiagnosticsEmptyState({
   return (
     <div
       className={cn(
-        'rounded-lg border border-dashed border-border/70 bg-background px-4 py-4 text-center',
+        'rounded-md border border-dashed border-border bg-background px-4 py-6 text-center',
         className
       )}
     >
       {icon ? (
         <div className="mb-2 flex justify-center text-info">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-info/20 bg-info/5 shadow-sm">
+          <div className="flex size-9 items-center justify-center rounded-md border border-info/20 bg-info/10">
             <div className="scale-75">{icon}</div>
           </div>
         </div>
       ) : null}
-      <div className="text-[13px] font-medium text-foreground">{title}</div>
-      <p className="mx-auto mt-1.5 max-w-xl text-[11px] leading-5 text-muted-foreground">
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      <p className="mx-auto mt-1.5 max-w-xl text-xs leading-5 text-muted-foreground">
         {description}
       </p>
     </div>
@@ -852,104 +852,26 @@ function DiagnosticsRunHeroPanel({
 }>) {
   if (summary) {
     return (
-      <div className="min-h-[118px] rounded-xl border border-border/70 bg-background px-4 py-3.5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-[11px] font-medium tracking-[0.12em] text-info">
-              最新结果
-            </div>
-            <h3 className="mt-1 text-[18px] font-semibold tracking-[-0.03em] text-foreground">
-              本轮评测已完成
-            </h3>
-            <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">
-              优先查看上方核心指标，再结合下方失败样本和运行记录判断这次检索质量是否稳定。
-            </p>
-          </div>
-          <div className="hidden h-14 w-14 items-center justify-center rounded-[18px] border border-info/20 bg-info/10 text-info shadow-sm md:flex">
-            <ClipboardList className="h-6 w-6" aria-hidden="true" />
-          </div>
+      <div className="flex min-h-[88px] items-start gap-3 rounded-md border border-success/20 bg-success/10 px-4 py-3.5">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-success/20 bg-background text-success">
+          <ClipboardList className="size-4" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">本轮评测已完成</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            核心指标、失败样本和运行记录已经更新。
+          </p>
         </div>
       </div>
     )
   }
 
-  const resultPreviewItems = [
-    {
-      title: '核心指标',
-      description: 'Hit Rate、MRR、Recall、NDCG、MAP 会集中显示在顶部指标卡。',
-      icon: <Target className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      title: '失败样本',
-      description: '未命中问题、召回位置和错误分布会进入下方分析区。',
-      icon: <CircleAlert className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      title: '原始结果',
-      description: '保存后的 run 记录与 JSON 明细可直接查看或导出。',
-      icon: <FileStack className="h-4 w-4" aria-hidden="true" />,
-    },
-  ]
-
   return (
-    <div className="grid min-h-[152px] gap-3 rounded-xl border border-border/70 bg-[radial-gradient(circle_at_16%_0%,hsl(var(--info)/0.10),transparent_34%),linear-gradient(180deg,hsl(var(--background)),hsl(var(--card)/0.92))] px-4 py-3.5 shadow-sm lg:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]">
-      <div className="flex items-center gap-3">
-        <div className="relative flex h-[72px] w-[80px] shrink-0 items-center justify-center text-info">
-          <div className="absolute inset-4 rounded-[24px] bg-info/10 blur-xl" aria-hidden="true" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-[18px] border border-info/20 bg-info/5 shadow-sm">
-            <ClipboardList className="h-7 w-7" aria-hidden="true" />
-          </div>
-        </div>
-        <div className="min-w-0">
-          <div className="inline-flex rounded-full border border-info/20 bg-info/10 px-2 py-0.5 text-[10.5px] font-medium text-info">
-            运行后会自动填充
-          </div>
-          <h3 className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-foreground">
-            {emptyTitle}
-          </h3>
-          <p className="mt-1 max-w-[420px] text-[11.5px] leading-5 text-muted-foreground">
-            {emptyDescription}
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-[18px] border border-border/70 bg-card/86 p-2.5 shadow-[inset_0_1px_0_hsl(var(--background)/0.86)]">
-        <div className="flex items-center justify-between gap-3 px-1 pb-2">
-          <div>
-            <div className="text-[11.5px] font-semibold text-foreground">
-              结果工作台
-            </div>
-            <p className="mt-0.5 text-[10.5px] text-muted-foreground">
-              一次评测完成后，关键证据会按下面三个区域落位。
-            </p>
-          </div>
-          <div className="hidden rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10.5px] font-medium text-muted-foreground sm:block">
-            KG Eval
-          </div>
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-3">
-          {resultPreviewItems.map((item) => (
-            <div
-              key={item.title}
-              className="flex items-start gap-2.5 rounded-[14px] border border-border/60 bg-background/82 px-3 py-2.5"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] border border-info/20 bg-info/10 text-info">
-                {item.icon}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11.5px] font-semibold text-foreground">
-                  {item.title}
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-[10.5px] leading-4 text-muted-foreground">
-                  {item.description}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <DiagnosticsEmptyState
+      title={emptyTitle}
+      description={emptyDescription}
+      icon={<ClipboardList className="size-5" aria-hidden="true" />}
+    />
   )
 }
 
@@ -963,19 +885,19 @@ function DiagnosticsFailuresPanel({
   onTabChange: (value: DiagnosticsFailureTab) => void
 }>) {
   return (
-    <div className="rounded-xl border border-border/70 bg-background shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-2.5">
-        <div className="flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
+    <section className="rounded-md border border-border bg-background">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <span>失败样本 / 错误分析</span>
           <DiagnosticsInfoTooltip label="查看失败样本与错误分析说明">
             展示本轮未命中的评测样本，以及后续错误分布汇总；优先排查这些样本通常最有效。
           </DiagnosticsInfoTooltip>
         </div>
-        <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-border/40 bg-card/58 p-1 shadow-[inset_0_1px_0_hsl(var(--card)/0.62)]">
+        <div className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-border bg-card p-1">
           <button
             type="button"
             className={cn(
-              'inline-flex h-5 items-center rounded-full px-2.5 text-[11px] font-medium transition-colors',
+              'inline-flex h-6 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
               diagnosticsTabClass(activeTab === 'failures')
             )}
             onClick={() => onTabChange('failures')}
@@ -985,7 +907,7 @@ function DiagnosticsFailuresPanel({
           <button
             type="button"
             className={cn(
-              'inline-flex h-5 items-center rounded-full px-2.5 text-[11px] font-medium transition-colors',
+              'inline-flex h-6 items-center rounded-md px-2.5 text-xs font-medium transition-colors',
               diagnosticsTabClass(activeTab === 'distribution')
             )}
             onClick={() => onTabChange('distribution')}
@@ -1001,7 +923,7 @@ function DiagnosticsFailuresPanel({
           failedCases={failedCases}
         />
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -1015,16 +937,16 @@ function DiagnosticsFailureCaseList({
       {failedCases.map((item) => (
         <div
           key={`${item.case_id}:${item.question}`}
-          className="rounded-xl border border-border/70 bg-card/90 px-3 py-2.5"
+          className="rounded-md border border-border bg-card px-3 py-2.5"
         >
-          <div className="text-[11px] font-mono text-muted-foreground">
+          <div className="font-mono text-xs text-muted-foreground">
             {item.case_id || '--------'}
           </div>
-          <div className="mt-1 text-[12.5px] leading-5 text-foreground">
+          <div className="mt-1 text-sm leading-5 text-foreground">
             {item.question || '（无问题文本）'}
           </div>
-          <div className="mt-1.5 text-[10.5px] tabular-nums text-muted-foreground">
-            Recall {String(item.recall)} · MRR {String(item.mrr)}
+          <div className="mt-1.5 text-xs tabular-nums text-muted-foreground">
+            召回率 {String(item.recall)} · MRR {String(item.mrr)}
           </div>
         </div>
       ))}
@@ -1070,9 +992,9 @@ function DiagnosticsRunRecordsPanel({
   runRespJson: string
 }>) {
   return (
-    <div className="rounded-xl border border-border/70 bg-background shadow-sm">
-      <div className="border-b border-border/70 px-4 py-2.5">
-        <div className="flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
+    <section className="rounded-md border border-border bg-background">
+      <div className="border-b border-border px-4 py-2.5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <span>原始结果 / 运行记录</span>
           <DiagnosticsInfoTooltip label="查看原始结果与运行记录说明">
             显示最近保存的评测运行记录，并可展开查看本次评测接口返回的原始数据。
@@ -1082,16 +1004,16 @@ function DiagnosticsRunRecordsPanel({
 
       <div className="px-4 py-3">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-[11.5px]">
+          <table className="min-w-[860px] text-left text-xs">
             <thead className="text-muted-foreground">
               <tr className="border-b border-border/70">
                 <th className="px-2 py-1.5 font-medium">运行 ID</th>
                 <th className="px-2 py-1.5 font-medium">开始时间</th>
                 <th className="px-2 py-1.5 font-medium">数据集</th>
                 <th className="px-2 py-1.5 font-medium">样本数</th>
-                <th className="px-2 py-1.5 font-medium">TOP-K</th>
+                <th className="px-2 py-1.5 font-medium">前 K 条</th>
                 <th className="px-2 py-1.5 font-medium">
-                  主要指标（MRR / Recall）
+                  主要指标（MRR / 召回率）
                 </th>
                 <th className="px-2 py-1.5 font-medium">状态</th>
                 <th className="px-2 py-1.5 font-medium">操作</th>
@@ -1161,8 +1083,8 @@ function DiagnosticsRunRecordsPanel({
           </table>
         </div>
 
-        <details className="mt-2.5 rounded-xl border border-border/70 bg-card/90 px-3 py-2.5">
-          <summary className="cursor-pointer select-none text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+        <details className="mt-2.5 rounded-md border border-border bg-card px-3 py-2.5">
+          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
             查看原始数据
           </summary>
           <Textarea
@@ -1173,7 +1095,7 @@ function DiagnosticsRunRecordsPanel({
           />
         </details>
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -1187,9 +1109,9 @@ function DiagnosticsJsonPanel({
   rows?: number
 }>) {
   return (
-    <div className="rounded-lg border border-border/70 bg-card">
-      <div className="border-b border-border/70 px-4 py-3">
-        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="rounded-md border border-border bg-card">
+      <div className="border-b border-border px-4 py-3">
+        <div className="text-xs font-medium text-muted-foreground">
           {label}
         </div>
       </div>
@@ -1454,16 +1376,15 @@ export function KGDiagnosticsPage() {
 
   return (
     <AppFrame showBackground={false}>
-      <div className="h-full bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--card)/0.82)_32%)] p-2">
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-border/70 bg-background/95 shadow-sm">
-          <header className="shrink-0 border-b border-border/70 px-6 py-5">
+      <div className="h-full overflow-y-auto bg-background">
+        <div className="flex min-h-full flex-col">
+          <header className="shrink-0 border-b border-border px-4 py-4 md:px-6">
             <PageHeader
               title={t('page.title')}
               description={t('page.description')}
               iconImage="kg-retrieval-evaluation"
               icon={ClipboardList}
               iconColor="text-info"
-              badge="KG"
               compact
               className="p-0"
             >
@@ -1479,7 +1400,7 @@ export function KGDiagnosticsPage() {
                   >
                     <SelectTrigger
                       aria-label={t('runConfig.datasetId')}
-                      className="h-auto min-h-0 border-0 bg-transparent px-0 py-0 text-right text-[12px] font-medium shadow-none focus-visible:ring-2 focus-visible:ring-ring/30 [&>svg]:ml-2 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                      className="h-auto min-h-0 border-0 bg-transparent px-0 py-0 text-right text-xs font-medium shadow-none focus-visible:ring-2 focus-visible:ring-ring/30 [&>svg]:ml-2 [&>svg]:size-3.5"
                     >
                       <SelectValue
                         placeholder={diagnosticsDatasetPlaceholder(
@@ -1511,7 +1432,7 @@ export function KGDiagnosticsPage() {
                     onChange={(e) => setK(Number(e.target.value || 0))}
                     min={1}
                     max={50}
-                    className="h-auto border-0 bg-transparent px-0 py-0 text-right text-[12px] font-medium shadow-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                    className="h-auto border-0 bg-transparent px-0 py-0 text-right text-xs font-medium shadow-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   />
                 </DiagnosticsHeaderPill>
                 <Button
@@ -1529,15 +1450,15 @@ export function KGDiagnosticsPage() {
             </PageHeader>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-hidden px-5 pb-4 pt-4">
-            <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[356px_minmax(0,1fr)]">
-              <aside className="min-h-0 rounded-xl border border-border/70 bg-background shadow-sm">
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div className="flex-1 px-4 py-4 md:px-6 xl:min-h-0 xl:overflow-hidden">
+            <div className="grid gap-4 xl:h-full xl:min-h-0 xl:grid-cols-[340px_minmax(0,1fr)]">
+              <aside className="rounded-md border border-border bg-background xl:min-h-0">
+                <div className="flex flex-col xl:h-full xl:min-h-0">
+                  <div className="p-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                     <div className="space-y-2.5">
                       <DiagnosticsSection
                         label={t('runConfig.title')}
-                        className="rounded-xl px-3.5 py-2.5"
+                        className="rounded-md px-3.5 py-2.5"
                       >
                         <div className="space-y-2.5">
                           <div className="space-y-1">
@@ -1572,7 +1493,7 @@ export function KGDiagnosticsPage() {
                             >
                               <SelectTrigger
                                 className={cn(
-                                  'h-9 rounded-lg border-border/70 bg-card/95 shadow-none',
+                                  'h-9 rounded-md border-border bg-card shadow-none',
                                   DIAGNOSTICS_FIELD_VALUE_CLASS
                                 )}
                               >
@@ -1601,7 +1522,7 @@ export function KGDiagnosticsPage() {
                               title={t('runConfig.extractSkills')}
                               className={DIAGNOSTICS_FIELD_LABEL_CLASS}
                             >
-                              智能裁度
+                              技能抽取
                             </Label>
                             <Select
                               value={extractSkills}
@@ -1617,7 +1538,7 @@ export function KGDiagnosticsPage() {
                             >
                               <SelectTrigger
                                 className={cn(
-                                  'h-9 rounded-lg border-border/70 bg-card/95 shadow-none',
+                                  'h-9 rounded-md border-border bg-card shadow-none',
                                   DIAGNOSTICS_FIELD_VALUE_CLASS
                                 )}
                               >
@@ -1640,7 +1561,7 @@ export function KGDiagnosticsPage() {
                               title={t('runConfig.extractRelations')}
                               className={DIAGNOSTICS_FIELD_LABEL_CLASS}
                             >
-                              基线模式
+                              关系抽取
                             </Label>
                             <Select
                               value={extractRelations}
@@ -1656,7 +1577,7 @@ export function KGDiagnosticsPage() {
                             >
                               <SelectTrigger
                                 className={cn(
-                                  'h-9 rounded-lg border-border/70 bg-card/95 shadow-none',
+                                  'h-9 rounded-md border-border bg-card shadow-none',
                                   DIAGNOSTICS_FIELD_VALUE_CLASS
                                 )}
                               >
@@ -1674,8 +1595,8 @@ export function KGDiagnosticsPage() {
                             </Select>
                           </div>
 
-                          <details className="rounded-lg border border-dashed border-border/60 bg-card/45 px-3 py-1.5">
-                            <summary className="cursor-pointer select-none text-[11.5px] font-normal leading-5 text-muted-foreground">
+                          <details className="rounded-md border border-dashed border-border bg-card px-3 py-2">
+                            <summary className="cursor-pointer select-none text-xs font-medium leading-5 text-muted-foreground">
                               高级参数
                             </summary>
                             <div className="mt-3 space-y-3">
@@ -1693,7 +1614,7 @@ export function KGDiagnosticsPage() {
                                 >
                                   <SelectTrigger
                                     className={cn(
-                                      'h-9 rounded-lg border-border/70 bg-background shadow-none',
+                                      'h-9 rounded-md border-border bg-background shadow-none',
                                       DIAGNOSTICS_FIELD_VALUE_CLASS
                                     )}
                                   >
@@ -1709,7 +1630,7 @@ export function KGDiagnosticsPage() {
                                       规则生成
                                     </SelectItem>
                                     <SelectItem value="llm">
-                                      LLM 生成
+                                      模型生成
                                     </SelectItem>
                                   </SelectContent>
                                 </Select>
@@ -1732,7 +1653,7 @@ export function KGDiagnosticsPage() {
                                     min={0}
                                     max={20}
                                     className={cn(
-                                      'h-9 rounded-lg border-border/70 bg-background shadow-none',
+                                      'h-9 rounded-md border-border bg-background shadow-none',
                                       DIAGNOSTICS_FIELD_VALUE_CLASS
                                     )}
                                   />
@@ -1754,7 +1675,7 @@ export function KGDiagnosticsPage() {
                                     min={0}
                                     max={200}
                                     className={cn(
-                                      'h-9 rounded-lg border-border/70 bg-background shadow-none',
+                                      'h-9 rounded-md border-border bg-background shadow-none',
                                       DIAGNOSTICS_FIELD_VALUE_CLASS
                                     )}
                                   />
@@ -1768,7 +1689,7 @@ export function KGDiagnosticsPage() {
                       <DiagnosticsSection
                         label={t('workspace.extractionOptions')}
                         description={t('workspace.extractionHint')}
-                        className="rounded-xl px-3.5 py-2.5"
+                        className="rounded-md px-3.5 py-2.5"
                       >
                         <div className="space-y-2">
                           <DiagnosticsToggleCard
@@ -1794,20 +1715,17 @@ export function KGDiagnosticsPage() {
                     </div>
                   </div>
 
-                  <div className="shrink-0 border-t border-border/44 bg-background/92 px-3 py-3 backdrop-blur">
+                  <div className="shrink-0 border-t border-border bg-background px-3 py-3">
                     <div className={DIAGNOSTICS_ACTION_CARD_CLASS}>
-                      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                        <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/62">
+                      <div className="mb-2 px-1">
+                        <div className="text-xs font-semibold text-foreground">
                           运行操作
                         </div>
-                        <span className="rounded-full border border-border/32 bg-background/44 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/64">
-                          KG Eval
-                        </span>
                       </div>
 
                       <div className="mb-2 flex flex-wrap items-center gap-1.5">
                         <DiagnosticsInlineStat label="样本" value={maxCases} />
-                        <DiagnosticsInlineStat label="TOP-K" value={k} />
+                        <DiagnosticsInlineStat label="前 K 条" value={k} />
                         <DiagnosticsInlineStat
                           label="保存"
                           value={persistRun ? '开启' : '关闭'}
@@ -1851,7 +1769,7 @@ export function KGDiagnosticsPage() {
                         </Button>
                       </div>
 
-                      <p className="mt-2 px-1 text-[10.5px] leading-5 text-muted-foreground">
+                      <p className="mt-2 px-1 text-xs leading-5 text-muted-foreground">
                         {t('summary.runHint')}
                       </p>
                     </div>
@@ -1859,7 +1777,7 @@ export function KGDiagnosticsPage() {
                 </div>
               </aside>
 
-              <section className="min-w-0 min-h-0 rounded-xl border border-border/70 bg-background shadow-sm">
+              <section className="min-h-[620px] min-w-0 rounded-md border border-border bg-background xl:min-h-0">
                 <Tabs
                   value={activeView}
                   onValueChange={(value) =>
@@ -1871,20 +1789,20 @@ export function KGDiagnosticsPage() {
                     <TabsList className="h-auto justify-start gap-5 rounded-none border-none bg-transparent p-0">
                       <TabsTrigger
                         value="run"
-                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-[12.5px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-xs font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
                       >
                         {t('summary.title')}
                       </TabsTrigger>
                       <TabsTrigger
                         value="quality"
                         title={t('qualityReport.title')}
-                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-[12.5px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-xs font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
                       >
-                        抽取数据
+                        质量报告
                       </TabsTrigger>
                       <TabsTrigger
                         value="compare"
-                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-[12.5px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                        className="rounded-none border-b-2 border-transparent px-0 pb-2.5 pt-0 text-xs font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none"
                       >
                         {t('compare.title')}
                       </TabsTrigger>
@@ -2002,9 +1920,9 @@ export function KGDiagnosticsPage() {
                   <TabsContent value="quality" className="mt-0 min-h-0 flex-1">
                     <div className="flex h-full min-h-0 flex-col">
                       <div className="border-b border-border/70 px-4 py-4">
-                        <div className="grid gap-3 xl:grid-cols-[180px_minmax(0,1fr)_auto]">
+                        <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)] xl:grid-cols-[180px_minmax(0,1fr)_auto]">
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                            <Label className={DIAGNOSTICS_FIELD_LABEL_CLASS}>
                               {t('qualityReport.documentLimit')}
                             </Label>
                             <Input
@@ -2015,11 +1933,11 @@ export function KGDiagnosticsPage() {
                               }
                               min={1}
                               max={2000}
-                              className="h-10 rounded-lg border-border/70 bg-card text-sm shadow-none"
+                              className="h-10 rounded-md border-border bg-card text-sm shadow-none"
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                            <Label className={DIAGNOSTICS_FIELD_LABEL_CLASS}>
                               {t('qualityReport.pipelineHash')}
                             </Label>
                             <Input
@@ -2030,7 +1948,7 @@ export function KGDiagnosticsPage() {
                               placeholder={t(
                                 'qualityReport.pipelineHashPlaceholder'
                               )}
-                              className="h-10 rounded-lg border-border/70 bg-card font-mono text-xs shadow-none"
+                              className="h-10 rounded-md border-border bg-card font-mono text-xs shadow-none"
                             />
                           </div>
                           <div className="flex items-end">
@@ -2051,7 +1969,7 @@ export function KGDiagnosticsPage() {
                             </Button>
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
                           {t('qualityReport.hint')}
                         </p>
                       </div>
@@ -2060,9 +1978,9 @@ export function KGDiagnosticsPage() {
                         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
                           <div className="space-y-4">
                             {qualityObject ? (
-                              <div className="rounded-lg border border-border/70 bg-card">
-                                <div className="border-b border-border/70 px-4 py-3">
-                                  <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                              <div className="rounded-md border border-border bg-card">
+                                <div className="border-b border-border px-4 py-3">
+                                  <div className="text-xs font-medium text-muted-foreground">
                                     {t('workspace.qualityHighlightsTitle')}
                                   </div>
                                 </div>
@@ -2113,15 +2031,15 @@ export function KGDiagnosticsPage() {
                       <div className="border-b border-border/70 px-4 py-4">
                         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                            <Label className={DIAGNOSTICS_FIELD_LABEL_CLASS}>
                               {t('runs.runA')}
                             </Label>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row">
                               <Select
                                 value={selectedRunA}
                                 onValueChange={(v) => setSelectedRunA(v)}
                               >
-                                <SelectTrigger className="h-10 rounded-lg border-border/70 bg-card text-sm shadow-none">
+                                <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm shadow-none">
                                   <SelectValue
                                     placeholder={t('runs.runAPlaceholder')}
                                   />
@@ -2150,15 +2068,15 @@ export function KGDiagnosticsPage() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                            <Label className={DIAGNOSTICS_FIELD_LABEL_CLASS}>
                               {t('runs.runB')}
                             </Label>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row">
                               <Select
                                 value={selectedRunB}
                                 onValueChange={(v) => setSelectedRunB(v)}
                               >
-                                <SelectTrigger className="h-10 rounded-lg border-border/70 bg-card text-sm shadow-none">
+                                <SelectTrigger className="h-10 rounded-md border-border bg-card text-sm shadow-none">
                                   <SelectValue
                                     placeholder={t('runs.runBPlaceholder')}
                                   />
@@ -2236,7 +2154,7 @@ export function KGDiagnosticsPage() {
                           </div>
                         </div>
 
-                        <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
+                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
                           {t('runs.hint')}
                         </p>
                       </div>
@@ -2266,9 +2184,9 @@ export function KGDiagnosticsPage() {
                                 />
                               </div>
 
-                              <div className="rounded-lg border border-border/70 bg-card">
-                                <div className="border-b border-border/70 px-4 py-3">
-                                  <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                              <div className="rounded-md border border-border bg-card">
+                                <div className="border-b border-border px-4 py-3">
+                                  <div className="text-xs font-medium text-muted-foreground">
                                     {t('compare.changedCases')}
                                   </div>
                                 </div>
@@ -2278,18 +2196,18 @@ export function KGDiagnosticsPage() {
                                       {diff.changed_cases.map((r) => (
                                         <div
                                           key={r.case_id}
-                                          className="rounded-lg border border-border/70 bg-background px-3 py-3"
+                                          className="rounded-md border border-border bg-background px-3 py-3"
                                         >
-                                          <div className="text-[11px] font-mono text-muted-foreground">
+                                          <div className="font-mono text-xs text-muted-foreground">
                                             {String(r.case_id).slice(0, 8)}
                                           </div>
                                           <div className="mt-1 text-sm text-foreground">
                                             {r.question ||
                                               t('compare.noQuestion')}
                                           </div>
-                                          <div className="mt-2 text-[11px] leading-5 tabular-nums text-muted-foreground">
+                                          <div className="mt-2 text-xs leading-5 tabular-nums text-muted-foreground">
                                             命中 {String(r.a_hit)} →{' '}
-                                            {String(r.b_hit)} · Recall{' '}
+                                            {String(r.b_hit)} · 召回率{' '}
                                             {String(r.a_recall)} →{' '}
                                             {String(r.b_recall)} · 变化{' '}
                                             {String(r.delta_recall)}
@@ -2310,9 +2228,9 @@ export function KGDiagnosticsPage() {
                             </div>
 
                             <div className="space-y-4">
-                              <div className="rounded-lg border border-border/70 bg-card">
-                                <div className="border-b border-border/70 px-4 py-3">
-                                  <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                              <div className="rounded-md border border-border bg-card">
+                                <div className="border-b border-border px-4 py-3">
+                                  <div className="text-xs font-medium text-muted-foreground">
                                     {t('workspace.compareSummaryTitle')}
                                   </div>
                                 </div>
@@ -2330,9 +2248,9 @@ export function KGDiagnosticsPage() {
                                           return (
                                             <div
                                               key={key}
-                                              className="rounded-lg border border-border/70 bg-background px-3 py-3"
+                                              className="rounded-md border border-border bg-background px-3 py-3"
                                             >
-                                              <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
+                                              <div className="text-xs text-muted-foreground">
                                                 {formatDiagnosticsMetricLabel(
                                                   key
                                                 )}
@@ -2343,7 +2261,7 @@ export function KGDiagnosticsPage() {
                                               </div>
                                               <div
                                                 className={cn(
-                                                  'mt-1 text-[11px] tabular-nums',
+                                                  'mt-1 text-xs tabular-nums',
                                                   diagnosticsDeltaClass(delta)
                                                 )}
                                               >
