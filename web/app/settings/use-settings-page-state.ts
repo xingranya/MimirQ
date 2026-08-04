@@ -34,6 +34,7 @@ import {
   type ProviderCategory,
   type ProviderConfig,
 } from '@/types/models'
+import { validateSettingsChanges } from '@/lib/settings-validation'
 
 type SaveMessage = {
   type: 'success' | 'error'
@@ -602,6 +603,15 @@ export function useSettingsPageState() {
 
   const saveSettings = async () => {
     if (Object.keys(editedSettings).length === 0) return
+
+    const validationIssue = validateSettingsChanges(editedSettings)
+    if (validationIssue) {
+      setSaveMessage({
+        type: 'error',
+        text: `${validationIssue.section}：${validationIssue.message}`,
+      })
+      return
+    }
 
     setSaving(true)
     setSaveMessage(null)
