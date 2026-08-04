@@ -11,7 +11,6 @@ Because ``schema`` shadows a Pydantic ``BaseModel`` attribute, the field is name
 wire format stays ``schema``.
 """
 
-
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,7 +21,7 @@ SCHEMA_MARKER_DESCRIPTION = "Versioned payload schema marker."
 class IndustryRulesetSummary(BaseModel):
     """Lightweight ruleset descriptor with section counts only."""
 
-    name: str = Field(..., description="Ruleset identifier (tenant-scoped slug).")
+    name: str = Field(..., description="Platform-shared ruleset identifier.")
     glossary_count: int = Field(..., description="Number of glossary term-mapping entries.")
     pattern_count: int = Field(..., description="Number of question-pattern entries.")
     intent_count: int = Field(..., description="Number of intent-classifier entries.")
@@ -53,6 +52,10 @@ class IndustryRulesetListResponse(BaseModel):
     schema_: str = Field(alias="schema", description=SCHEMA_MARKER_DESCRIPTION)
     count: int = Field(..., description="Number of rulesets returned.")
     rulesets: list[IndustryRulesetSummary] = Field(default_factory=list)
+    can_manage: bool = Field(
+        ...,
+        description="Whether the current account may update platform-shared rulesets.",
+    )
 
 
 class IndustryRulesetDetailResponse(BaseModel):

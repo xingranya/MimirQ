@@ -268,6 +268,7 @@ export function IndustryRulesWorkbench() {
     () => rulesetsQuery.data?.rulesets || [],
     [rulesetsQuery.data?.rulesets]
   )
+  const canManageRules = rulesetsQuery.data?.can_manage === true
   const datasets = useMemo(
     () => datasetsQuery.data || [],
     [datasetsQuery.data]
@@ -390,24 +391,28 @@ export function IndustryRulesWorkbench() {
   ).length
 
   const setGlossaryEntry = (id: string, patch: Partial<GlossaryEntry>) => {
+    if (!canManageRules) return
     setGlossaryEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const setPatternEntry = (id: string, patch: Partial<PatternEntry>) => {
+    if (!canManageRules) return
     setPatternEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const setIntentEntry = (id: string, patch: Partial<IntentEntry>) => {
+    if (!canManageRules) return
     setIntentEntries((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry))
     )
   }
 
   const addGlossarySuggestion = (token: string) => {
+    if (!canManageRules) return
     const term = token.trim()
     if (!term) return
     setGlossaryEntries((prev) => {
@@ -421,6 +426,7 @@ export function IndustryRulesWorkbench() {
   }
 
   const acceptSelectedSuggestions = () => {
+    if (!canManageRules) return
     for (const token of selectedMapValues(selectedSuggestionTokens)) {
       addGlossarySuggestion(token)
     }
@@ -428,6 +434,10 @@ export function IndustryRulesWorkbench() {
   }
 
   const saveGlossary = async () => {
+    if (!canManageRules) {
+      toast.error('当前账号只有查看权限')
+      return
+    }
     const ruleset = selectedRuleset.trim()
     if (!ruleset) return
     setSavingGlossary(true)
@@ -449,6 +459,10 @@ export function IndustryRulesWorkbench() {
   }
 
   const savePatterns = async () => {
+    if (!canManageRules) {
+      toast.error('当前账号只有查看权限')
+      return
+    }
     const ruleset = selectedRuleset.trim()
     if (!ruleset) return
     setSavingPatterns(true)
@@ -470,6 +484,10 @@ export function IndustryRulesWorkbench() {
   }
 
   const saveIntents = async () => {
+    if (!canManageRules) {
+      toast.error('当前账号只有查看权限')
+      return
+    }
     const ruleset = selectedRuleset.trim()
     if (!ruleset) return
     setSavingIntents(true)
@@ -536,9 +554,14 @@ export function IndustryRulesWorkbench() {
                   <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                     Ruleset CMS
                   </span>
+                  {!rulesetsQuery.isLoading && !canManageRules ? (
+                    <Badge variant="outline">只读</Badge>
+                  ) : null}
                 </div>
                 <p className="mt-2 max-w-[640px] text-[13px] font-medium leading-6 text-muted-foreground">
-                  维护术语、问题模式和意图分类，先预览查询改写效果，再把候选规则审核入库。
+                  {canManageRules
+                    ? '维护术语、问题模式和意图分类，保存前可先预览查询改写效果。'
+                    : '当前账号可查看、预览和导出规则，只有平台所有者可以修改。'}
                 </p>
               </div>
             </div>
@@ -714,6 +737,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
+                    disabled={!canManageRules}
                     onClick={() =>
                       setGlossaryEntries((prev) => [
                         ...prev,
@@ -730,7 +754,7 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={savingGlossary}
+                    disabled={!canManageRules || savingGlossary}
                     onClick={() => detachPromise(saveGlossary())}
                   >
                     {savingGlossary ? (
@@ -762,6 +786,7 @@ export function IndustryRulesWorkbench() {
                         <td className="px-4 py-3">
                           <Input
                             value={entry.term}
+                            readOnly={!canManageRules}
                             onChange={(event) =>
                               setGlossaryEntry(entry.id, {
                                 term: event.target.value,
@@ -774,6 +799,7 @@ export function IndustryRulesWorkbench() {
                         <td className="px-4 py-3">
                           <Input
                             value={entry.aliasesText}
+                            readOnly={!canManageRules}
                             onChange={(event) =>
                               setGlossaryEntry(entry.id, {
                                 aliasesText: event.target.value,
@@ -790,6 +816,7 @@ export function IndustryRulesWorkbench() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={!canManageRules}
                             className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                             aria-label="删除术语"
                             onClick={() =>
@@ -827,6 +854,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
+                    disabled={!canManageRules}
                     onClick={() =>
                       setPatternEntries((prev) => [
                         ...prev,
@@ -844,7 +872,7 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={savingPatterns}
+                    disabled={!canManageRules || savingPatterns}
                     onClick={() => detachPromise(savePatterns())}
                   >
                     {savingPatterns ? (
@@ -866,6 +894,7 @@ export function IndustryRulesWorkbench() {
                     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_120px_56px]">
                       <Input
                         value={entry.markersText}
+                        readOnly={!canManageRules}
                         onChange={(event) =>
                           setPatternEntry(entry.id, {
                             markersText: event.target.value,
@@ -876,6 +905,7 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.followup}
+                        readOnly={!canManageRules}
                         onChange={(event) =>
                           setPatternEntry(entry.id, {
                             followup: event.target.value,
@@ -886,6 +916,7 @@ export function IndustryRulesWorkbench() {
                       />
                       <label className="flex items-center gap-2 rounded-lg border border-border px-3 text-[13px] font-medium text-muted-foreground">
                         <Checkbox
+                          disabled={!canManageRules}
                           checked={entry.enabled}
                           onCheckedChange={(value) =>
                             setPatternEntry(entry.id, {
@@ -898,6 +929,7 @@ export function IndustryRulesWorkbench() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canManageRules}
                         className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="删除问题模式"
                         onClick={() =>
@@ -928,6 +960,7 @@ export function IndustryRulesWorkbench() {
                   <Button
                     variant="outline"
                     className={DENSE_BUTTON}
+                    disabled={!canManageRules}
                     onClick={() =>
                       setIntentEntries((prev) => [
                         ...prev,
@@ -945,7 +978,7 @@ export function IndustryRulesWorkbench() {
                   </Button>
                   <Button
                     className="h-8 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary"
-                    disabled={savingIntents}
+                    disabled={!canManageRules || savingIntents}
                     onClick={() => detachPromise(saveIntents())}
                   >
                     {savingIntents ? (
@@ -967,6 +1000,7 @@ export function IndustryRulesWorkbench() {
                     <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_180px_56px]">
                       <Input
                         value={entry.name}
+                        readOnly={!canManageRules}
                         onChange={(event) =>
                           setIntentEntry(entry.id, { name: event.target.value })
                         }
@@ -975,6 +1009,7 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.keywordsText}
+                        readOnly={!canManageRules}
                         onChange={(event) =>
                           setIntentEntry(entry.id, {
                             keywordsText: event.target.value,
@@ -985,6 +1020,7 @@ export function IndustryRulesWorkbench() {
                       />
                       <Input
                         value={entry.route}
+                        readOnly={!canManageRules}
                         onChange={(event) =>
                           setIntentEntry(entry.id, {
                             route: event.target.value,
@@ -996,6 +1032,7 @@ export function IndustryRulesWorkbench() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        disabled={!canManageRules}
                         className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="删除意图"
                         onClick={() =>
@@ -1135,7 +1172,7 @@ export function IndustryRulesWorkbench() {
               <Button
                 variant="outline"
                 className={DENSE_BUTTON}
-                disabled={!selectedSuggestionCount}
+                disabled={!canManageRules || !selectedSuggestionCount}
                 onClick={acceptSelectedSuggestions}
               >
                 <Check className="h-3.5 w-3.5" />
@@ -1150,6 +1187,7 @@ export function IndustryRulesWorkbench() {
                 >
                   <div className="flex items-start gap-2">
                     <Checkbox
+                      disabled={!canManageRules}
                       checked={selectedSuggestionTokens[entry.token] === true}
                       onCheckedChange={(value) =>
                         setSelectedSuggestionTokens((prev) => ({
@@ -1173,6 +1211,7 @@ export function IndustryRulesWorkbench() {
                   <div className="mt-3 flex gap-2">
                     <Button
                       variant="outline"
+                      disabled={!canManageRules}
                       className="h-8 flex-1 rounded-lg border-border bg-card px-2.5 text-[12px] font-semibold hover:bg-primary/10 hover:text-primary"
                       onClick={() => addGlossarySuggestion(entry.token)}
                     >
@@ -1181,6 +1220,7 @@ export function IndustryRulesWorkbench() {
                     </Button>
                     <Button
                       variant="ghost"
+                      disabled={!canManageRules}
                       className="h-8 rounded-lg px-2.5 text-[12px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() =>
                         setDismissedSuggestionTokens((prev) => ({

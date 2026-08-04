@@ -4987,7 +4987,7 @@ export interface paths {
         };
         /**
          * 列出行业规则集
-         * @description 返回当前租户全部行业规则集(industry rulesets)的摘要列表,每条含术语映射、问题模式、意图分类三个 section 的条目数。用于治理后台的规则集总览。返回体的 `schema` 字段是版本化的 payload 标记。
+         * @description 返回平台共享行业规则集(industry rulesets)的摘要列表,每条含术语映射、问题模式、意图分类三个 section 的条目数。用于治理后台的规则集总览。返回体的 `schema` 字段是版本化的 payload 标记。
          */
         get: operations["get_industry_rulesets_api_v1_industry_rules_rulesets_get"];
         put?: never;
@@ -17100,7 +17100,7 @@ export interface components {
         IndustryRulesetDetail: {
             /**
              * Name
-             * @description Ruleset identifier (tenant-scoped slug).
+             * @description Platform-shared ruleset identifier.
              */
             name: string;
             /**
@@ -17169,6 +17169,11 @@ export interface components {
             count: number;
             /** Rulesets */
             rulesets?: components["schemas"]["IndustryRulesetSummary"][];
+            /**
+             * Can Manage
+             * @description Whether the current account may update platform-shared rulesets.
+             */
+            can_manage: boolean;
         };
         /**
          * IndustryRulesetSummary
@@ -17177,7 +17182,7 @@ export interface components {
         IndustryRulesetSummary: {
             /**
              * Name
-             * @description Ruleset identifier (tenant-scoped slug).
+             * @description Platform-shared ruleset identifier.
              */
             name: string;
             /**
@@ -45311,7 +45316,11 @@ export interface operations {
     get_industry_rulesets_api_v1_industry_rules_rulesets_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -45361,12 +45370,25 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_industry_ruleset_api_v1_industry_rules_rulesets__name__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
             path: {
                 name: string;
             };
@@ -45654,7 +45676,11 @@ export interface operations {
     preview_industry_rules_rewrite_api_v1_industry_rules_preview_rewrite_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-tenant-id"?: string | null;
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };

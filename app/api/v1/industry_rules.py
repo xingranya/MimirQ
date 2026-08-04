@@ -1,4 +1,3 @@
-
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -46,13 +45,29 @@ _PREVIEW_SCHEMA = "mimirq.industry_rules_preview.v1"
 _UPDATE_SCHEMA = "mimirq.industry_rules_update.v1"
 
 
-def _ensure_write(db: Session, tenant_id: UUID, account_id: str) -> None:
+def _system_tenant_id() -> UUID:
     try:
-        system_tenant_id = UUID(str(getattr(settings, "DEFAULT_TENANT_ID", "") or ""))
+        return UUID(str(getattr(settings, "DEFAULT_TENANT_ID", "") or ""))
     except ValueError as exc:
         raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is invalid") from exc
-    if tenant_id != system_tenant_id:
-        raise HTTPException(status_code=403, detail="No permission to manage industry rules")
+
+
+def _is_system_tenant_owner(tenant_id: UUID, member: Any) -> bool:
+    role = str(getattr(member, "role", "") or "").strip().lower()
+    return tenant_id == _system_tenant_id() and role == "owner"
+
+
+def _ensure_read(db: Session, tenant_id: UUID, account_id: str) -> Any:
+    return ensure_tenant_permission(
+        db,
+        tenant_id,
+        account_id,
+        TenantPermissions.SETTINGS_READ,
+        detail="No permission to access industry rules",
+    )
+
+
+def _ensure_write(db: Session, tenant_id: UUID, account_id: str) -> None:
     member = ensure_tenant_permission(
         db,
         tenant_id,
@@ -60,7 +75,7 @@ def _ensure_write(db: Session, tenant_id: UUID, account_id: str) -> None:
         TenantPermissions.SETTINGS_WRITE,
         detail="No permission to manage industry rules",
     )
-    if str(getattr(member, "role", "") or "").strip().lower() != "owner":
+    if not _is_system_tenant_owner(tenant_id, member):
         raise HTTPException(status_code=403, detail="No permission to manage industry rules")
 
 
@@ -99,19 +114,26 @@ def _require_ruleset(name: str) -> str:
     response_model=IndustryRulesetListResponse,
     summary="列出行业规则集",
     description=(
-        "返回当前租户全部行业规则集(industry rulesets)的摘要列表,每条含术语映射、"
+        "返回平台共享行业规则集(industry rulesets)的摘要列表,每条含术语映射、"
         "问题模式、意图分类三个 section 的条目数。用于治理后台的规则集总览。"
         "返回体的 `schema` 字段是版本化的 payload 标记。"
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
-def get_industry_rulesets() -> dict[str, Any]:
+def get_industry_rulesets(
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    member = _ensure_read(db, tenant_id, account_id)
     names = list_rulesets()
     rows = [_ruleset_summary(name) for name in names]
     return {
         "schema": _INDEX_SCHEMA,
         "count": int(len(rows)),
         "rulesets": rows,
+        "can_manage": _is_system_tenant_owner(tenant_id, member),
     }
 
 
@@ -126,7 +148,14 @@ def get_industry_rulesets() -> dict[str, Any]:
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
-def get_industry_ruleset(name: str) -> dict[str, Any]:
+def get_industry_ruleset(
+    name: str,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    _ensure_read(db, tenant_id, account_id)
     candidate = _require_ruleset(name)
     return {
         "schema": _RULESET_SCHEMA,
@@ -139,8 +168,7 @@ def get_industry_ruleset(name: str) -> dict[str, Any]:
     response_model=IndustryRulesUpdateResponse,
     summary="整体替换术语映射表",
     description=(
-        "用请求体中的 glossary 全量替换指定规则集的术语映射表(非增量合并)。"
-        "返回写入条目数。规则集不存在时返回 404。"
+        "用请求体中的 glossary 全量替换指定规则集的术语映射表(非增量合并)。返回写入条目数。规则集不存在时返回 404。"
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
@@ -163,8 +191,7 @@ def put_industry_ruleset_glossary(
     response_model=IndustryRulesUpdateResponse,
     summary="整体替换问题模式",
     description=(
-        "用请求体中的 patterns 全量替换指定规则集的问题模式列表(非增量合并)。"
-        "返回写入条目数。规则集不存在时返回 404。"
+        "用请求体中的 patterns 全量替换指定规则集的问题模式列表(非增量合并)。返回写入条目数。规则集不存在时返回 404。"
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
@@ -187,8 +214,7 @@ def put_industry_ruleset_patterns(
     response_model=IndustryRulesUpdateResponse,
     summary="整体替换意图分类",
     description=(
-        "用请求体中的 intents 全量替换指定规则集的意图分类列表(非增量合并)。"
-        "返回写入条目数。规则集不存在时返回 404。"
+        "用请求体中的 intents 全量替换指定规则集的意图分类列表(非增量合并)。返回写入条目数。规则集不存在时返回 404。"
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
@@ -216,7 +242,14 @@ def put_industry_ruleset_intents(
     ),
     responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
 )
-def preview_industry_rules_rewrite(body: IndustryRulesRewritePreviewRequest) -> dict[str, Any]:
+def preview_industry_rules_rewrite(
+    body: IndustryRulesRewritePreviewRequest,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    _ensure_read(db, tenant_id, account_id)
     candidate = _require_ruleset(body.ruleset)
     ruleset = load_ruleset(candidate)
     original_query = str(body.query or "").strip()

@@ -157,7 +157,11 @@ def test_prompt_template_mutations_require_settings_write(monkeypatch: pytest.Mo
     assert db.commits == 0
 
 
-def test_industry_rule_write_requires_system_settings_permission(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("section", ["glossary", "patterns", "intents"])
+def test_industry_rule_write_requires_system_settings_permission(
+    monkeypatch: pytest.MonkeyPatch,
+    section: str,
+) -> None:
     from app.api.v1 import industry_rules
 
     write_called = False
@@ -168,15 +172,26 @@ def test_industry_rule_write_requires_system_settings_permission(monkeypatch: py
     def _write(*_args, **_kwargs) -> dict:
         nonlocal write_called
         write_called = True
-        return {"ruleset": "industrial_control", "section": "glossary", "updated_count": 0}
+        return {"ruleset": "industrial_control", "section": section, "updated_count": 0}
 
-    monkeypatch.setattr(industry_rules, "_ensure_write", _deny, raising=False)
-    monkeypatch.setattr(industry_rules, "replace_ruleset_glossary", _write, raising=True)
+    requests = {
+        "glossary": industry_rules.IndustryRulesGlossaryUpdateRequest(glossary={}),
+        "patterns": industry_rules.IndustryRulesPatternsUpdateRequest(patterns=[]),
+        "intents": industry_rules.IndustryRulesIntentsUpdateRequest(intents=[]),
+    }
+    endpoints = {
+        "glossary": industry_rules.put_industry_ruleset_glossary,
+        "patterns": industry_rules.put_industry_ruleset_patterns,
+        "intents": industry_rules.put_industry_ruleset_intents,
+    }
+
+    monkeypatch.setattr(industry_rules, "_ensure_write", _deny, raising=True)
+    monkeypatch.setattr(industry_rules, f"replace_ruleset_{section}", _write, raising=True)
 
     with pytest.raises(HTTPException) as exc_info:
-        industry_rules.put_industry_ruleset_glossary(
+        endpoints[section](
             "industrial_control",
-            industry_rules.IndustryRulesGlossaryUpdateRequest(glossary={}),
+            requests[section],
             tenant_id=uuid4(),
             account_id="viewer",
             db=object(),
@@ -184,6 +199,183 @@ def test_industry_rule_write_requires_system_settings_permission(monkeypatch: py
 
     assert exc_info.value.status_code == 403
     assert write_called is False
+
+
+@pytest.mark.parametrize(
+    ("role", "use_system_tenant"),
+    [("admin", True), ("owner", False)],
+)
+def test_industry_rule_write_rejects_non_platform_owner(
+    monkeypatch: pytest.MonkeyPatch,
+    role: str,
+    use_system_tenant: bool,
+) -> None:
+    from app.api.v1 import industry_rules
+
+    system_tenant_id = uuid4()
+    tenant_id = system_tenant_id if use_system_tenant else uuid4()
+    monkeypatch.setattr(
+        industry_rules.settings,
+        "DEFAULT_TENANT_ID",
+        str(system_tenant_id),
+    )
+    monkeypatch.setattr(
+        industry_rules,
+        "ensure_tenant_permission",
+        lambda *_args, **_kwargs: SimpleNamespace(role=role),
+        raising=True,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        industry_rules._ensure_write(object(), tenant_id, "account")
+
+    assert exc_info.value.status_code == 403
+
+
+def test_industry_rule_reads_require_settings_permission(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.api.v1 import industry_rules
+
+    loader_called = False
+
+    def _deny(*_args, **_kwargs) -> None:
+        raise HTTPException(status_code=403, detail="denied")
+
+    def _list_rulesets() -> list[str]:
+        nonlocal loader_called
+        loader_called = True
+        return []
+
+    monkeypatch.setattr(industry_rules, "_ensure_read", _deny, raising=True)
+    monkeypatch.setattr(industry_rules, "list_rulesets", _list_rulesets, raising=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        industry_rules.get_industry_rulesets(
+            tenant_id=uuid4(),
+            account_id="viewer",
+            db=object(),
+        )
+
+    assert exc_info.value.status_code == 403
+    assert loader_called is False
+
+
+def test_industry_rule_preview_checks_read_permission_before_ruleset_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.v1 import industry_rules
+
+    lookup_called = False
+
+    def _deny(*_args, **_kwargs) -> None:
+        raise HTTPException(status_code=403, detail="denied")
+
+    def _require_ruleset(_name: str) -> str:
+        nonlocal lookup_called
+        lookup_called = True
+        return "industrial_control"
+
+    monkeypatch.setattr(industry_rules, "_ensure_read", _deny, raising=True)
+    monkeypatch.setattr(industry_rules, "_require_ruleset", _require_ruleset, raising=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        industry_rules.preview_industry_rules_rewrite(
+            industry_rules.IndustryRulesRewritePreviewRequest(
+                ruleset="industrial_control",
+                query="授权报错",
+            ),
+            tenant_id=uuid4(),
+            account_id="viewer",
+            db=object(),
+        )
+
+    assert exc_info.value.status_code == 403
+    assert lookup_called is False
+
+
+def test_industry_rule_detail_checks_read_permission_before_ruleset_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.v1 import industry_rules
+
+    lookup_called = False
+
+    def _deny(*_args, **_kwargs) -> None:
+        raise HTTPException(status_code=403, detail="denied")
+
+    def _require_ruleset(_name: str) -> str:
+        nonlocal lookup_called
+        lookup_called = True
+        return "industrial_control"
+
+    monkeypatch.setattr(industry_rules, "_ensure_read", _deny, raising=True)
+    monkeypatch.setattr(industry_rules, "_require_ruleset", _require_ruleset, raising=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        industry_rules.get_industry_ruleset(
+            "industrial_control",
+            tenant_id=uuid4(),
+            account_id="viewer",
+            db=object(),
+        )
+
+    assert exc_info.value.status_code == 403
+    assert lookup_called is False
+
+
+def test_industry_rule_list_exposes_real_write_capability(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.api.v1 import industry_rules
+
+    tenant_id = uuid4()
+    monkeypatch.setattr(industry_rules.settings, "DEFAULT_TENANT_ID", str(tenant_id))
+    monkeypatch.setattr(
+        industry_rules,
+        "_ensure_read",
+        lambda *_args, **_kwargs: SimpleNamespace(role="owner"),
+        raising=True,
+    )
+    monkeypatch.setattr(industry_rules, "list_rulesets", lambda: [], raising=True)
+
+    result = industry_rules.get_industry_rulesets(
+        tenant_id=tenant_id,
+        account_id="owner",
+        db=object(),
+    )
+
+    assert result["can_manage"] is True
+
+
+@pytest.mark.parametrize(
+    ("role", "use_system_tenant", "expected"),
+    [
+        ("owner", True, True),
+        ("admin", True, False),
+        ("viewer", True, False),
+        ("owner", False, False),
+    ],
+)
+def test_industry_rule_write_capability_requires_system_owner(
+    monkeypatch: pytest.MonkeyPatch,
+    role: str,
+    use_system_tenant: bool,
+    expected: bool,
+) -> None:
+    from app.api.v1 import industry_rules
+
+    system_tenant_id = uuid4()
+    tenant_id = system_tenant_id if use_system_tenant else uuid4()
+    monkeypatch.setattr(
+        industry_rules.settings,
+        "DEFAULT_TENANT_ID",
+        str(system_tenant_id),
+    )
+
+    assert (
+        industry_rules._is_system_tenant_owner(
+            tenant_id,
+            SimpleNamespace(role=role),
+        )
+        is expected
+    )
 
 
 def test_industry_ruleset_name_cannot_escape_ruleset_root() -> None:
