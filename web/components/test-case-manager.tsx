@@ -41,6 +41,7 @@ import { toast } from 'sonner'
 import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
 import { cn, detachPromise } from '@/lib/utils'
 import { formatApiError } from '@/lib/api-errors'
+import { resolveEvidencePackDataset } from '@/lib/evaluation-evidence-pack'
 import { queryKeys } from '@/lib/query-keys'
 import {
   Dialog,
@@ -308,11 +309,11 @@ export function TestCaseManager({
   }, [evidencePack])
 
   const evidenceDatasetId = useMemo(() => {
-    const fromPack =
-      typeof evidencePack?.dataset_id === 'string'
-        ? evidencePack.dataset_id.trim()
-        : ''
-    return fromPack || datasetId || ''
+    const resolution = resolveEvidencePackDataset(
+      datasetId,
+      evidencePack?.dataset_id
+    )
+    return resolution.ok ? resolution.datasetId : ''
   }, [datasetId, evidencePack])
 
   const regressionCaseParams = useMemo(
@@ -613,17 +614,16 @@ export function TestCaseManager({
         return
       }
 
-      const ds =
-        typeof parsed?.dataset_id === 'string'
-          ? String(parsed.dataset_id).trim()
-          : ''
       const activeDatasetId = String(datasetIdRef.current || '').trim()
-      const effectiveDatasetId = ds || activeDatasetId
-      if (!effectiveDatasetId) {
+      const resolution = resolveEvidencePackDataset(
+        activeDatasetId,
+        typeof parsed?.dataset_id === 'string' ? parsed.dataset_id : ''
+      )
+      if (!resolution.ok && resolution.reason === 'missing_active_dataset') {
         toast.error('证据包未指定数据集，且当前也没有选择数据集')
         return
       }
-      if (ds && activeDatasetId && ds !== activeDatasetId) {
+      if (!resolution.ok) {
         toast.error('证据包属于其他数据集，请切换到对应数据集后再导入')
         return
       }
@@ -631,7 +631,7 @@ export function TestCaseManager({
       const q = typeof parsed?.query === 'string' ? parsed.query : ''
       setEvidencePack({
         ...parsed,
-        dataset_id: effectiveDatasetId,
+        dataset_id: resolution.datasetId,
         source: 'evidence_pack',
       })
       setEvidenceQuestion(String(q || '').trim())
@@ -668,16 +668,15 @@ export function TestCaseManager({
   }
 
   const handleCreateCaseFromEvidencePack = async () => {
-    const ds = (evidenceDatasetId || '').trim()
-    if (!ds) {
-      toast.error('未指定数据集')
-      return
-    }
-    const activeDatasetId = String(datasetIdRef.current || '').trim()
-    if (!activeDatasetId || ds !== activeDatasetId) {
+    const resolution = resolveEvidencePackDataset(
+      datasetIdRef.current,
+      evidencePack?.dataset_id
+    )
+    if (!resolution.ok) {
       toast.error('当前数据集已变化，请重新选择标准证据')
       return
     }
+    const ds = resolution.datasetId
     const q = (evidenceQuestion || '').trim()
     if (!q) {
       toast.error('请输入问题')
@@ -1250,7 +1249,7 @@ export function TestCaseManager({
                   ? '导入的证据包'
                   : '当前数据集检索结果'}
               </span>
-              <span>共 {evidenceCitations.length} 条证据</span>
+              <span>写入当前数据集 · 共 {evidenceCitations.length} 条证据</span>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

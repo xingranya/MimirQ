@@ -47,15 +47,15 @@ describe('基准评测样本管理界面', () => {
   it('拒绝过大的文件和属于其他数据集的证据包', () => {
     expect(source).toContain('file.size > EVIDENCE_PACK_MAX_BYTES')
     expect(source).toContain('证据包不能超过 5 MB')
-    expect(source).toContain('ds && activeDatasetId && ds !== activeDatasetId')
+    expect(source).toContain('resolveEvidencePackDataset')
     expect(source).toContain('证据包属于其他数据集')
+    expect(source).toContain('写入当前数据集')
   })
 
   it('数据集切换后丢弃旧检索结果并阻止旧弹窗提交', () => {
     expect(source).toContain('datasetIdRef.current = datasetId')
     expect(source).toContain("datasetIdRef.current || '').trim() !== requestedDatasetId")
     expect(source).toContain('数据集已切换，请重新检索标准证据')
-    expect(source).toContain('ds !== activeDatasetId')
     expect(source).toContain('当前数据集已变化，请重新选择标准证据')
   })
 
