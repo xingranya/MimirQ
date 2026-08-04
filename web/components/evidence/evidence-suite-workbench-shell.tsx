@@ -36,6 +36,7 @@ export function EvidenceSuiteWorkbenchShell({
   dataset,
   datasetId,
   datasetLoading,
+  datasetTransitioning,
   evidenceStatusBadgeVariant,
   expectedNeedles,
   exportWhyMissedReport,
@@ -154,7 +155,17 @@ export function EvidenceSuiteWorkbenchShell({
   whyMissedError,
 }: Readonly<EvidenceSuiteWorkbenchState>) {
   return (
+    <fieldset
+      disabled={datasetTransitioning}
+      aria-busy={datasetTransitioning}
+      className="contents"
+    >
     <div className="space-y-4">
+      {datasetTransitioning ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          正在加载当前数据集的证据库…
+        </p>
+      ) : null}
       {pendingFeedbackId ? (
         <div className="rounded-2xl border border-warning/25 bg-warning/8 px-4 py-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -421,5 +432,6 @@ export function EvidenceSuiteWorkbenchShell({
         onExportReport={exportWhyMissedReport}
       />
     </div>
+    </fieldset>
   )
 }
