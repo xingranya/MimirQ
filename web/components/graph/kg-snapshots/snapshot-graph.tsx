@@ -145,12 +145,12 @@ export function getGraphNodeSizeClass(isDense: boolean, isMedium: boolean): stri
 }
 
 export function graphLoadingTitle(isLoading: boolean): string {
-  return isLoading ? '正在读取真实 KG 图谱' : '暂无图谱节点'
+  return isLoading ? '正在读取图谱' : '暂无图谱节点'
 }
 
 export function graphLoadingDescription(isLoading: boolean, emptyMessage?: string): string {
-  if (isLoading) return '系统会按当前数据集、文档范围和 pipeline hash 请求后端接口。'
-  return emptyMessage || '当前作用域没有返回 KG 节点，请先完成文档入库或 KG 抽取。'
+  if (isLoading) return '系统正在按当前数据集和文档范围读取图谱。'
+  return emptyMessage || '当前范围没有图谱节点，请先完成文档入库和图谱抽取。'
 }
 
 export function buildSnapshotStudioGraphFromKgGraph(graph: KGGraphResponse | null): {
@@ -187,7 +187,7 @@ export function buildSnapshotStudioGraphFromKgGraph(graph: KGGraphResponse | nul
         kind: firstDisplayString(getNodeMetaValue(node, 'kind', 'node_type', 'source')) || type,
         description:
           firstDisplayString(getNodeMetaValue(node, 'description', 'summary', 'content')) ||
-          '来自 KG 图谱接口的真实节点。',
+          '来自当前图谱数据的节点。',
         x: Math.round((50 + Math.cos(angle) * radiusX) * 10) / 10,
         y: Math.round((50 + Math.sin(angle) * radiusY) * 10) / 10,
         tone: toneForNodeType(type),
@@ -294,6 +294,6 @@ export function snapshotToneClassName(
   const base = SNAPSHOT_NODE_TONE_CLASSES[tone]
   return cn(
     base,
-    selected ? 'ring-4 ring-offset-4 ring-offset-background' : 'ring-1'
+    selected ? 'ring-2 ring-offset-2 ring-offset-background' : 'ring-1'
   )
 }

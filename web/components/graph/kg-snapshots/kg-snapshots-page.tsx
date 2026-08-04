@@ -3,7 +3,6 @@
 import {
   ArrowRightLeft,
   BarChart3,
-  CircleDashed,
   Database,
   Download,
   FileJson,
@@ -34,7 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/ui/page-header'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { formatApiError } from '@/lib/api-errors'
 import { datasetApi } from '@/lib/api/datasets'
@@ -89,12 +88,10 @@ import {
   getScopeDocumentCountLabel,
   getSelectedDatasetLabel,
   getSnapshotScopeSubtitle,
-  inlineStatToneForDelta,
   mergePipelineCandidate,
   parseDocumentIds,
   prettyJson,
   sortPipelineCandidates,
-  tabLabelForView,
 } from './utils'
 
 export function KGSnapshotsPage() {
@@ -277,7 +274,7 @@ export function KGSnapshotsPage() {
     [snapB]
   )
   const diffJson = useMemo(
-    () => prettyJson(diff ?? { hint: '点击左侧“开始对比”生成 diff。' }),
+    () => prettyJson(diff ?? { hint: '点击左侧“开始对比”生成差异结果。' }),
     [diff]
   )
 
@@ -315,7 +312,7 @@ export function KGSnapshotsPage() {
       }
       toast.success(`已导出 ${which.toUpperCase()} 快照`)
     } catch (err) {
-      toast.error(formatApiError(err, '导出 KG snapshot 失败'))
+      toast.error(formatApiError(err, '导出图谱快照失败'))
     } finally {
       setIsRunning(false)
     }
@@ -325,11 +322,11 @@ export function KGSnapshotsPage() {
     const a = pipelineHashA.trim()
     const b = pipelineHashB.trim()
     if (!a || !b) {
-      toast.error('请选择快照 A / B')
+      toast.error('请选择快照 A 和快照 B')
       return
     }
     if (a === b) {
-      toast.error('A / B pipeline_hash 不能相同')
+      toast.error('快照 A 和快照 B 不能选择同一版本')
       return
     }
 
@@ -360,9 +357,9 @@ export function KGSnapshotsPage() {
       setSnapB(snapshotB)
       setDiff(result)
       setActiveView('diff')
-      toast.success('已生成 diff')
+      toast.success('已生成对比结果')
     } catch (err) {
-      toast.error(formatApiError(err, 'KG snapshot compare 失败'))
+      toast.error(formatApiError(err, '图谱快照对比失败'))
     } finally {
       setIsRunning(false)
     }
@@ -372,11 +369,11 @@ export function KGSnapshotsPage() {
     const a = pipelineHashA.trim()
     const b = pipelineHashB.trim()
     if (!a || !b) {
-      toast.error('请选择快照 A / B')
+      toast.error('请选择快照 A 和快照 B')
       return
     }
     if (a === b) {
-      toast.error('A / B pipeline_hash 不能相同')
+      toast.error('快照 A 和快照 B 不能选择同一版本')
       return
     }
 
@@ -393,9 +390,9 @@ export function KGSnapshotsPage() {
       setLatencyMs(Math.max(0, Date.now() - start))
       setDiff(result)
       setActiveView('diff')
-      toast.success('后端对比完成')
+      toast.success('服务端对比完成')
     } catch (err) {
-      toast.error(formatApiError(err, 'KG snapshot 后端对比失败'))
+      toast.error(formatApiError(err, '服务端对比失败'))
     } finally {
       setIsRunning(false)
     }
@@ -436,7 +433,7 @@ export function KGSnapshotsPage() {
           if (!cancelled) {
             setLiveGraph({ nodes: [], links: [] })
             setLiveGraphError(
-              'KG 功能未启用，已按后端能力状态跳过实时图谱读取。请在设置中开启 KG 抽取后刷新。'
+              '图谱功能尚未启用。请在设置中开启图谱抽取后刷新。'
             )
           }
           return
@@ -458,7 +455,7 @@ export function KGSnapshotsPage() {
       } catch (err) {
         if (!cancelled) {
           setLiveGraph({ nodes: [], links: [] })
-          setLiveGraphError(formatApiError(err, 'KG 图谱读取失败'))
+          setLiveGraphError(formatApiError(err, '图谱读取失败'))
         }
       } finally {
         if (!cancelled) setLiveGraphLoading(false)
@@ -489,10 +486,9 @@ export function KGSnapshotsPage() {
     [studioGraph.links]
   )
   const selectedStudioNode = useMemo(() => {
+    if (!selectedStudioNodeId) return null
     return (
-      studioGraph.nodes.find((node) => node.id === selectedStudioNodeId) ??
-      studioGraph.nodes[0] ??
-      null
+      studioGraph.nodes.find((node) => node.id === selectedStudioNodeId) ?? null
     )
   }, [selectedStudioNodeId, studioGraph.nodes])
   useEffect(() => {
@@ -500,8 +496,11 @@ export function KGSnapshotsPage() {
       if (selectedStudioNodeId) setSelectedStudioNodeId('')
       return
     }
-    if (!studioGraph.nodes.some((node) => node.id === selectedStudioNodeId)) {
-      setSelectedStudioNodeId(studioGraph.nodes[0]?.id ?? '')
+    if (
+      selectedStudioNodeId &&
+      !studioGraph.nodes.some((node) => node.id === selectedStudioNodeId)
+    ) {
+      setSelectedStudioNodeId('')
     }
   }, [selectedStudioNodeId, studioGraph.nodes])
 
@@ -559,14 +558,14 @@ export function KGSnapshotsPage() {
     ]
   }, [diff, driftScore])
   const formInputClassName =
-    'h-10 rounded-lg border-border/70 bg-card font-mono text-xs shadow-none'
+    'h-10 rounded-md border-border bg-background text-sm shadow-none'
   const formTextareaClassName =
-    'min-h-[108px] resize-none rounded-lg border-border/70 bg-card font-mono text-xs shadow-none'
+    'min-h-[108px] resize-none rounded-md border-border bg-background text-sm shadow-none'
 
   return (
     <AppFrame showBackground={false}>
-      <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(1200px_460px_at_12%_-18%,hsl(var(--primary)/0.08),transparent_58%),radial-gradient(960px_420px_at_88%_-24%,hsl(var(--info)/0.06),transparent_56%)] bg-background">
-        <header className="shrink-0 border-b border-border/70 bg-background/80 backdrop-blur">
+      <div className="flex min-h-full flex-col bg-background lg:h-full lg:min-h-0">
+        <header className="shrink-0 border-b border-border bg-background">
           <div className="px-4 py-3 md:px-6">
             <PageHeader
               title="图谱快照"
@@ -574,11 +573,10 @@ export function KGSnapshotsPage() {
               iconImage="kg-snapshot"
               icon={GitCompare}
               iconColor="text-info"
-              badge="Graph"
               compact
               className="p-0"
             >
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-border/36 bg-card/46 p-1 shadow-[inset_0_1px_0_hsl(var(--card)/0.62)]">
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -640,25 +638,24 @@ export function KGSnapshotsPage() {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
           <aside
             className={cn(
-              'shrink-0 border-r border-border/70 bg-background transition-[width,opacity] duration-200',
+              'flex w-full flex-none flex-col border-b border-border bg-background transition-[width,opacity] duration-150 motion-reduce:transition-none lg:min-h-0 lg:w-[280px] lg:border-b-0 lg:border-r',
               leftSidebarCollapsed
-                ? 'w-0 overflow-hidden border-r-0 opacity-0'
-                : 'w-[288px] opacity-100',
-              'flex min-h-0 flex-col'
+                ? 'hidden overflow-hidden border-0 opacity-0 lg:flex lg:w-0'
+                : 'opacity-100'
             )}
           >
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="shrink-0 border-b border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.20))] px-4 py-3">
-                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm">
+            <div className="flex min-h-0 flex-col lg:h-full">
+              <div className="shrink-0 border-b border-border bg-background px-4 py-3">
+                <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-1">
                   <button
                     type="button"
                     className={cn(
-                      'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-medium transition-colors',
+                      'inline-flex h-9 items-center justify-center gap-1.5 rounded-sm text-xs font-medium transition-colors',
                       workspaceTab === 'studio'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        ? 'bg-background text-primary ring-1 ring-border'
                         : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                     )}
                     onClick={() => {
@@ -671,9 +668,9 @@ export function KGSnapshotsPage() {
                   <button
                     type="button"
                     className={cn(
-                      'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-medium transition-colors',
+                      'inline-flex h-9 items-center justify-center gap-1.5 rounded-sm text-xs font-medium transition-colors',
                       workspaceTab === 'audit'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        ? 'bg-background text-primary ring-1 ring-border'
                         : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                     )}
                     onClick={() => {
@@ -703,7 +700,7 @@ export function KGSnapshotsPage() {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <div className="min-h-0 flex-1 px-4 py-4 lg:overflow-y-auto">
                 <div className="space-y-3">
                   <WorkspaceSection
                     icon={<Hash className="h-3.5 w-3.5" />}
@@ -711,11 +708,11 @@ export function KGSnapshotsPage() {
                     hint={selectedDatasetId ? '已绑定数据集' : '全局候选'}
                   >
                     <div className="space-y-2.5">
-                      <div className="rounded-lg border border-info/14 bg-info/5 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
-                        选择数据集后会从后端报告和文档元数据读取可对比版本；一般选最新版本作为 B，旧版本作为 A。
+                      <div className="rounded-md bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                        选择数据集后会读取可对比版本。通常用 B 表示当前版本，A 表示之前的版本。
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center justify-between gap-2 text-xs">
                         <span className="text-muted-foreground">
                           {pipelineCandidatesLoading
                             ? '正在加载版本…'
@@ -729,7 +726,7 @@ export function KGSnapshotsPage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-6 px-2 text-[11px] text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                          className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           onClick={() => setAdvancedHashOpen((value) => !value)}
                         >
                           {advancedHashOpen ? '收起手填' : '手动填写'}
@@ -739,9 +736,9 @@ export function KGSnapshotsPage() {
                       <div className="space-y-1.5">
                         <Label
                           htmlFor="pipeline-hash-a"
-                          className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-foreground"
                         >
-                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-md bg-success/10 text-[10px] font-bold text-success ring-1 ring-success/30">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-success/10 text-xs font-bold text-success">
                             A
                           </span>
                           <span>快照 A</span>
@@ -750,7 +747,7 @@ export function KGSnapshotsPage() {
                           id="pipeline-hash-a"
                           value={pipelineHashA}
                           onChange={(e) => setPipelineHashA(e.target.value)}
-                          className="h-10 w-full rounded-lg border border-border/70 bg-card px-3 text-xs font-medium text-foreground shadow-none outline-none transition-colors hover:bg-muted/20 focus:ring-2 focus:ring-primary/20"
+                          className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus:ring-2 focus:ring-primary/20"
                         >
                           <option value="">
                             {pipelineCandidatesLoading ? '正在加载版本…' : '选择旧版本'}
@@ -772,9 +769,9 @@ export function KGSnapshotsPage() {
                       <div className="space-y-1.5">
                         <Label
                           htmlFor="pipeline-hash-b"
-                          className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                          className="flex items-center gap-1.5 text-xs font-semibold text-foreground"
                         >
-                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-md bg-info/10 text-[10px] font-bold text-info ring-1 ring-info/30">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-sm bg-info/10 text-xs font-bold text-info">
                             B
                           </span>
                           <span>快照 B</span>
@@ -783,7 +780,7 @@ export function KGSnapshotsPage() {
                           id="pipeline-hash-b"
                           value={pipelineHashB}
                           onChange={(e) => setPipelineHashB(e.target.value)}
-                          className="h-10 w-full rounded-lg border border-border/70 bg-card px-3 text-xs font-medium text-foreground shadow-none outline-none transition-colors hover:bg-muted/20 focus:ring-2 focus:ring-primary/20"
+                          className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus:ring-2 focus:ring-primary/20"
                         >
                           <option value="">
                             {pipelineCandidatesLoading ? '正在加载版本…' : '选择当前版本'}
@@ -803,7 +800,7 @@ export function KGSnapshotsPage() {
                       </div>
 
                       {advancedHashOpen ? (
-                        <div className="space-y-2 rounded-lg border border-dashed border-border/70 bg-muted/20 p-2.5">
+                        <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2.5">
                           <Input
                             aria-label="手动填写快照 A 哈希"
                             placeholder="手动填写快照 A 哈希"
@@ -831,7 +828,7 @@ export function KGSnapshotsPage() {
                     <div className="space-y-1.5">
                       <Label
                         htmlFor="snapshot-dataset"
-                        className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                        className="text-xs font-semibold text-foreground"
                       >
                         数据集
                       </Label>
@@ -846,7 +843,7 @@ export function KGSnapshotsPage() {
                           setSnapB(null)
                           setDiff(null)
                         }}
-                        className="h-10 w-full rounded-lg border border-border/70 bg-card px-3 text-xs font-medium text-foreground shadow-none outline-none transition-colors hover:bg-muted/20 focus:ring-2 focus:ring-primary/20"
+                        className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus:ring-2 focus:ring-primary/20"
                       >
                         <option value="">
                           {datasetsLoading ? '正在加载数据集…' : '全部数据集'}
@@ -857,17 +854,17 @@ export function KGSnapshotsPage() {
                           </option>
                         ))}
                       </select>
-                      <div className="text-[11px] leading-5 text-muted-foreground">
+                      <div className="text-xs leading-5 text-muted-foreground">
                         {selectedDatasetId
-                          ? '后端会按数据集解析可访问文档范围；文档覆盖仅用于排查单文件或子集。'
-                          : '全部数据集表示直接请求后端 KG 全局范围，不使用演示数据。'}
+                          ? '系统会按数据集读取可访问文档，文档编号只用于排查单个文件或指定子集。'
+                          : '选择全部数据集时，将读取当前账号可访问的全部图谱数据。'}
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label
                         htmlFor="document-ids"
-                        className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                        className="text-xs font-semibold text-foreground"
                       >
                         文档覆盖
                       </Label>
@@ -910,15 +907,13 @@ export function KGSnapshotsPage() {
                 </div>
               </div>
 
-              <div className="shrink-0 border-t border-border/44 bg-background/92 px-3 py-3 backdrop-blur">
-                <div className="rounded-[1.15rem] border border-border/36 bg-card/62 p-2.5 shadow-[0_16px_38px_-34px_hsl(var(--foreground)/0.35),inset_0_1px_0_hsl(var(--card)/0.7)]">
+              <div className="shrink-0 border-t border-border bg-background px-4 py-4">
+                <div>
                   <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                    <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/62">
+                    <div className="text-xs font-semibold text-foreground">
                       快照操作
                     </div>
-                    <span className="rounded-full border border-border/32 bg-background/44 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/64">
-                      bounded diff
-                    </span>
+                    <span className="text-xs text-muted-foreground">限制返回数量</span>
                   </div>
 
                   <Button
@@ -963,20 +958,20 @@ export function KGSnapshotsPage() {
                       disabled={isRunning}
                     >
                       <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                      后端
+                      服务端
                     </Button>
                   </div>
                 </div>
 
-                <p className="mt-2.5 px-1 text-[10.5px] leading-4 text-muted-foreground/72">
-                  节点、边、属性 hash 参与 diff；完整溯源可结合 KG diagnostics 或 traces 排查。
+                <p className="mt-2.5 px-1 text-xs leading-5 text-muted-foreground">
+                  对比会检查节点、关系和属性版本。需要继续追踪时，可前往图谱诊断查看明细。
                 </p>
               </div>
             </div>
           </aside>
 
-          <div className="flex min-w-0 flex-1 bg-card">
-            <section className="min-w-0 flex-1 bg-card">
+          <div className="flex min-h-[620px] min-w-0 flex-1 bg-background lg:min-h-0">
+            <section className="min-w-0 flex-1 bg-background">
               {workspaceTab === 'studio' ? (
                 <div className="flex h-full min-h-0 flex-col">
                   <SnapshotStudioToolbar
@@ -1025,8 +1020,8 @@ export function KGSnapshotsPage() {
                       emptyMessage={
                         liveGraphError ||
                         (selectedDatasetId
-                          ? '当前数据集没有返回 KG 节点，请确认文档已完成入库且已开启 KG 抽取。'
-                          : '当前后端 KG 图谱接口没有返回节点。')
+                          ? '当前数据集没有图谱节点，请确认文档已完成入库并开启图谱抽取。'
+                          : '当前可访问范围内没有图谱节点。')
                       }
                       onSelectNode={setSelectedStudioNodeId}
                     />
@@ -1051,85 +1046,10 @@ export function KGSnapshotsPage() {
                       }}
                       className="flex h-full min-h-0 flex-col"
                     >
-                      <div className="hidden">
-                        <div className="px-4 py-3">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                                <FileJson
-                                  className="h-3.5 w-3.5 text-primary/70"
-                                  aria-hidden="true"
-                                />
-                                快照工作台
-                              </div>
-                              <div className="mt-0.5 truncate text-[15px] font-semibold text-foreground">
-                                {tabLabelForView(activeView)}
-                              </div>
-                            </div>
-
-                            <TabsList className="h-9 gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm">
-                              <TabsTrigger
-                                value="diff"
-                                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-muted-foreground transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm hover:text-foreground"
-                              >
-                                <ArrowRightLeft
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                Diff 对比
-                              </TabsTrigger>
-                              <TabsTrigger
-                                value="a"
-                                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-muted-foreground transition-colors data-[state=active]:bg-success data-[state=active]:text-info-foreground data-[state=active]:shadow-sm hover:text-foreground"
-                              >
-                                <span className="inline-flex h-4 w-4 items-center justify-center rounded-md bg-success/10 text-[10px] font-bold text-success ring-1 ring-success/30 data-[state=active]:bg-success data-[state=active]:text-info-foreground data-[state=active]:ring-0">
-                                  A
-                                </span>
-                                <span>视图 A</span>
-                              </TabsTrigger>
-                              <TabsTrigger
-                                value="b"
-                                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-muted-foreground transition-colors data-[state=active]:bg-info data-[state=active]:text-info-foreground data-[state=active]:shadow-sm hover:text-foreground"
-                              >
-                                <span className="inline-flex h-4 w-4 items-center justify-center rounded-md bg-info/10 text-[10px] font-bold text-info ring-1 ring-info/30 data-[state=active]:bg-info data-[state=active]:text-info-foreground data-[state=active]:ring-0">
-                                  B
-                                </span>
-                                <span>视图 B</span>
-                              </TabsTrigger>
-                            </TabsList>
-                          </div>
-
-                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                            {diffDelta.delta ? (
-                              deltaRows.map((row) => {
-                                const sign = row.delta > 0 ? '+' : ''
-                                return (
-                                  <SnapshotInlineStat
-                                    key={row.key}
-                                    label={row.key}
-                                    value={`${row.a} → ${row.b} (${sign}${row.delta})`}
-                                    tone={inlineStatToneForDelta(row.delta)}
-                                  />
-                                )
-                              })
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/70 bg-card/60 px-2.5 py-1 text-[11px] text-muted-foreground">
-                                <CircleDashed
-                                  className="h-3.5 w-3.5 text-primary/60"
-                                  aria-hidden="true"
-                                />
-                                填写 A / B Hash 后点击「开始对比」即可查看 docs
-                                / events / entities / links / relations 增量
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
                       <TabsContent value="diff" className="mt-0 min-h-0 flex-1">
                         <SnapshotDiffView
-                          titleA={`Snapshot A · ${hashATitle}`}
-                          titleB={`Snapshot B · ${hashBTitle}`}
+                          titleA={`快照 A · ${hashATitle}`}
+                          titleB={`快照 B · ${hashBTitle}`}
                           subtitleA={snapshotScopeSubtitle}
                           subtitleB={snapshotScopeSubtitle}
                           leftCode={snapAJson}
@@ -1140,17 +1060,17 @@ export function KGSnapshotsPage() {
                           emptyState={
                             <DiffEmptyState
                               title="还没有对比结果"
-                              description="填写左侧的快照 A / 快照 B，可以选择文档范围，然后点击「开始对比」生成左右差异与节点/边精确变更。"
+                              description="选择快照 A 和快照 B，可按需限定文档范围，然后点击「开始对比」查看节点和关系变化。"
                               hint={
                                 hasHashA && hasHashB
                                   ? '已就绪：直接点击「开始对比」'
-                                  : '提示：A / B Hash 二者皆需填写'
+                                  : '请先选择快照 A 和快照 B'
                               }
                             />
                           }
                           onCopy={() =>
                             detachPromise(
-                              copyToClipboard(diffJson, 'diff JSON')
+                              copyToClipboard(diffJson, '差异数据')
                             )
                           }
                           onDownload={() => {
@@ -1158,7 +1078,7 @@ export function KGSnapshotsPage() {
                               diff ?? {},
                               `${diffBaseName}.diff.json`
                             )
-                            toast.success('已导出 diff.json')
+                            toast.success('已导出差异数据')
                           }}
                         />
                       </TabsContent>
@@ -1168,7 +1088,7 @@ export function KGSnapshotsPage() {
                           label="A 视图"
                           title="快照内容"
                           subtitle={
-                            hashAValue ? `Hash · ${hashAValue}` : '尚未导出'
+                            hashAValue ? `版本 · ${hashAValue}` : '尚未导出'
                           }
                           code={snapAJson}
                           isEmpty={!snapA}
@@ -1185,7 +1105,7 @@ export function KGSnapshotsPage() {
                           }
                           onCopy={() =>
                             detachPromise(
-                              copyToClipboard(snapAJson, 'snapshot A JSON')
+                              copyToClipboard(snapAJson, '快照 A 数据')
                             )
                           }
                           onDownload={() => {
@@ -1193,7 +1113,7 @@ export function KGSnapshotsPage() {
                               snapA ?? {},
                               `${snapshotAFileName}.json`
                             )
-                            toast.success('已导出 snapshot A')
+                            toast.success('已导出快照 A')
                           }}
                         />
                       </TabsContent>
@@ -1203,7 +1123,7 @@ export function KGSnapshotsPage() {
                           label="B 视图"
                           title="快照内容"
                           subtitle={
-                            hashBValue ? `Hash · ${hashBValue}` : '尚未导出'
+                            hashBValue ? `版本 · ${hashBValue}` : '尚未导出'
                           }
                           code={snapBJson}
                           isEmpty={!snapB}
@@ -1220,7 +1140,7 @@ export function KGSnapshotsPage() {
                           }
                           onCopy={() =>
                             detachPromise(
-                              copyToClipboard(snapBJson, 'snapshot B JSON')
+                              copyToClipboard(snapBJson, '快照 B 数据')
                             )
                           }
                           onDownload={() => {
@@ -1228,7 +1148,7 @@ export function KGSnapshotsPage() {
                               snapB ?? {},
                               `${snapshotBFileName}.json`
                             )
-                            toast.success('已导出 snapshot B')
+                            toast.success('已导出快照 B')
                           }}
                         />
                       </TabsContent>

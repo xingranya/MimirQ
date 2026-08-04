@@ -113,15 +113,10 @@ export function SnapshotGraphCanvas({
   return (
     <div
       data-testid="kg-snapshot-graph-canvas"
-      className="relative min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.05),transparent_44%),radial-gradient(circle_at_70%_20%,hsl(var(--info)/0.04),transparent_28%)]"
+      className="relative min-h-[520px] flex-1 overflow-hidden bg-background lg:min-h-0"
     >
-      <div
-        className="absolute inset-0 opacity-[0.42] [background-image:radial-gradient(circle,hsl(var(--muted-foreground)/0.26)_1px,transparent_1px)] [background-size:14px_14px]"
-        aria-hidden
-      />
-
-      <div className="absolute left-7 top-7 z-20 rounded-2xl border border-border/70 bg-card/90 p-3 shadow-lg backdrop-blur">
-        <div className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-[12px]">
+      <div className="absolute left-3 top-3 z-20 rounded-md border border-border bg-background p-3">
+        <div className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-xs">
           <span className="text-muted-foreground">节点</span>
           <span className="font-mono font-semibold tabular-nums text-foreground">
             {nodeCount}
@@ -136,26 +131,22 @@ export function SnapshotGraphCanvas({
       {isLoading || isEmpty ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center px-8">
           <div className="flex max-w-[460px] flex-col items-center text-center">
-            <div className="relative">
-              <div
-                className="absolute inset-0 rounded-full bg-primary/10 blur-2xl"
-                aria-hidden
-              />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-card text-primary shadow-sm">
+            <div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border bg-muted/40 text-primary">
                 {isLoading ? (
                   <RefreshCcw
-                    className="h-7 w-7 animate-spin"
+                    className="h-6 w-6 animate-spin motion-reduce:animate-none"
                     aria-hidden="true"
                   />
                 ) : (
-                  <Network className="h-7 w-7" aria-hidden="true" />
+                  <Network className="h-6 w-6" aria-hidden="true" />
                 )}
               </div>
             </div>
-            <div className="mt-4 text-[15px] font-semibold text-foreground">
+            <div className="mt-4 text-base font-semibold text-foreground">
               {graphLoadingTitle(isLoading)}
             </div>
-            <div className="mt-1.5 text-[12px] leading-5 text-muted-foreground">
+            <div className="mt-1.5 text-sm leading-5 text-muted-foreground">
               {graphLoadingDescription(isLoading, emptyMessage)}
             </div>
           </div>
@@ -248,7 +239,7 @@ export function SnapshotGraphCanvas({
             key={node.id}
             type="button"
             className={cn(
-              'absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center transition-all duration-200',
+              'absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center transition-[opacity,transform] duration-150 motion-reduce:transition-none',
               isDenseGraph ? 'gap-1' : 'gap-1.5',
               muted ? 'scale-95 opacity-25' : 'opacity-100 hover:scale-105'
             )}
@@ -258,7 +249,7 @@ export function SnapshotGraphCanvas({
           >
             <span
               className={cn(
-                'flex items-center justify-center rounded-full text-info-foreground shadow-strong shadow-foreground/10',
+                'flex items-center justify-center rounded-full text-primary-foreground',
                 getGraphNodeSizeClass(isDenseGraph, mediumGraph),
                 snapshotToneClassName(node.tone, selected)
               )}
@@ -268,8 +259,8 @@ export function SnapshotGraphCanvas({
             {showNodeLabel ? (
               <span
                 className={cn(
-                  'max-w-[132px] rounded-full bg-background/82 px-2 py-0.5 font-semibold text-foreground shadow-sm backdrop-blur',
-                  isDenseGraph ? 'text-[10px]' : 'text-[12px]'
+                  'max-w-[132px] rounded-md border border-border bg-background px-2 py-0.5 font-semibold text-foreground',
+                  isDenseGraph ? 'text-xs' : 'text-sm'
                 )}
               >
                 <span className="block truncate">{node.label}</span>
@@ -279,8 +270,8 @@ export function SnapshotGraphCanvas({
         )
       })}
 
-      <div className="absolute bottom-5 left-7 z-20 flex max-w-[calc(100%-3.5rem)] flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card/92 px-4 py-2.5 text-[12px] text-muted-foreground shadow-lg backdrop-blur">
-        <span className="font-medium text-foreground">图例:</span>
+      <div className="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground sm:right-auto sm:max-w-[calc(100%-1.5rem)]">
+        <span className="font-medium text-foreground">图例</span>
         {legendRows.length ? (
           legendRows.map(([label, color]) => (
             <span key={label} className="inline-flex items-center gap-1.5">
@@ -291,8 +282,8 @@ export function SnapshotGraphCanvas({
         ) : (
           <span>暂无类型</span>
         )}
-        <span className="inline-flex items-center gap-2">
-          <span>关系强度:</span>
+        <span className="hidden items-center gap-2 sm:inline-flex">
+          <span>关系强度</span>
           <span className="h-px w-10 bg-border" aria-hidden />
           <span>弱</span>
           <span className="h-0.5 w-14 bg-muted-foreground" aria-hidden />

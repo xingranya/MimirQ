@@ -139,7 +139,7 @@ export async function copyToClipboard(text: string, label: string): Promise<void
     toast.success(`已复制 ${label}`)
   } catch (err) {
     reportClientError('Failed to copy KG snapshot value to clipboard', err)
-    toast.error('复制失败（浏览器权限限制）')
+    toast.error('复制失败，请检查浏览器剪贴板权限')
   }
 }
 
@@ -205,7 +205,7 @@ export function toneClassForDelta(value: number) {
 }
 
 export function tabLabelForView(view: SnapshotView) {
-  if (view === 'diff') return 'Diff 对比'
+  if (view === 'diff') return '差异对比'
   if (view === 'a') return '视图 A'
   return '视图 B'
 }

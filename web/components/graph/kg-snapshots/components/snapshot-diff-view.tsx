@@ -45,17 +45,17 @@ export function SnapshotDiffView({
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-card">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-background px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2">
         <div className="min-w-0 flex-1">
           {typeDrift.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
                 <Layers
                   className="h-3.5 w-3.5 text-primary/70"
                   aria-hidden="true"
                 />
-                Type Drift
+                类型变化
               </span>
               {typeDrift.slice(0, 8).map((row) => {
                 const type = String(row.type || 'unknown')
@@ -65,7 +65,7 @@ export function SnapshotDiffView({
                   <Badge
                     key={`${type}:${delta}`}
                     variant="outline"
-                    className="inline-flex items-center gap-1 font-mono text-[11px]"
+                    className="inline-flex items-center gap-1 text-xs"
                   >
                     <span className="text-muted-foreground">{type}</span>
                     <span className={toneClassForDelta(delta)}>
@@ -76,12 +76,12 @@ export function SnapshotDiffView({
               })}
             </div>
           ) : (
-            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
               <Layers
                 className="h-3.5 w-3.5 text-muted-foreground/60"
                 aria-hidden="true"
               />
-              Type Drift · 暂无
+              暂无类型变化
             </span>
           )}
         </div>
@@ -90,7 +90,7 @@ export function SnapshotDiffView({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg"
-            title="复制 Diff JSON"
+            title="复制差异数据"
             onClick={onCopy}
             disabled={isEmpty}
           >
@@ -100,7 +100,7 @@ export function SnapshotDiffView({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-lg"
-            title="导出 Diff JSON"
+            title="导出差异数据"
             onClick={onDownload}
             disabled={isEmpty}
           >
@@ -111,21 +111,21 @@ export function SnapshotDiffView({
 
       <SnapshotExactDriftPanel diff={diff} />
 
-      <div className="min-h-0 flex-1 overflow-auto bg-card">
+      <div className="min-h-0 flex-1 overflow-auto bg-background">
         {isEmpty && emptyState ? (
           emptyState
         ) : (
           <div className="min-w-[980px]">
-            <div className="sticky top-0 z-10 grid grid-cols-[52px_minmax(0,1fr)_52px_minmax(0,1fr)] border-b border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.10))] text-[12px] backdrop-blur">
+            <div className="sticky top-0 z-10 grid grid-cols-[52px_minmax(0,1fr)_52px_minmax(0,1fr)] border-b border-border bg-background text-xs">
               <div className="border-r border-border/70 px-3 py-2 text-right font-mono text-muted-foreground">
                 #
               </div>
               <div className="border-r border-border/70 px-3 py-2">
-                <div className="text-[12px] font-semibold tracking-[-0.01em] text-foreground">
+                <div className="text-xs font-semibold text-foreground">
                   {titleA}
                 </div>
                 {subtitleA ? (
-                  <div className="truncate text-[11px] text-muted-foreground">
+                  <div className="truncate text-xs text-muted-foreground">
                     {subtitleA}
                   </div>
                 ) : null}
@@ -134,11 +134,11 @@ export function SnapshotDiffView({
                 #
               </div>
               <div className="px-3 py-2">
-                <div className="text-[12px] font-semibold tracking-[-0.01em] text-foreground">
+                <div className="text-xs font-semibold text-foreground">
                   {titleB}
                 </div>
                 {subtitleB ? (
-                  <div className="truncate text-[11px] text-muted-foreground">
+                  <div className="truncate text-xs text-muted-foreground">
                     {subtitleB}
                   </div>
                 ) : null}

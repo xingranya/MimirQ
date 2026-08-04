@@ -66,4 +66,19 @@ describe('SnapshotNodeDetailsRail', () => {
     expect(onClose).toHaveBeenCalledOnce()
     expect(onSelectRelationTarget).toHaveBeenCalledWith('node-b')
   })
+
+  it('没有选中节点时不占用右侧空间', () => {
+    act(() => {
+      root.render(
+        <SnapshotNodeDetailsRail
+          selectedNode={null}
+          diffOverview={[]}
+          onClose={vi.fn()}
+          onSelectRelationTarget={vi.fn()}
+        />
+      )
+    })
+
+    expect(container.querySelector('aside')).toBeNull()
+  })
 })

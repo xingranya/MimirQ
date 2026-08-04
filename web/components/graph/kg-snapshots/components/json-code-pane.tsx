@@ -33,7 +33,7 @@ export function JsonLine({
   return (
     <div
       className={cn(
-        'grid min-w-0 grid-cols-[52px_minmax(0,1fr)] border-b border-border/60 text-[12px] leading-6',
+        'grid min-w-0 grid-cols-[52px_minmax(0,1fr)] border-b border-border/60 text-xs leading-6',
         jsonLineSurfaceClass(status, side)
       )}
     >
@@ -75,7 +75,7 @@ export function JsonDiffCell({
     <>
       <div
         className={cn(
-          'select-none border-r border-border/70 px-3 py-0.5 text-right font-mono text-[12px] leading-6 tabular-nums',
+          'select-none border-r border-border/70 px-3 py-0.5 text-right font-mono text-xs leading-6 tabular-nums',
           cellSurfaceClass(cell.status, side),
           lineNumberClass
         )}
@@ -84,7 +84,7 @@ export function JsonDiffCell({
       </div>
       <div
         className={cn(
-          'px-3 py-0.5 font-mono text-[12px] leading-6',
+          'px-3 py-0.5 font-mono text-xs leading-6',
           cellSurfaceClass(cell.status, side)
         )}
       >
@@ -125,23 +125,23 @@ export function JsonCodePane({
   const lines = useMemo(() => splitCodeLines(code), [code])
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-card">
-      <div className="flex shrink-0 items-center justify-between border-b border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.15))] px-4 py-2.5">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-background px-4 py-2.5">
         <div className="min-w-0">
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-card px-2 py-0.5 text-[10.5px] font-semibold tracking-[0.08em] text-muted-foreground">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
             <FileJson className="h-3 w-3 text-primary/70" aria-hidden="true" />
             {label}
           </div>
-          <div className="mt-1 truncate text-[13px] font-semibold text-foreground">
+          <div className="mt-1 truncate text-sm font-semibold text-foreground">
             {title}
           </div>
           {subtitle ? (
-            <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            <div className="mt-0.5 truncate text-xs text-muted-foreground">
               {subtitle}
             </div>
           ) : null}
         </div>
-        <div className="ml-4 flex shrink-0 items-center gap-1 rounded-md border border-border/70 bg-card p-0.5">
+        <div className="ml-4 flex shrink-0 items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -165,7 +165,7 @@ export function JsonCodePane({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-card">
+      <div className="min-h-0 flex-1 overflow-auto bg-background">
         {isEmpty && emptyState ? (
           emptyState
         ) : (
