@@ -51,7 +51,7 @@ KnowledgePage: {
     },
     scopeSummary: {
       datasetTitleScoped: 'dataset {datasetId}',
-      datasetTitleAll: 'all datasets',
+      datasetTitleAll: '全部数据集',
       allDatasets: '全部数据集',
       labels: {
         scope: '范围',
@@ -287,7 +287,7 @@ KnowledgeRetrievalPanel: {
 KnowledgeSettingsPanel: {
     header: {
       title: '知识库参数配置',
-      description: '调整系统默认 Embedding、召回数量与阈值，并保留显式保存与风险确认。',
+      description: '调整系统默认向量模型、召回数量和相似度阈值。',
     },
     scope: {
       systemDefault: '作用范围：系统默认值',
@@ -295,9 +295,9 @@ KnowledgeSettingsPanel: {
       datasetPurgeUnselected: '未选择数据集时不可执行危险操作',
     },
     embedding: {
-      title: 'Embedding 模型',
+      title: '向量模型',
       modelHint: '768 维 / 中英支持',
-      description: '仅修改系统默认 embedding 配置，不会自动重建现有文档向量。',
+      description: '仅修改系统默认向量模型，不会自动重建现有文档向量。',
     },
     retrieval: {
       title: '检索模式',
@@ -318,7 +318,7 @@ KnowledgeSettingsPanel: {
     },
     sliders: {
       topK: {
-        title: '召回数量 (Top K)',
+        title: '召回数量',
         description: '单次检索返回的最大片段数，建议 3-8 之间',
       },
       similarity: {
@@ -336,7 +336,7 @@ KnowledgeSettingsPanel: {
       },
     },
     alerts: {
-      embeddingWarningTitle: 'Embedding 变更不会自动重建历史向量',
+      embeddingWarningTitle: '向量模型变更不会自动重建历史向量',
       embeddingWarningDescription: '保存后只会更新系统默认配置。已有文档如果要切换到新模型，需要在文档列表手动重新入库，或走 shadow migration 流程。',
       loadFailedTitle: '配置加载失败',
     },
@@ -377,8 +377,8 @@ KnowledgeSettingsPanel: {
       actions: {
         refresh: '刷新',
         copyLink: '复制链接',
-        copyRunIdTitle: '点击复制 run_id',
-        copyIds: '复制 IDs',
+        copyRunIdTitle: '复制任务 ID',
+        copyIds: '复制 ID',
         cancel: '取消',
         resume: '续跑',
         retryFailed: '只重试失败',
@@ -392,8 +392,8 @@ KnowledgeSettingsPanel: {
         off: '关',
       },
       scopeLabel: '范围',
-      scopeTitleScoped: 'dataset {datasetId}',
-      scopeTitleAll: 'all datasets',
+      scopeTitleScoped: '数据集 {datasetId}',
+      scopeTitleAll: '全部数据集',
       allDatasets: '全部数据集',
       lastRefreshLabel: '上次刷新',
       loading: '正在加载导入任务...',
@@ -406,8 +406,8 @@ KnowledgeSettingsPanel: {
         clearFilters: '清除筛选',
       },
       hidden: {
-        selectedRunHidden: '当前任务被筛选条件隐藏。run_id:',
-        selectedRunMissing: '未在当前列表中找到该任务。可能任务较旧，或当前范围不包含该数据集。run_id:',
+        selectedRunHidden: '当前任务被筛选条件隐藏。任务 ID：',
+        selectedRunMissing: '未在当前列表中找到该任务。任务可能较旧，或不在当前数据集范围内。任务 ID：',
       },
       location: {
         clear: '清除定位',
@@ -434,19 +434,19 @@ KnowledgeSettingsPanel: {
       dialogs: {
         cancel: {
           title: '取消导入任务？',
-          description: '将标记任务为 cancelled（best-effort）。仅影响后端后续处理，不会删除已产出的文档。run_id：',
+          description: '将停止后续处理，但不会删除已经生成的文档。任务 ID：',
           back: '返回',
           confirm: '取消任务',
         },
         resume: {
           title: '续跑导入任务？',
-          description: '将从上次 cursor 位置创建一个新的导入任务（best-effort）。run_id：',
+          description: '将从上次中断位置创建新的导入任务。任务 ID：',
           back: '返回',
           confirm: '续跑',
         },
         retry: {
           title: '只重试失败项？',
-          description: '将创建一个新的导入任务（best-effort），仅处理失败项。run_id：',
+          description: '将创建新的导入任务，只处理失败项。任务 ID：',
           back: '返回',
           confirm: '创建重试任务',
         },
@@ -465,10 +465,10 @@ KnowledgeSettingsPanel: {
         descriptionSuffix: '条。若数据集有扫描任务（pending/running），后端会返回 409。',
       },
       maxDelete: 'max_delete',
-      preview: '预览（dry-run）',
+      preview: '预览',
       previewSummaryLabel: 'preview',
-      datasetLabel: 'dataset_id',
-      previewHint: '建议先点击“预览（dry-run）”确认 eligible 数量，再执行清空。',
+      datasetLabel: '数据集 ID',
+      previewHint: '建议先预览可删除数量，再执行清空。',
       cancel: '返回',
       confirm: '确认清空',
     },
@@ -479,9 +479,9 @@ KnowledgeSettingsPanel: {
     },
     dialogs: {
       embeddingChange: {
-        title: '确认切换 Embedding 模型？',
-        description: '这会更新系统默认 embedding 配置，但不会自动迁移历史向量索引。',
-        impact: '保存后，新导入内容会使用新的 embedding 模型；已有文档仍需手动重新入库或走蓝绿迁移流程，才能与新模型保持一致。',
+        title: '确认切换向量模型？',
+        description: '这会更新系统默认向量模型，但不会自动迁移历史向量索引。',
+        impact: '保存后，新导入内容会使用新的向量模型；已有文档仍需手动重新入库或完成迁移，才能与新模型保持一致。',
         cancel: '返回',
         confirm: '继续保存',
       },
@@ -497,13 +497,13 @@ KnowledgeSettingsPanel: {
       copyUnsupported: '复制失败：浏览器不支持 Clipboard API',
       copyFailed: '复制失败',
       saveSuccess: '配置已保存',
-      saveSuccessEmbeddingChanged: '配置已保存；Embedding 模型已更新，现有文档需手动重新入库',
+      saveSuccessEmbeddingChanged: '配置已保存；向量模型已更新，现有文档需手动重新入库',
       saveFailed: '保存系统配置失败',
       selectDatasetFirst: '请先选择一个数据集',
       purgePreviewReady: '已预览：eligible={eligible}',
-      purgeCompleted: '已清空：deleted={deleted}（如还有剩余可重复执行）',
+      purgeCompleted: '已删除 {deleted} 条内容，如有剩余可再次执行',
       purgeFailed: '清空数据集失败',
-      copyRunId: '已复制 run_id',
+      copyRunId: '已复制任务 ID',
       copyTaskLink: '已复制任务链接',
       copyDocumentIds: '已复制文档 ID 列表',
     },
