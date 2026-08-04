@@ -8,7 +8,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
@@ -146,6 +146,10 @@ function SettingsGroupDetailPageContent() {
   const membersTotal = Number(membersQuery.data?.total ?? members.length)
   const loadingGroup = groupQuery.isFetching
   const loadingMembers = membersQuery.isFetching
+  const groupLoadError = groupQuery.isError
+    ? formatApiError(groupQuery.error, '成员组详情加载失败')
+    : null
+  const canEditGroup = canManageGroups && Boolean(group) && !groupQuery.isError
 
   const updateDraft = (patch: Partial<Omit<GroupDraft, 'groupId'>>) => {
     setDraft({
@@ -164,12 +168,13 @@ function SettingsGroupDetailPageContent() {
   }, [nameDraft, externalIdDraft, group?.external_id, group?.name])
 
   const canSaveGroup = useMemo(() => {
+    if (!group || groupQuery.isError) return false
     const name = String(nameDraft || '').trim()
     if (!name) return false
     if (name.length > 255) return false
     if (String(externalIdDraft || '').trim().length > 255) return false
     return groupHasChanges
-  }, [nameDraft, externalIdDraft, groupHasChanges])
+  }, [nameDraft, externalIdDraft, group, groupHasChanges, groupQuery.isError])
 
   const filteredMembers = useMemo(() => {
     const q = String(memberQuery || '').trim().toLowerCase()
@@ -246,6 +251,10 @@ function SettingsGroupDetailPageContent() {
 
   const saveGroup = () => {
     if (!groupId) return
+    if (!group || groupQuery.isError) {
+      toast.error('成员组详情尚未加载，无法保存。请重新加载后再试。')
+      return
+    }
     const name = String(nameDraft || '').trim()
     const externalId = String(externalIdDraft || '').trim()
     if (!name) {
@@ -367,6 +376,35 @@ function SettingsGroupDetailPageContent() {
               </div>
             </div>
             <div className="space-y-4 p-4">
+              {groupLoadError ? (
+                <div
+                  role="alert"
+                  className="flex flex-col gap-3 rounded-md border border-destructive/25 bg-destructive/5 p-3 sm:flex-row sm:items-center"
+                >
+                  <AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-destructive">成员组详情加载失败</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{groupLoadError}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-md"
+                    onClick={() => groupQuery.refetch()}
+                    disabled={loadingGroup}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'size-4',
+                        loadingGroup && 'animate-spin motion-reduce:animate-none'
+                      )}
+                    />
+                    重新加载
+                  </Button>
+                </div>
+              ) : null}
+
               <div className="grid gap-2">
                 <Label htmlFor="group-name">名称</Label>
                 <Input
@@ -375,7 +413,7 @@ function SettingsGroupDetailPageContent() {
                   maxLength={255}
                   onChange={(e) => updateDraft({ name: e.target.value })}
                   placeholder="例如：研发 / 法务 / 财务"
-                  disabled={!canManageGroups || loadingGroup}
+                  disabled={!canEditGroup || loadingGroup}
                 />
                 <div className="text-xs text-muted-foreground">
                   必填，最多 255 个字符；同一组织内不能重名。
@@ -390,7 +428,7 @@ function SettingsGroupDetailPageContent() {
                   maxLength={255}
                   onChange={(e) => updateDraft({ externalId: e.target.value })}
                   placeholder="例如：Okta 或 Azure AD 中的组标识"
-                  disabled={!canManageGroups || loadingGroup}
+                  disabled={!canEditGroup || loadingGroup}
                 />
                 <div className="text-xs text-muted-foreground">
                   用于连接企业身份目录，留空表示不绑定。

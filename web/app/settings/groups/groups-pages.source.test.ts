@@ -43,6 +43,15 @@ describe('成员组页面源码契约', () => {
     expect(detailSource).toContain("navigationGuard.requestNavigation('/settings/groups')")
   })
 
+  it('成员组详情加载失败时禁止编辑和保存', () => {
+    expect(detailSource).toContain('const groupLoadError = groupQuery.isError')
+    expect(detailSource).toContain('const canEditGroup = canManageGroups && Boolean(group) && !groupQuery.isError')
+    expect(detailSource).toContain('if (!group || groupQuery.isError) return false')
+    expect(detailSource).toContain('disabled={!canEditGroup || loadingGroup}')
+    expect(detailSource).toContain('成员组详情尚未加载，无法保存。请重新加载后再试。')
+    expect(detailSource).toContain('onClick={() => groupQuery.refetch()}')
+  })
+
   it('使用扁平视觉和对外中文文案', () => {
     const sources = `${listSource}\n${detailSource}`
 
