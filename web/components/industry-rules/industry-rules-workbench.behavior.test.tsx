@@ -46,10 +46,24 @@ vi.mock('@/lib/secure-random', () => ({
 
 vi.mock('@/components/ui/page-scaffold', () => ({
   PageScaffold: ({
+    actions,
     children,
+    description,
+    title,
     top,
-  }: Readonly<{ children: React.ReactNode; top?: React.ReactNode }>) => (
+  }: Readonly<{
+    actions?: React.ReactNode
+    children: React.ReactNode
+    description?: React.ReactNode
+    title: React.ReactNode
+    top?: React.ReactNode
+  }>) => (
     <main>
+      <header>
+        <h1>{title}</h1>
+        {description}
+        {actions}
+      </header>
       {top}
       {children}
     </main>
