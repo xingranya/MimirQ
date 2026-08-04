@@ -1,8 +1,9 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import { Eye, GitCompare, Hash, HelpCircle, LineChart, Network, ScrollText, SlidersHorizontal, Wand2, Braces } from 'lucide-react'
+import { Eye, GitCompare, Hash, LineChart, Network, ScrollText, SlidersHorizontal, Wand2, Braces } from 'lucide-react'
 
+import { SettingsHelpTooltip } from '@/components/settings/settings-help-tooltip'
 import { SettingsSwitch } from '@/components/settings/settings-switch'
 import {
   type AdminControlledNavigationModule,
@@ -121,18 +122,13 @@ export function NavigationVisibilitySection({
           <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
             <Eye className="h-3.5 w-3.5 text-primary" />
             普通用户入口显示
-            <span className="group/nav-entry-help relative inline-flex">
-              <button
-                type="button"
-                aria-label="查看普通用户入口显示说明"
-                className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-              </button>
-              <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-primary/20 bg-popover px-3 py-2 text-[11px] font-medium leading-relaxed text-popover-foreground shadow-[0_14px_34px_hsl(var(--foreground)/0.14)] group-hover/nav-entry-help:block group-focus-within/nav-entry-help:block md:left-full md:top-1/2 md:mt-0 md:ml-2 md:-translate-x-0 md:-translate-y-1/2">
-                管理员始终可见；这里通过后端 /settings 持久化普通用户左侧导航和直接访问页的入口策略
-              </span>
-            </span>
+            <SettingsHelpTooltip
+              label="查看普通用户入口显示说明"
+              side="right"
+              className="size-7"
+            >
+              管理员始终可以访问。这里的设置会保存到系统，用于控制普通用户可见的左侧导航和页面入口。
+            </SettingsHelpTooltip>
           </h2>
         </div>
       </div>

@@ -1,6 +1,5 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,9 +9,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SettingsSwitch } from '@/components/settings/settings-switch'
+import { SettingsHelpTooltip } from '@/components/settings/settings-help-tooltip'
 import type { SystemSettings } from '@/lib/api'
 import { RERANKER_PROVIDER_OPTIONS } from '@/lib/reranker-provider-options'
-import { HelpCircle, Sliders } from 'lucide-react'
+import { Sliders } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { systemPageTokens } from '@/components/ui/system-page-tokens'
 
@@ -29,26 +29,6 @@ const DEFAULT_RERANKER_PROVIDER = 'llm'
 
 function getRerankerProviderLabel(value: string): string {
   return RERANKER_PROVIDER_OPTIONS.find((option) => option.key === value)?.label ?? '大模型重排'
-}
-
-function InlineHelp({
-  label,
-  children,
-}: Readonly<{ label: string; children: ReactNode }>) {
-  return (
-    <span className="group/help relative inline-flex align-middle">
-      <button
-        type="button"
-        aria-label={label}
-        className="ml-1 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-      >
-        <HelpCircle className="size-3.5" />
-      </button>
-      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-64 -translate-x-1/2 rounded-xl border border-primary/20 bg-popover px-3 py-2 text-[11px] font-medium leading-relaxed text-popover-foreground shadow-[0_12px_30px_hsl(var(--foreground)/0.12)] group-hover/help:block group-focus-within/help:block">
-        {children}
-      </span>
-    </span>
-  )
 }
 
 export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
@@ -145,9 +125,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   启用关键词通道，对精确词匹配召回更友好
-                  <InlineHelp label="BM25 检索模式说明">
-                    这里对应 hybrid / keyword 模式；适合标题、术语、编号和精确关键词匹配
-                  </InlineHelp>
+                  <SettingsHelpTooltip label="BM25 检索模式说明" className="ml-1 size-7">
+                    用于混合检索和关键词检索，适合匹配标题、术语、编号和精确关键词。
+                  </SettingsHelpTooltip>
                 </div>
               </div>
               <SettingsSwitch
@@ -160,9 +140,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               关闭后将不会使用或构建 BM25 索引
-              <InlineHelp label="关闭 BM25 的影响">
+              <SettingsHelpTooltip label="关闭 BM25 的影响" className="ml-1 size-7">
                 更省内存和 CPU，但可能降低关键词类问题的召回质量
-              </InlineHelp>
+              </SettingsHelpTooltip>
             </p>
           </div>
 
@@ -173,15 +153,15 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
                   className={cn(systemPageTokens.microLabel, 'text-foreground')}
                 >
                   启用重排序
-                  <InlineHelp label="Reranker 说明">
-                    Reranker 会对候选片段二次排序，适合提升复杂问题的答案质量
-                  </InlineHelp>
+                  <SettingsHelpTooltip label="重排序说明" className="ml-1 size-7">
+                    重排序模型会对候选片段再次排序，适合改善复杂问题的答案质量。
+                  </SettingsHelpTooltip>
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   用重排序模型对候选片段二次排序
-                  <InlineHelp label="重排序成本说明">
+                  <SettingsHelpTooltip label="重排序成本说明" className="ml-1 size-7">
                     通常可提升答案质量，但会增加检索链路延迟和模型调用成本
-                  </InlineHelp>
+                  </SettingsHelpTooltip>
                 </div>
               </div>
               <SettingsSwitch
@@ -202,9 +182,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
               <div>
                 <div className={cn(systemPageTokens.microLabel, 'text-foreground')}>
                   回答附图
-                  <InlineHelp label="回答附图说明">
+                  <SettingsHelpTooltip label="回答附图说明" className="ml-1 size-7">
                     召回结果命中图片证据时，在答案末尾附上图片引用，便于用户核对图表、截图和版面证据
-                  </InlineHelp>
+                  </SettingsHelpTooltip>
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   只影响问答结果展示，不改变解析、切块或向量索引
@@ -272,9 +252,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             </Select>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               保存后作为默认重排服务，实验页只做临时覆盖
-              <InlineHelp label="重排服务后端字段">
-                对应后端 RERANKER_PROVIDER；主界面只显示中文服务名称
-              </InlineHelp>
+              <SettingsHelpTooltip label="重排序服务说明" className="ml-1 size-7">
+                这里选择系统默认使用的重排序服务，实验页可以临时覆盖。
+              </SettingsHelpTooltip>
             </p>
           </div>
 
@@ -309,9 +289,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               保存后作为默认重排数量，建议保持 10-50
-              <InlineHelp label="重排数量后端字段">
-                对应后端 RERANKER_TOP_N
-              </InlineHelp>
+              <SettingsHelpTooltip label="重排序数量说明" className="ml-1 size-7">
+                控制每次进入重排序阶段的候选片段数量。
+              </SettingsHelpTooltip>
             </p>
           </div>
 
@@ -376,9 +356,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               相邻分块的重叠字符数
-              <InlineHelp label="分块重叠说明">
-                chunk 是写入索引的文本片段；增加重叠可提高上下文连续性，但会增加索引体积
-              </InlineHelp>
+              <SettingsHelpTooltip label="分块重叠说明" className="ml-1 size-7">
+                分块是写入索引的文本片段。增加重叠可以保留更多上下文，但也会增大索引。
+              </SettingsHelpTooltip>
             </p>
           </div>
 
@@ -412,9 +392,9 @@ export function RagSection({ rag, updateRag }: Readonly<RagSectionProps>) {
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               入库时丢弃过短分块
-              <InlineHelp label="最小分块长度说明">
+              <SettingsHelpTooltip label="最小分块长度说明" className="ml-1 size-7">
                 0 表示关闭；图片和表格分块会尽量保留，避免误删结构化内容
-              </InlineHelp>
+              </SettingsHelpTooltip>
             </p>
           </div>
         </div>
