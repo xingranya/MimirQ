@@ -165,13 +165,13 @@ function PromptsPageContent() {
     is_active: true,
   })
 
-  const templatesQuery = useQuery<{ total: number; items: PromptTemplate[] }>({
-    queryKey: queryKeys.prompts.list({ limit: 100 }),
-    queryFn: () => promptTemplateApi.list({ limit: 100 }),
+  const templatesQuery = useQuery<PromptTemplate[]>({
+    queryKey: queryKeys.prompts.list({ exhaustive: true }),
+    queryFn: () => promptTemplateApi.listAll(),
   })
   const templates = useMemo(
-    () => templatesQuery.data?.items ?? [],
-    [templatesQuery.data?.items]
+    () => templatesQuery.data ?? [],
+    [templatesQuery.data]
   )
   const loading = templatesQuery.isLoading
   const templateLoadError = templatesQuery.error

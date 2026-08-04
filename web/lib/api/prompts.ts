@@ -48,21 +48,85 @@ export type PromptTemplateNewVersion = Omit<
 }
 export type PromptTemplateBuiltinSyncResponse = OpenApiSchema<'BuiltinPromptTemplateSyncResponse'>
 
+type PromptTemplateListParams = {
+  skip?: number
+  limit?: number
+  category?: string
+  is_active?: boolean
+}
+
+type ExhaustivePromptTemplateListParams = Omit<
+  PromptTemplateListParams,
+  'skip' | 'limit'
+> & {
+  pageSize?: number
+}
+
+const DEFAULT_PROMPT_TEMPLATE_PAGE_SIZE = 200
+
+async function listPromptTemplates(
+  params?: PromptTemplateListParams
+): Promise<{ total: number; items: PromptTemplate[] }> {
+  const { data } = await apiClient.get('/prompt-templates', { params })
+  return data
+}
+
+export async function listAllPromptTemplates(
+  params?: ExhaustivePromptTemplateListParams
+): Promise<PromptTemplate[]> {
+  const requestedPageSize = Number(
+    params?.pageSize ?? DEFAULT_PROMPT_TEMPLATE_PAGE_SIZE
+  )
+  const pageSize = Math.max(
+    1,
+    Math.min(
+      DEFAULT_PROMPT_TEMPLATE_PAGE_SIZE,
+      Math.trunc(requestedPageSize)
+    )
+  )
+  const { pageSize: _pageSize, ...filters } = params || {}
+
+  const items: PromptTemplate[] = []
+  const seenIds = new Set<string>()
+  let skip = 0
+  let total = Number.POSITIVE_INFINITY
+
+  while (items.length < total) {
+    const page = await listPromptTemplates({ ...filters, skip, limit: pageSize })
+    const pageItems = Array.isArray(page.items) ? page.items : []
+    const reportedTotal = Number(page.total)
+    total =
+      Number.isFinite(reportedTotal) && reportedTotal >= 0
+        ? reportedTotal
+        : Number.POSITIVE_INFINITY
+    if (pageItems.length === 0) break
+
+    let added = 0
+    for (const item of pageItems) {
+      const id = String(item.id || '').trim()
+      if (id && seenIds.has(id)) continue
+      if (id) seenIds.add(id)
+      items.push(item)
+      added += 1
+    }
+
+    if (added === 0) break
+    skip += pageItems.length
+    if (pageItems.length < pageSize) break
+  }
+
+  return items
+}
+
 export const promptTemplateApi = {
   async create(params: PromptTemplateCreate): Promise<PromptTemplate> {
     const { data } = await apiClient.post('/prompt-templates', params)
     return data
   },
 
-  async list(params?: {
-    skip?: number
-    limit?: number
-    category?: string
-    is_active?: boolean
-  }): Promise<{ total: number; items: PromptTemplate[] }> {
-    const { data } = await apiClient.get('/prompt-templates', { params })
-    return data
-  },
+  list: listPromptTemplates,
+
+  listAll: listAllPromptTemplates,
 
   async get(templateId: string): Promise<PromptTemplate> {
     const { data } = await apiClient.get(`/prompt-templates/${templateId}`)
