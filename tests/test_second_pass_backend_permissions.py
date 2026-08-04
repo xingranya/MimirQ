@@ -76,6 +76,29 @@ async def test_rtbf_execution_requires_lifecycle_permission(monkeypatch: pytest.
     assert cascade_called is False
 
 
+@pytest.mark.asyncio
+async def test_rtbf_preview_conflict_returns_409(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.api.v1 import rtbf
+
+    monkeypatch.setattr(rtbf, "ensure_tenant_permission", lambda *_args, **_kwargs: None)
+
+    async def _cascade(*_args, **_kwargs) -> dict:
+        raise rtbf.RtbfPreviewRequiredError("请先完成安全预演")
+
+    monkeypatch.setattr(rtbf, "run_rtbf_cascade", _cascade, raising=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rtbf.request_rtbf_cascade(
+            rtbf.RTBFRequest(subject_account_id="victim", dry_run=False),
+            tenant_id=uuid4(),
+            account_id="owner",
+            db=object(),
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "请先完成安全预演"
+
+
 def test_prompt_template_mutations_require_settings_write(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.api.v1 import prompt_templates
 

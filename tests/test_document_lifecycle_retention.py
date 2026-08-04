@@ -479,12 +479,21 @@ async def test_rtbf_cascade_uses_system_membership_bypass(
         def commit(self) -> None:
             return None
 
+    preview = await cascade.run_rtbf_cascade(
+        _DB(),
+        tenant_id=tenant_id,
+        subject_account_id="subject-account",
+        dry_run=True,
+        actor_id="system:rtbf",
+        now=now,
+    )
     summary = await cascade.run_rtbf_cascade(
         _DB(),
         tenant_id=tenant_id,
         subject_account_id="subject-account",
         dry_run=False,
         actor_id="system:rtbf",
+        preview_fingerprint=str(preview["preview_fingerprint"]),
         now=now,
     )
 
@@ -499,6 +508,46 @@ async def test_rtbf_cascade_uses_system_membership_bypass(
             "enforce_membership": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_rtbf_cascade_rejects_missing_or_stale_preview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import rtbf_cascade as cascade
+
+    tenant_id = uuid.uuid4()
+    document_id = uuid.uuid4()
+    monkeypatch.setattr(
+        cascade,
+        "_list_rtbf_documents",
+        lambda *_args, **_kwargs: [
+            {
+                "document_id": document_id,
+                "dataset_id": uuid.uuid4(),
+                "filename": "doc.pdf",
+                "match_reasons": ["owner_id"],
+            }
+        ],
+        raising=True,
+    )
+
+    with pytest.raises(cascade.RtbfPreviewRequiredError):
+        await cascade.run_rtbf_cascade(
+            object(),
+            tenant_id=tenant_id,
+            subject_account_id="subject-account",
+            dry_run=False,
+        )
+
+    with pytest.raises(cascade.RtbfPreviewMismatchError):
+        await cascade.run_rtbf_cascade(
+            object(),
+            tenant_id=tenant_id,
+            subject_account_id="subject-account",
+            dry_run=False,
+            preview_fingerprint="0" * 64,
+        )
 
 
 @pytest.mark.asyncio

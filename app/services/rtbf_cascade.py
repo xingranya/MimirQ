@@ -1,24 +1,14 @@
-"""
-RTBF cascade scaffold (service-only).
+"""个人数据级联删除服务。
 
-This module provides a bounded, auditable orchestration layer for account-scoped
-"right to be forgotten" cleanup across existing document lifecycle artifacts.
-
-Current scope:
-- identify candidate documents owned by / attributed to a subject account
-- optionally execute the existing delete-document lifecycle
-- invalidate dataset-scoped retrieval caches after successful deletes
-- emit a compact audit event
-
-Notes:
-- This is intentionally a service-layer scaffold first; API/workflow surfaces can
-  reuse this contract later.
-- We rely on the existing document delete lifecycle for chunk/vector/KG/object
-  cleanup to avoid duplicating side effects in a second code path.
+该模块按账号查找待删除文档，复用现有文档生命周期删除链路，并在完成后
+刷新相关数据集缓存。真实删除必须携带最近一次安全预演生成的候选集指纹，
+避免目标或候选数据发生变化后继续执行旧操作。
 """
 
 
 import contextlib
+import hashlib
+import hmac
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -32,6 +22,38 @@ from app.services.retention_jobs import _resolve_delete_document_lifecycle
 
 RTBF_CASCADE_SCHEMA_V1 = "mimirq.rtbf_cascade.v1"
 RTBF_ARTIFACT_SCOPES = ["documents", "chunks", "kg", "vectors", "object_assets", "cache"]
+
+
+class RtbfPreviewRequiredError(RuntimeError):
+    """真实删除缺少安全预演指纹。"""
+
+
+class RtbfPreviewMismatchError(RuntimeError):
+    """安全预演指纹与当前候选集合不一致。"""
+
+
+def _build_preview_fingerprint(
+    *,
+    tenant_id: UUID,
+    subject_account_id: str,
+    max_docs: int,
+    candidates: list[dict[str, object]],
+) -> str:
+    candidate_ids = sorted(
+        str(item.get("document_id") or "").strip()
+        for item in candidates
+        if str(item.get("document_id") or "").strip()
+    )
+    payload = "\n".join(
+        [
+            RTBF_CASCADE_SCHEMA_V1,
+            str(tenant_id),
+            str(subject_account_id or "").strip(),
+            str(int(max_docs)),
+            *candidate_ids,
+        ]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _now_utc() -> datetime:
@@ -159,6 +181,7 @@ async def run_rtbf_cascade(
     actor_id: str = "system:rtbf",
     max_docs: int = 100,
     max_retries: int = 1,
+    preview_fingerprint: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
     now0 = now or _now_utc()
@@ -169,6 +192,24 @@ async def run_rtbf_cascade(
         subject_account_id=subject,
         max_docs=max_docs,
     )
+    current_preview_fingerprint = _build_preview_fingerprint(
+        tenant_id=tenant_id,
+        subject_account_id=subject,
+        max_docs=max_docs,
+        candidates=candidates,
+    )
+
+    if not dry_run:
+        provided_preview_fingerprint = str(preview_fingerprint or "").strip()
+        if not provided_preview_fingerprint:
+            raise RtbfPreviewRequiredError("请先完成安全预演，再执行删除")
+        if not hmac.compare_digest(
+            provided_preview_fingerprint,
+            current_preview_fingerprint,
+        ):
+            raise RtbfPreviewMismatchError(
+                "目标账号或候选文档已发生变化，请重新安全预演"
+            )
 
     summary: dict[str, object] = {
         "schema": RTBF_CASCADE_SCHEMA_V1,
@@ -177,6 +218,7 @@ async def run_rtbf_cascade(
         "dry_run": bool(dry_run),
         "max_docs": int(max_docs),
         "max_retries": int(max(0, int(max_retries or 0))),
+        "preview_fingerprint": current_preview_fingerprint,
         "artifact_scopes": list(RTBF_ARTIFACT_SCOPES),
         "eligible": int(len(candidates)),
         "deleted": 0,
@@ -270,4 +312,10 @@ async def run_rtbf_cascade(
     return summary
 
 
-__all__ = ["RTBF_ARTIFACT_SCOPES", "RTBF_CASCADE_SCHEMA_V1", "run_rtbf_cascade"]
+__all__ = [
+    "RTBF_ARTIFACT_SCOPES",
+    "RTBF_CASCADE_SCHEMA_V1",
+    "RtbfPreviewMismatchError",
+    "RtbfPreviewRequiredError",
+    "run_rtbf_cascade",
+]

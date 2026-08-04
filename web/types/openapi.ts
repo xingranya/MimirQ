@@ -21266,6 +21266,8 @@ export interface components {
              * @default 1
              */
             max_retries: number;
+            /** Preview Fingerprint */
+            preview_fingerprint?: string | null;
         };
         /** RTBFStatusResponse */
         RTBFStatusResponse: {
@@ -21273,12 +21275,12 @@ export interface components {
             ticket_id: string;
             /**
              * Status
-             * @default accepted
+             * @default unavailable
              */
             status: string;
             /**
              * Note
-             * @default RTBF status persistence is not enabled in this scaffold
+             * @default 当前未启用工单状态存储，请以删除请求的即时结果为准
              */
             note: string;
         };
