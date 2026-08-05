@@ -118,7 +118,7 @@ const menuSections: MenuSection[] = [
 const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['conversation', 'knowledge'])
 const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v3'
 const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
-const NAV_ACTIVE_VISIBILITY_DELAY_MS = 360
+const NAV_ACTIVE_VISIBILITY_SETTLE_MS = 360
 const NAV_ACTIVE_VISIBILITY_PADDING = 8
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',
@@ -153,6 +153,32 @@ function getMostSpecificActiveHref(pathname: string, items: MenuItem[]): string 
 function sectionHasActiveRoute(activeHref: string | null, items: MenuItem[]) {
   if (!activeHref) return false
   return items.some((item) => item.href === activeHref)
+}
+
+function ensureActiveNavItemVisible(scrollContainer: HTMLElement): boolean {
+  const activeItem = scrollContainer.querySelector<HTMLElement>('a[aria-current="page"]')
+  if (!activeItem) return false
+
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const activeItemRect = activeItem.getBoundingClientRect()
+  if (containerRect.bottom <= containerRect.top || activeItemRect.bottom <= activeItemRect.top) {
+    return false
+  }
+
+  let nextScrollTop = scrollContainer.scrollTop
+  if (activeItemRect.top < containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING) {
+    nextScrollTop -= containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING - activeItemRect.top
+  } else if (activeItemRect.bottom > containerRect.bottom - NAV_ACTIVE_VISIBILITY_PADDING) {
+    nextScrollTop += activeItemRect.bottom - containerRect.bottom + NAV_ACTIVE_VISIBILITY_PADDING
+  }
+
+  nextScrollTop = Math.max(0, nextScrollTop)
+  const maxScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight
+  if (maxScrollTop > 0) nextScrollTop = Math.min(nextScrollTop, maxScrollTop)
+  if (Math.abs(nextScrollTop - scrollContainer.scrollTop) < 1) return false
+
+  scrollContainer.scrollTop = nextScrollTop
+  return true
 }
 
 function trimmedPrimitiveString(value: unknown): string {
@@ -429,31 +455,41 @@ export function Navbar({
 
   useEffect(() => {
     if (!hasHydratedOpenSections || !activeHref) return
+    const scrollContainer = navScrollRef.current
+    if (!scrollContainer) return
 
-    const timer = globalThis.window.setTimeout(() => {
-      const scrollContainer = navScrollRef.current
-      const activeItem = scrollContainer?.querySelector<HTMLElement>('a[aria-current="page"]')
-      if (!scrollContainer || !activeItem) return
+    let frame: number | null = null
+    const correctVisibility = () => {
+      frame = null
+      if (!ensureActiveNavItemVisible(scrollContainer)) return
+      writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(scrollContainer.scrollTop))
+    }
+    const scheduleCorrection = () => {
+      if (frame !== null) globalThis.cancelAnimationFrame(frame)
+      frame = globalThis.requestAnimationFrame(correctVisibility)
+    }
 
-      const containerRect = scrollContainer.getBoundingClientRect()
-      const activeItemRect = activeItem.getBoundingClientRect()
-      if (containerRect.bottom <= containerRect.top || activeItemRect.bottom <= activeItemRect.top) return
+    scheduleCorrection()
+    const settleTimer = globalThis.window.setTimeout(
+      scheduleCorrection,
+      NAV_ACTIVE_VISIBILITY_SETTLE_MS
+    )
+    const resizeObserver =
+      typeof globalThis.ResizeObserver === 'function'
+        ? new globalThis.ResizeObserver(scheduleCorrection)
+        : null
+    resizeObserver?.observe(scrollContainer)
+    const content = scrollContainer.firstElementChild
+    if (content instanceof HTMLElement) resizeObserver?.observe(content)
+    globalThis.window.addEventListener('resize', scheduleCorrection)
 
-      let nextScrollTop = scrollContainer.scrollTop
-      if (activeItemRect.top < containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING) {
-        nextScrollTop -= containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING - activeItemRect.top
-      } else if (activeItemRect.bottom > containerRect.bottom - NAV_ACTIVE_VISIBILITY_PADDING) {
-        nextScrollTop += activeItemRect.bottom - containerRect.bottom + NAV_ACTIVE_VISIBILITY_PADDING
-      }
-
-      nextScrollTop = Math.max(0, nextScrollTop)
-      if (nextScrollTop === scrollContainer.scrollTop) return
-      scrollContainer.scrollTop = nextScrollTop
-      writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(nextScrollTop))
-    }, NAV_ACTIVE_VISIBILITY_DELAY_MS)
-
-    return () => globalThis.window.clearTimeout(timer)
-  }, [activeHref, hasHydratedOpenSections, openSections])
+    return () => {
+      if (frame !== null) globalThis.cancelAnimationFrame(frame)
+      globalThis.window.clearTimeout(settleTimer)
+      globalThis.window.removeEventListener('resize', scheduleCorrection)
+      resizeObserver?.disconnect()
+    }
+  }, [activeHref, hasHydratedOpenSections, isMobile, isSidebarOpen, openSections, visibleMenuSections])
 
   const handleNavScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(event.currentTarget.scrollTop))

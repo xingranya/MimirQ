@@ -461,16 +461,57 @@ describe('Navbar behavior', () => {
       top: 0,
       bottom: 100,
     } as DOMRect)
-    vi.spyOn(activeLink as HTMLElement, 'getBoundingClientRect').mockReturnValue({
-      top: 110,
-      bottom: 146,
-    } as DOMRect)
+    vi.spyOn(activeLink as HTMLElement, 'getBoundingClientRect').mockImplementation(
+      () =>
+        ({
+          top: 110 - (scrollArea?.scrollTop || 0),
+          bottom: 146 - (scrollArea?.scrollTop || 0),
+        }) as DOMRect
+    )
 
     act(() => {
       vi.advanceTimersByTime(400)
     })
 
     expect(scrollArea?.scrollTop).toBe(54)
+    view.unmount()
+  })
+
+  it('视口变化后再次校正活动入口位置', () => {
+    vi.useFakeTimers()
+    routerMocks.pathname = '/settings'
+    const view = renderComponent(React.createElement(Navbar))
+    const scrollArea = view.container.querySelector<HTMLElement>(
+      '[data-sidebar-scroll-container="true"]'
+    )
+    const activeLink = scrollArea?.querySelector<HTMLElement>('a[aria-current="page"]')
+    let activeRect = { top: 110, bottom: 146 }
+
+    vi.spyOn(scrollArea as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      bottom: 100,
+    } as DOMRect)
+    vi.spyOn(activeLink as HTMLElement, 'getBoundingClientRect').mockImplementation(
+      () =>
+        ({
+          top: activeRect.top - (scrollArea?.scrollTop || 0),
+          bottom: activeRect.bottom - (scrollArea?.scrollTop || 0),
+        }) as DOMRect
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    expect(scrollArea?.scrollTop).toBe(54)
+
+    if (scrollArea) scrollArea.scrollTop = 0
+    activeRect = { top: 130, bottom: 166 }
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+      vi.advanceTimersByTime(20)
+    })
+
+    expect(scrollArea?.scrollTop).toBe(74)
     view.unmount()
   })
 
