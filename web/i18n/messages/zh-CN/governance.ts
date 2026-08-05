@@ -1,23 +1,23 @@
 const governanceMessages = {
-DataGovernancePage: {
+  DataGovernancePage: {
     loading: {
       message: '正在加载数据治理面板...',
       srMessage: 'Loading data governance panel',
     },
   },
-GovernanceProfilesRoutePage: {
+  GovernanceProfilesRoutePage: {
     loading: {
       message: '正在加载治理 Profiles...',
       srMessage: 'Loading governance profiles page',
     },
   },
-GovernanceCommonLinesRoutePage: {
+  GovernanceCommonLinesRoutePage: {
     loading: {
       message: '正在加载重复内容治理...',
       srMessage: 'Loading common lines learning page',
     },
   },
-DataAnnotator: {
+  DataAnnotator: {
     header: {
       title: '数据标注',
     },
@@ -98,7 +98,7 @@ DataAnnotator: {
       deleteAnnotation: '删除 {label} 标注 {start}-{end}',
     },
   },
-DataClassifier: {
+  DataClassifier: {
     header: {
       title: '分类归档',
     },
@@ -183,7 +183,7 @@ DataClassifier: {
       addTagWithValue: '添加标签 {tag}',
     },
   },
-QualityChecker: {
+  QualityChecker: {
     header: {
       title: '质量检测',
     },
@@ -279,7 +279,7 @@ QualityChecker: {
       failed: '深度检测暂时不可用，已保留本地检查结果',
     },
   },
-DataCleaner: {
+  DataCleaner: {
     header: {
       title: '智能清洗配置',
     },
@@ -358,7 +358,7 @@ DataCleaner: {
       info: 'INFO',
     },
   },
-DataGovernancePanel: {
+  DataGovernancePanel: {
     header: {
       title: '数据治理',
       subtitle: '清洗、标注与结构修复',
@@ -389,6 +389,18 @@ DataGovernancePanel: {
       save: '保存',
       submitSelectedToChunkPreview: '提交选中 {count}',
       pushToChunkPreview: '推送到切块预览',
+    },
+    sync: {
+      loading: '正在同步治理文档…',
+      partialTitle: '部分文档暂未同步',
+      partialKnowledgeBase: '知识库文档暂时无法读取，当前已保留解析工作区中的文档。',
+      partialParsingWorkspace: '解析工作区暂时无法读取，当前已保留知识库中的文档。',
+      errorTitle: '治理文档加载失败',
+      errorDescription: '解析工作区和知识库文档都暂时无法读取，请检查连接后重新加载。',
+      errorWithFiles:
+        '解析工作区和知识库文档都暂时无法读取，当前列表保留最近一次同步结果。请重新加载后再继续处理。',
+      retry: '重新加载',
+      retrying: '重新加载中…',
     },
     scope: {
       title: 'Dataset Scope',
@@ -431,12 +443,14 @@ DataGovernancePanel: {
       uploadingTitle: '正在解析文档...',
       idleTitle: '上传文档开始治理',
       uploadingDescription: '正在分析文档结构并提取内容，请稍候...',
-      idleDescription: '支持 PDF、Word、Excel、TXT、MD、ZIP，上传后可继续质量检测、清洗、标注和分类。',
+      idleDescription:
+        '支持 PDF、Word、Excel、TXT、MD、ZIP，上传后可继续质量检测、清洗、标注和分类。',
       dropCta: '拖入文件或点击选择，系统会自动解析目录与章节结构。',
       scanRingLabel: 'Governance Intake',
       structureTitle: '文档结构',
       structureEmptyTitle: '等待生成目录',
-      structureEmptyDescription: '上传后会在这里生成根目录、章节树、清洗线索和待切块候选，不再只显示空的根目录计数。',
+      structureEmptyDescription:
+        '上传后会在这里生成根目录、章节树、清洗线索和待切块候选，不再只显示空的根目录计数。',
       structureNodes: {
         root: '根目录',
         sections: '章节索引',
@@ -514,7 +528,8 @@ DataGovernancePanel: {
       viewRendered: '查看渲染',
       modified: '已修改',
       truncatedTitle: '当前只显示部分正文',
-      truncatedDescription: '为防止覆盖完整原文，此文档只能查看，不能保存或提交切块。请拆分后重新入库。',
+      truncatedDescription:
+        '为防止覆盖完整原文，此文档只能查看，不能保存或提交切块。请拆分后重新入库。',
     },
     panel: {
       title: '治理工具箱',
@@ -539,7 +554,7 @@ DataGovernancePanel: {
       deleteFile: '删除文件：{filename}',
       toggleChunkFile: '选择待切块文档：{filename}',
     },
-  }
+  },
 } as const
 
 export default governanceMessages

@@ -4,7 +4,9 @@ import type { ParsedFileData } from '@/store/use-parsed-files-store'
 
 import {
   fetchAllGovernanceDocuments,
+  GovernanceDocumentSyncUnavailableError,
   reconcileGovernanceFiles,
+  settleGovernanceDocumentSources,
 } from './governance-document-sync'
 
 function governanceFile(
@@ -37,11 +39,7 @@ describe('fetchAllGovernanceDocuments', () => {
     const result = await fetchAllGovernanceDocuments(fetchPage)
 
     expect(result).toHaveLength(450)
-    expect(fetchPage.mock.calls.map(([params]) => params.skip)).toEqual([
-      0,
-      200,
-      400,
-    ])
+    expect(fetchPage.mock.calls.map(([params]) => params.skip)).toEqual([0, 200, 400])
   })
 
   it('后端单页上限小于请求值时仍继续读取', async () => {
@@ -55,6 +53,49 @@ describe('fetchAllGovernanceDocuments', () => {
 
     expect(result).toHaveLength(250)
     expect(fetchPage).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('settleGovernanceDocumentSources', () => {
+  it('单个来源失败时保留成功来源并返回失败范围', async () => {
+    const result = await settleGovernanceDocumentSources(
+      Promise.reject(new Error('parsing unavailable')),
+      Promise.resolve(['knowledge-document'])
+    )
+
+    expect(result).toMatchObject({
+      parsingItems: [],
+      knowledgeItems: ['knowledge-document'],
+      syncedSources: ['knowledge_base'],
+      failedSources: ['parsing_workspace'],
+    })
+  })
+
+  it('两个来源均失败时抛出明确错误，不返回空成功结果', async () => {
+    const request = settleGovernanceDocumentSources(
+      Promise.reject(new Error('parsing unavailable')),
+      Promise.reject(new Error('knowledge unavailable'))
+    )
+
+    await expect(request).rejects.toBeInstanceOf(GovernanceDocumentSyncUnavailableError)
+    await expect(request).rejects.toMatchObject({
+      failures: [{ source: 'parsing_workspace' }, { source: 'knowledge_base' }],
+    })
+  })
+
+  it('两个来源恢复后返回完整结果并清空失败范围', async () => {
+    const result = await settleGovernanceDocumentSources(
+      Promise.resolve(['parsing-document']),
+      Promise.resolve(['knowledge-document'])
+    )
+
+    expect(result).toMatchObject({
+      parsingItems: ['parsing-document'],
+      knowledgeItems: ['knowledge-document'],
+      syncedSources: ['parsing_workspace', 'knowledge_base'],
+      failedSources: [],
+      failures: [],
+    })
   })
 })
 
@@ -80,19 +121,9 @@ describe('reconcileGovernanceFiles', () => {
   })
 
   it('远端记录更新时保留本地治理内容和流程状态', () => {
-    const current = governanceFile(
-      'shared',
-      'knowledge_base',
-      'dataset-a',
-      '本地治理内容'
-    )
+    const current = governanceFile('shared', 'knowledge_base', 'dataset-a', '本地治理内容')
     current.chunkStatus = 'ready'
-    const remote = governanceFile(
-      'shared',
-      'knowledge_base',
-      'dataset-a',
-      '远端内容'
-    )
+    const remote = governanceFile('shared', 'knowledge_base', 'dataset-a', '远端内容')
     remote.filename = '服务端名称.md'
 
     const result = reconcileGovernanceFiles({

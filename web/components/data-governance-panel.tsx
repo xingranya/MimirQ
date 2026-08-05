@@ -64,31 +64,22 @@ import { toast } from 'sonner'
 import { useRouter } from '@/i18n/navigation'
 import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import {
-  ROOT_FOLDER_ID,
-  useParsedFiles,
-  type ParsedFileData,
-} from '@/store/use-parsed-files-store'
+import { ROOT_FOLDER_ID, useParsedFiles, type ParsedFileData } from '@/store/use-parsed-files-store'
 import { cn, formatFileSize, detachPromise } from '@/lib/utils'
 import { getDocContentFromCache } from '@/lib/doc-content-cache'
 import { QualityChecker } from '@/components/data-governance/quality-checker'
 import { DataCleaner } from '@/components/data-governance/data-cleaner'
 import { DataAnnotator } from '@/components/data-governance/data-annotator'
 import { DataClassifier } from '@/components/data-governance/data-classifier'
+import { GovernanceSyncStatus } from '@/components/data-governance/governance-sync-status'
 import { datasetApi, documentApi, parsingApi } from '@/lib/api'
 import { reportClientError, reportClientWarning } from '@/lib/client-logging'
 import { useParserBackendPreference } from '@/contexts/parser-backend-context'
 import { MarkdownRenderer } from '@/components/markdown/markdown-renderer'
 
-import {
-  DocumentFolderTree,
-  getFileIcon,
-} from '@/components/document-library/folder-tree'
+import { DocumentFolderTree, getFileIcon } from '@/components/document-library/folder-tree'
 import { extractZipFiles, isZipFile } from '@/lib/zip'
-import {
-  UPLOAD_ACCEPT_WITH_ZIP,
-  ZIP_ALLOWED_EXTENSIONS,
-} from '@/lib/upload-extensions'
+import { UPLOAD_ACCEPT_WITH_ZIP, ZIP_ALLOWED_EXTENSIONS } from '@/lib/upload-extensions'
 import { getParserLabel } from '@/lib/parser-options'
 import { resolveParserBackendForFilename } from '@/lib/parser-compat'
 import { resolveParsingWorkspaceDataset } from '@/lib/parsing-workspace-dataset'
@@ -100,7 +91,9 @@ import {
 } from '@/lib/governance-file-save'
 import {
   fetchAllGovernanceDocuments,
+  GovernanceDocumentSyncUnavailableError,
   reconcileGovernanceFiles,
+  settleGovernanceDocumentSources,
   type GovernanceRemoteSource,
 } from '@/lib/governance-document-sync'
 import {
@@ -125,9 +118,7 @@ type DatasetOption = {
   name: string
 }
 
-type GovernanceDocument = Awaited<
-  ReturnType<typeof documentApi.list>
->['items'][number]
+type GovernanceDocument = Awaited<ReturnType<typeof documentApi.list>>['items'][number]
 type GovernanceParsingDocument = Awaited<
   ReturnType<typeof parsingApi.listDocuments>
 >['items'][number]
@@ -162,9 +153,7 @@ const GOVERNANCE_CONTENT_READ_LIMIT = 2_000_000
 
 type DataGovernanceTranslator = ReturnType<typeof useTranslations>
 
-function EmptyStructurePreview({
-  t,
-}: Readonly<{ t: DataGovernanceTranslator }>) {
+function EmptyStructurePreview({ t }: Readonly<{ t: DataGovernanceTranslator }>) {
   const previewNodes = [
     {
       label: t('emptyUpload.structureNodes.root'),
@@ -184,10 +173,7 @@ function EmptyStructurePreview({
   ] as const
 
   return (
-    <div
-      data-governance-empty-structure-rail="true"
-      className="min-w-0"
-    >
+    <div data-governance-empty-structure-rail="true" className="min-w-0">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-xs font-medium text-muted-foreground">
@@ -223,9 +209,7 @@ function EmptyStructurePreview({
             >
               {node.value}
             </span>
-            <span className="min-w-0 text-xs font-medium text-foreground/86">
-              {node.label}
-            </span>
+            <span className="min-w-0 text-xs font-medium text-foreground/86">{node.label}</span>
           </div>
         ))}
       </div>
@@ -237,18 +221,11 @@ function normalizeBackendCandidate(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
-function mapBackendStatusToGovernanceStatus(
-  status: unknown
-): ParsedFileData['status'] {
+function mapBackendStatusToGovernanceStatus(status: unknown): ParsedFileData['status'] {
   const normalized = typeof status === 'string' ? status.toLowerCase() : ''
-  if (
-    ['completed', 'complete', 'ready', 'parsed', 'done', 'success'].includes(
-      normalized
-    )
-  )
+  if (['completed', 'complete', 'ready', 'parsed', 'done', 'success'].includes(normalized))
     return 'parsed'
-  if (['processing', 'parsing', 'running'].includes(normalized))
-    return 'parsing'
+  if (['processing', 'parsing', 'running'].includes(normalized)) return 'parsing'
   if (['failed', 'failure', 'error'].includes(normalized)) return 'error'
   if (['pending', 'queued', 'waiting'].includes(normalized)) return 'pending'
   return 'parsed'
@@ -268,10 +245,7 @@ function mapKnowledgeDocumentToGovernanceFile(
     normalizeBackendCandidate(meta?.parser_backend) ||
     normalizeBackendCandidate(meta?.parser_backend_requested) ||
     'auto'
-  const resolved = resolveParserBackendForFilename(
-    doc.filename || 'document',
-    backendCandidate
-  )
+  const resolved = resolveParserBackendForFilename(doc.filename || 'document', backendCandidate)
   const backend = resolved.backend || backendCandidate
   const datasetId = doc.dataset_id || null
 
@@ -282,9 +256,7 @@ function mapKnowledgeDocumentToGovernanceFile(
     fileSize: Number(doc.file_size || 0),
     markdownContent: '',
     originalMarkdownContent: '',
-    parsedAt: String(
-      doc.updated_at || doc.created_at || new Date().toISOString()
-    ),
+    parsedAt: String(doc.updated_at || doc.created_at || new Date().toISOString()),
     parser: getParserLabel(backend),
     parserBackend: backend,
     folderId: ROOT_FOLDER_ID,
@@ -307,15 +279,9 @@ function mapParsingDocumentToGovernanceFile(
     normalizeBackendCandidate(meta?.parser_backend) ||
     normalizeBackendCandidate(meta?.parser_backend_requested) ||
     'auto'
-  const resolved = resolveParserBackendForFilename(
-    doc.filename || 'document',
-    backendCandidate
-  )
+  const resolved = resolveParserBackendForFilename(doc.filename || 'document', backendCandidate)
   const backend = resolved.backend || backendCandidate
-  const targetDataset = resolveParsingWorkspaceDataset(
-    meta,
-    datasetNameById
-  )
+  const targetDataset = resolveParsingWorkspaceDataset(meta, datasetNameById)
 
   return {
     id: String(doc.id || '').trim(),
@@ -324,9 +290,7 @@ function mapParsingDocumentToGovernanceFile(
     fileSize: Number(doc.file_size || 0),
     markdownContent: '',
     originalMarkdownContent: '',
-    parsedAt: String(
-      doc.updated_at || doc.created_at || new Date().toISOString()
-    ),
+    parsedAt: String(doc.updated_at || doc.created_at || new Date().toISOString()),
     parser: getParserLabel(backend),
     parserBackend: backend,
     folderId: ROOT_FOLDER_ID,
@@ -382,31 +346,25 @@ export function DataGovernancePanel() {
   // UI 状态
   const [activeTab, setActiveTab] = useState<GovernanceTab>('quality')
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'original'>(
-    'preview'
-  )
+  const [viewMode, setViewMode] = useState<'edit' | 'preview' | 'original'>('preview')
   const [fileSearchQuery, setFileSearchQuery] = useState('')
-  const [previewFormat, setPreviewFormat] = useState<'rendered' | 'markdown'>(
-    'rendered'
-  )
+  const [previewFormat, setPreviewFormat] = useState<'rendered' | 'markdown'>('rendered')
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleteFileOpen, setDeleteFileOpen] = useState(false)
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null)
   const [savingGovernance, setSavingGovernance] = useState(false)
-  const [pendingDatasetScope, setPendingDatasetScope] = useState<
-    string | null | undefined
-  >(undefined)
+  const [pendingDatasetScope, setPendingDatasetScope] = useState<string | null | undefined>(
+    undefined
+  )
   const [deleteFileTarget, setDeleteFileTarget] = useState<{
     id: string
     filename: string
   } | null>(null)
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
-    () => {
-      const fromUrl = (searchParams.get('dataset_id') || '').trim()
-      return fromUrl || null
-    }
-  )
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(() => {
+    const fromUrl = (searchParams.get('dataset_id') || '').trim()
+    return fromUrl || null
+  })
   const uploadAbortRef = useRef<AbortController | null>(null)
   const headerTitle = t('header.title')
   const headerSubtitle = t('header.subtitle')
@@ -459,107 +417,84 @@ export function DataGovernancePanel() {
     },
   })
 
-  const availableDatasets = useMemo(
-    () => datasetsQuery.data || [],
-    [datasetsQuery.data]
-  )
+  const availableDatasets = useMemo(() => datasetsQuery.data || [], [datasetsQuery.data])
   const datasetNameById = useMemo(
-    () =>
-      new Map(availableDatasets.map((dataset) => [dataset.id, dataset.name])),
+    () => new Map(availableDatasets.map((dataset) => [dataset.id, dataset.name])),
     [availableDatasets]
   )
   const datasetNameSignature = useMemo(
-    () =>
-      availableDatasets
-        .map((dataset) => `${dataset.id}:${dataset.name}`)
-        .join('|'),
+    () => availableDatasets.map((dataset) => `${dataset.id}:${dataset.name}`).join('|'),
     [availableDatasets]
   )
   const selectedDatasetName = selectedDatasetId
     ? datasetNameById.get(selectedDatasetId) || selectedDatasetId
     : null
   const activeFolderLabel = useMemo(() => {
-    if (!activeFolderId || activeFolderId === ROOT_FOLDER_ID)
-      return t('sidebar.allFolders')
+    if (!activeFolderId || activeFolderId === ROOT_FOLDER_ID) return t('sidebar.allFolders')
     return (
-      libraryFolders.find((folder) => folder.id === activeFolderId)?.name ||
-      t('sidebar.rootFolder')
+      libraryFolders.find((folder) => folder.id === activeFolderId)?.name || t('sidebar.rootFolder')
     )
   }, [activeFolderId, libraryFolders, t])
 
   const documentSyncQuery = useQuery({
-    queryKey: [
-      'data-governance',
-      'library-documents',
-      datasetNameSignature,
-      selectedDatasetId,
-    ],
+    queryKey: ['data-governance', 'library-documents', datasetNameSignature, selectedDatasetId],
     enabled: isLoaded,
-    queryFn: async ({ signal }): Promise<{
+    queryFn: async ({
+      signal,
+    }): Promise<{
       files: ParsedFileData[]
       syncedSources: GovernanceRemoteSource[]
+      failedSources: GovernanceRemoteSource[]
     }> => {
-      const [parsingResult, knowledgeResult] = await Promise.allSettled([
-        fetchAllGovernanceDocuments((params) =>
-          parsingApi.listDocuments(
-            {
-              ...params,
-              dataset_id: selectedDatasetId || undefined,
-            },
-            { signal }
+      let sourceResult
+      try {
+        sourceResult = await settleGovernanceDocumentSources(
+          fetchAllGovernanceDocuments((params) =>
+            parsingApi.listDocuments(
+              {
+                ...params,
+                dataset_id: selectedDatasetId || undefined,
+              },
+              { signal }
+            )
+          ),
+          fetchAllGovernanceDocuments((params) =>
+            documentApi.list(
+              {
+                ...params,
+                dataset_id: selectedDatasetId,
+              },
+              { signal }
+            )
           )
-        ),
-        fetchAllGovernanceDocuments((params) =>
-          documentApi.list(
-            {
-              ...params,
-              dataset_id: selectedDatasetId,
-            },
-            { signal }
+        )
+      } catch (error) {
+        if (error instanceof GovernanceDocumentSyncUnavailableError) {
+          error.failures.forEach((failure) =>
+            reportClientWarning('Failed to sync governance documents', failure.reason, {
+              tags: { source: failure.source },
+            })
           )
-        ),
-      ])
-
-      if (parsingResult.status === 'rejected') {
-        reportClientWarning(
-          'Failed to sync parsing documents for governance:',
-          parsingResult.reason
-        )
-      }
-      if (knowledgeResult.status === 'rejected') {
-        reportClientWarning(
-          'Failed to sync knowledge documents for governance:',
-          knowledgeResult.reason
-        )
+        }
+        throw error
       }
 
-      const parsingItems =
-        parsingResult.status === 'fulfilled'
-          ? parsingResult.value
-          : []
-      const knowledgeItems =
-        knowledgeResult.status === 'fulfilled'
-          ? knowledgeResult.value
-          : []
-      const syncedSources: GovernanceRemoteSource[] = []
-      if (parsingResult.status === 'fulfilled') {
-        syncedSources.push('parsing_workspace')
-      }
-      if (knowledgeResult.status === 'fulfilled') {
-        syncedSources.push('knowledge_base')
-      }
+      sourceResult.failures.forEach((failure) =>
+        reportClientWarning('Failed to sync governance documents', failure.reason, {
+          tags: { source: failure.source },
+        })
+      )
       return {
         files: [
-          ...parsingItems.map((doc) =>
+          ...sourceResult.parsingItems.map((doc) =>
             mapParsingDocumentToGovernanceFile(doc, datasetNameById)
           ),
-          ...knowledgeItems
+          ...sourceResult.knowledgeItems
             .filter((doc) => !isParsingWorkspaceDocument(doc))
-            .map((doc) =>
-              mapKnowledgeDocumentToGovernanceFile(doc, datasetNameById)
-            ),
+            .map((doc) => mapKnowledgeDocumentToGovernanceFile(doc, datasetNameById)),
         ].filter((file) => file.id),
-        syncedSources,
+        syncedSources: sourceResult.syncedSources,
+        failedSources: sourceResult.failedSources,
       }
     },
   })
@@ -586,9 +521,7 @@ export function DataGovernancePanel() {
   }, [t])
 
   // 文件治理状态
-  const [governanceStates, setGovernanceStates] = useState<
-    Record<string, FileGovernanceState>
-  >({})
+  const [governanceStates, setGovernanceStates] = useState<Record<string, FileGovernanceState>>({})
   const hasUnsavedGovernanceChanges = useMemo(
     () => Object.values(governanceStates).some((state) => state.isModified),
     [governanceStates]
@@ -622,11 +555,7 @@ export function DataGovernancePanel() {
       }
       applyDatasetScopeChange(nextDatasetId)
     },
-    [
-      applyDatasetScopeChange,
-      hasUnsavedGovernanceChanges,
-      selectedDatasetId,
-    ]
+    [applyDatasetScopeChange, hasUnsavedGovernanceChanges, selectedDatasetId]
   )
   const discardAllGovernanceChanges = useCallback(() => {
     setGovernanceStates((current) =>
@@ -648,9 +577,7 @@ export function DataGovernancePanel() {
   const [truncatedContentFileIds, setTruncatedContentFileIds] = useState<Set<string>>(
     () => new Set()
   )
-  const [selectedChunkFileIds, setSelectedChunkFileIds] = useState<Set<string>>(
-    () => new Set()
-  )
+  const [selectedChunkFileIds, setSelectedChunkFileIds] = useState<Set<string>>(() => new Set())
 
   // 侧边栏状态
   const [sidebarWidth, setSidebarWidth] = useState(240)
@@ -702,17 +629,23 @@ export function DataGovernancePanel() {
     return () => globalThis.window.cancelAnimationFrame(raf)
   }, [selectedFileId])
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    if (isCompactLayout) return
-    e.preventDefault()
-    setIsResizing(true)
-  }, [isCompactLayout])
+  const startResizing = useCallback(
+    (e: React.MouseEvent) => {
+      if (isCompactLayout) return
+      e.preventDefault()
+      setIsResizing(true)
+    },
+    [isCompactLayout]
+  )
 
-  const startPanelResizing = useCallback((e: React.MouseEvent) => {
-    if (isCompactLayout) return
-    e.preventDefault()
-    setIsPanelResizing(true)
-  }, [isCompactLayout])
+  const startPanelResizing = useCallback(
+    (e: React.MouseEvent) => {
+      if (isCompactLayout) return
+      e.preventDefault()
+      setIsPanelResizing(true)
+    },
+    [isCompactLayout]
+  )
 
   const stopResizing = useCallback(() => {
     setIsResizing(false)
@@ -771,9 +704,7 @@ export function DataGovernancePanel() {
 
   // 选中的文件
   const selectedFile = scopedFiles.find((f) => f.id === selectedFileId) || null
-  const governanceState = selectedFileId
-    ? governanceStates[selectedFileId]
-    : null
+  const governanceState = selectedFileId ? governanceStates[selectedFileId] : null
 
   const folderFiles = useMemo(() => {
     if (!activeFolderId || activeFolderId === ROOT_FOLDER_ID) return scopedFiles
@@ -797,9 +728,7 @@ export function DataGovernancePanel() {
       for (const childId of children) stack.push(childId)
     }
 
-    return scopedFiles.filter((f) =>
-      allowedFolderIds.has(f.folderId || ROOT_FOLDER_ID)
-    )
+    return scopedFiles.filter((f) => allowedFolderIds.has(f.folderId || ROOT_FOLDER_ID))
   }, [scopedFiles, activeFolderId, libraryFolders])
   const visibleFiles = useMemo(
     () => filterGovernanceFiles(folderFiles, fileSearchQuery),
@@ -818,24 +747,21 @@ export function DataGovernancePanel() {
   const selectedContentIsTruncated = selectedFileId
     ? truncatedContentFileIds.has(selectedFileId)
     : false
-  const selectedReadyContainsTruncatedContent = selectedReadyChunkFiles.some(
-    (file) => truncatedContentFileIds.has(file.id)
+  const selectedReadyContainsTruncatedContent = selectedReadyChunkFiles.some((file) =>
+    truncatedContentFileIds.has(file.id)
   )
 
-  const updateContentTruncationState = useCallback(
-    (fileId: string, contentTruncated: boolean) => {
-      setTruncatedContentFileIds((previous) => {
-        const next = new Set(previous)
-        if (contentTruncated) next.add(fileId)
-        else next.delete(fileId)
-        if (next.size === previous.size && next.has(fileId) === previous.has(fileId)) {
-          return previous
-        }
-        return next
-      })
-    },
-    []
-  )
+  const updateContentTruncationState = useCallback((fileId: string, contentTruncated: boolean) => {
+    setTruncatedContentFileIds((previous) => {
+      const next = new Set(previous)
+      if (contentTruncated) next.add(fileId)
+      else next.delete(fileId)
+      if (next.size === previous.size && next.has(fileId) === previous.has(fileId)) {
+        return previous
+      }
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     const readyIds = new Set(readyChunkFiles.map((file) => file.id))
@@ -856,12 +782,13 @@ export function DataGovernancePanel() {
 
   // 初始化文件治理状态
   const initializeGovernanceState = useCallback(
-    (file: Pick<
-      ParsedFileData,
-      'id' | 'markdownContent' | 'originalMarkdownContent' | 'governanceState'
-    >) => {
-      const originalContent =
-        file.originalMarkdownContent ?? file.markdownContent
+    (
+      file: Pick<
+        ParsedFileData,
+        'id' | 'markdownContent' | 'originalMarkdownContent' | 'governanceState'
+      >
+    ) => {
+      const originalContent = file.originalMarkdownContent ?? file.markdownContent
       const cleanedContent = file.markdownContent
       const persistedGovernance = cloneGovernanceDocumentState(
         file.governanceState || createEmptyGovernanceDocumentState()
@@ -871,12 +798,9 @@ export function DataGovernancePanel() {
         if (existing) {
           // 刷新后可能先建立空状态，正文返回时只补齐一次。
           const hasAnyExistingContent = Boolean(
-            (existing.originalContent || '').trim() ||
-            (existing.cleanedContent || '').trim()
+            (existing.originalContent || '').trim() || (existing.cleanedContent || '').trim()
           )
-          const hasIncomingContent = Boolean(
-            originalContent.trim() || cleanedContent.trim()
-          )
+          const hasIncomingContent = Boolean(originalContent.trim() || cleanedContent.trim())
           if (hasAnyExistingContent || !hasIncomingContent) return prev
           return {
             ...prev,
@@ -917,10 +841,8 @@ export function DataGovernancePanel() {
       updateContentTruncationState(
         id,
         file.source === 'knowledge_base' &&
-          Math.max(
-            file.markdownContent.length,
-            file.originalMarkdownContent?.length || 0
-          ) >= GOVERNANCE_CONTENT_READ_LIMIT
+          Math.max(file.markdownContent.length, file.originalMarkdownContent?.length || 0) >=
+            GOVERNANCE_CONTENT_READ_LIMIT
       )
       initializeGovernanceState(file)
       return
@@ -939,8 +861,7 @@ export function DataGovernancePanel() {
           updateContentTruncationState(
             id,
             file.source === 'knowledge_base' &&
-              Math.max(nextMarkdown.length, nextOriginal.length) >=
-                GOVERNANCE_CONTENT_READ_LIMIT
+              Math.max(nextMarkdown.length, nextOriginal.length) >= GOVERNANCE_CONTENT_READ_LIMIT
           )
           updateParsedFile(id, {
             markdownContent: nextMarkdown,
@@ -996,12 +917,7 @@ export function DataGovernancePanel() {
     return () => {
       cancelled = true
     }
-  }, [
-    initializeGovernanceState,
-    selectedFile,
-    updateContentTruncationState,
-    updateParsedFile,
-  ])
+  }, [initializeGovernanceState, selectedFile, updateContentTruncationState, updateParsedFile])
 
   const handleDeleteFile = useCallback(
     async (fileId: string) => {
@@ -1046,8 +962,7 @@ export function DataGovernancePanel() {
       return
     }
 
-    const stillVisible =
-      selectedFileId && folderFiles.some((f) => f.id === selectedFileId)
+    const stillVisible = selectedFileId && folderFiles.some((f) => f.id === selectedFileId)
     if (!stillVisible) {
       setSelectedFileId(folderFiles[0].id)
       initializeGovernanceState(folderFiles[0])
@@ -1087,8 +1002,7 @@ export function DataGovernancePanel() {
           if (cached) return cached
 
           const existing = libraryFolders.find(
-            (f) =>
-              (f.parentId || ROOT_FOLDER_ID) === parentId && f.name === trimmed
+            (f) => (f.parentId || ROOT_FOLDER_ID) === parentId && f.name === trimmed
           )
           if (existing) {
             folderIdByKey.set(key, existing.id)
@@ -1169,30 +1083,15 @@ export function DataGovernancePanel() {
 
         for (const { file, folderId } of expanded) {
           // 使用 preview 接口快速获取 Markdown
-          if (
-            controller.signal.aborted ||
-            uploadAbortRef.current !== controller
-          )
-            return
-          const data = await documentApi.preview(
-            file,
-            parserBackend,
-            undefined,
-            {
-              signal: controller.signal,
-              dataset_id: selectedDatasetId || undefined,
-            }
-          )
-          if (
-            controller.signal.aborted ||
-            uploadAbortRef.current !== controller
-          )
-            return
+          if (controller.signal.aborted || uploadAbortRef.current !== controller) return
+          const data = await documentApi.preview(file, parserBackend, undefined, {
+            signal: controller.signal,
+            dataset_id: selectedDatasetId || undefined,
+          })
+          if (controller.signal.aborted || uploadAbortRef.current !== controller) return
 
           // 拼接 segments 获取全文
-          const markdownContent = data.segments
-            .map((s) => s.content)
-            .join('\n\n')
+          const markdownContent = data.segments.map((s) => s.content).join('\n\n')
 
           const newId = addParsedFile({
             filename: file.name,
@@ -1210,13 +1109,10 @@ export function DataGovernancePanel() {
           setSelectedFileId((prev) => prev ?? newId)
         }
 
-        if (added > 0)
-          toast.success(t('toasts.parsedAndAdded', { count: added }))
-        if (skipped > 0)
-          toast.warning(t('toasts.skippedUnsupported', { count: skipped }))
+        if (added > 0) toast.success(t('toasts.parsedAndAdded', { count: added }))
+        if (skipped > 0) toast.warning(t('toasts.skippedUnsupported', { count: skipped }))
       } catch (error) {
-        if (controller.signal.aborted || uploadAbortRef.current !== controller)
-          return
+        if (controller.signal.aborted || uploadAbortRef.current !== controller) return
         reportClientError('Failed to parse governance file', error)
         toast.error(t('toasts.parseFailed'))
       } finally {
@@ -1346,9 +1242,7 @@ export function DataGovernancePanel() {
       if (!selectedFileId) return
       setGovernanceStates((prev) => {
         const current = prev[selectedFileId]
-        const mergedTags = Array.from(
-          new Set([...(current.tags || []), ...tags.filter(Boolean)])
-        )
+        const mergedTags = Array.from(new Set([...(current.tags || []), ...tags.filter(Boolean)]))
         return {
           ...prev,
           [selectedFileId]: applyGovernanceStatePatch(current, {
@@ -1391,13 +1285,9 @@ export function DataGovernancePanel() {
 
   // 将治理后的内容写回共享存储，供 /chunk-preview 使用最新版本
   const persistGovernanceEdits = useCallback(
-    async (options?: {
-      markReadyFileIds?: Set<string>
-      markSubmittedFileIds?: Set<string>
-    }) => {
+    async (options?: { markReadyFileIds?: Set<string>; markSubmittedFileIds?: Set<string> }) => {
       const markReadyFileIds = options?.markReadyFileIds || new Set<string>()
-      const markSubmittedFileIds =
-        options?.markSubmittedFileIds || new Set<string>()
+      const markSubmittedFileIds = options?.markSubmittedFileIds || new Set<string>()
 
       for (const f of files) {
         const state = governanceStates[f.id]
@@ -1415,20 +1305,16 @@ export function DataGovernancePanel() {
             : f.markdownContent
 
         const shouldUpdateMarkdown =
-          state?.cleanedContent != null &&
-          state.cleanedContent !== f.markdownContent
-        const shouldSetOriginal =
-          Boolean(state) && typeof f.originalMarkdownContent !== 'string'
+          state?.cleanedContent != null && state.cleanedContent !== f.markdownContent
+        const shouldSetOriginal = Boolean(state) && typeof f.originalMarkdownContent !== 'string'
         const shouldPersistGovernance = Boolean(state?.isModified)
 
         if (
           truncatedContentFileIds.has(f.id) &&
-          (
-            shouldUpdateMarkdown ||
+          (shouldUpdateMarkdown ||
             shouldSetOriginal ||
             shouldPersistGovernance ||
-            Boolean(nextChunkStatus)
-          )
+            Boolean(nextChunkStatus))
         ) {
           throw new GovernanceContentIncompleteError()
         }
@@ -1442,12 +1328,8 @@ export function DataGovernancePanel() {
           const nextMarkdownContent = shouldUpdateMarkdown
             ? state?.cleanedContent || ''
             : f.markdownContent
-          const governanceSnapshot = state
-            ? cloneGovernanceDocumentState(state)
-            : null
-          const governanceFingerprint = state
-            ? governanceDocumentStateFingerprint(state)
-            : null
+          const governanceSnapshot = state ? cloneGovernanceDocumentState(state) : null
+          const governanceFingerprint = state ? governanceDocumentStateFingerprint(state) : null
           if (shouldUpdateMarkdown || shouldSetOriginal || shouldPersistGovernance) {
             await saveGovernanceFileToBackend(
               f.id,
@@ -1455,9 +1337,7 @@ export function DataGovernancePanel() {
               {
                 markdown_content: nextMarkdownContent,
                 original_markdown_content: originalMarkdownContent,
-                governance: state
-                  ? serializeGovernanceDocumentState(state)
-                  : undefined,
+                governance: state ? serializeGovernanceDocumentState(state) : undefined,
               },
               {
                 updateKnowledgeDocument: documentApi.updateParsedContent,
@@ -1468,13 +1348,9 @@ export function DataGovernancePanel() {
           }
 
           await updateParsedFile(f.id, {
-            ...(shouldUpdateMarkdown
-              ? { markdownContent: state?.cleanedContent }
-              : {}),
+            ...(shouldUpdateMarkdown ? { markdownContent: state?.cleanedContent } : {}),
             ...(shouldSetOriginal ? { originalMarkdownContent } : {}),
-            ...(governanceSnapshot
-              ? { governanceState: governanceSnapshot }
-              : {}),
+            ...(governanceSnapshot ? { governanceState: governanceSnapshot } : {}),
             ...(nextChunkStatus ? { chunkStatus: nextChunkStatus } : {}),
           })
 
@@ -1484,8 +1360,7 @@ export function DataGovernancePanel() {
               if (
                 !current ||
                 current.cleanedContent !== nextMarkdownContent ||
-                governanceDocumentStateFingerprint(current) !==
-                  governanceFingerprint
+                governanceDocumentStateFingerprint(current) !== governanceFingerprint
               ) {
                 return previous
               }
@@ -1593,16 +1468,13 @@ export function DataGovernancePanel() {
   // 统计数据
   const stats = useMemo(() => {
     const scopedIds = new Set(scopedFiles.map((file) => file.id))
-    const scopedStates = Object.values(governanceStates).filter((state) =>
-      scopedIds.has(state.id)
-    )
+    const scopedStates = Object.values(governanceStates).filter((state) => scopedIds.has(state.id))
     const totalFiles = scopedFiles.length
     const completedFiles = scopedStates.filter((s) => s.qualityScore > 0).length
     const modifiedFiles = scopedStates.filter((s) => s.isModified).length
     const avgScore =
-      scopedStates
-        .filter((s) => s.qualityScore > 0)
-        .reduce((sum, s) => sum + s.qualityScore, 0) / completedFiles || 0
+      scopedStates.filter((s) => s.qualityScore > 0).reduce((sum, s) => sum + s.qualityScore, 0) /
+        completedFiles || 0
 
     return { totalFiles, completedFiles, modifiedFiles, avgScore }
   }, [governanceStates, scopedFiles])
@@ -1615,6 +1487,16 @@ export function DataGovernancePanel() {
       <span>已完成</span>
       <span className="tabular-nums text-foreground">{stats.completedFiles}</span>
     </div>
+  )
+
+  const governanceSyncStatus = (
+    <GovernanceSyncStatus
+      failedSources={documentSyncQuery.data?.failedSources || []}
+      hasFiles={scopedFiles.length > 0}
+      isError={documentSyncQuery.isError}
+      isFetching={documentSyncQuery.isFetching}
+      onRetry={() => detachPromise(documentSyncQuery.refetch())}
+    />
   )
 
   // 空状态上传引导
@@ -1643,146 +1525,160 @@ export function DataGovernancePanel() {
         pipelineRail={<PipelineRail />}
         mainPanel={
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex flex-1 items-start justify-start overflow-y-auto bg-background p-4 md:p-6 lg:items-center lg:justify-center">
+            {documentSyncQuery.isPending ? (
               <div
-                data-governance-empty-workbench="true"
-                className={cn(
-                  'w-full max-w-5xl transition-colors duration-150 motion-reduce:transition-none',
-                  isDragging && 'bg-primary/[0.03]'
-                )}
+                role="status"
+                aria-live="polite"
+                className="flex min-h-[40vh] flex-1 items-center justify-center gap-3 p-6 text-muted-foreground"
               >
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div className="min-w-0">
-                    <button
-                      type="button"
-                      className={cn(
-                        'flex min-h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed border-border bg-background px-6 py-8 text-center transition-colors duration-150 focus-ring motion-reduce:transition-none',
-                        isDragging && 'border-primary bg-primary/[0.03]'
-                      )}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onClick={() =>
-                        globalThis.document
-                          .getElementById('file-upload')
-                          ?.click()
-                      }
-                      disabled={uploading}
-                      aria-label={t('emptyUpload.openUploadDialog')}
-                    >
-                      <div className="mb-4 grid size-12 place-items-center rounded-md border border-border bg-muted text-primary">
-                        {uploading ? (
-                          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
-                        ) : (
-                          <Upload className="size-5" />
-                        )}
-                      </div>
-
-                      <h3 className="max-w-xl text-balance text-xl font-semibold text-foreground">
-                        {uploading
-                          ? t('emptyUpload.uploadingTitle')
-                          : t('emptyUpload.idleTitle')}
-                      </h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                        {uploading
-                          ? t('emptyUpload.uploadingDescription')
-                          : t('emptyUpload.idleDescription')}
-                      </p>
-                      <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                        {t('emptyUpload.dropCta')}
-                      </p>
-                    </button>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                      {EMPTY_UPLOAD_FORMATS.map((format) => (
-                        <span
-                          key={format}
-                          className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground"
-                        >
-                          {format}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                      <div className="relative">
-                        <input
-                          type="file"
-                          multiple
-                          accept={UPLOAD_ACCEPT_WITH_ZIP}
-                          className="hidden"
-                          id="file-upload"
-                          onChange={handleFileSelect}
-                          disabled={uploading}
-                        />
-                        <label
-                          htmlFor="file-upload"
-                          className={cn(
-                            'inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-ring motion-reduce:transition-none',
-                            uploading && 'cursor-not-allowed opacity-50'
-                          )}
-                        >
-                          <Upload className="size-4" />
-                          {t('emptyUpload.selectLocalFiles')}
-                        </label>
-                      </div>
-                      {uploading && (
-                        <Button
+                <Loader2
+                  className="size-5 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-medium">{t('sync.loading')}</span>
+              </div>
+            ) : documentSyncQuery.isError ? (
+              <div className="p-4 md:p-6">{governanceSyncStatus}</div>
+            ) : (
+              <>
+                {documentSyncQuery.data?.failedSources.length ? (
+                  <div className="border-b border-border p-3 md:px-4">{governanceSyncStatus}</div>
+                ) : null}
+                <div className="flex flex-1 items-start justify-start overflow-y-auto bg-background p-4 md:p-6 lg:items-center lg:justify-center">
+                  <div
+                    data-governance-empty-workbench="true"
+                    className={cn(
+                      'w-full max-w-5xl transition-colors duration-150 motion-reduce:transition-none',
+                      isDragging && 'bg-primary/[0.03]'
+                    )}
+                  >
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                      <div className="min-w-0">
+                        <button
                           type="button"
-                          variant="outline"
-                          onClick={cancelUploadAndParse}
-                          className="h-10 gap-2 rounded-md border-border bg-background px-5 text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                          className={cn(
+                            'flex min-h-[300px] w-full flex-col items-center justify-center rounded-md border border-dashed border-border bg-background px-6 py-8 text-center transition-colors duration-150 focus-ring motion-reduce:transition-none',
+                            isDragging && 'border-primary bg-primary/[0.03]'
+                          )}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          onClick={() => globalThis.document.getElementById('file-upload')?.click()}
+                          disabled={uploading}
+                          aria-label={t('emptyUpload.openUploadDialog')}
                         >
-                          <X className="size-4" />
-                          {t('emptyUpload.cancelParsing')}
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
-                      {EMPTY_UPLOAD_STEPS.map((step, index) => (
-                        <div
-                          key={step}
-                          className="flex items-center gap-2 text-left"
-                        >
-                          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
-                            {index + 1}
-                          </span>
-                          <span className="text-xs font-semibold text-foreground">
-                            {t(`emptyUpload.stages.${step}`)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-6 border-t border-border pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-                    <EmptyStructurePreview t={t} />
-                    <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                        <CheckCircle2 className="size-4 text-primary" />
-                        {t('emptyUpload.intakeChecksTitle')}
-                      </div>
-                      <div className="mt-3 divide-y divide-border">
-                        {[
-                          t('emptyUpload.intakeChecks.structure'),
-                          t('emptyUpload.intakeChecks.quality'),
-                          t('emptyUpload.intakeChecks.cleaning'),
-                        ].map((item) => (
-                          <div
-                            key={item}
-                            className="flex items-center gap-2 py-2.5 text-xs text-foreground"
-                          >
-                            <Check className="size-3.5 text-success" />
-                            <span>{item}</span>
+                          <div className="mb-4 grid size-12 place-items-center rounded-md border border-border bg-muted text-primary">
+                            {uploading ? (
+                              <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+                            ) : (
+                              <Upload className="size-5" />
+                            )}
                           </div>
-                        ))}
+
+                          <h3 className="max-w-xl text-balance text-xl font-semibold text-foreground">
+                            {uploading
+                              ? t('emptyUpload.uploadingTitle')
+                              : t('emptyUpload.idleTitle')}
+                          </h3>
+                          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                            {uploading
+                              ? t('emptyUpload.uploadingDescription')
+                              : t('emptyUpload.idleDescription')}
+                          </p>
+                          <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+                            {t('emptyUpload.dropCta')}
+                          </p>
+                        </button>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                          {EMPTY_UPLOAD_FORMATS.map((format) => (
+                            <span
+                              key={format}
+                              className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                            >
+                              {format}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                          <div className="relative">
+                            <input
+                              type="file"
+                              multiple
+                              accept={UPLOAD_ACCEPT_WITH_ZIP}
+                              className="hidden"
+                              id="file-upload"
+                              onChange={handleFileSelect}
+                              disabled={uploading}
+                            />
+                            <label
+                              htmlFor="file-upload"
+                              className={cn(
+                                'inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-ring motion-reduce:transition-none',
+                                uploading && 'cursor-not-allowed opacity-50'
+                              )}
+                            >
+                              <Upload className="size-4" />
+                              {t('emptyUpload.selectLocalFiles')}
+                            </label>
+                          </div>
+                          {uploading && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={cancelUploadAndParse}
+                              className="h-10 gap-2 rounded-md border-border bg-background px-5 text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <X className="size-4" />
+                              {t('emptyUpload.cancelParsing')}
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="mt-6 grid gap-4 border-t border-border pt-5 sm:grid-cols-3">
+                          {EMPTY_UPLOAD_STEPS.map((step, index) => (
+                            <div key={step} className="flex items-center gap-2 text-left">
+                              <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                                {index + 1}
+                              </span>
+                              <span className="text-xs font-semibold text-foreground">
+                                {t(`emptyUpload.stages.${step}`)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-6 border-t border-border pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                        <EmptyStructurePreview t={t} />
+                        <div>
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <CheckCircle2 className="size-4 text-primary" />
+                            {t('emptyUpload.intakeChecksTitle')}
+                          </div>
+                          <div className="mt-3 divide-y divide-border">
+                            {[
+                              t('emptyUpload.intakeChecks.structure'),
+                              t('emptyUpload.intakeChecks.quality'),
+                              t('emptyUpload.intakeChecks.cleaning'),
+                            ].map((item) => (
+                              <div
+                                key={item}
+                                className="flex items-center gap-2 py-2.5 text-xs text-foreground"
+                              >
+                                <Check className="size-3.5 text-success" />
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         }
       />
@@ -2030,6 +1926,9 @@ export function DataGovernancePanel() {
       pipelineRail={<PipelineRail />}
       mainPanel={
         <div className="flex-1 flex flex-col bg-background text-foreground min-h-0">
+          {documentSyncQuery.isError || documentSyncQuery.data?.failedSources.length ? (
+            <div className="border-b border-border p-3 md:px-4">{governanceSyncStatus}</div>
+          ) : null}
           <div className="flex-1 flex overflow-hidden min-h-0 relative bg-background">
             {/* 左侧文件列表 */}
             <aside
@@ -2041,11 +1940,7 @@ export function DataGovernancePanel() {
                   : 'translate-x-0 shadow-lg xl:shadow-none'
               )}
               style={{
-                width: isSidebarCollapsed
-                  ? 0
-                  : isCompactLayout
-                    ? 'min(88vw, 320px)'
-                    : sidebarWidth,
+                width: isSidebarCollapsed ? 0 : isCompactLayout ? 'min(88vw, 320px)' : sidebarWidth,
               }}
             >
               {/* 折叠/展开按钮 */}
@@ -2054,24 +1949,11 @@ export function DataGovernancePanel() {
                 size="icon"
                 className={cn(
                   'absolute right-2 top-3 z-30 h-8 w-8 rounded-md border border-border bg-card text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground xl:-right-3 xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/sidebar:opacity-100',
-                  isSidebarCollapsed &&
-                    'hidden xl:flex xl:-right-8 xl:translate-x-2 xl:opacity-100'
+                  isSidebarCollapsed && 'hidden xl:flex xl:-right-8 xl:translate-x-2 xl:opacity-100'
                 )}
-                onClick={() =>
-                  isSidebarCollapsed
-                    ? openFilePanel()
-                    : setIsSidebarCollapsed(true)
-                }
-                title={
-                  isSidebarCollapsed
-                    ? t('sidebar.expand')
-                    : t('sidebar.collapse')
-                }
-                aria-label={
-                  isSidebarCollapsed
-                    ? t('sidebar.expand')
-                    : t('sidebar.collapse')
-                }
+                onClick={() => (isSidebarCollapsed ? openFilePanel() : setIsSidebarCollapsed(true))}
+                title={isSidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+                aria-label={isSidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
               >
                 {isSidebarCollapsed ? (
                   <PanelRightOpen className="w-3 h-3" />
@@ -2099,9 +1981,7 @@ export function DataGovernancePanel() {
                       </div>
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border text-foreground/80">
-                      <SelectItem value={ROOT_FOLDER_ID}>
-                        {t('sidebar.allFolders')}
-                      </SelectItem>
+                      <SelectItem value={ROOT_FOLDER_ID}>{t('sidebar.allFolders')}</SelectItem>
                       {libraryFolders.map((f) => (
                         <SelectItem key={f.id} value={f.id}>
                           {f.name}
@@ -2147,9 +2027,7 @@ export function DataGovernancePanel() {
                             : 'border-border/60 bg-muted/60 text-muted-foreground'
                         )}
                       >
-                        {selectedDatasetId
-                          ? t('scope.datasetScoped')
-                          : t('scope.datasetAll')}
+                        {selectedDatasetId ? t('scope.datasetScoped') : t('scope.datasetAll')}
                       </span>
                     </div>
                     <Select
@@ -2170,10 +2048,7 @@ export function DataGovernancePanel() {
                         </div>
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border/60 text-foreground">
-                        <SelectItem
-                          value={ALL_DATASETS_VALUE}
-                          className="text-[12px]"
-                        >
+                        <SelectItem value={ALL_DATASETS_VALUE} className="text-[12px]">
                           <span className="flex items-center gap-1.5">
                             <span
                               aria-hidden
@@ -2183,16 +2058,9 @@ export function DataGovernancePanel() {
                           </span>
                         </SelectItem>
                         {availableDatasets.map((dataset) => (
-                          <SelectItem
-                            key={dataset.id}
-                            value={dataset.id}
-                            className="text-[12px]"
-                          >
+                          <SelectItem key={dataset.id} value={dataset.id} className="text-[12px]">
                             <span className="flex items-center gap-1.5">
-                              <span
-                                aria-hidden
-                                className="size-1.5 rounded-full bg-info/70"
-                              />
+                              <span aria-hidden className="size-1.5 rounded-full bg-info/70" />
                               <span className="truncate">{dataset.name}</span>
                               <span className="ml-auto pl-2 text-[10px] tabular-nums text-muted-foreground/70">
                                 {datasetDocumentCounts.get(dataset.id) || 0}
@@ -2238,15 +2106,11 @@ export function DataGovernancePanel() {
                   ) : (
                     visibleFiles.map((file) => {
                       const state = governanceStates[file.id]
-                      const hasIssue = state?.issues.some(
-                        (i) => i.type === 'error'
-                      )
+                      const hasIssue = state?.issues.some((i) => i.type === 'error')
                       const score = state?.qualityScore || 0
                       const isReadyForChunk = file.chunkStatus === 'ready'
-                      const isSubmittedForChunk =
-                        file.chunkStatus === 'submitted'
-                      const isSelectedForChunk =
-                        selectedChunkFileIds.has(file.id)
+                      const isSubmittedForChunk = file.chunkStatus === 'submitted'
+                      const isSelectedForChunk = selectedChunkFileIds.has(file.id)
 
                       return (
                         <div key={file.id} className="group relative">
@@ -2313,14 +2177,10 @@ export function DataGovernancePanel() {
                                 {/* Row 2: Metadata (Size & Date) */}
                                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 mb-1.5 tabular-nums">
                                   <span>{formatFileSize(file.fileSize)}</span>
-                                  <span className="text-muted-foreground/40">
-                                    ·
-                                  </span>
+                                  <span className="text-muted-foreground/40">·</span>
                                   <span>
                                     {file.parsedAt
-                                      ? new Date(
-                                          file.parsedAt
-                                        ).toLocaleDateString([], {
+                                      ? new Date(file.parsedAt).toLocaleDateString([], {
                                           year: 'numeric',
                                           month: '2-digit',
                                           day: '2-digit',
@@ -2329,12 +2189,8 @@ export function DataGovernancePanel() {
                                   </span>
                                   {file.datasetName ? (
                                     <>
-                                      <span className="text-muted-foreground/40">
-                                        ·
-                                      </span>
-                                      <span className="truncate">
-                                        {file.datasetName}
-                                      </span>
+                                      <span className="text-muted-foreground/40">·</span>
+                                      <span className="truncate">{file.datasetName}</span>
                                     </>
                                   ) : null}
                                 </div>
@@ -2351,8 +2207,7 @@ export function DataGovernancePanel() {
                                     ) : null}
                                     {state?.isModified && (
                                       <span className="text-[9px] text-accent flex items-center gap-1 bg-accent/10 px-1.5 py-0.5 rounded border border-accent/25 font-medium">
-                                        <Sparkles className="w-2.5 h-2.5" />{' '}
-                                        {t('sidebar.cleaned')}
+                                        <Sparkles className="w-2.5 h-2.5" /> {t('sidebar.cleaned')}
                                       </span>
                                     )}
                                     {isReadyForChunk ? (
@@ -2476,8 +2331,7 @@ export function DataGovernancePanel() {
               />
             </aside>
 
-            {isCompactLayout &&
-            (!isSidebarCollapsed || !isPanelCollapsed) ? (
+            {isCompactLayout && (!isSidebarCollapsed || !isPanelCollapsed) ? (
               <button
                 type="button"
                 className="absolute inset-0 z-30 bg-black/25"
@@ -2522,24 +2376,22 @@ export function DataGovernancePanel() {
                     <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1 rounded-md border border-border bg-card p-1 transition-colors duration-150 motion-reduce:transition-none xl:top-4">
                       {/* Segmented view-mode control */}
                       <div className="flex items-center rounded-md bg-muted/60 p-0.5">
-                        {(['preview', 'edit', 'original'] as const).map(
-                          (mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={() => setViewMode(mode)}
-                              aria-pressed={viewMode === mode}
-                              className={cn(
-                                'rounded-md px-3 py-1 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
-                                viewMode === mode
-                                  ? 'bg-background text-primary'
-                                  : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]'
-                              )}
-                            >
-                              {t(`canvas.viewModes.${mode}`)}
-                            </button>
-                          )
-                        )}
+                        {(['preview', 'edit', 'original'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setViewMode(mode)}
+                            aria-pressed={viewMode === mode}
+                            className={cn(
+                              'rounded-md px-3 py-1 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-ring-soft',
+                              viewMode === mode
+                                ? 'bg-background text-primary'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]'
+                            )}
+                          >
+                            {t(`canvas.viewModes.${mode}`)}
+                          </button>
+                        ))}
                       </div>
 
                       <div className="w-px h-3 bg-border mx-1" />
@@ -2605,14 +2457,14 @@ export function DataGovernancePanel() {
                       className="flex-1 overflow-y-auto overscroll-contain no-scrollbar p-4 md:p-8"
                     >
                       <div
-                        className={cn(
-                          'mx-auto',
-                          viewMode === 'edit' ? 'max-w-full' : 'max-w-4xl'
-                        )}
+                        className={cn('mx-auto', viewMode === 'edit' ? 'max-w-full' : 'max-w-4xl')}
                       >
                         {selectedContentIsTruncated ? (
                           <div className="mb-4 flex items-start gap-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
-                            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                            <AlertTriangle
+                              className="mt-0.5 size-4 shrink-0 text-warning"
+                              aria-hidden="true"
+                            />
                             <div>
                               <p className="font-medium">{t('canvas.truncatedTitle')}</p>
                               <p className="mt-1 text-muted-foreground">
@@ -2631,18 +2483,15 @@ export function DataGovernancePanel() {
                           )}
                         >
                           {/* 治理状态徽章 */}
-                          {viewMode !== 'edit' &&
-                            governanceState.isModified && (
-                              <div className="absolute top-0 right-0 p-4">
-                                <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-xs font-medium text-accent dark:bg-accent/20">
-                                  {t('canvas.modified')}
-                                </span>
-                              </div>
-                            )}
+                          {viewMode !== 'edit' && governanceState.isModified && (
+                            <div className="absolute top-0 right-0 p-4">
+                              <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-xs font-medium text-accent dark:bg-accent/20">
+                                {t('canvas.modified')}
+                              </span>
+                            </div>
+                          )}
 
-                          <div data-governance-selection-root="true">
-                            {contentBody}
-                          </div>
+                          <div data-governance-selection-root="true">{contentBody}</div>
                         </div>
                       </div>
                     </div>
@@ -2707,12 +2556,9 @@ export function DataGovernancePanel() {
                               >
                                 <Icon className="size-3.5" />
                                 <span className="truncate">{tab.label}</span>
-                                {tab.id === 'clean' &&
-                                  governanceState.isModified && (
-                                    <span
-                                      className="absolute right-1 top-1 size-1.5 rounded-full bg-primary"
-                                    />
-                                  )}
+                                {tab.id === 'clean' && governanceState.isModified && (
+                                  <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
+                                )}
                               </button>
                             )
                           })}
@@ -2720,12 +2566,7 @@ export function DataGovernancePanel() {
                         {/* Active tool subhead — replaces the old info banner */}
                         <p className="mt-2 px-1 text-[11px] leading-snug text-muted-foreground/80 flex items-start gap-1.5">
                           <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-muted-foreground/50" />
-                          <span>
-                            {
-                              governanceTabs.find((tab) => tab.id === activeTab)
-                                ?.desc
-                            }
-                          </span>
+                          <span>{governanceTabs.find((tab) => tab.id === activeTab)?.desc}</span>
                         </p>
                       </div>
                     </div>
@@ -2807,9 +2648,7 @@ export function DataGovernancePanel() {
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t('dialogs.deleteFile.title')}
-                </AlertDialogTitle>
+                <AlertDialogTitle>{t('dialogs.deleteFile.title')}</AlertDialogTitle>
                 <AlertDialogDescription>
                   {t('dialogs.deleteFile.description', {
                     filename: deleteFileTarget?.filename || '-',
@@ -2817,9 +2656,7 @@ export function DataGovernancePanel() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>
-                  {t('dialogs.deleteFile.cancel')}
-                </AlertDialogCancel>
+                <AlertDialogCancel>{t('dialogs.deleteFile.cancel')}</AlertDialogCancel>
                 <AlertDialogAction
                   disabled={Boolean(deletingFileId)}
                   onClick={() => {
@@ -2837,10 +2674,7 @@ export function DataGovernancePanel() {
             </AlertDialogContent>
           </AlertDialog>
           <UnsavedChangesDialog
-            open={
-              navigationGuard.navigationPending ||
-              pendingDatasetScope !== undefined
-            }
+            open={navigationGuard.navigationPending || pendingDatasetScope !== undefined}
             onOpenChange={(open) => {
               if (open) return
               setPendingDatasetScope(undefined)
