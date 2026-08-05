@@ -1,194 +1,239 @@
 'use client'
 
+import type { ReactNode } from 'react'
+import { Activity, FileSearch, Route } from 'lucide-react'
+
 import { SettingsSwitch } from '@/components/settings/settings-switch'
 import { Input } from '@/components/ui/input'
-import { settingsTextTokens, systemWorkbenchTokens } from '@/components/ui/system-page-tokens'
 import type { ObservabilityConfig } from '@/lib/api'
-import { cn } from '@/lib/utils'
-import { Eye, FileSearch, Settings2 } from 'lucide-react'
 
 type ObservabilitySectionProps = {
   observability: ObservabilityConfig
   updateObservability: (patch: Partial<ObservabilityConfig>) => void
 }
 
+function clampPreviewChars(value: string): number {
+  const parsed = Number.parseInt(value || '0', 10)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.max(0, Math.min(5000, parsed))
+}
+
+function ObservabilityItem({
+  icon: Icon,
+  title,
+  description,
+  checked,
+  onCheckedChange,
+  children,
+}: Readonly<{
+  icon: typeof FileSearch
+  title: string
+  description: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  children?: ReactNode
+}>) {
+  return (
+    <div className="px-3 py-3 sm:px-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="size-4" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="text-sm font-medium text-foreground">{title}</h3>
+              <span className="text-xs font-medium text-muted-foreground">
+                {checked ? '已开启' : '已关闭'}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {description}
+            </p>
+          </div>
+        </div>
+        <SettingsSwitch
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          className="shrink-0"
+          aria-label={`切换${title}`}
+        />
+      </div>
+      {checked && children ? (
+        <div className="mt-3 border-t border-border pt-3 sm:ml-11">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function InlineSwitch({
+  label,
+  checked,
+  onCheckedChange,
+}: Readonly<{
+  label: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}>) {
+  return (
+    <div className="flex min-h-9 items-center justify-between gap-3">
+      <span className="text-sm text-foreground">{label}</span>
+      <SettingsSwitch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-label={`切换${label}`}
+      />
+    </div>
+  )
+}
+
+function PreviewLimitField({
+  id,
+  label,
+  value,
+  onChange,
+}: Readonly<{
+  id: string
+  label: string
+  value: number
+  onChange: (value: number) => void
+}>) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={5000}
+        step={100}
+        value={value}
+        className="h-9 rounded-md border-border bg-background text-sm"
+        onChange={(event) => onChange(clampPreviewChars(event.target.value))}
+      />
+      <p className="text-xs leading-5 text-muted-foreground">
+        可填写 0–5000，填 0 时不保留摘要正文。
+      </p>
+    </div>
+  )
+}
+
 export function ObservabilitySection({
   observability,
   updateObservability,
 }: Readonly<ObservabilitySectionProps>) {
-  const isToolCallLogEnabled = observability.tool_call_log_enabled ?? false
-  const isAgentLogEnabled = observability.agent_log_enabled ?? false
-  const isMetricsLogEnabled = observability.metrics_log_enabled ?? false
+  const toolCallEnabled = observability.tool_call_log_enabled ?? false
+  const agentLogEnabled = observability.agent_log_enabled ?? false
+  const metricsLogEnabled = observability.metrics_log_enabled ?? false
+  const includeToolPreview =
+    observability.tool_call_log_include_preview ?? false
+  const includeMetricsText = observability.metrics_log_include_text ?? false
 
   return (
-    <section className="space-y-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className={cn(settingsTextTokens.sectionTitle, 'flex items-center gap-1.5')}>
-          <Eye className={settingsTextTokens.sectionIcon} />
-          观测与调试
-        </h2>
-        <div className={settingsTextTokens.sectionBadge}>
-          <span>保存后对新请求生效</span>
-        </div>
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">记录与诊断</h2>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          按排查需要开启。保存后只影响新的请求和任务。
+        </p>
       </div>
 
-      <div className={cn(systemWorkbenchTokens.panel, 'space-y-3 p-3.5')}>
-        <div className="space-y-2.5 rounded-lg border border-border/70 bg-muted/10 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className={cn(settingsTextTokens.panelTitle, 'flex items-center gap-1.5')}>
-                <FileSearch className={settingsTextTokens.panelTitleIcon} />
-                工具调用记录
-              </div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                用于排查“某个工具为什么慢、为什么失败”会记录调用耗时、是否成功，以及常用入参字段名；需要时可附带截断后的结果摘要
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  适合排查工具失败
-                </span>
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  低频开启
-                </span>
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isToolCallLogEnabled}
-              onCheckedChange={(checked) => updateObservability({ tool_call_log_enabled: checked })}
-              className="shrink-0"
-              aria-label="切换工具调用记录"
+      <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+        <ObservabilityItem
+          icon={FileSearch}
+          title="工具调用记录"
+          description="记录工具名称、耗时和执行结果，用于定位调用失败或响应缓慢。"
+          checked={toolCallEnabled}
+          onCheckedChange={(checked) =>
+            updateObservability({ tool_call_log_enabled: checked })
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-2 md:items-start">
+            <InlineSwitch
+              label="保留结果摘要"
+              checked={includeToolPreview}
+              onCheckedChange={(checked) =>
+                updateObservability({
+                  tool_call_log_include_preview: checked,
+                })
+              }
+            />
+            {includeToolPreview ? (
+              <PreviewLimitField
+                id="tool-call-preview-limit"
+                label="结果摘要字符上限"
+                value={observability.tool_call_log_max_preview_chars ?? 500}
+                onChange={(value) =>
+                  updateObservability({
+                    tool_call_log_max_preview_chars: value,
+                  })
+                }
+              />
+            ) : null}
+          </div>
+        </ObservabilityItem>
+
+        <ObservabilityItem
+          icon={Route}
+          title="任务运行记录"
+          description="记录任务总耗时、执行步骤和结果，用于定位任务停滞位置。"
+          checked={agentLogEnabled}
+          onCheckedChange={(checked) =>
+            updateObservability({ agent_log_enabled: checked })
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-2 md:items-start">
+            <InlineSwitch
+              label="保留执行路径"
+              checked={
+                observability.agent_log_include_execution_path ?? false
+              }
+              onCheckedChange={(checked) =>
+                updateObservability({
+                  agent_log_include_execution_path: checked,
+                })
+              }
+            />
+            <PreviewLimitField
+              id="task-error-preview-limit"
+              label="错误摘要字符上限"
+              value={observability.agent_log_max_preview_chars ?? 500}
+              onChange={(value) =>
+                updateObservability({
+                  agent_log_max_preview_chars: value,
+                })
+              }
             />
           </div>
+        </ObservabilityItem>
 
-          {isToolCallLogEnabled ? (
-            <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-3">
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
-                <span className="text-[11px] font-semibold text-foreground/78">记录结果摘要</span>
-                <SettingsSwitch
-                  checked={observability.tool_call_log_include_preview ?? false}
-                  onCheckedChange={(checked) =>
-                    updateObservability({ tool_call_log_include_preview: checked })
-                  }
-                  aria-label="切换工具调用结果摘要记录"
-                />
-              </div>
-              <div>
-                <div className={cn(settingsTextTokens.fieldLabel, 'mb-1')}>结果摘要最大字符数</div>
-                <Input
-                  type="number"
-                  min={0}
-                  max={5000}
-                  value={observability.tool_call_log_max_preview_chars ?? 500}
-                  className="h-8 text-[12px]"
-                  onChange={(event) =>
-                    updateObservability({
-                      tool_call_log_max_preview_chars: Number.parseInt(event.target.value || '0', 10),
-                    })
-                  }
-                />
-              </div>
-            </div>
+        <ObservabilityItem
+          icon={Activity}
+          title="问答过程指标"
+          description="记录检索和生成指标，用于趋势分析、问题复盘和审计。"
+          checked={metricsLogEnabled}
+          onCheckedChange={(checked) =>
+            updateObservability({ metrics_log_enabled: checked })
+          }
+        >
+          <InlineSwitch
+            label="记录问题与回答原文"
+            checked={includeMetricsText}
+            onCheckedChange={(checked) =>
+              updateObservability({ metrics_log_include_text: checked })
+            }
+          />
+          {includeMetricsText ? (
+            <p className="mt-2 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
+              问题和回答原文会保存在服务器日志中，可能包含个人信息或业务内容。保存前请确认日志访问权限和保留期限。
+            </p>
           ) : null}
-        </div>
-
-        <div className="space-y-2.5 rounded-lg border border-border/70 bg-muted/10 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className={cn(settingsTextTokens.panelTitle, 'flex items-center gap-1.5')}>
-                <Settings2 className={settingsTextTokens.panelTitleIcon} />
-                工作流运行记录
-              </div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                用于排查“一次任务卡在哪一步”会记录总耗时、步骤节点和成功/失败，必要时可把运行路径一起带上
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  适合排查流程卡点
-                </span>
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  记录运行路径
-                </span>
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isAgentLogEnabled}
-              onCheckedChange={(checked) => updateObservability({ agent_log_enabled: checked })}
-              className="shrink-0"
-              aria-label="切换工作流运行记录"
-            />
-          </div>
-
-          {isAgentLogEnabled ? (
-            <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-3">
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
-                <span className="text-[11px] font-semibold text-foreground/78">记录步骤路径</span>
-                <SettingsSwitch
-                  checked={observability.agent_log_include_execution_path ?? false}
-                  onCheckedChange={(checked) =>
-                    updateObservability({ agent_log_include_execution_path: checked })
-                  }
-                  aria-label="切换工作流步骤路径记录"
-                />
-              </div>
-              <div>
-                <div className={cn(settingsTextTokens.fieldLabel, 'mb-1')}>错误摘要最大字符数</div>
-                <Input
-                  type="number"
-                  min={0}
-                  max={5000}
-                  value={observability.agent_log_max_preview_chars ?? 500}
-                  className="h-8 text-[12px]"
-                  onChange={(event) =>
-                    updateObservability({
-                      agent_log_max_preview_chars: Number.parseInt(event.target.value || '0', 10),
-                    })
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-2.5 rounded-lg border border-border/70 bg-muted/10 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className={cn(settingsTextTokens.panelTitle, 'flex items-center gap-1.5')}>
-                <Eye className={settingsTextTokens.panelTitleIcon} />
-                RAG 过程指标
-              </div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                用于观察检索和生成是否稳定会把每次问答的关键指标写入日志文件，适合做趋势分析、问题复盘和离线审计
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  适合趋势分析
-                </span>
-                <span className="rounded-md border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  日志文件：logs/rag_metrics.jsonl
-                </span>
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isMetricsLogEnabled}
-              onCheckedChange={(checked) => updateObservability({ metrics_log_enabled: checked })}
-              className="shrink-0"
-              aria-label="切换 RAG 过程指标记录"
-            />
-          </div>
-
-          {isMetricsLogEnabled ? (
-            <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-3">
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
-                <span className="text-[11px] font-semibold text-foreground/78">写入问题与答案原文</span>
-                <SettingsSwitch
-                  checked={observability.metrics_log_include_text ?? false}
-                  onCheckedChange={(checked) => updateObservability({ metrics_log_include_text: checked })}
-                  aria-label="切换 RAG 指标原文写入"
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
+        </ObservabilityItem>
       </div>
     </section>
   )
