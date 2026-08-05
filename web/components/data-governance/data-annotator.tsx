@@ -20,9 +20,14 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
 import { Input } from '@/components/ui/input'
 import { pipelineApi } from '@/lib/api'
 import { reportClientWarning } from '@/lib/client-logging'
+import {
+  findGovernanceSelectionRange,
+  normalizeGovernanceSelectedText,
+} from '@/lib/governance-annotation-selection'
 import { cn } from '@/lib/utils'
 import type { AutoAnnotationRequest, AutoDocumentTag } from '@/types'
 
@@ -45,14 +50,6 @@ interface DataAnnotatorProps {
 type AnnotationTypeId = Annotation['type']
 type AnnotationTone = 'info' | 'success' | 'destructive' | 'primary'
 type AutoTagProviderId = 'cpu' | 'llm' | 'compliance' | 'hybrid'
-type AnnotationTypeConfig = {
-  id: AnnotationTypeId
-  label: string
-  icon: LucideIcon
-  tone: AnnotationTone
-  description: string
-}
-
 const ANNOTATION_TYPE_CONFIGS: Array<{
   id: AnnotationTypeId
   icon: LucideIcon
@@ -76,42 +73,48 @@ const AUTO_TAG_PROVIDER_OPTIONS: Array<{
   { id: 'hybrid', providers: ['cpu', 'llm', 'gliner', 'pii', 'secret'], enableLlm: true, enableSensitive: true },
 ]
 const DEFAULT_AUTO_TAG_PROVIDER: AutoTagProviderId = 'hybrid'
+const DOCUMENT_TAG_TYPE_LABELS: Record<AutoDocumentTag['type'], string> = {
+  topic: '主题',
+  category: '分类',
+  domain: '领域',
+  industry: '行业',
+  doc_type: '文档类型',
+  sensitivity: '敏感级别',
+  quality: '质量线索',
+  keyword: '关键词',
+}
 
 const TONE_STYLES: Record<
   AnnotationTone,
-  { selected: string; iconWrap: string; icon: string; text: string; pill: string; mark: string }
+  { selected: string; iconWrap: string; icon: string; text: string; pill: string }
 > = {
   info: {
-    selected: 'bg-info/10 border-info/30 ring-1 ring-info/20',
+    selected: 'bg-info/10 border-info/30',
     iconWrap: 'bg-info/10',
     icon: 'text-info',
     text: 'text-info',
     pill: 'bg-info/10 text-info border-info/20',
-    mark: 'bg-info/15 text-info border border-info/20',
   },
   success: {
-    selected: 'bg-success/10 border-success/30 ring-1 ring-success/20',
+    selected: 'bg-success/10 border-success/30',
     iconWrap: 'bg-success/10',
     icon: 'text-success',
     text: 'text-success',
     pill: 'bg-success/10 text-success border-success/20',
-    mark: 'bg-success/15 text-success border border-success/20',
   },
   destructive: {
-    selected: 'bg-destructive/10 border-destructive/30 ring-1 ring-destructive/20',
+    selected: 'bg-destructive/10 border-destructive/30',
     iconWrap: 'bg-destructive/10',
     icon: 'text-destructive',
     text: 'text-destructive',
     pill: 'bg-destructive/10 text-destructive border-destructive/20',
-    mark: 'bg-destructive/15 text-destructive border border-destructive/20',
   },
   primary: {
-    selected: 'bg-primary/10 border-primary/30 ring-1 ring-primary/20',
+    selected: 'bg-primary/10 border-primary/30',
     iconWrap: 'bg-primary/10',
     icon: 'text-primary',
     text: 'text-primary',
     pill: 'bg-primary/10 text-primary border-primary/20',
-    mark: 'bg-primary/15 text-primary border border-primary/20',
   },
 }
 
@@ -119,34 +122,13 @@ function getToneStyles(tone: AnnotationTone) {
   return TONE_STYLES[tone]
 }
 
+function getDocumentTagLabel(tag: AutoDocumentTag): string {
+  return String(tag.label || '').trim() || DOCUMENT_TAG_TYPE_LABELS[tag.type]
+}
+
 function getSelectionRoot(): HTMLElement | null {
   if (globalThis.document === undefined) return null
   return globalThis.document.querySelector('[data-governance-selection-root="true"]')
-}
-
-function normalizeSelectedText(value: string): string {
-  return String(value || '').replace(/\s+/g, ' ').trim()
-}
-
-function findSelectionRange(content: string, selectedText: string): { start: number; end: number; text: string } | null {
-  const text = String(selectedText || '').trim()
-  if (!content || !text) return null
-
-  const exactStart = content.indexOf(text)
-  if (exactStart >= 0) return { start: exactStart, end: exactStart + text.length, text }
-
-  const normalizedSelection = normalizeSelectedText(text)
-  const normalizedContent = normalizeSelectedText(content)
-  const normalizedStart = normalizedContent.indexOf(normalizedSelection)
-  if (normalizedStart >= 0) {
-    return {
-      start: normalizedStart,
-      end: normalizedStart + normalizedSelection.length,
-      text: normalizedSelection,
-    }
-  }
-
-  return null
 }
 
 function dedupeAnnotations(items: Annotation[]): Annotation[] {
@@ -237,7 +219,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
     const captureSelection = () => {
       const activeSelection = globalThis.getSelection?.()
       const selectedText = activeSelection?.toString() || ''
-      if (!normalizeSelectedText(selectedText)) return
+      if (!normalizeGovernanceSelectedText(selectedText)) return
 
       const root = getSelectionRoot()
       const anchorNode = activeSelection?.anchorNode || null
@@ -245,7 +227,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
       if (root && anchorNode && !root.contains(anchorNode)) return
       if (root && focusNode && !root.contains(focusNode)) return
 
-      const nextSelection = findSelectionRange(content, selectedText)
+      const nextSelection = findGovernanceSelectionRange(content, selectedText)
       if (nextSelection) setSelection(nextSelection)
     }
 
@@ -351,15 +333,15 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-4 sm:p-5">
       <div className="flex items-center gap-2">
         <Tag className="size-5 text-primary" />
-        <h3 className="font-medium text-foreground">{t('header.title')}</h3>
+        <h3 className="text-base font-semibold text-foreground">{t('header.title')}</h3>
       </div>
 
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground">{t('auto.providerTitle')}</div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2">
           {AUTO_TAG_PROVIDER_OPTIONS.map((option) => {
             const selected = autoTagProvider === option.id
             return (
@@ -367,11 +349,12 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
                 key={option.id}
                 type="button"
                 onClick={() => setAutoTagProvider(option.id)}
+                aria-pressed={selected}
                 className={cn(
-                  'focus-ring rounded-xl border px-3 py-2 text-left transition-colors',
+                  'focus-ring rounded-md border px-3 py-2 text-left transition-colors',
                   selected
-                    ? 'border-primary/30 bg-primary/10 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                    : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                    ? 'border-primary/40 bg-primary/5 text-primary'
+                    : 'border-border bg-background text-muted-foreground hover:bg-muted/60'
                 )}
               >
                 <div className="text-xs font-medium text-foreground">{t(`auto.providers.${option.id}.label`)}</div>
@@ -386,9 +369,8 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
         type="button"
         onClick={() => void handleAutoAnnotate()}
         disabled={isAutoTagging || !content.trim()}
-        variant="outline"
         size="sm"
-        className="w-full gap-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+        className="w-full gap-2 rounded-md"
       >
         {isAutoTagging ? (
           <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
@@ -399,23 +381,23 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
       </Button>
 
       {(semanticSummary || semanticTags.length > 0) && (
-        <div className="rounded-2xl border border-primary/15 bg-card p-4 shadow-sm shadow-primary/10">
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
           <div className="mb-2 flex items-center gap-2">
             <Sparkles className="size-4 text-primary" />
             <div className="text-sm font-semibold text-foreground">{t('semantic.title')}</div>
           </div>
           {semanticSummary && (
-            <p className="mb-3 line-clamp-3 text-xs leading-5 text-muted-foreground">{semanticSummary}</p>
+            <p className="mb-3 text-xs leading-5 text-muted-foreground">{semanticSummary}</p>
           )}
           {semanticTags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {semanticTags.slice(0, 16).map((tag) => (
                 <span
                   key={`${tag.type}-${tag.value}`}
-                  title={`${tag.source} · ${(tag.confidence * 100).toFixed(0)}%`}
-                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/15 bg-background/80 px-2 py-1 text-xs text-foreground/80"
+                  title={`${getDocumentTagLabel(tag)}：${tag.value}，可信度 ${(tag.confidence * 100).toFixed(0)}%`}
+                  className="inline-flex max-w-full items-center gap-1 rounded-md bg-background px-2 py-1 text-xs text-foreground"
                 >
-                  <span className="text-muted-foreground">{tag.label || tag.type}</span>
+                  <span className="text-muted-foreground">{getDocumentTagLabel(tag)}</span>
                   <span className="truncate font-medium">{tag.value}</span>
                 </span>
               ))}
@@ -438,14 +420,17 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
                 type="button"
                 title={type.description}
                 onClick={() => setSelectedType(type.id)}
+                aria-pressed={isSelected}
                 className={cn(
-                  'focus-ring flex items-center gap-2 rounded-lg border p-2.5 text-left transition-colors duration-200 motion-reduce:transition-none',
-                  isSelected ? getToneStyles(type.tone).selected : 'border-border bg-muted hover:bg-muted'
+                  'focus-ring flex items-center gap-2 rounded-md border p-2.5 text-left transition-colors duration-200 motion-reduce:transition-none',
+                  isSelected
+                    ? getToneStyles(type.tone).selected
+                    : 'border-border bg-background hover:bg-muted/60'
                 )}
               >
                 <div
                   className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-lg',
+                    'flex h-7 w-7 items-center justify-center rounded-md',
                     getToneStyles(type.tone).iconWrap
                   )}
                 >
@@ -472,6 +457,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
         <div>
           <Input
             type="text"
+            aria-label={t('custom.placeholder')}
             placeholder={t('custom.placeholder')}
             value={customLabel}
             onChange={(event) => setCustomLabel(event.target.value)}
@@ -481,12 +467,12 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
       )}
 
       {selection ? (
-        <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
           <div className="mb-2 flex items-center gap-2">
             <Search className="size-4 text-primary" />
             <span className="text-sm font-medium text-primary">{t('selection.title')}</span>
           </div>
-          <div className="mb-3 rounded border border-primary/20 bg-card p-2">
+          <div className="mb-3 rounded-md bg-background p-2">
             <div className="line-clamp-2 text-sm text-foreground/80">{selection.text}</div>
           </div>
           <div className="flex items-center gap-2">
@@ -524,7 +510,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
           if (items.length === 0) return null
 
           return (
-            <div key={type.id} className="overflow-hidden rounded-xl border border-border">
+            <div key={type.id} className="overflow-hidden rounded-lg border border-border">
               <button
                 type="button"
                 onClick={() => toggleExpandedType(type.id)}
@@ -535,7 +521,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
                   <span className="text-sm font-medium text-foreground/80">{type.label}</span>
                   <span
                     className={cn(
-                      'rounded-full border px-1.5 py-0.5 text-xs',
+                      'rounded-md border px-1.5 py-0.5 text-xs',
                       getToneStyles(type.tone).pill
                     )}
                   >
@@ -554,7 +540,7 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
                   {items.map((anno) => (
                     <div
                       key={anno.id}
-                      className="flex items-center justify-between rounded-lg bg-muted p-2"
+                      className="flex items-center justify-between rounded-md bg-muted/60 p-2"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="text-xs text-muted-foreground">
@@ -562,19 +548,18 @@ export function DataAnnotator({ content, annotations = [], onAnnotate, onDocumen
                         </div>
                         <div className="truncate text-sm text-foreground/80">{anno.text}</div>
                       </div>
-                      <Button
+                      <IconButton
                         onClick={() => handleDeleteAnnotation(anno.id)}
                         variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                        aria-label={t('a11y.deleteAnnotation', {
+                        className="h-7 w-7 rounded-md text-muted-foreground hover:text-destructive"
+                        label={t('a11y.deleteAnnotation', {
                           label: type.label,
                           start: anno.start,
                           end: anno.end,
                         })}
                       >
                         <X className="h-3.5 w-3.5" aria-hidden="true" />
-                      </Button>
+                      </IconButton>
                     </div>
                   ))}
                 </div>

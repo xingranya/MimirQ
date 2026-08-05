@@ -47,14 +47,14 @@ DataAnnotator: {
       typeCount: '{count} 个',
     },
     custom: {
-      placeholder: '输入自定义标签名称...',
+      placeholder: '输入自定义标签名称',
     },
     selection: {
       title: '已选中文本',
       add: '添加 {label} 标注',
       cancel: '取消',
       start: '开始选中文本标注',
-      activePrompt: '请在右侧选中文本...',
+      activePrompt: '请在右侧选中文本',
     },
     auto: {
       action: 'AI 自动打标',
@@ -71,11 +71,11 @@ DataAnnotator: {
         },
         compliance: {
           label: '敏感合规',
-          description: 'PII、密钥和实体线索优先',
+          description: '优先识别个人信息、密钥和实体线索',
         },
         hybrid: {
           label: '混合增强',
-          description: '本地规则 + AI 语义 + 敏感检测',
+          description: '同时使用本地规则、AI 语义和敏感检测',
         },
       },
       empty: '当前文档没有可标注内容',
@@ -88,7 +88,7 @@ DataAnnotator: {
       title: '文档语义标签',
     },
     annotation: {
-      position: '位置: {start} - {end}',
+      position: '位置：{start} 至 {end}',
     },
     empty: {
       title: '暂无标注',
