@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { FileUp, UploadCloud } from 'lucide-react'
+import { FileUp, Loader2, UploadCloud } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { datasetApi, documentApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
@@ -34,6 +36,15 @@ export type DropZoneHandle = {
 }
 
 const PARSER_STORAGE_KEY = 'mimirq.ingestion.dropParserBackend'
+const PARSER_OPTIONS = [
+  { value: 'auto', label: '自动选择（推荐）' },
+  { value: 'docling', label: 'Docling' },
+  { value: 'markitdown', label: 'MarkItDown' },
+  { value: 'deepdoc', label: 'DeepDoc' },
+  { value: 'csv', label: '表格文件' },
+  { value: 'json', label: 'JSON 文件' },
+  { value: 'markdown', label: 'Markdown 文件' },
+] as const
 
 function readStoredParserBackend() {
   if (globalThis.window === undefined) return 'auto'
@@ -61,15 +72,25 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
   const [parserBackend, setParserBackend] = useState(readStoredParserBackend)
   const [dialogPrecheckOnly, setDialogPrecheckOnly] = useState(defaultPrecheckOnly)
   const fileCount = pendingDropFiles?.length ?? 0
+  const visiblePendingFiles = pendingDropFiles?.slice(0, 5) ?? []
+  const remainingFileCount = Math.max(0, fileCount - visiblePendingFiles.length)
 
-  const { data: datasetsResponse } = useQuery({
+  const datasetsQuery = useQuery({
     queryKey: ['drop-zone-datasets'],
     queryFn: () => datasetApi.listAll(),
     enabled: dropConfirmOpen && !datasetId,
     staleTime: 60_000,
   })
 
-  const datasets = useMemo(() => datasetsResponse ?? [], [datasetsResponse])
+  const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data])
+
+  const handleDropConfirmOpenChange = (open: boolean) => {
+    setDropConfirmOpen(open)
+    if (!open) {
+      setPendingDropFiles(null)
+      setSelectedDatasetId('')
+    }
+  }
 
   React.useEffect(() => {
     uploadModeRef.current = defaultPrecheckOnly
@@ -195,89 +216,116 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
           <div
             aria-live="polite"
             className={cn(
-              'rounded-lg border border-dashed border-border bg-background px-10 py-12 text-center shadow-lg',
+              'mx-4 w-full max-w-sm rounded-md border border-dashed border-border bg-background px-6 py-8 text-center',
               UI_LAYER_CLASS.modal
             )}
           >
-            <UploadCloud className="mx-auto h-10 w-10 text-info" />
-            <p className="mt-4 text-base font-semibold text-foreground">
+            <UploadCloud className="mx-auto size-8 text-primary" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold text-foreground">
               {invalidDrop ? '仅支持文件' : defaultPrecheckOnly ? '拖入文件以开始评估' : '拖入文件以上传'}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {invalidDrop ? '请放下本地文件，而不是链接或其它拖拽内容。' : `拖入 ${fileCount || '若干'} 个文件后即可开始上传。`}
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {invalidDrop ? '请拖入本地文件，不要拖入链接或其他内容。' : '松开鼠标后继续选择数据集和解析方式。'}
             </p>
           </div>
         </div>
       )}
 
-      <Dialog open={dropConfirmOpen} onOpenChange={setDropConfirmOpen}>
+      <Dialog open={dropConfirmOpen} onOpenChange={handleDropConfirmOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{dialogPrecheckOnly ? '上传样本评估' : '正式入库'}</DialogTitle>
             <DialogDescription>
               {dialogPrecheckOnly
-                ? '选择目标数据集和候选解析策略，只生成入库前摸底和文件布局难度分析，不会写入正式知识库。'
-                : '选择目标数据集和解析策略，文件会写入知识库并启动解析、治理、切块处理。'}
+                ? '选择数据集和解析方式。系统只生成入库前评估，不会将文件写入知识库。'
+                : '选择数据集和解析方式。上传后会依次完成解析、治理和切片。'}
             </DialogDescription>
           </DialogHeader>
 
-          {datasets.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-4 text-sm">
-              <p className="font-medium text-foreground">尚无数据集,请先前往新建</p>
-              <Button asChild className="mt-3" variant="outline">
-                <Link href="/datasets">前往新建</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">数据集</div>
-                <Select value={selectedDatasetId} onValueChange={setSelectedDatasetId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择数据集" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {datasets.map((dataset: Dataset) => (
-                      <SelectItem key={dataset.id} value={dataset.id}>
-                        {dataset.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 font-medium text-foreground">
+                <FileUp className="size-4" aria-hidden="true" />
+                {dialogPrecheckOnly ? '待评估' : '待入库'} {fileCount} 个文件
               </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">解析策略</div>
-                <Select value={parserBackend} onValueChange={setParserBackend}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['auto', 'docling', 'markitdown', 'deepdoc', 'csv', 'json', 'markdown'].map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2 font-medium text-foreground">
-                  <FileUp className="h-4 w-4" />
-                  {dialogPrecheckOnly ? '待评估' : '待入库'} {pendingDropFiles?.length ?? 0} 个文件
-                </div>
-                <div className="mt-2 space-y-1">
-                  {pendingDropFiles?.map((file) => (
-                    <div key={`${file.name}-${file.size}`}>{file.name}</div>
-                  ))}
-                </div>
+              <div className="mt-2 space-y-1">
+                {visiblePendingFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="truncate">
+                    {file.name}
+                  </div>
+                ))}
+                {remainingFileCount > 0 ? (
+                  <div>另有 {remainingFileCount} 个文件</div>
+                ) : null}
               </div>
             </div>
-          )}
+
+            {datasetsQuery.isLoading ? (
+              <div
+                role="status"
+                className="flex items-center gap-2 rounded-md border border-border bg-muted/20 p-4 text-sm text-muted-foreground"
+              >
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                正在加载数据集...
+              </div>
+            ) : datasetsQuery.isError ? (
+              <QueryErrorState
+                title="无法加载数据集"
+                description={formatApiError(datasetsQuery.error, '请检查网络连接后重试。')}
+                retrying={datasetsQuery.isFetching}
+                onRetry={() => {
+                  void datasetsQuery.refetch()
+                }}
+              />
+            ) : datasets.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-muted/20 p-4 text-sm">
+                <p className="font-medium text-foreground">还没有可用的数据集</p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  创建数据集后再回来上传文件。
+                </p>
+                <Button asChild className="mt-3" variant="outline">
+                  <Link href="/datasets">新建数据集</Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="drop-zone-dataset">数据集</Label>
+                  <Select value={selectedDatasetId} onValueChange={setSelectedDatasetId}>
+                    <SelectTrigger id="drop-zone-dataset">
+                      <SelectValue placeholder="选择数据集" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {datasets.map((dataset: Dataset) => (
+                        <SelectItem key={dataset.id} value={dataset.id}>
+                          {dataset.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="drop-zone-parser">解析方式</Label>
+                  <Select value={parserBackend} onValueChange={setParserBackend}>
+                    <SelectTrigger id="drop-zone-parser">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PARSER_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDropConfirmOpen(false)}>
+            <Button variant="ghost" onClick={() => handleDropConfirmOpenChange(false)}>
               取消
             </Button>
             <Button
@@ -286,8 +334,7 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
                 if (!pendingDropFiles?.length) return
                 const succeeded = await uploadFiles(pendingDropFiles, { precheckOnly: dialogPrecheckOnly })
                 if (!succeeded) return
-                setPendingDropFiles(null)
-                setDropConfirmOpen(false)
+                handleDropConfirmOpenChange(false)
               }}
             >
               {dialogPrecheckOnly ? '开始评估' : '开始入库'}
