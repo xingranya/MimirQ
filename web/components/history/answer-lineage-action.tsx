@@ -48,30 +48,30 @@ export function AnswerLineageAction({ requestId }: AnswerLineageActionProps) {
         variant="ghost"
         size="sm"
         className={cn(
-          'h-7 gap-1.5 rounded-lg px-2 text-[11px] text-muted-foreground hover:text-foreground',
+          'h-7 gap-1.5 rounded-md px-2 text-[11px] text-muted-foreground hover:text-foreground',
           isUnavailable && 'cursor-not-allowed opacity-60 hover:text-muted-foreground'
         )}
         disabled={lineageQuery.isFetching}
         onClick={() => setOpen(true)}
-        title={isUnavailable ? '后端未返回该回答的血缘数据' : undefined}
+        title={isUnavailable ? '当前回答没有血缘数据' : undefined}
       >
         {lineageQuery.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <GitBranch className="h-3.5 w-3.5" />}
         {lineageQuery.isFetching ? '加载血缘' : isUnavailable ? '暂无血缘' : '答案血缘'}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-3xl overflow-y-auto rounded-lg border-border bg-background shadow-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-info" />
-              Answer Lineage
+              回答血缘
             </DialogTitle>
-            <DialogDescription className="font-mono text-xs">request_id={requestId}</DialogDescription>
+            <DialogDescription className="font-mono text-xs">请求编号：{requestId}</DialogDescription>
           </DialogHeader>
 
           {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
           <pre className={cn('max-h-[520px] overflow-auto rounded-lg border border-border/60 bg-muted/20 p-3 text-xs', 'whitespace-pre-wrap break-words')}>
-            {lineageQuery.isFetching ? 'Loading...' : prettyJson(lineageQuery.data ?? { message: '暂无血缘数据' })}
+            {lineageQuery.isFetching ? '正在加载…' : prettyJson(lineageQuery.data ?? { message: '暂无血缘数据' })}
           </pre>
         </DialogContent>
       </Dialog>
