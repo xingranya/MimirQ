@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -57,7 +58,7 @@ export function DatasetCategoryTreeView({
       for (const n of items) collectCategoryIds(n, next)
       return next
     }
-    // Default expand: root level only.
+    // 默认只展开根级分类，避免目录初次打开时信息过载。
     for (const n of items) next.add(n.id)
     return next
   }, [expandAll, items])
@@ -87,9 +88,9 @@ export function DatasetCategoryTreeView({
       <div key={node.id} className="select-none">
         <div
           className={cn(
-            'w-full flex items-center gap-1.5 rounded-[12px] border px-1.5 py-1 text-[11px] transition-all duration-200 active:scale-[0.995]',
+            'flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-[11px] transition-colors',
             isSelected
-              ? 'border-primary/15 bg-primary/10 text-primary shadow-[0_10px_18px_-16px_hsl(var(--primary)/0.25)]'
+              ? 'border-primary/30 bg-primary/10 text-primary'
               : 'border-transparent text-muted-foreground hover:border-border/60 hover:bg-muted/40 hover:text-foreground'
           )}
           style={{ paddingLeft: 6 + Math.max(0, Number(node.depth || 0)) * 10 }}
@@ -121,7 +122,7 @@ export function DatasetCategoryTreeView({
                 <span
                   className={cn(
                     'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-muted-foreground',
-                    isSelected ? 'border-primary/15 bg-card text-primary shadow-[0_8px_14px_-12px_hsl(var(--primary)/0.25)]' : 'border-border/60 bg-muted/50 text-muted-foreground'
+                    isSelected ? 'border-primary/30 bg-card text-primary' : 'border-border/60 bg-muted/50 text-muted-foreground'
                   )}
                 >
                   <FolderOpen className="h-3 w-3" />
@@ -130,8 +131,8 @@ export function DatasetCategoryTreeView({
               </span>
               <span
                 className={cn(
-                  'rounded-full border px-1.5 py-0.5 tabular-nums text-[9px] font-semibold shadow-sm',
-                  isSelected ? 'border-primary/15 bg-card text-primary shadow-[0_8px_14px_-12px_hsl(var(--primary)/0.22)]' : 'border-border/60 bg-card text-muted-foreground'
+                  'rounded-md border px-1.5 py-0.5 tabular-nums text-[9px] font-semibold',
+                  isSelected ? 'border-primary/30 bg-card text-primary' : 'border-border/60 bg-card text-muted-foreground'
                 )}
               >
                 {Number(node.datasets || 0) || 0}
@@ -155,17 +156,17 @@ export function DatasetCategoryTreeView({
         type="button"
         onClick={() => onSelect(null)}
         className={cn(
-          'focus-ring w-full flex items-center justify-between rounded-[12px] border px-2 py-1.5 text-[11px] transition-all duration-200 active:scale-[0.995]',
+          'focus-ring flex w-full items-center justify-between rounded-md border px-2 py-1.5 text-[11px] transition-colors',
           selectedId
             ? 'border-transparent text-muted-foreground hover:border-border/60 hover:bg-muted/40 hover:text-foreground'
-            : 'border-primary/15 bg-primary/10 text-primary shadow-[0_10px_18px_-16px_hsl(var(--primary)/0.25)]'
+            : 'border-primary/30 bg-primary/10 text-primary'
         )}
       >
         <span className="flex items-center gap-2 min-w-0">
           <span
             className={cn(
               'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
-              selectedId ? 'border-border/60 bg-muted/50 text-muted-foreground' : 'border-primary/15 bg-card text-primary shadow-[0_8px_14px_-12px_hsl(var(--primary)/0.22)]'
+              selectedId ? 'border-border/60 bg-muted/50 text-muted-foreground' : 'border-primary/30 bg-card text-primary'
             )}
           >
             <FolderTree className="h-3 w-3" />
@@ -271,7 +272,7 @@ export function DatasetCategoryTree({ selectedId, onSelect, className }: Readonl
     <div className={cn('space-y-2.5', className)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
             <FolderTree className="h-3.5 w-3.5 text-primary" />
             <span>目录</span>
           </div>
@@ -288,17 +289,11 @@ export function DatasetCategoryTree({ selectedId, onSelect, className }: Readonl
             }}
           >
             <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 rounded-full p-0 text-foreground"
-                aria-label="新建分类"
-                title="新建分类"
-              >
+              <IconButton label="新建分类" variant="ghost" className="h-8 w-8 text-foreground">
                 <Plus className="h-3.5 w-3.5" />
-              </Button>
+              </IconButton>
             </DialogTrigger>
-            <DialogContent className="max-w-sm sm:rounded-2xl">
+            <DialogContent className="max-w-sm rounded-lg">
               <DialogHeader>
                 <DialogTitle>{selectedId ? '新建子分类' : '新建分类'}</DialogTitle>
                 <DialogDescription>
@@ -307,7 +302,7 @@ export function DatasetCategoryTree({ selectedId, onSelect, className }: Readonl
               </DialogHeader>
 
               <div className="grid gap-4 py-1">
-                <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <FolderPlus className="h-3.5 w-3.5 text-primary" />
                     <span>{selectedId ? `父级：${selectedNodeName || '当前分类'}` : '父级：顶级分类'}</span>
@@ -335,21 +330,19 @@ export function DatasetCategoryTree({ selectedId, onSelect, className }: Readonl
             </DialogContent>
           </Dialog>
 
-          <Button
+          <IconButton
+            label={selectedId ? '删除当前分类' : '请选择分类后删除'}
             variant="ghost"
-            size="sm"
-            className="h-8 w-8 rounded-full p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+            className="h-8 w-8 text-destructive/60 hover:bg-destructive/10 hover:text-destructive"
             onClick={() => setDeleteOpen(true)}
             disabled={!selectedId || deleting}
-            aria-label="删除分类"
-            title={selectedId ? '删除当前分类' : '请选择分类后删除'}
           >
             {deleting ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Trash2 className="h-4 w-4" />}
-          </Button>
+          </IconButton>
         </div>
       </div>
 
-      <div className="rounded-[1rem] border border-border/60 bg-background/55 p-1.5 shadow-sm">
+      <div className="rounded-lg border border-border/60 bg-background p-1.5 shadow-none">
         {loading && !categoryTreeQuery.data ? (
           <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />

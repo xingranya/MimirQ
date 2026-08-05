@@ -107,7 +107,7 @@ export function DatasetCategoryMultiSelect({ datasetId, className }: Readonly<{ 
   }
 
   return (
-    <Panel padding="lg" className={cn('rounded-3xl', className)}>
+    <Panel padding="lg" className={cn('rounded-lg', className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export function DatasetCategoryMultiSelect({ datasetId, className }: Readonly<{ 
                 编辑
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-w-xl rounded-lg">
               <DialogHeader>
                 <DialogTitle>编辑分类</DialogTitle>
                 <DialogDescription>为该数据集选择一个或多个分类（用于侧边栏筛选与组织）。</DialogDescription>
@@ -181,7 +181,7 @@ export function DatasetCategoryMultiSelect({ datasetId, className }: Readonly<{ 
                       <button
                         type="button"
                         aria-label="清除搜索"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted/40 focus-ring"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-muted/40 focus-ring"
                         onClick={() => setQuery('')}
                       >
                         <X className="h-4 w-4 text-muted-foreground" />
@@ -199,7 +199,7 @@ export function DatasetCategoryMultiSelect({ datasetId, className }: Readonly<{ 
                   </Button>
                 </div>
 
-                <div className="max-h-[360px] overflow-auto rounded-xl border border-border/60">
+                <div className="max-h-[360px] overflow-auto rounded-lg border border-border/60">
                   {filteredFlat.length ? (
                     <div className="divide-y divide-border/60">
                       {filteredFlat.map((c) => {
