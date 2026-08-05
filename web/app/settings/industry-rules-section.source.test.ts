@@ -20,4 +20,12 @@ describe('设置页行业规则视觉契约', () => {
     expect(source).toContain("'rounded-md border px-2 py-1")
     expect(source).not.toContain("'rounded-full border px-2 py-0.5")
   })
+
+  it('仅在当前规则集载入成功且账号可写时允许保存', () => {
+    expect(source).toContain('loadedRulesetName === trimmedRulesetName')
+    expect(source).toContain('rulesetsQuery.data?.can_manage === true')
+    expect(source).toContain('!canManageRules || !hasLoadedSelectedRuleset')
+    expect(source).toContain('payload.ruleset.name !== trimmedRulesetName')
+    expect(source).toContain('disabled={disabled}')
+  })
 })

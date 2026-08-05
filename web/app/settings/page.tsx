@@ -706,7 +706,7 @@ function SettingsContent({
                   ) : null}
                 </fieldset>
                 <SettingsSubsection title="行业规则" advanced>
-                  <IndustryRulesSection />
+                  <IndustryRulesSection writable={settingsWritable} />
                 </SettingsSubsection>
               </SettingsSectionFrame>
             ) : null}

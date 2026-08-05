@@ -60,13 +60,14 @@ function isRewritePreview(payload: unknown): payload is IndustryRulesRewritePrev
   )
 }
 
-export function IndustryRulesSection() {
+export function IndustryRulesSection({ writable }: Readonly<{ writable: boolean }>) {
   const queryClient = useQueryClient()
   const [rulesetName, setRulesetName] = useState('industrial_control')
   const [query, setQuery] = useState('PLC 报警如何排查？')
   const [glossaryJson, setGlossaryJson] = useState('{}')
   const [patternsJson, setPatternsJson] = useState('[]')
   const [intentsJson, setIntentsJson] = useState('[]')
+  const [loadedRulesetName, setLoadedRulesetName] = useState<string | null>(null)
   const [runningKey, setRunningKey] = useState<string | null>(null)
   const [result, setResult] = useState<ResultState | null>(null)
 
@@ -83,6 +84,8 @@ export function IndustryRulesSection() {
     enabled: false,
   })
   const loadedRuleset = rulesetDetailQuery.data?.ruleset
+  const hasLoadedSelectedRuleset = loadedRulesetName === trimmedRulesetName
+  const canManageRules = writable && rulesetsQuery.data?.can_manage === true
   const previewResult = result && isRewritePreview(result.payload) ? result.payload : null
 
   async function runAction(
@@ -114,7 +117,8 @@ export function IndustryRulesSection() {
     }, options)
   }
 
-  const actionDisabled = Boolean(runningKey) || !rulesetName.trim()
+  const actionDisabled = Boolean(runningKey) || !trimmedRulesetName
+  const editorDisabled = Boolean(runningKey) || !canManageRules || !hasLoadedSelectedRuleset
   const actionButtonClass = 'h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold'
 
   return (
@@ -169,12 +173,17 @@ export function IndustryRulesSection() {
                 onClick={() =>
                   detachPromise(
                     runAction('detail', '载入规则', async () => {
+                      setLoadedRulesetName(null)
                       const { data, error } = await rulesetDetailQuery.refetch()
                       if (error) throw error
-                      const payload = data || { ruleset: { glossary: {}, patterns: [], intents: [] } }
+                      const payload = data
+                      if (!payload?.ruleset || payload.ruleset.name !== trimmedRulesetName) {
+                        throw new Error('未能载入当前规则集，请重试')
+                      }
                       setGlossaryJson(prettyJson(payload.ruleset.glossary || {}))
                       setPatternsJson(prettyJson(payload.ruleset.patterns || []))
                       setIntentsJson(prettyJson(payload.ruleset.intents || []))
+                      setLoadedRulesetName(payload.ruleset.name)
                       return payload
                     })
                   )
@@ -264,6 +273,17 @@ export function IndustryRulesSection() {
           </div>
         </div>
 
+        <div
+          className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+          role="status"
+        >
+          {!canManageRules
+            ? '当前账号可以查看和预览规则，但不能修改。'
+            : hasLoadedSelectedRuleset
+              ? `正在编辑 ${trimmedRulesetName}，保存会替换该规则集对应内容。`
+              : '请先载入当前规则集，再编辑或保存内容。'}
+        </div>
+
         <div className="grid gap-3 lg:grid-cols-3">
           <JsonField
             icon={<BookOpenText className="h-3.5 w-3.5 text-primary" />}
@@ -273,7 +293,7 @@ export function IndustryRulesSection() {
             onChange={setGlossaryJson}
             actionLabel="保存词库"
             running={runningKey === 'glossary'}
-            disabled={actionDisabled}
+            disabled={editorDisabled}
             onSave={() =>
               detachPromise(
                 runAction('glossary', '保存术语词库', () =>
@@ -299,7 +319,7 @@ export function IndustryRulesSection() {
             onChange={setPatternsJson}
             actionLabel="保存规则"
             running={runningKey === 'patterns'}
-            disabled={actionDisabled}
+            disabled={editorDisabled}
             onSave={() =>
               detachPromise(
                 runAction('patterns', '保存匹配规则', () =>
@@ -325,7 +345,7 @@ export function IndustryRulesSection() {
             onChange={setIntentsJson}
             actionLabel="保存意图"
             running={runningKey === 'intents'}
-            disabled={actionDisabled}
+            disabled={editorDisabled}
             onSave={() =>
               detachPromise(
                 runAction('intents', '保存意图规则', () =>
@@ -421,7 +441,12 @@ function JsonField({
           {actionLabel}
         </Button>
       </div>
-      <Textarea value={value} onChange={(event) => onChange(event.target.value)} className="min-h-[132px] font-mono text-xs" />
+      <Textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="min-h-[132px] font-mono text-xs"
+      />
     </div>
   )
 }
