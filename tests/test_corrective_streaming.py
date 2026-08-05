@@ -281,3 +281,53 @@ async def test_stream_chat_does_not_split_redacted_pii_across_chunks(
     assert len(token_chunks) >= 2
     assert token_text == ("A" * 140) + "[REDACTED]" + ("B" * 140)
     assert raw_id not in token_text
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_splits_large_provider_chunk_for_incremental_rendering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.rag.engine as engine_mod
+    from app.core.config import settings
+    from app.rag.engine import RAGEngine
+
+    _disable_optional_features(monkeypatch)
+    response = "知识库流式回答。" * 80
+    monkeypatch.setattr(settings, "LLM_MOCK_RESPONSE", response, raising=False)
+    monkeypatch.setattr(settings, "PII_REDACTION_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "OUTPUT_GUARD_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "RAG_CLAIM_CHECK_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "FAITHFULNESS_SCORE_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "SHOW_IMAGE_IN_ANSWER", False, raising=False)
+    monkeypatch.setattr(settings, "SENTENCE_CITATIONS_INLINE_ENABLED", False, raising=False)
+    monkeypatch.setattr(
+        engine_mod,
+        "hybrid_retriever",
+        _SequentialRetriever(docs_by_call=[[_mk_doc(doc_id="doc-stream", chunk_index=0)]]),
+        raising=True,
+    )
+
+    stream = RAGEngine().stream_chat(
+        question="返回一段足够长的测试回答。",
+        history=[],
+        tenant_id=uuid.uuid4(),
+        account_id="u",
+        document_ids=[uuid.uuid4()],
+        top_k=1,
+        score_threshold=0.0,
+        retrieval_mode="vector",
+        visible_evidence_only=False,
+        request_id="large-provider-chunk-test",
+    )
+    token_chunks: list[str] = []
+    try:
+        async for event in stream:
+            if event.get("type") == "token":
+                token_chunks.append(str((event.get("data") or {}).get("content") or ""))
+            if event.get("type") == "done":
+                break
+    finally:
+        await stream.aclose()
+
+    assert len(token_chunks) >= 2
+    assert "".join(token_chunks) == response

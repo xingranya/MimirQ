@@ -107,17 +107,17 @@ from app.services.rag_runtime_limiter import (
 
 logger = get_logger("rag.engine")
 
-_POSTPROCESSED_STREAM_CHUNK_SIZE = 120
-_POSTPROCESSED_STREAM_CHUNK_INTERVAL_SEC = 0.02
+_STREAM_CHUNK_SIZE = 120
+_STREAM_CHUNK_INTERVAL_SEC = 0.02
 
 
-async def _stream_postprocessed_text(text: str) -> AsyncGenerator[dict[str, Any], None]:
-    """将已完成安全处理的回答分段发送，确保浏览器能逐步绘制正文。"""
-    for offset in range(0, len(text), _POSTPROCESSED_STREAM_CHUNK_SIZE):
-        chunk = text[offset : offset + _POSTPROCESSED_STREAM_CHUNK_SIZE]
+async def _stream_text_chunks(text: str) -> AsyncGenerator[dict[str, Any], None]:
+    """拆分模型一次性返回的大块文本，确保浏览器能逐步绘制正文。"""
+    for offset in range(0, len(text), _STREAM_CHUNK_SIZE):
+        chunk = text[offset : offset + _STREAM_CHUNK_SIZE]
         yield {"type": "token", "data": {"content": chunk}}
-        if offset + _POSTPROCESSED_STREAM_CHUNK_SIZE < len(text):
-            await asyncio.sleep(_POSTPROCESSED_STREAM_CHUNK_INTERVAL_SEC)
+        if offset + _STREAM_CHUNK_SIZE < len(text):
+            await asyncio.sleep(_STREAM_CHUNK_INTERVAL_SEC)
 
 
 def get_agentic_runner(*, engine: "RAGEngine | None" = None) -> Any:
@@ -3222,7 +3222,8 @@ Requirements:
                     continue
 
                 full_response += token_text
-                yield {"type": "token", "data": {"content": token_text}}
+                async for stream_chunk in _stream_text_chunks(token_text):
+                    yield stream_chunk
 
             if buffered_parts is not None:
                 raw_generated = "".join(buffered_parts)
@@ -3542,7 +3543,7 @@ Requirements:
                         yield {"type": "token", "data": {"content": suffix_md_safe}}
 
             if buffered_parts is not None:
-                async for safe_chunk in _stream_postprocessed_text(full_response):
+                async for safe_chunk in _stream_text_chunks(full_response):
                     yield safe_chunk
 
             # Cost attribution per request.
