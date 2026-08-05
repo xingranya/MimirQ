@@ -42,9 +42,14 @@ test('document upload flows into intelligent chat smoke path', async ({ page }) 
     .setInputFiles(path.resolve(__dirname, 'fixtures/enterprise-telemetry-sample.md'))
 
   await expect(queueFileRow).toBeVisible()
-  await expect(page.getByText('准备就绪')).toBeVisible()
+  await expect(
+    page.getByTestId('parsing-main-panel').getByText('待解析', { exact: true }).first()
+  ).toBeVisible()
 
-  await page.getByRole('button', { name: '用当前解析器开始解析' }).click()
+  await page
+    .getByTestId('parsing-main-panel')
+    .getByRole('button', { name: '开始解析', exact: true })
+    .click()
 
   await expect(queueFileRow).toBeVisible()
   await expect(page.getByText(PARSED_MARKDOWN.split('\n')[2])).toBeVisible()

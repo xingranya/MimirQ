@@ -520,7 +520,9 @@ test.describe('management surfaces smoke', () => {
 
   test('loads prompts page with the managed prompt shell', async ({ page }) => {
     await page.goto('/prompts')
-    await expect(page.getByTestId('page-title-shell').getByText('提示词模板')).toBeVisible({ timeout: 60_000 })
+    await expect(
+      page.getByTestId('page-title-shell').getByText('提示词模板', { exact: true })
+    ).toBeVisible({ timeout: 60_000 })
     await expect(page.getByText('创建模板')).toBeVisible()
   })
 
@@ -544,7 +546,7 @@ test.describe('management surfaces smoke', () => {
       { route: '/knowledge', heading: '知识库管理' },
       { route: '/evaluations', heading: '实时会话评分' },
       { route: '/knowledge/quarantine', heading: '隔离审核中心' },
-      { route: '/knowledge/feedback', heading: '反馈分析中心' },
+      { route: '/knowledge/feedback', heading: '反馈分析' },
     ] as const) {
       await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
       const heading = page.getByRole('heading', { name: surface.heading }).first()
@@ -556,7 +558,6 @@ test.describe('management surfaces smoke', () => {
         .first()
       await expect(header, `${surface.route} management header`).toBeVisible()
 
-      const titleInk = heading.locator(':scope > span')
       const visual = await header.evaluate((element) => {
         const style = window.getComputedStyle(element)
         const rect = element.getBoundingClientRect()
@@ -568,7 +569,7 @@ test.describe('management surfaces smoke', () => {
           height: rect.height,
         }
       })
-      const titleStyle = await titleInk.evaluate((element) => {
+      const titleStyle = await heading.evaluate((element) => {
         const style = window.getComputedStyle(element)
         return {
           backgroundImage: style.backgroundImage,
@@ -596,10 +597,10 @@ test.describe('management surfaces smoke', () => {
       { route: '/evaluations', heading: '实时会话评分' },
       { route: '/prompts', heading: '提示词模板' },
       { route: '/diagnostics', heading: '诊断中心' },
-      { route: '/usage', heading: '用量/配额' },
+      { route: '/usage', heading: '用量与配额' },
       { route: '/audit', heading: '审计日志' },
       { route: '/settings/rbac', heading: '成员权限' },
-      { route: '/settings/groups', heading: '组管理' },
+      { route: '/settings/groups', heading: '成员组' },
       { route: '/settings', heading: '设置' },
     ]) {
       await page.goto(surface.route, { waitUntil: 'domcontentloaded' })
@@ -704,7 +705,7 @@ test.describe('management surfaces smoke', () => {
   })
 
   test('preserves sidebar scroll without document navigation', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 })
+    await page.setViewportSize({ width: 1024, height: 520 })
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.evaluate(() => {
       window.localStorage.setItem('mimirq_app_sidebar_open_v1', 'true')
@@ -732,9 +733,9 @@ test.describe('management surfaces smoke', () => {
       () => performance.getEntriesByType('navigation').length
     )
 
-    await page.getByRole('link', { name: '数据集', exact: true }).click()
-    await expect(page).toHaveURL(/\/datasets$/)
-    await expect(page.getByRole('heading', { name: '数据集' }).first()).toBeVisible({
+    await page.getByRole('link', { name: '设置', exact: true }).click()
+    await expect(page).toHaveURL(/\/settings$/)
+    await expect(page.getByRole('heading', { name: '设置' }).first()).toBeVisible({
       timeout: 60_000,
     })
 
@@ -829,7 +830,7 @@ test.describe('management surfaces smoke', () => {
     expect(similarityTitleBox?.height).toBeLessThan(60)
   })
 
-  test('keeps Golden workspace readable at laptop width', async ({ page }) => {
+  test('keeps regression workspace readable at laptop width', async ({ page }) => {
     test.setTimeout(180_000)
     await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -837,14 +838,14 @@ test.describe('management surfaces smoke', () => {
       waitUntil: 'domcontentloaded',
       timeout: 150_000,
     })
-    await page.getByRole('button', { name: 'Golden 评测集' }).click()
-    const goldenWorkspaceTitle = page
-      .getByText('Golden 评测集', { exact: true })
-      .last()
-    await expect(goldenWorkspaceTitle).toBeVisible({ timeout: 60_000 })
-    const goldenTitleBox = await goldenWorkspaceTitle.boundingBox()
-    expect(goldenTitleBox?.width).toBeGreaterThan(90)
-    expect(goldenTitleBox?.height).toBeLessThan(40)
+    await page.getByRole('button', { name: '回归评测' }).click()
+    const regressionWorkspaceTitle = page.getByRole('heading', {
+      name: '标准样本回归评测',
+    })
+    await expect(regressionWorkspaceTitle).toBeVisible({ timeout: 60_000 })
+    const regressionTitleBox = await regressionWorkspaceTitle.boundingBox()
+    expect(regressionTitleBox?.width).toBeGreaterThan(90)
+    expect(regressionTitleBox?.height).toBeLessThan(40)
 
     const runHistoryTitle = page.getByText('运行历史', { exact: true })
     const runHistoryCardHeight = await runHistoryTitle.evaluate(
@@ -947,7 +948,7 @@ test.describe('management surfaces smoke', () => {
         timeout: 150_000,
       })
       await expect(
-        page.getByRole('heading', { name: '证据库（Evidence Workbench）' })
+        page.getByRole('heading', { name: '证据库', exact: true })
       ).toBeVisible({ timeout: 60_000 })
 
       const suitePanel = page.getByText('Evidence Suites', { exact: true })
@@ -981,13 +982,13 @@ test.describe('management surfaces smoke', () => {
 
   test('keeps the knowledge scope panel scrollable at low height', async ({ page }) => {
     test.setTimeout(180_000)
-    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.setViewportSize({ width: 1280, height: 520 })
 
     await page.goto('/knowledge', {
       waitUntil: 'domcontentloaded',
       timeout: 150_000,
     })
-    await expect(page.getByText('Scope Navigator', { exact: true })).toBeVisible({
+    await expect(page.getByRole('heading', { name: '筛选范围' })).toBeVisible({
       timeout: 60_000,
     })
 
@@ -1032,7 +1033,7 @@ test.describe('management surfaces smoke', () => {
 
   test('loads usage page with token and quota summaries', async ({ page }) => {
     await page.goto('/usage')
-    await expect(page.getByRole('heading', { name: '用量/配额' })).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByRole('heading', { name: '用量与配额' })).toBeVisible({ timeout: 60_000 })
     await expect(page.getByRole('row', { name: /Smoke Dataset.*128/ })).toBeVisible()
   })
 

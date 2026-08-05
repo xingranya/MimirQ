@@ -81,6 +81,7 @@ export async function installCommonApiMocks(page: Page, state: EnterpriseTelemet
 
     if (pathname === '/api/v1/settings' && method === 'GET') {
       return fulfillJson(route, {
+        writable: true,
         rag: {
           retrieval_top_k: 5,
           similarity_threshold: 0.7,
@@ -96,6 +97,10 @@ export async function installCommonApiMocks(page: Page, state: EnterpriseTelemet
         embedding: { configured: true, model: 'e2e-embedding' },
         parsers: {},
       })
+    }
+
+    if (pathname === '/api/v1/connectors' && method === 'GET') {
+      return fulfillJson(route, [])
     }
 
     if (pathname === '/api/v1/prompt-templates' && method === 'GET') {
