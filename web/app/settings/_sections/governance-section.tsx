@@ -14,7 +14,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { DangerZonePanel } from '@/components/settings/danger-zone-panel'
 import { GovernanceOpsPanel } from '@/components/settings/governance-ops-panel'
 import { SettingsSwitch } from '@/components/settings/settings-switch'
@@ -67,7 +73,9 @@ type RtbfResultView = {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
 }
 
 function stringValue(value: unknown, fallback = '-'): string {
@@ -179,9 +187,7 @@ function GovernanceToggleRow({
     >
       <div className="min-w-0">
         <div className="text-sm font-medium text-foreground">{title}</div>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
       <SettingsSwitch
         checked={checked}
@@ -230,7 +236,11 @@ function buildRtbfResultView(value: unknown): RtbfResultView {
     tone: rtbfResultTone(errors),
     badge: rtbfResultBadge(errors, dryRun),
     metrics: [
-      { label: '候选文档', value: String(eligible || documents || 0), hint: subject ? `账号 ${subject}` : '按账号匹配' },
+      {
+        label: '候选文档',
+        value: String(eligible || documents || 0),
+        hint: subject ? `账号 ${subject}` : '按账号匹配',
+      },
       { label: '已删除', value: String(deleted), hint: dryRun ? '安全预演未删除' : '实际删除数' },
       { label: '错误', value: String(errors), hint: errors > 0 ? '查看处理详情' : '无错误' },
       { label: '缓存刷新', value: String(cacheInvalidations), hint: '相关数据集缓存' },
@@ -253,24 +263,31 @@ function rtbfMemberLabel(member: TenantMember): { primary: string; secondary: st
     const [name, domain] = id.split('@')
     return { primary: name || id, secondary: domain || id }
   }
-  return { primary: id.length > 18 ? `${id.slice(0, 10)}...${id.slice(-6)}` : id, secondary: '账号 ID' }
+  return {
+    primary: id.length > 18 ? `${id.slice(0, 10)}...${id.slice(-6)}` : id,
+    secondary: '账号 ID',
+  }
 }
 
 function RtbfResultSummary({ value }: Readonly<{ value: unknown }>) {
   const result = buildRtbfResultView(value)
 
   return (
-    <div
-      data-testid="rtbf-result-summary"
-      className="mt-4 border-t border-border pt-4"
-    >
+    <div data-testid="rtbf-result-summary" className="mt-4 border-t border-border pt-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="text-xs font-medium text-muted-foreground">个人数据操作结果</div>
           <div className="mt-1 text-sm font-medium text-foreground">{result.title}</div>
-          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">{result.description}</p>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            {result.description}
+          </p>
         </div>
-        <span className={cn('inline-flex min-h-7 w-fit shrink-0 items-center rounded-md border px-2 text-xs font-medium', rtbfToneClass(result.tone))}>
+        <span
+          className={cn(
+            'inline-flex min-h-7 w-fit shrink-0 items-center rounded-md border px-2 text-xs font-medium',
+            rtbfToneClass(result.tone)
+          )}
+        >
           {result.badge}
         </span>
       </div>
@@ -326,12 +343,10 @@ export function GovernanceSection({
   const [rtbfRunningKey, setRtbfRunningKey] = useState<string | null>(null)
   const [rtbfResult, setRtbfResult] = useState<unknown>(null)
   const [rtbfError, setRtbfError] = useState<string | null>(null)
-  const [rtbfPreviewSnapshot, setRtbfPreviewSnapshot] =
-    useState<RtbfPreviewSnapshot | null>(null)
+  const [rtbfPreviewSnapshot, setRtbfPreviewSnapshot] = useState<RtbfPreviewSnapshot | null>(null)
   const [rtbfDeleteDialogOpen, setRtbfDeleteDialogOpen] = useState(false)
   const [rtbfDeleteConfirmValue, setRtbfDeleteConfirmValue] = useState('')
-  const [rtbfSubjectSource, setRtbfSubjectSource] =
-    useState<RtbfSubjectSource>('current')
+  const [rtbfSubjectSource, setRtbfSubjectSource] = useState<RtbfSubjectSource>('current')
 
   const currentAccessQuery = useQuery({
     queryKey: queryKeys.access.current,
@@ -342,9 +357,7 @@ export function GovernanceSection({
     currentAccessQuery.data,
     TENANT_PERMISSIONS.LIFECYCLE_MANAGE
   )
-  const canManageDatasetOperations = tenantAccessCanEditDatasets(
-    currentAccessQuery.data
-  )
+  const canManageDatasetOperations = tenantAccessCanEditDatasets(currentAccessQuery.data)
   const membersQuery = useQuery({
     queryKey: queryKeys.rbac.members(RTBF_MEMBERS_PARAMS),
     queryFn: async () => {
@@ -374,23 +387,21 @@ export function GovernanceSection({
     })
   }, [autoSubjectId, members])
   const selectedMember = useMemo(
-    () => members.find((member) => String(member.user_id || '').trim() === rtbfAccountId.trim()) || null,
+    () =>
+      members.find((member) => String(member.user_id || '').trim() === rtbfAccountId.trim()) ||
+      null,
     [members, rtbfAccountId]
   )
-  const selectedSubjectValue = selectedRtbfSubjectValue(
-    rtbfSubjectSource,
-    selectedMember
-  )
+  const selectedSubjectValue = selectedRtbfSubjectValue(rtbfSubjectSource, selectedMember)
   const subjectSourceLabel = rtbfSubjectSourceLabel(rtbfSubjectSource)
   const isDeleteMode = rtbfDryRun === false
   const normalizedRtbfAccountId = rtbfAccountId.trim()
   const previewMatchesCurrentTarget = Boolean(
     rtbfPreviewSnapshot &&
-      rtbfPreviewSnapshot.subjectAccountId === normalizedRtbfAccountId &&
-      rtbfPreviewSnapshot.maxDocs === rtbfMaxDocs
+    rtbfPreviewSnapshot.subjectAccountId === normalizedRtbfAccountId &&
+    rtbfPreviewSnapshot.maxDocs === rtbfMaxDocs
   )
-  const deleteConfirmationMatches =
-    rtbfDeleteConfirmValue.trim() === normalizedRtbfAccountId
+  const deleteConfirmationMatches = rtbfDeleteConfirmValue.trim() === normalizedRtbfAccountId
 
   useEffect(() => {
     if (rtbfSubjectSource !== 'current') return
@@ -445,13 +456,9 @@ export function GovernanceSection({
     }
     const record = asRecord(payload)
     const fingerprint =
-      typeof record?.preview_fingerprint === 'string'
-        ? record.preview_fingerprint.trim()
-        : ''
+      typeof record?.preview_fingerprint === 'string' ? record.preview_fingerprint.trim() : ''
     const responseSubject =
-      typeof record?.subject_account_id === 'string'
-        ? record.subject_account_id.trim()
-        : ''
+      typeof record?.subject_account_id === 'string' ? record.subject_account_id.trim() : ''
     if (
       !record ||
       record.dry_run !== true ||
@@ -500,9 +507,7 @@ export function GovernanceSection({
             用于未单独设置治理策略的数据集和文档，只影响后续入库。
           </p>
         </div>
-        <span className="text-xs leading-5 text-muted-foreground">
-          保存后对新任务生效
-        </span>
+        <span className="text-xs leading-5 text-muted-foreground">保存后对新任务生效</span>
       </div>
 
       <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
@@ -548,283 +553,307 @@ export function GovernanceSection({
               个人数据删除、待复核查询和切块预设维护
             </span>
           </span>
-          <ChevronDown className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+          <ChevronDown
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
+            aria-hidden="true"
+          />
         </summary>
 
         <div className="mt-3 space-y-3">
-
-        <DangerZonePanel
-          title="个人数据删除"
-          impact="会按账号级联影响文档、分块、向量、图谱和缓存；默认只做安全预演，确认范围后才执行删除"
-          badge={canManagePersonalData ? '安全操作' : '无操作权限'}
-          compact
-          tone="neutral"
-          icon="help"
-        >
-          {currentAccessQuery.isError ? (
-            <div role="alert" className="mb-3 flex items-start gap-2 border-b border-destructive/20 pb-3 text-xs leading-5 text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              权限状态加载失败，已暂停个人数据操作。请刷新设置页后重试。
-            </div>
-          ) : !currentAccessQuery.isLoading && !canManagePersonalData ? (
-            <p className="mb-3 border-b border-border pb-3 text-xs leading-5 text-muted-foreground">
-              当前账号可以查看流程，但没有管理个人数据的权限。
-            </p>
-          ) : null}
-          <fieldset disabled={!canManagePersonalData} className="contents">
-          <div className="grid gap-2 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setRtbfDryRun(true)}
-              className={cn(
-                'rounded-md border px-3 py-2 text-left transition-colors',
-                rtbfModeButtonClass(rtbfDryRun, 'info')
-              )}
-              aria-pressed={rtbfDryRun}
-            >
-              <div className="text-sm font-medium">安全预演</div>
-              <div className="mt-1 text-xs leading-relaxed opacity-80">推荐先点这个，只返回命中文档和影响范围，不删除数据</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!previewMatchesCurrentTarget) {
-                  toast.info('请先完成当前目标的安全预演')
-                  return
-                }
-                setRtbfDryRun(false)
-              }}
-              className={cn(
-                'rounded-md border px-3 py-2 text-left transition-colors',
-                rtbfModeButtonClass(isDeleteMode, 'destructive')
-              )}
-              aria-pressed={isDeleteMode}
-            >
-              <div className="text-sm font-medium">执行删除</div>
-              <div className="mt-1 text-xs leading-relaxed opacity-80">
-                {previewMatchesCurrentTarget
-                  ? `已绑定本次预演，共 ${rtbfPreviewSnapshot?.eligible ?? 0} 个候选文档`
-                  : '完成安全预演后才能进入，目标或候选变化会自动失效'}
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-3 border-t border-border pt-3">
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="rtbf-subject-select" className={FIELD_LABEL}>
-                    目标账号
-                  </label>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {subjectSourceLabel}
-                  </span>
-                </div>
-                <Select
-                  value={selectedSubjectValue}
-                  onValueChange={(value) => {
-                    if (value === RTBF_CURRENT_ACCOUNT_VALUE) {
-                      setRtbfSubjectSource('current')
-                      if (autoSubjectId) setRtbfAccountId(autoSubjectId)
-                      return
-                    }
-                    if (value === RTBF_MANUAL_ACCOUNT_VALUE) {
-                      setRtbfSubjectSource('manual')
-                      return
-                    }
-                    setRtbfSubjectSource('member')
-                    setRtbfAccountId(value)
-                  }}
-                >
-                  <SelectTrigger
-                    id="rtbf-subject-select"
-                    className="h-9 rounded-md border-border bg-background text-sm"
-                  >
-                    <SelectValue placeholder="自动绑定当前账号" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={RTBF_CURRENT_ACCOUNT_VALUE}>
-                      当前账号（自动绑定）{autoSubjectId ? ` · ${autoSubjectId}` : ' · 加载中'}
-                    </SelectItem>
-                    {selectableMembers.map((member) => {
-                      const id = String(member.user_id || '').trim()
-                      const label = rtbfMemberLabel(member)
-                      return (
-                        <SelectItem key={id} value={id}>
-                          {label.primary} · {label.secondary}
-                        </SelectItem>
-                      )
-                    })}
-                    <SelectItem value={RTBF_MANUAL_ACCOUNT_VALUE}>
-                      手动输入账号标识
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <div
-                  className={cn(
-                    'rounded-md border border-border/60 bg-muted/10 px-2.5 py-2',
-                    settingsTextTokens.microText
-                  )}
-                >
-                  当前目标：
-                  <span className="break-all font-mono text-foreground/78">
-                    {rtbfAccountId.trim() || '等待自动绑定'}
-                  </span>
-                  {membersQuery.isError
-                    ? '。成员列表加载失败，仍可手动输入账号标识。'
-                    : '。默认使用当前账号，也可切换到其他成员。'}
-                </div>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <label htmlFor="rtbf-manual-account" className={FIELD_LABEL}>
-                  手动输入（找不到成员时使用）
-                </label>
-                <Input
-                  id="rtbf-manual-account"
-                  value={rtbfSubjectSource === 'manual' ? rtbfAccountId : ''}
-                  onChange={(event) => {
-                    setRtbfSubjectSource('manual')
-                    setRtbfAccountId(event.target.value)
-                  }}
-                  maxLength={255}
-                  className="h-9 rounded-md border-border bg-background text-sm"
-                  placeholder="例如 user-123、acct-1 或用户 UUID"
-                />
-                <div className={settingsTextTokens.microText}>
-                  系统会匹配文档归属账号和生命周期负责人。请从成员管理或审计日志复制准确标识，不要填写昵称。
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="rtbf-max-docs" className={FIELD_LABEL}>
-                  最多扫描文档
-                </label>
-                <Input
-                  id="rtbf-max-docs"
-                  type="number"
-                  min={1}
-                  max={1000}
-                  step={1}
-                  value={String(rtbfMaxDocs)}
-                  onChange={(event) => {
-                    const value = Number.parseInt(event.target.value || '0', 10)
-                    setRtbfMaxDocs(Number.isFinite(value) ? Math.min(1000, Math.max(1, value)) : 100)
-                  }}
-                  className="h-9 rounded-md border-border bg-background text-sm"
-                  inputMode="numeric"
-                />
-                <div className={settingsTextTokens.microText}>可填写 1 到 1000，用于控制单次扫描范围。</div>
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="rtbf-max-retries" className={FIELD_LABEL}>
-                  失败重试
-                </label>
-                <Input
-                  id="rtbf-max-retries"
-                  type="number"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={String(rtbfMaxRetries)}
-                  onChange={(event) => {
-                    const value = Number.parseInt(event.target.value || '0', 10)
-                    setRtbfMaxRetries(Number.isFinite(value) ? Math.min(10, Math.max(0, value)) : 1)
-                  }}
-                  className="h-9 rounded-md border-border bg-background text-sm"
-                  inputMode="numeric"
-                />
-                <div className={settingsTextTokens.microText}>可填写 0 到 10，仅在删除失败时重试。</div>
-              </div>
-              <div className="flex flex-col gap-2 md:col-span-4">
-                <p className={settingsTextTokens.helpText}>
-                  先确认目标账号并完成安全预演，核对候选数量后再执行删除。处理结果会在本页显示。
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={rtbfDryRun ? 'outline' : 'destructive'}
-                    className="h-9 gap-2 rounded-md px-3 text-sm font-medium"
-                    disabled={
-                      Boolean(rtbfRunningKey) ||
-                      !normalizedRtbfAccountId ||
-                      (!rtbfDryRun && !previewMatchesCurrentTarget)
-                    }
-                    onClick={() => {
-                      if (rtbfDryRun) {
-                        detachPromise(runRtbfPreview())
-                        return
-                      }
-                      setRtbfDeleteDialogOpen(true)
-                    }}
-                  >
-                    {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
-                    {rtbfDryRun ? '开始安全预演' : '继续确认删除'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {rtbfError ? (
-            <div role="alert" className="mt-3 flex items-start gap-2 border-t border-destructive/20 pt-3 text-xs leading-5 text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{rtbfError}。请检查目标账号和权限后重试。</span>
-            </div>
-          ) : null}
-
-          {rtbfResult ? <RtbfResultSummary value={rtbfResult} /> : null}
-
-          <AlertDialog
-            open={rtbfDeleteDialogOpen}
-            onOpenChange={(open) => {
-              if (!open && rtbfRunningKey) return
-              setRtbfDeleteDialogOpen(open)
-              if (!open) setRtbfDeleteConfirmValue('')
-            }}
+          <DangerZonePanel
+            title="个人数据删除"
+            impact="会按账号级联影响文档、分块、向量、图谱和缓存；默认只做安全预演，确认范围后才执行删除"
+            badge={canManagePersonalData ? '安全操作' : '无操作权限'}
+            compact
+            tone="neutral"
+            icon="help"
           >
-            <AlertDialogContent className="max-w-lg">
-              <AlertDialogHeader>
-                <AlertDialogTitle>确认删除该账号的个人数据</AlertDialogTitle>
-                <AlertDialogDescription>
-                  本次预演找到 {rtbfPreviewSnapshot?.eligible ?? 0} 个候选文档。删除会同步清理文档、分块、向量、图谱和相关缓存，无法撤销。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="space-y-2">
-                <label htmlFor="rtbf-delete-confirm" className="text-sm font-medium text-foreground">
-                  输入目标账号 <span className="break-all">“{normalizedRtbfAccountId}”</span> 以确认
-                </label>
-                <Input
-                  id="rtbf-delete-confirm"
-                  value={rtbfDeleteConfirmValue}
-                  onChange={(event) => setRtbfDeleteConfirmValue(event.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
+            {currentAccessQuery.isError ? (
+              <div
+                role="alert"
+                className="mb-3 flex items-start gap-2 border-b border-destructive/20 pb-3 text-xs leading-5 text-destructive"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                权限状态加载失败，已暂停个人数据操作。请刷新设置页后重试。
               </div>
-              <AlertDialogFooter className="gap-2">
-                <AlertDialogCancel disabled={Boolean(rtbfRunningKey)}>
-                  取消
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={
-                    Boolean(rtbfRunningKey) ||
-                    !previewMatchesCurrentTarget ||
-                    !deleteConfirmationMatches
-                  }
-                  onClick={(event) => {
-                    event.preventDefault()
-                    detachPromise(executeRtbfDeletion())
-                  }}
+            ) : !currentAccessQuery.isLoading && !canManagePersonalData ? (
+              <p className="mb-3 border-b border-border pb-3 text-xs leading-5 text-muted-foreground">
+                当前账号可以查看流程，但没有管理个人数据的权限。
+              </p>
+            ) : null}
+            <fieldset disabled={!canManagePersonalData} className="contents">
+              <div className="grid gap-2 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setRtbfDryRun(true)}
+                  className={cn(
+                    'rounded-md border px-3 py-2 text-left transition-colors',
+                    rtbfModeButtonClass(rtbfDryRun, 'info')
+                  )}
+                  aria-pressed={rtbfDryRun}
                 >
-                  {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? (
-                    <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                  ) : null}
-                  确认并执行删除
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          </fieldset>
-        </DangerZonePanel>
+                  <div className="text-sm font-medium">安全预演</div>
+                  <div className="mt-1 text-xs leading-relaxed opacity-80">
+                    推荐先点这个，只返回命中文档和影响范围，不删除数据
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!previewMatchesCurrentTarget) {
+                      toast.info('请先完成当前目标的安全预演')
+                      return
+                    }
+                    setRtbfDryRun(false)
+                  }}
+                  className={cn(
+                    'rounded-md border px-3 py-2 text-left transition-colors',
+                    rtbfModeButtonClass(isDeleteMode, 'destructive')
+                  )}
+                  aria-pressed={isDeleteMode}
+                >
+                  <div className="text-sm font-medium">执行删除</div>
+                  <div className="mt-1 text-xs leading-relaxed opacity-80">
+                    {previewMatchesCurrentTarget
+                      ? `已绑定本次预演，共 ${rtbfPreviewSnapshot?.eligible ?? 0} 个候选文档`
+                      : '完成安全预演后才能进入，目标或候选变化会自动失效'}
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-3 border-t border-border pt-3">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="space-y-1.5 md:col-span-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor="rtbf-subject-select" className={FIELD_LABEL}>
+                        目标账号
+                      </label>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {subjectSourceLabel}
+                      </span>
+                    </div>
+                    <Select
+                      value={selectedSubjectValue}
+                      onValueChange={(value) => {
+                        if (value === RTBF_CURRENT_ACCOUNT_VALUE) {
+                          setRtbfSubjectSource('current')
+                          if (autoSubjectId) setRtbfAccountId(autoSubjectId)
+                          return
+                        }
+                        if (value === RTBF_MANUAL_ACCOUNT_VALUE) {
+                          setRtbfSubjectSource('manual')
+                          return
+                        }
+                        setRtbfSubjectSource('member')
+                        setRtbfAccountId(value)
+                      }}
+                    >
+                      <SelectTrigger
+                        id="rtbf-subject-select"
+                        className="h-9 rounded-md border-border bg-background text-sm"
+                      >
+                        <SelectValue placeholder="自动绑定当前账号" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={RTBF_CURRENT_ACCOUNT_VALUE}>
+                          当前账号（自动绑定）{autoSubjectId ? ` · ${autoSubjectId}` : ' · 加载中'}
+                        </SelectItem>
+                        {selectableMembers.map((member) => {
+                          const id = String(member.user_id || '').trim()
+                          const label = rtbfMemberLabel(member)
+                          return (
+                            <SelectItem key={id} value={id}>
+                              {label.primary} · {label.secondary}
+                            </SelectItem>
+                          )
+                        })}
+                        <SelectItem value={RTBF_MANUAL_ACCOUNT_VALUE}>手动输入账号标识</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div
+                      className={cn(
+                        'rounded-md border border-border/60 bg-muted/10 px-2.5 py-2',
+                        settingsTextTokens.microText
+                      )}
+                    >
+                      当前目标：
+                      <span className="break-all font-mono text-foreground/78">
+                        {rtbfAccountId.trim() || '等待自动绑定'}
+                      </span>
+                      {membersQuery.isError
+                        ? '。成员列表加载失败，仍可手动输入账号标识。'
+                        : '。默认使用当前账号，也可切换到其他成员。'}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label htmlFor="rtbf-manual-account" className={FIELD_LABEL}>
+                      手动输入（找不到成员时使用）
+                    </label>
+                    <Input
+                      id="rtbf-manual-account"
+                      value={rtbfSubjectSource === 'manual' ? rtbfAccountId : ''}
+                      onChange={(event) => {
+                        setRtbfSubjectSource('manual')
+                        setRtbfAccountId(event.target.value)
+                      }}
+                      maxLength={255}
+                      className="h-9 rounded-md border-border bg-background text-sm"
+                      placeholder="例如 user-123、acct-1 或用户 UUID"
+                    />
+                    <div className={settingsTextTokens.microText}>
+                      系统会匹配文档归属账号和生命周期负责人。请从成员管理或审计日志复制准确标识，不要填写昵称。
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="rtbf-max-docs" className={FIELD_LABEL}>
+                      最多扫描文档
+                    </label>
+                    <Input
+                      id="rtbf-max-docs"
+                      type="number"
+                      min={1}
+                      max={1000}
+                      step={1}
+                      value={String(rtbfMaxDocs)}
+                      onChange={(event) => {
+                        const value = Number.parseInt(event.target.value || '0', 10)
+                        setRtbfMaxDocs(
+                          Number.isFinite(value) ? Math.min(1000, Math.max(1, value)) : 100
+                        )
+                      }}
+                      className="h-9 rounded-md border-border bg-background text-sm"
+                      inputMode="numeric"
+                    />
+                    <div className={settingsTextTokens.microText}>
+                      可填写 1 到 1000，用于控制单次扫描范围。
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="rtbf-max-retries" className={FIELD_LABEL}>
+                      失败重试
+                    </label>
+                    <Input
+                      id="rtbf-max-retries"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={String(rtbfMaxRetries)}
+                      onChange={(event) => {
+                        const value = Number.parseInt(event.target.value || '0', 10)
+                        setRtbfMaxRetries(
+                          Number.isFinite(value) ? Math.min(10, Math.max(0, value)) : 1
+                        )
+                      }}
+                      className="h-9 rounded-md border-border bg-background text-sm"
+                      inputMode="numeric"
+                    />
+                    <div className={settingsTextTokens.microText}>
+                      可填写 0 到 10，仅在删除失败时重试。
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 md:col-span-4">
+                    <p className={settingsTextTokens.helpText}>
+                      先确认目标账号并完成安全预演，核对候选数量后再执行删除。处理结果会在本页显示。
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={rtbfDryRun ? 'outline' : 'destructive'}
+                        className="h-9 gap-2 rounded-md px-3 text-sm font-medium"
+                        disabled={
+                          Boolean(rtbfRunningKey) ||
+                          !normalizedRtbfAccountId ||
+                          (!rtbfDryRun && !previewMatchesCurrentTarget)
+                        }
+                        onClick={() => {
+                          if (rtbfDryRun) {
+                            detachPromise(runRtbfPreview())
+                            return
+                          }
+                          setRtbfDeleteDialogOpen(true)
+                        }}
+                      >
+                        {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                        ) : null}
+                        {rtbfDryRun ? '开始安全预演' : '继续确认删除'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {rtbfError ? (
+                <div
+                  role="alert"
+                  className="mt-3 flex items-start gap-2 border-t border-destructive/20 pt-3 text-xs leading-5 text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <span>{rtbfError}。请检查目标账号和权限后重试。</span>
+                </div>
+              ) : null}
+
+              {rtbfResult ? <RtbfResultSummary value={rtbfResult} /> : null}
+
+              <AlertDialog
+                open={rtbfDeleteDialogOpen}
+                onOpenChange={(open) => {
+                  if (!open && rtbfRunningKey) return
+                  setRtbfDeleteDialogOpen(open)
+                  if (!open) setRtbfDeleteConfirmValue('')
+                }}
+              >
+                <AlertDialogContent className="max-w-lg">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>确认删除该账号的个人数据</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      本次预演找到 {rtbfPreviewSnapshot?.eligible ?? 0}{' '}
+                      个候选文档。删除会同步清理文档、分块、向量、图谱和相关缓存，无法撤销。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="rtbf-delete-confirm"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      输入目标账号 <span className="break-all">“{normalizedRtbfAccountId}”</span>{' '}
+                      以确认
+                    </label>
+                    <Input
+                      id="rtbf-delete-confirm"
+                      value={rtbfDeleteConfirmValue}
+                      onChange={(event) => setRtbfDeleteConfirmValue(event.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <AlertDialogFooter className="gap-2">
+                    <AlertDialogCancel disabled={Boolean(rtbfRunningKey)}>取消</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={
+                        Boolean(rtbfRunningKey) ||
+                        !previewMatchesCurrentTarget ||
+                        !deleteConfirmationMatches
+                      }
+                      onClick={(event) => {
+                        event.preventDefault()
+                        detachPromise(executeRtbfDeletion())
+                      }}
+                    >
+                      {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? (
+                        <Loader2
+                          className="size-4 animate-spin motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      确认并执行删除
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </fieldset>
+          </DangerZonePanel>
 
           <GovernanceOpsPanel
             canManage={canManageDatasetOperations}

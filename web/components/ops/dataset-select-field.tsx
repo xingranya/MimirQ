@@ -5,7 +5,13 @@ import { RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useDatasets } from '@/hooks/use-datasets'
 import { cn, detachPromise } from '@/lib/utils'
 
@@ -68,7 +74,10 @@ export function DatasetSelectField({
         </SelectContent>
       </Select>
       {error ? (
-        <div role="alert" className="flex items-center justify-between gap-2 pt-1 text-xs text-destructive">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 pt-1 text-xs text-destructive"
+        >
           <span>数据集加载失败。</span>
           <Button
             type="button"

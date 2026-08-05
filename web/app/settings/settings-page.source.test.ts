@@ -3,10 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const settingsPageSource = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8')
-const settingsStateSource = readFileSync(
-  resolve(__dirname, 'use-settings-page-state.ts'),
-  'utf8'
-)
+const settingsStateSource = readFileSync(resolve(__dirname, 'use-settings-page-state.ts'), 'utf8')
 const settingsGroupSource = readFileSync(resolve(__dirname, 'settings-sections.ts'), 'utf8')
 
 describe('设置页信息架构', () => {
@@ -52,7 +49,9 @@ describe('设置页信息架构', () => {
 
   it('低频能力使用高级配置折叠容器', () => {
     expect(settingsPageSource).toContain('data-testid="settings-advanced-section"')
-    expect(settingsPageSource.match(/<SettingsSubsection[^>]+advanced>/g)?.length).toBeGreaterThanOrEqual(6)
+    expect(
+      settingsPageSource.match(/<SettingsSubsection[^>]+advanced>/g)?.length
+    ).toBeGreaterThanOrEqual(6)
   })
 
   it('使用固定保存栏展示未保存数量和保存状态', () => {
@@ -104,12 +103,20 @@ describe('设置页信息架构', () => {
   it('运行状态和后端信息使用独立错误与重试状态', () => {
     expect(settingsStateSource).toContain('const loadSystemStatus = async () =>')
     expect(settingsStateSource).toContain('const loadBackendMeta = async () =>')
-    expect(settingsStateSource).toContain("setStatusError(formatApiError(error, '运行状态加载失败'))")
-    expect(settingsStateSource).toContain("setBackendMetaError(formatApiError(error, '后端信息加载失败'))")
+    expect(settingsStateSource).toContain(
+      "setStatusError(formatApiError(error, '运行状态加载失败'))"
+    )
+    expect(settingsStateSource).toContain(
+      "setBackendMetaError(formatApiError(error, '后端信息加载失败'))"
+    )
     expect(settingsStateSource).not.toContain('settingsApi.getStatus().catch(() => null)')
     expect(settingsStateSource).not.toContain('metaApi.details().catch(() => null)')
-    expect(settingsPageSource).toContain("title={state.status ? '运行状态刷新失败' : '运行状态加载失败'}")
-    expect(settingsPageSource).toContain("title={state.backendMeta ? '后端信息刷新失败' : '后端信息加载失败'}")
+    expect(settingsPageSource).toContain(
+      "title={state.status ? '运行状态刷新失败' : '运行状态加载失败'}"
+    )
+    expect(settingsPageSource).toContain(
+      "title={state.backendMeta ? '后端信息刷新失败' : '后端信息加载失败'}"
+    )
     expect(settingsPageSource).toContain('onRetry={state.refreshSystemStatus}')
     expect(settingsPageSource).toContain('onRetry={state.refreshBackendMeta}')
   })

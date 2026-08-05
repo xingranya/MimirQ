@@ -20,7 +20,13 @@ import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { QueryErrorState } from '@/components/ui/query-error-state'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useChunkStrategyPreference } from '@/contexts/chunk-strategy-context'
 import { useParserBackendPreference } from '@/contexts/parser-backend-context'
@@ -40,18 +46,8 @@ import { RuntimeControlsSection } from './_sections/runtime-controls-section'
 import { SystemStatusSection } from './_sections/system-status-section'
 import { UrlIngestSection } from './_sections/url-ingest-section'
 import { useSettingsPageState } from './use-settings-page-state'
-import {
-  SETTINGS_SECTIONS,
-  type SettingsSectionDefinition,
-} from './settings-sections'
-import {
-  CheckCircle2,
-  ChevronDown,
-  RefreshCw,
-  Save,
-  Search,
-  XCircle,
-} from 'lucide-react'
+import { SETTINGS_SECTIONS, type SettingsSectionDefinition } from './settings-sections'
+import { CheckCircle2, ChevronDown, RefreshCw, Save, Search, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
@@ -63,8 +59,7 @@ import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 const SETTINGS_SECTION_BY_ID = Object.fromEntries(
   SETTINGS_SECTIONS.map((section) => [section.id, section])
 ) as Record<string, SettingsSectionDefinition>
-const SETTINGS_CARD_CLASS =
-  'rounded-lg border border-border bg-background'
+const SETTINGS_CARD_CLASS = 'rounded-lg border border-border bg-background'
 const SETTINGS_OUTLINE_BUTTON =
   'size-8 rounded-md border-border bg-background p-0 text-foreground hover:bg-muted'
 const SETTINGS_PRIMARY_BUTTON =
@@ -97,9 +92,7 @@ function SettingsSaveFeedback({
         <XCircle className="size-4" />
         <div>
           <AlertTitle>保存失败</AlertTitle>
-          <AlertDescription className="text-foreground/80">
-            {message.text}
-          </AlertDescription>
+          <AlertDescription className="text-foreground/80">{message.text}</AlertDescription>
         </div>
       </Alert>
     )
@@ -115,9 +108,7 @@ function SettingsSaveFeedback({
           <p className="text-sm font-medium text-foreground">已保存</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{message.text}</p>
           {message.detail ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {message.detail}
-            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{message.detail}</p>
           ) : null}
         </div>
       </div>
@@ -165,9 +156,7 @@ function SettingsSaveBar({
     >
       <div aria-live="polite">
         <p className="text-sm font-medium text-foreground">
-          {state.hasChanges
-            ? `${state.dirtySectionCount} 组设置未保存`
-            : '所有设置已保存'}
+          {state.hasChanges ? `${state.dirtySectionCount} 组设置未保存` : '所有设置已保存'}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {state.hasChanges ? '保存后对后续请求生效' : '当前配置与系统一致'}
@@ -179,10 +168,7 @@ function SettingsSaveBar({
         className={cn(SETTINGS_PRIMARY_BUTTON, 'w-full sm:w-auto')}
       >
         <Save
-          className={cn(
-            'size-4',
-            state.saving && 'animate-pulse motion-reduce:animate-none'
-          )}
+          className={cn('size-4', state.saving && 'animate-pulse motion-reduce:animate-none')}
         />
         {state.saving ? '保存中...' : '保存配置'}
       </Button>
@@ -249,10 +235,7 @@ function SettingsSectionFrame({
     <section
       id={section.id}
       aria-labelledby={`${section.id}-title`}
-      className={cn(
-        'scroll-mt-24 border-b border-border pb-8',
-        className
-      )}
+      className={cn('scroll-mt-24 border-b border-border pb-8', className)}
     >
       <div className="border-b border-border px-1 pb-3">
         <div className="min-w-0">
@@ -262,9 +245,7 @@ function SettingsSectionFrame({
           >
             {section.label}
           </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {section.hint}
-          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{section.hint}</p>
         </div>
       </div>
       <div className="space-y-6 pt-5">{children}</div>
@@ -367,9 +348,7 @@ function SettingsPageContent() {
                 </div>
               </Alert>
             ) : null}
-            {state.saveMessage ? (
-              <SettingsSaveFeedback message={state.saveMessage} />
-            ) : null}
+            {state.saveMessage ? <SettingsSaveFeedback message={state.saveMessage} /> : null}
             {!state.loading && !state.settingsWritable ? (
               <Alert className="rounded-lg border-border bg-muted/40 shadow-none">
                 <AlertTitle>只读模式</AlertTitle>
@@ -421,10 +400,7 @@ function SettingsPageContent() {
               chunkStrategy={chunkStrategy}
               setChunkStrategy={setChunkStrategy}
             />
-            <SettingsSaveBar
-              state={state}
-              settingsWritable={state.settingsWritable}
-            />
+            <SettingsSaveBar state={state} settingsWritable={state.settingsWritable} />
           </>
         )}
       </PageScaffold>
@@ -481,10 +457,7 @@ function SettingsContent({
     () => visibleSections.map((section) => section.id),
     [visibleSections]
   )
-  const visibleSectionIdSet = useMemo(
-    () => new Set(visibleSectionIds),
-    [visibleSectionIds]
-  )
+  const visibleSectionIdSet = useMemo(() => new Set(visibleSectionIds), [visibleSectionIds])
   const activeId = useSettingsScrollSpy(visibleSectionIds)
 
   const scrollTo = useCallback((id: string) => {
@@ -607,10 +580,7 @@ function SettingsContent({
                     </div>
                   ) : null}
                   {state.status || state.backendMeta ? (
-                    <SystemStatusSection
-                      status={state.status}
-                      backendMeta={state.backendMeta}
-                    />
+                    <SystemStatusSection status={state.status} backendMeta={state.backendMeta} />
                   ) : null}
                 </SettingsSubsection>
                 <fieldset disabled={!settingsWritable} className="contents">

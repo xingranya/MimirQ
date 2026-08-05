@@ -31,7 +31,9 @@ export function OperationResultPanel({
       <div className="text-xs font-semibold text-foreground">{result?.title || title}</div>
       {result ? (
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-semibold text-primary">查看处理详情</summary>
+          <summary className="cursor-pointer text-xs font-semibold text-primary">
+            查看处理详情
+          </summary>
           <pre className="mt-2 max-h-64 overflow-auto rounded-md border border-border/60 bg-background p-2 text-xs whitespace-pre-wrap break-words">
             {prettyJson(result.payload)}
           </pre>

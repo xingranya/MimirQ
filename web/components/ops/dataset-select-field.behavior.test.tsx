@@ -27,7 +27,9 @@ vi.mock('@/components/ui/select', () => ({
   SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectTrigger: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>{children}</button>
+    <button type="button" {...props}>
+      {children}
+    </button>
   ),
   SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
 }))
@@ -40,8 +42,9 @@ describe('数据集选择字段', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true
+    ;(
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true
     mocks.state = { datasets: [], isLoading: false, error: null }
     mocks.refreshDatasets.mockResolvedValue(undefined)
     container = document.createElement('div')
@@ -57,12 +60,7 @@ describe('数据集选择字段', () => {
   function renderField(onChange = vi.fn()) {
     act(() =>
       root.render(
-        <DatasetSelectField
-          value=""
-          onChange={onChange}
-          label="绑定数据集"
-          autoSelectFirst
-        />
+        <DatasetSelectField value="" onChange={onChange} label="绑定数据集" autoSelectFirst />
       )
     )
     return onChange
@@ -76,21 +74,15 @@ describe('数据集选择字段', () => {
     }
     renderField()
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      '数据集加载失败'
-    )
-    const retry = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('重新加载')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('数据集加载失败')
+    const retry = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('重新加载')
     )
     act(() => retry?.click())
     expect(mocks.refreshDatasets).toHaveBeenCalledOnce()
 
     mocks.state = { datasets: [], isLoading: false, error: null }
-    act(() =>
-      root.render(
-        <DatasetSelectField value="" onChange={vi.fn()} label="绑定数据集" />
-      )
-    )
+    act(() => root.render(<DatasetSelectField value="" onChange={vi.fn()} label="绑定数据集" />))
     expect(container.textContent).toContain('暂无可用数据集')
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })

@@ -38,7 +38,9 @@ vi.mock('@/components/ui/select', () => ({
   SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectTrigger: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>{children}</button>
+    <button type="button" {...props}>
+      {children}
+    </button>
   ),
   SelectValue: () => <span>已过期</span>,
 }))
@@ -48,10 +50,7 @@ import { GovernanceOpsPanel } from './governance-ops-panel'
 function setInputValue(input: HTMLInputElement | null, value: string) {
   expect(input).not.toBeNull()
   act(() => {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value'
-    )?.set
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
     setter?.call(input, value)
     input?.dispatchEvent(new Event('input', { bubbles: true }))
   })
@@ -63,8 +62,9 @@ describe('数据集复核运维', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true
+    ;(
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true
     mocks.listStaleDocumentsByDataset.mockResolvedValue({ items: [], total: 0 })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -77,11 +77,7 @@ describe('数据集复核运维', () => {
   })
 
   function renderPanel(canManage = true) {
-    act(() =>
-      root.render(
-        <GovernanceOpsPanel canManage={canManage} accessLoading={false} />
-      )
-    )
+    act(() => root.render(<GovernanceOpsPanel canManage={canManage} accessLoading={false} />))
   }
 
   function findButton(label: string) {
@@ -101,24 +97,21 @@ describe('数据集复核运维', () => {
     expect(input?.value).toBe('365')
 
     await act(async () => findButton('查询待复核文档')?.click())
-    expect(mocks.listStaleDocumentsByDataset).toHaveBeenCalledWith(
-      'dataset-1',
-      { mode: 'overdue', due_within_days: 365, limit: 50 }
-    )
+    expect(mocks.listStaleDocumentsByDataset).toHaveBeenCalledWith('dataset-1', {
+      mode: 'overdue',
+      due_within_days: 365,
+      limit: 50,
+    })
   })
 
   it('查询失败时清除旧结果并显示区块内错误', async () => {
-    mocks.listStaleDocumentsByDataset.mockRejectedValueOnce(
-      new Error('复核服务暂不可用')
-    )
+    mocks.listStaleDocumentsByDataset.mockRejectedValueOnce(new Error('复核服务暂不可用'))
     renderPanel()
     act(() => findButton('选择测试数据集')?.click())
     await act(async () => findButton('查询待复核文档')?.click())
 
     await vi.waitFor(() =>
-      expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-        '复核服务暂不可用'
-      )
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain('复核服务暂不可用')
     )
     expect(container.textContent).toContain('请检查当前选择和账号权限后重试')
     expect(mocks.toastError).toHaveBeenCalledOnce()

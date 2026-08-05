@@ -2,10 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const source = readFileSync(
-  resolve(__dirname, '_sections/governance-section.tsx'),
-  'utf8'
-)
+const source = readFileSync(resolve(__dirname, '_sections/governance-section.tsx'), 'utf8')
 const governanceOpsSource = readFileSync(
   resolve(__dirname, '../../components/settings/governance-ops-panel.tsx'),
   'utf8'
@@ -24,8 +21,8 @@ describe('数据治理配置与运维契约', () => {
   it('真实删除必须绑定当前目标的安全预演指纹', () => {
     expect(source).toContain('previewMatchesCurrentTarget')
     expect(source).toContain('preview_fingerprint: rtbfPreviewSnapshot.fingerprint')
-    expect(source).toContain("record.dry_run !== true")
-    expect(source).toContain("responseSubject !== requestedAccountId")
+    expect(source).toContain('record.dry_run !== true')
+    expect(source).toContain('responseSubject !== requestedAccountId')
   })
 
   it('执行前要求输入完整目标账号进行二次确认', () => {

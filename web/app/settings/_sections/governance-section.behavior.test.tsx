@@ -71,15 +71,21 @@ vi.mock('@/components/ui/select', () => ({
   SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectTrigger: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>{children}</button>
+    <button type="button" {...props}>
+      {children}
+    </button>
   ),
   SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
 }))
 
 vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialog: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AlertDialogAction: (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...props} />,
-  AlertDialogCancel: (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...props} />,
+  AlertDialogAction: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props} />
+  ),
+  AlertDialogCancel: (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props} />
+  ),
   AlertDialogContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   AlertDialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   AlertDialogFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -101,10 +107,7 @@ const ACCESS_BASE = {
 function setInputValue(input: HTMLInputElement | null, value: string) {
   expect(input).not.toBeNull()
   act(() => {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value'
-    )?.set
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
     setter?.call(input, value)
     input?.dispatchEvent(new Event('input', { bubbles: true }))
   })
@@ -117,8 +120,9 @@ describe('数据治理配置与权限', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true
+    ;(
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true
     mocks.getCurrentTenantAccess.mockResolvedValue(ACCESS_BASE)
     mocks.listTenantMembers.mockResolvedValue({ items: [] })
     container = document.createElement('div')
@@ -151,15 +155,15 @@ describe('数据治理配置与权限', () => {
       )
     })
     await act(async () => {
-    await act(async () => {
-      await vi.waitFor(() =>
-        expect(
-          container
-            .querySelector('[data-testid="governance-ops-permission"]')
-            ?.getAttribute('data-access-loading')
-        ).toBe('false')
-      )
-    })
+      await act(async () => {
+        await vi.waitFor(() =>
+          expect(
+            container
+              .querySelector('[data-testid="governance-ops-permission"]')
+              ?.getAttribute('data-access-loading')
+          ).toBe('false')
+        )
+      })
     })
   }
 
@@ -167,9 +171,7 @@ describe('数据治理配置与权限', () => {
     await renderSection(false)
 
     expect(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="启用或关闭默认数据治理"]'
-      )?.disabled
+      container.querySelector<HTMLButtonElement>('[aria-label="启用或关闭默认数据治理"]')?.disabled
     ).toBe(true)
     expect(
       container
@@ -195,14 +197,10 @@ describe('数据治理配置与权限', () => {
     })
 
     expect(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="启用或关闭默认数据治理"]'
-      )?.disabled
+      container.querySelector<HTMLButtonElement>('[aria-label="启用或关闭默认数据治理"]')?.disabled
     ).toBe(false)
     expect(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="启用或关闭个人信息脱敏"]'
-      )?.disabled
+      container.querySelector<HTMLButtonElement>('[aria-label="启用或关闭个人信息脱敏"]')?.disabled
     ).toBe(true)
   })
 
@@ -222,8 +220,8 @@ describe('数据治理配置与权限', () => {
     mocks.request.mockRejectedValueOnce(new Error('服务暂不可用'))
     await renderSection()
 
-    const action = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.includes('开始安全预演')
+    const action = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开始安全预演')
     )
     await act(async () => {
       await vi.waitFor(() => expect(action?.disabled).toBe(false))
@@ -232,9 +230,7 @@ describe('数据治理配置与权限', () => {
 
     await act(async () => {
       await vi.waitFor(() =>
-        expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-          '服务暂不可用'
-        )
+        expect(container.querySelector('[role="alert"]')?.textContent).toContain('服务暂不可用')
       )
     })
     expect(container.textContent).toContain('请检查目标账号和权限后重试')
