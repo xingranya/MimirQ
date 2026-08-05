@@ -84,9 +84,9 @@ export function GraphScopePickerDialog({
 
   let currentScopeSummary = '当前未指定图谱范围'
   if (currentDatasetId) {
-    currentScopeSummary = `当前已选知识库 ${currentDatasetId}`
+    currentScopeSummary = `当前已选知识库：${currentDatasetId}`
   } else if (currentPipelineHash) {
-    currentScopeSummary = `当前按解析批次 ${currentPipelineHash} 查看`
+    currentScopeSummary = '当前按指定解析批次查看'
   } else if (currentDocumentCount > 0) {
     currentScopeSummary = `当前按 ${currentDocumentCount} 篇文档范围查看`
   }
@@ -174,7 +174,7 @@ export function GraphScopePickerDialog({
             选择图谱范围
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            优先加载已有知识库 KG；外部图谱统一使用 KG JSON / JSONL 导入。
+            选择已有知识库，或导入 JSON、JSONL 格式的图谱文件。
           </DialogDescription>
         </DialogHeader>
 
@@ -190,7 +190,7 @@ export function GraphScopePickerDialog({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索知识库名称或 ID..."
+                placeholder="搜索知识库名称或 ID…"
                 className="h-9 rounded-md border-border bg-background pl-9 shadow-none"
               />
             </div>
@@ -244,7 +244,7 @@ export function GraphScopePickerDialog({
               }}
             >
               <Network className="h-4 w-4" />
-              导入 KG JSON / JSONL
+              导入图谱文件
             </Button>
             <Button
               type="button"

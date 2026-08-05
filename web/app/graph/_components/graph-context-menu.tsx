@@ -53,8 +53,8 @@ function getGraphContextLinkId(link: GraphLinkLike): string {
 }
 
 function getGraphViewLabel(viewMode: '2d' | '3d'): string {
-  if (viewMode === '3d') return '3D View'
-  return '2D View'
+  if (viewMode === '3d') return '三维视图'
+  return '二维视图'
 }
 
 function getEdgeLabelsActionLabel(showEdgeLabels: boolean): string {
@@ -88,11 +88,11 @@ export function GraphContextMenu({
     menuContent = (
       <div>
         <div className="border-b border-border/60 bg-muted/30 px-3 py-2">
-          <div className="text-[11px] font-medium uppercase text-muted-foreground">Node</div>
+          <div className="text-xs font-medium text-muted-foreground">节点</div>
           <div className="truncate text-sm font-semibold text-foreground">
-            {String(node?.label || node?.id || 'Node')}
+            {String(node?.label || node?.id || '未命名节点')}
           </div>
-          <div className="truncate font-mono text-[11px] text-muted-foreground">
+          <div className="truncate font-mono text-xs text-muted-foreground">
             {String(node?.id || '')}
           </div>
         </div>
@@ -198,11 +198,11 @@ export function GraphContextMenu({
     menuContent = (
       <div>
         <div className="border-b border-border/60 bg-muted/30 px-3 py-2">
-          <div className="text-[11px] font-medium uppercase text-muted-foreground">Link</div>
+          <div className="text-xs font-medium text-muted-foreground">连线</div>
           <div className="truncate text-sm font-semibold text-foreground">
-            {predicate || 'Relationship'}
+            {predicate || '未命名关系'}
           </div>
-          <div className="truncate font-mono text-[11px] text-muted-foreground">
+          <div className="truncate font-mono text-xs text-muted-foreground">
             {getGraphContextLinkId(link)}
           </div>
         </div>
@@ -231,7 +231,7 @@ export function GraphContextMenu({
             }}
           >
             <Copy className="w-4 h-4 mr-2" />
-            复制 Predicate
+            复制关系类型
           </Button>
         </div>
       </div>
@@ -240,7 +240,7 @@ export function GraphContextMenu({
     menuContent = (
       <div>
         <div className="border-b border-border/60 bg-muted/30 px-3 py-2">
-          <div className="text-[11px] font-medium uppercase text-muted-foreground">Graph</div>
+          <div className="text-xs font-medium text-muted-foreground">图谱</div>
           <div className="truncate text-sm font-semibold text-foreground">
             {getGraphViewLabel(viewMode)}
           </div>

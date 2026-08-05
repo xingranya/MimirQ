@@ -117,6 +117,14 @@ describe('图谱面板响应式与视觉契约', () => {
     expect(actionDialogsSource).toContain('暂无可拆分事件')
     expect(actionDialogsSource).not.toContain('Searching…')
     expect(actionDialogsSource).not.toContain('No preview available')
+    expect(actionDialogsSource).not.toContain('text-[11px]')
+    expect(scopePickerSource).toContain('导入图谱文件')
+    expect(scopePickerSource).not.toContain('知识库 KG')
+    expect(contextMenuSource).toContain('复制关系类型')
+    expect(contextMenuSource).not.toContain('2D View')
+    expect(contextMenuSource).not.toContain('3D View')
+    expect(contextMenuSource).not.toContain('复制 Predicate')
+    expect(contextMenuSource).not.toContain('text-[11px]')
   })
 
   it('图谱范围刷新失败时保留已有知识库并提供恢复入口', () => {

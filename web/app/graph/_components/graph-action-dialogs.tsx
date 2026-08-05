@@ -160,7 +160,7 @@ export function GraphActionDialogs({
           >
             <div className="flex items-center justify-between gap-2">
               <span className="truncate">{node.label || node.id}</span>
-              <span className="text-muted-foreground font-mono">{String(node.id).slice(0, 8)}</span>
+              <span className="font-mono text-muted-foreground">{String(node.id).slice(0, 8)}</span>
             </div>
           </button>
         ))}
@@ -175,7 +175,7 @@ export function GraphActionDialogs({
       mergePreviewDetails = <div className="text-xs text-muted-foreground">正在生成预览…</div>
     } else if (mergePreview) {
       mergePreviewDetails = (
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+        <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
           <div>来源事件边：{primitiveText(mergePreview.stats?.source_event_entity_edges)}</div>
           <div>重复事件：{primitiveText(mergePreview.stats?.overlap_events)}</div>
           <div>关系边：{primitiveText(mergePreview.stats?.source_relations)}</div>
@@ -188,8 +188,8 @@ export function GraphActionDialogs({
 
     mergePreviewContent = (
       <div className="space-y-2 rounded-md border border-border bg-muted p-3">
-        <div className="text-[11px] font-medium text-muted-foreground">合并预览</div>
-        <div className="text-xs text-foreground truncate" title={mergeTarget.label}>
+        <div className="text-xs font-medium text-muted-foreground">合并预览</div>
+        <div className="truncate text-xs text-foreground" title={mergeTarget.label}>
           目标实体：{mergeTarget.label || mergeTarget.id}
         </div>
         {mergePreviewDetails}
@@ -301,7 +301,7 @@ export function GraphActionDialogs({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>拆分实体</DialogTitle>
-            <DialogDescription>选择需要移动到新实体的事件（可撤销）。</DialogDescription>
+            <DialogDescription>选择需要移动到新实体的事件。完成后仍可撤销。</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -343,7 +343,7 @@ export function GraphActionDialogs({
                   <div className="p-2 text-xs text-muted-foreground">暂无可拆分事件</div>
                 )}
               </div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 已选择 {splitSelectedEventIds.size} 个事件（最多显示 30 条）
               </div>
             </div>
@@ -373,11 +373,11 @@ export function GraphActionDialogs({
             <DialogDescription>
               {connectSourceNode?.label && connectTargetNode?.label ? (
                 <>
-                  将创建连线：<span className="font-mono">{String(connectSourceNode.label)}</span> →{' '}
-                  <span className="font-mono">{String(connectTargetNode.label)}</span>
+                  将创建连线：<span className="font-medium">{String(connectSourceNode.label)}</span> →{' '}
+                  <span className="font-medium">{String(connectTargetNode.label)}</span>
                 </>
               ) : (
-                '请输入关系名称（例如：related_to）'
+                '请输入能说明两个实体关联方式的名称。'
               )}
             </DialogDescription>
           </DialogHeader>
@@ -388,11 +388,10 @@ export function GraphActionDialogs({
               id="graph-connect-label"
               value={connectLabelDraft}
               onChange={(event) => onConnectLabelDraftChange(event.target.value)}
-              placeholder="related_to"
-              className="font-mono"
+              placeholder="例如：相关"
             />
             <div className="text-xs text-muted-foreground">
-              留空将使用默认值：<span className="font-mono">related_to</span>
+              留空时使用默认关系名称。
             </div>
           </div>
 
