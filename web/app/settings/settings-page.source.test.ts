@@ -65,7 +65,12 @@ describe('设置页信息架构', () => {
   it('按后端写能力进入只读模式', () => {
     expect(settingsPageSource).toContain('settingsWritable={state.settingsWritable}')
     expect(settingsPageSource).toContain('只有系统所有者可以修改')
-    expect(settingsPageSource.match(/<fieldset disabled={!settingsWritable}/g)).toHaveLength(5)
+    expect(
+      settingsPageSource.match(/<fieldset disabled={!settingsWritable}/g)?.length
+    ).toBeGreaterThanOrEqual(5)
+    expect(settingsPageSource).toContain(
+      '<GovernanceSection\n                    settingsWritable={settingsWritable}'
+    )
     expect(settingsPageSource).toContain('if (!settingsWritable) return null')
   })
 

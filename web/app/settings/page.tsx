@@ -687,24 +687,27 @@ function SettingsContent({
                       disabled={!settingsWritable}
                     />
                   </SettingsSubsection>
-                  <SettingsSubsection title="数据治理">
-                    <GovernanceSection
-                      isGovernanceEnabled={state.isGovernanceEnabled}
-                      isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
-                      isSecretsRedactEnabled={state.isSecretsRedactEnabled}
-                      isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
-                      updateGovernance={state.updateGovernance}
-                    />
-                  </SettingsSubsection>
-                  {isAdmin ? (
+                </fieldset>
+                <SettingsSubsection title="数据治理">
+                  <GovernanceSection
+                    settingsWritable={settingsWritable}
+                    isGovernanceEnabled={state.isGovernanceEnabled}
+                    isPiiAnonymizeEnabled={state.isPiiAnonymizeEnabled}
+                    isSecretsRedactEnabled={state.isSecretsRedactEnabled}
+                    isQuarantineOnDropEnabled={state.isQuarantineOnDropEnabled}
+                    updateGovernance={state.updateGovernance}
+                  />
+                </SettingsSubsection>
+                {isAdmin ? (
+                  <fieldset disabled={!settingsWritable} className="contents">
                     <SettingsSubsection title="URL 采集" advanced>
                       <UrlIngestSection
                         urlIngest={state.urlIngestMerged}
                         updateUrlIngest={state.updateUrlIngest}
                       />
                     </SettingsSubsection>
-                  ) : null}
-                </fieldset>
+                  </fieldset>
+                ) : null}
                 <SettingsSubsection title="行业规则" advanced>
                   <IndustryRulesSection writable={settingsWritable} />
                 </SettingsSubsection>

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,17 +18,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DangerZonePanel } from '@/components/settings/danger-zone-panel'
 import { GovernanceOpsPanel } from '@/components/settings/governance-ops-panel'
 import { SettingsSwitch } from '@/components/settings/settings-switch'
-import { settingsTextTokens, systemWorkbenchTokens } from '@/components/ui/system-page-tokens'
+import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 import { rbacApi, rtbfApi, type SystemSettings, type TenantMember } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { queryKeys } from '@/lib/query-keys'
+import {
+  TENANT_PERMISSIONS,
+  tenantAccessAllows,
+  tenantAccessCanEditDatasets,
+} from '@/lib/tenant-permissions'
 import { cn, detachPromise } from '@/lib/utils'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 type GovernanceSettings = NonNullable<SystemSettings['governance']>
 
 type GovernanceSectionProps = {
+  settingsWritable: boolean
   isGovernanceEnabled: boolean
   isPiiAnonymizeEnabled: boolean
   isSecretsRedactEnabled: boolean
@@ -41,6 +46,7 @@ const FIELD_LABEL = settingsTextTokens.fieldLabel
 const RTBF_MEMBERS_PARAMS = { limit: 500 } as const
 const RTBF_CURRENT_ACCOUNT_VALUE = '__current_account__'
 const RTBF_MANUAL_ACCOUNT_VALUE = '__manual_account__'
+const PERSONAL_DATA_ACTION_KEY = 'personal-data-action'
 
 type RtbfTone = 'idle' | 'info' | 'success' | 'danger'
 type RtbfSubjectSource = 'current' | 'member' | 'manual'
@@ -149,6 +155,45 @@ function rtbfModeButtonClass(isActive: boolean, tone: 'info' | 'destructive') {
   return 'border-border/60 bg-background/70 text-muted-foreground hover:border-destructive/25 hover:bg-destructive/5 hover:text-foreground/78'
 }
 
+function GovernanceToggleRow({
+  title,
+  description,
+  checked,
+  disabled = false,
+  onCheckedChange,
+  ariaLabel,
+}: Readonly<{
+  title: string
+  description: string
+  checked: boolean
+  disabled?: boolean
+  onCheckedChange: (checked: boolean) => void
+  ariaLabel: string
+}>) {
+  return (
+    <div
+      className={cn(
+        'flex min-h-16 items-start justify-between gap-4 px-3 py-3 sm:px-4',
+        disabled && 'opacity-60'
+      )}
+    >
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-foreground">{title}</div>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      <SettingsSwitch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+        className="shrink-0"
+        aria-label={ariaLabel}
+      />
+    </div>
+  )
+}
+
 function buildRtbfResultView(value: unknown): RtbfResultView {
   const record = asRecord(value)
   if (!record) {
@@ -187,7 +232,7 @@ function buildRtbfResultView(value: unknown): RtbfResultView {
     metrics: [
       { label: '候选文档', value: String(eligible || documents || 0), hint: subject ? `账号 ${subject}` : '按账号匹配' },
       { label: '已删除', value: String(deleted), hint: dryRun ? '安全预演未删除' : '实际删除数' },
-      { label: '错误', value: String(errors), hint: errors > 0 ? '查看原始响应' : '无错误' },
+      { label: '错误', value: String(errors), hint: errors > 0 ? '查看处理详情' : '无错误' },
       { label: '缓存刷新', value: String(cacheInvalidations), hint: '相关数据集缓存' },
     ],
     rawText: formatRtbfRaw(value),
@@ -217,7 +262,7 @@ function RtbfResultSummary({ value }: Readonly<{ value: unknown }>) {
   return (
     <div
       data-testid="rtbf-result-summary"
-      className="mt-3 rounded-md border border-border bg-background p-4"
+      className="mt-4 border-t border-border pt-4"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -230,33 +275,36 @@ function RtbfResultSummary({ value }: Readonly<{ value: unknown }>) {
         </span>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <dl className="mt-3 grid border-y border-border sm:grid-cols-2 lg:grid-cols-4">
         {result.metrics.map((metric) => (
-          <div key={metric.label} className="rounded-md border border-border bg-muted/10 px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="truncate text-xs font-medium text-muted-foreground">{metric.label}</div>
-              <div className="rounded-md bg-background px-2 py-0.5 text-xs font-medium text-foreground">{metric.value}</div>
-            </div>
-            {metric.hint ? <div className="mt-1.5 truncate text-xs text-muted-foreground">{metric.hint}</div> : null}
+          <div
+            key={metric.label}
+            className="min-w-0 border-b border-border px-3 py-2 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0"
+          >
+            <dt className="text-xs font-medium text-muted-foreground">{metric.label}</dt>
+            <dd className="mt-1 text-sm font-medium text-foreground">{metric.value}</dd>
+            {metric.hint ? (
+              <div className="mt-1 truncate text-xs text-muted-foreground">{metric.hint}</div>
+            ) : null}
           </div>
         ))}
-      </div>
+      </dl>
 
       <details
         data-testid="rtbf-raw-response"
-        className="group mt-3 rounded-md border border-border bg-muted/15 px-3 py-2 text-xs text-muted-foreground"
+        className="group mt-3 border-b border-border pb-3 text-xs text-muted-foreground"
       >
         <summary className="cursor-pointer select-none font-medium text-muted-foreground transition-colors hover:text-primary">
-          原始响应（排障时展开）
+          处理详情（排查问题时展开）
         </summary>
         {result.rawText ? (
           <pre className="mt-2 max-h-44 overflow-auto rounded-md border border-border bg-background p-3 font-mono text-xs leading-5 text-muted-foreground whitespace-pre-wrap break-words">
             {result.rawText}
           </pre>
         ) : (
-          <div className="mt-2 rounded-md border border-dashed border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-            暂无操作结果。完成安全预演或删除后，可在这里查看完整返回内容。
-          </div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            完成安全预演或删除后，可在这里查看完整处理结果。
+          </p>
         )}
       </details>
     </div>
@@ -264,6 +312,7 @@ function RtbfResultSummary({ value }: Readonly<{ value: unknown }>) {
 }
 
 export function GovernanceSection({
+  settingsWritable,
   isGovernanceEnabled,
   isPiiAnonymizeEnabled,
   isSecretsRedactEnabled,
@@ -276,6 +325,7 @@ export function GovernanceSection({
   const [rtbfMaxRetries, setRtbfMaxRetries] = useState(1)
   const [rtbfRunningKey, setRtbfRunningKey] = useState<string | null>(null)
   const [rtbfResult, setRtbfResult] = useState<unknown>(null)
+  const [rtbfError, setRtbfError] = useState<string | null>(null)
   const [rtbfPreviewSnapshot, setRtbfPreviewSnapshot] =
     useState<RtbfPreviewSnapshot | null>(null)
   const [rtbfDeleteDialogOpen, setRtbfDeleteDialogOpen] = useState(false)
@@ -288,12 +338,20 @@ export function GovernanceSection({
     queryFn: () => rbacApi.getCurrentTenantAccess(),
     retry: false,
   })
+  const canManagePersonalData = tenantAccessAllows(
+    currentAccessQuery.data,
+    TENANT_PERMISSIONS.LIFECYCLE_MANAGE
+  )
+  const canManageDatasetOperations = tenantAccessCanEditDatasets(
+    currentAccessQuery.data
+  )
   const membersQuery = useQuery({
     queryKey: queryKeys.rbac.members(RTBF_MEMBERS_PARAMS),
     queryFn: async () => {
       const res = await rbacApi.listTenantMembers(RTBF_MEMBERS_PARAMS)
       return Array.isArray(res.items) ? res.items : []
     },
+    enabled: canManagePersonalData,
     retry: false,
   })
   const members = useMemo(() => membersQuery.data || [], [membersQuery.data])
@@ -353,13 +411,17 @@ export function GovernanceSection({
     action: () => Promise<unknown>
   ): Promise<unknown | null> {
     setRtbfRunningKey(key)
+    setRtbfError(null)
     try {
       const payload = await action()
       setRtbfResult(payload)
       toast.success(`${title}完成`)
       return payload
     } catch (error) {
-      toast.error(formatApiError(error, `${title}失败`))
+      const message = formatApiError(error, `${title}失败`)
+      setRtbfResult(null)
+      setRtbfError(message)
+      toast.error(message)
       return null
     } finally {
       setRtbfRunningKey(null)
@@ -369,7 +431,7 @@ export function GovernanceSection({
   async function runRtbfPreview() {
     const requestedAccountId = normalizedRtbfAccountId
     const requestedMaxDocs = rtbfMaxDocs
-    const payload = await runRtbfAction('RTBF 请求', '安全预演', () =>
+    const payload = await runRtbfAction(PERSONAL_DATA_ACTION_KEY, '安全预演', () =>
       rtbfApi.request({
         subject_account_id: requestedAccountId,
         dry_run: true,
@@ -377,6 +439,10 @@ export function GovernanceSection({
         max_retries: rtbfMaxRetries,
       })
     )
+    if (!payload) {
+      setRtbfPreviewSnapshot(null)
+      return
+    }
     const record = asRecord(payload)
     const fingerprint =
       typeof record?.preview_fingerprint === 'string'
@@ -409,7 +475,7 @@ export function GovernanceSection({
       toast.error('目标或候选数据已变化，请重新安全预演')
       return
     }
-    const payload = await runRtbfAction('RTBF 请求', '个人数据删除', () =>
+    const payload = await runRtbfAction(PERSONAL_DATA_ACTION_KEY, '个人数据删除', () =>
       rtbfApi.request({
         subject_account_id: normalizedRtbfAccountId,
         dry_run: false,
@@ -426,91 +492,86 @@ export function GovernanceSection({
   }
 
   return (
-    <section>
-      <div className={cn(systemWorkbenchTokens.panel, 'space-y-3 p-3.5')}>
-        <div className="flex items-start justify-between gap-3">
-          <Alert className="flex-1 p-3 shadow-none [&>svg]:left-3 [&>svg]:top-3 [&>svg~*]:pl-6">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <div>
-              <AlertTitle className="text-xs">默认治理规则</AlertTitle>
-              <AlertDescription className={settingsTextTokens.helpText}>
-                这些开关会影响“入库前清洗/脱敏”，用于没有单独配置数据集或文档级管线时的默认行为
-              </AlertDescription>
-            </div>
-          </Alert>
-          <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            保存后通常可立即生效
-          </div>
+    <section className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">默认治理策略</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            用于未单独设置治理策略的数据集和文档，只影响后续入库。
+          </p>
         </div>
+        <span className="text-xs leading-5 text-muted-foreground">
+          保存后对新任务生效
+        </span>
+      </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-            <div>
-              <div className={settingsTextTokens.panelTitle}>启用数据治理</div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>打开后才会应用下方治理项（对新入库文档生效）</div>
-            </div>
-            <SettingsSwitch
-              checked={isGovernanceEnabled}
-              onCheckedChange={(checked) => updateGovernance({ enabled: checked })}
-              className="shrink-0"
-              aria-label="切换数据治理开关（governance.enabled）"
-            />
-          </div>
+      <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+        <GovernanceToggleRow
+          title="启用默认数据治理"
+          description="关闭后，下方默认策略不会应用到新的入库任务。"
+          checked={isGovernanceEnabled}
+          disabled={!settingsWritable}
+          onCheckedChange={(checked) => updateGovernance({ enabled: checked })}
+          ariaLabel="启用或关闭默认数据治理"
+        />
+        <GovernanceToggleRow
+          title="个人信息脱敏"
+          description="识别并替换手机号、邮箱等个人信息，可能影响原文可读性和精确检索。"
+          checked={isPiiAnonymizeEnabled}
+          disabled={!settingsWritable || !isGovernanceEnabled}
+          onCheckedChange={(checked) => updateGovernance({ pii_anonymize: checked })}
+          ariaLabel="启用或关闭个人信息脱敏"
+        />
+        <GovernanceToggleRow
+          title="密钥信息脱敏"
+          description="识别并遮蔽 API 密钥、访问令牌等敏感凭据。"
+          checked={isSecretsRedactEnabled}
+          disabled={!settingsWritable || !isGovernanceEnabled}
+          onCheckedChange={(checked) => updateGovernance({ secrets_redact: checked })}
+          ariaLabel="启用或关闭密钥信息脱敏"
+        />
+        <GovernanceToggleRow
+          title="质量过滤后隔离"
+          description="文档因内容过少或只有目录被过滤时，将其标记为已隔离，便于后续复核。"
+          checked={isQuarantineOnDropEnabled}
+          disabled={!settingsWritable || !isGovernanceEnabled}
+          onCheckedChange={(checked) => updateGovernance({ quarantine_on_drop: checked })}
+          ariaLabel="启用或关闭质量过滤隔离"
+        />
+      </div>
 
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-            <div>
-              <div className={settingsTextTokens.panelTitle}>个人信息脱敏</div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                尝试识别并匿名化手机号/邮箱等个人信息（可能影响检索/可读性）
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isPiiAnonymizeEnabled}
-              onCheckedChange={(checked) => updateGovernance({ pii_anonymize: checked })}
-              className="shrink-0"
-              aria-label="切换 PII 脱敏（governance.pii_anonymize）"
-            />
-          </div>
+      <details className="group border-t border-border pt-3">
+        <summary className="flex min-h-10 cursor-pointer list-none items-start justify-between gap-3 rounded-md px-1 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-foreground">治理运维</span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              个人数据删除、待复核查询和切块预设维护
+            </span>
+          </span>
+          <ChevronDown className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+        </summary>
 
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-            <div>
-              <div className={settingsTextTokens.panelTitle}>密钥信息脱敏</div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                尝试识别并遮蔽 API 密钥、访问令牌等敏感凭据
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isSecretsRedactEnabled}
-              onCheckedChange={(checked) => updateGovernance({ secrets_redact: checked })}
-              className="shrink-0"
-              aria-label="切换密钥信息脱敏（governance.secrets_redact）"
-            />
-          </div>
-
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-            <div>
-              <div className={settingsTextTokens.panelTitle}>质量过滤触发时隔离</div>
-              <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>
-                当触发“低密度/仅目录”等过滤时，将文档标记为“已隔离（quarantined）”（便于排查）
-              </div>
-            </div>
-            <SettingsSwitch
-              checked={isQuarantineOnDropEnabled}
-              onCheckedChange={(checked) => updateGovernance({ quarantine_on_drop: checked })}
-              className="shrink-0"
-              aria-label="切换过滤后隔离（governance.quarantine_on_drop）"
-            />
-          </div>
-        </div>
+        <div className="mt-3 space-y-3">
 
         <DangerZonePanel
           title="个人数据删除"
           impact="会按账号级联影响文档、分块、向量、图谱和缓存；默认只做安全预演，确认范围后才执行删除"
-          badge="默认收起"
+          badge={canManagePersonalData ? '安全操作' : '无操作权限'}
           compact
           tone="neutral"
           icon="help"
         >
+          {currentAccessQuery.isError ? (
+            <div role="alert" className="mb-3 flex items-start gap-2 border-b border-destructive/20 pb-3 text-xs leading-5 text-destructive">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              权限状态加载失败，已暂停个人数据操作。请刷新设置页后重试。
+            </div>
+          ) : !currentAccessQuery.isLoading && !canManagePersonalData ? (
+            <p className="mb-3 border-b border-border pb-3 text-xs leading-5 text-muted-foreground">
+              当前账号可以查看流程，但没有管理个人数据的权限。
+            </p>
+          ) : null}
+          <fieldset disabled={!canManagePersonalData} className="contents">
           <div className="grid gap-2 md:grid-cols-2">
             <button
               type="button"
@@ -548,14 +609,14 @@ export function GovernanceSection({
             </button>
           </div>
 
-          <div className="mt-3 rounded-md border border-border bg-background p-4">
+          <div className="mt-3 border-t border-border pt-3">
             <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-2">
                   <label htmlFor="rtbf-subject-select" className={FIELD_LABEL}>
                     目标账号
                   </label>
-                  <span className="rounded-md border border-info/20 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
+                  <span className="text-xs font-medium text-muted-foreground">
                     {subjectSourceLabel}
                   </span>
                 </div>
@@ -625,6 +686,7 @@ export function GovernanceSection({
                     setRtbfSubjectSource('manual')
                     setRtbfAccountId(event.target.value)
                   }}
+                  maxLength={255}
                   className="h-9 rounded-md border-border bg-background text-sm"
                   placeholder="例如 user-123、acct-1 或用户 UUID"
                 />
@@ -643,7 +705,10 @@ export function GovernanceSection({
                   max={1000}
                   step={1}
                   value={String(rtbfMaxDocs)}
-                  onChange={(event) => setRtbfMaxDocs(Number.parseInt(event.target.value || '0', 10) || 100)}
+                  onChange={(event) => {
+                    const value = Number.parseInt(event.target.value || '0', 10)
+                    setRtbfMaxDocs(Number.isFinite(value) ? Math.min(1000, Math.max(1, value)) : 100)
+                  }}
                   className="h-9 rounded-md border-border bg-background text-sm"
                   inputMode="numeric"
                 />
@@ -660,16 +725,19 @@ export function GovernanceSection({
                   max={10}
                   step={1}
                   value={String(rtbfMaxRetries)}
-                  onChange={(event) => setRtbfMaxRetries(Number.parseInt(event.target.value || '0', 10) || 1)}
+                  onChange={(event) => {
+                    const value = Number.parseInt(event.target.value || '0', 10)
+                    setRtbfMaxRetries(Number.isFinite(value) ? Math.min(10, Math.max(0, value)) : 1)
+                  }}
                   className="h-9 rounded-md border-border bg-background text-sm"
                   inputMode="numeric"
                 />
                 <div className={settingsTextTokens.microText}>可填写 0 到 10，仅在删除失败时重试。</div>
               </div>
               <div className="flex flex-col gap-2 md:col-span-4">
-                <div className={cn('rounded-lg border border-dashed border-border/70 bg-muted/15 px-2.5 py-2', settingsTextTokens.helpText)}>
-                  操作顺序：确认目标账号 → 安全预演 → 核对候选数量 → 输入目标账号二次确认 → 执行删除。当前删除结果会即时返回，不提供工单状态查询。
-                </div>
+                <p className={settingsTextTokens.helpText}>
+                  先确认目标账号并完成安全预演，核对候选数量后再执行删除。处理结果会在本页显示。
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -688,7 +756,7 @@ export function GovernanceSection({
                       setRtbfDeleteDialogOpen(true)
                     }}
                   >
-                    {rtbfRunningKey === 'RTBF 请求' ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
+                    {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
                     {rtbfDryRun ? '开始安全预演' : '继续确认删除'}
                   </Button>
                 </div>
@@ -696,7 +764,14 @@ export function GovernanceSection({
             </div>
           </div>
 
-          <RtbfResultSummary value={rtbfResult} />
+          {rtbfError ? (
+            <div role="alert" className="mt-3 flex items-start gap-2 border-t border-destructive/20 pt-3 text-xs leading-5 text-destructive">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>{rtbfError}。请检查目标账号和权限后重试。</span>
+            </div>
+          ) : null}
+
+          {rtbfResult ? <RtbfResultSummary value={rtbfResult} /> : null}
 
           <AlertDialog
             open={rtbfDeleteDialogOpen}
@@ -740,7 +815,7 @@ export function GovernanceSection({
                     detachPromise(executeRtbfDeletion())
                   }}
                 >
-                  {rtbfRunningKey === 'RTBF 请求' ? (
+                  {rtbfRunningKey === PERSONAL_DATA_ACTION_KEY ? (
                     <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                   ) : null}
                   确认并执行删除
@@ -748,10 +823,15 @@ export function GovernanceSection({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </fieldset>
         </DangerZonePanel>
 
-        <GovernanceOpsPanel />
-      </div>
+          <GovernanceOpsPanel
+            canManage={canManageDatasetOperations}
+            accessLoading={currentAccessQuery.isLoading}
+          />
+        </div>
+      </details>
     </section>
   )
 }
