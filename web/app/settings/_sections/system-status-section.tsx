@@ -2,45 +2,63 @@
 
 import type { BackendMetaDetails, SystemStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, Server, XCircle } from 'lucide-react'
-import { systemPageTokens } from '@/components/ui/system-page-tokens'
-import { BRAND_CONFIG } from '@/lib/brand'
+import { CheckCircle2, ChevronDown, Server, XCircle } from 'lucide-react'
 
 type SystemStatusSectionProps = {
   status: SystemStatus | null
   backendMeta: BackendMetaDetails | null
 }
 
-function StatusCard({
+function StatusItem({
   label,
-  connected,
-  message,
-}: Readonly<{ label: string; connected: boolean; message: string }>) {
+  systemName,
+  positive,
+  positiveLabel,
+  negativeLabel,
+  detail,
+}: Readonly<{
+  label: string
+  systemName?: string
+  positive: boolean
+  positiveLabel: string
+  negativeLabel: string
+  detail?: string
+}>) {
+  const stateLabel = positive ? positiveLabel : negativeLabel
+
   return (
     <div
       className={cn(
-        'rounded-lg border bg-card px-3 py-2.5 transition-colors',
-        connected
-          ? 'border-success/20'
-          : 'border-destructive/20'
+        'min-w-0 rounded-md border bg-card px-3 py-3',
+        positive ? 'border-success/20' : 'border-destructive/20'
       )}
     >
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className={cn(systemPageTokens.microLabel, 'text-foreground/80')}>{label}</span>
-        {connected ? (
-          <CheckCircle2 className="h-4 w-4 text-success" />
-        ) : (
-          <XCircle className="h-4 w-4 text-destructive" />
-        )}
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          {systemName ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{systemName}</p>
+          ) : null}
+        </div>
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 text-xs font-medium',
+            positive ? 'text-success' : 'text-destructive'
+          )}
+        >
+          {positive ? (
+            <CheckCircle2 className="size-4" aria-hidden="true" />
+          ) : (
+            <XCircle className="size-4" aria-hidden="true" />
+          )}
+          <span>{stateLabel}</span>
+        </div>
       </div>
-      <p
-        className={cn(
-          'truncate text-[11px]',
-          connected ? 'text-success' : 'text-destructive'
-        )}
-      >
-        {message || (connected ? '已连接' : '未连接')}
-      </p>
+      {detail ? (
+        <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
+          {detail}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -71,82 +89,137 @@ export function SystemStatusSection({
   backendMeta,
 }: Readonly<SystemStatusSectionProps>) {
   const parserEntries = Object.entries(status?.parsers || {})
+  const availableParserCount = parserEntries.filter(
+    ([, info]) => info.available
+  ).length
 
   return (
     <section className="space-y-3">
       {status ? (
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-          <StatusCard
-            label="PostgreSQL"
-            connected={status.database.connected}
-            message={status.database.message}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <StatusItem
+            label="主数据库"
+            systemName="PostgreSQL"
+            positive={status.database.connected}
+            positiveLabel="已连接"
+            negativeLabel="未连接"
+            detail={status.database.message}
           />
-          <StatusCard
-            label="Milvus"
-            connected={status.milvus.connected}
-            message={status.milvus.message}
+          <StatusItem
+            label="向量数据库"
+            systemName="Milvus"
+            positive={status.milvus.connected}
+            positiveLabel="已连接"
+            negativeLabel="未连接"
+            detail={status.milvus.message}
           />
-          <StatusCard
-            label="大语言模型（LLM）"
-            connected={status.llm.configured}
-            message={status.llm.model}
+          <StatusItem
+            label="对话模型"
+            positive={status.llm.configured}
+            positiveLabel="已配置"
+            negativeLabel="未配置"
+            detail={status.llm.model}
           />
-          <StatusCard
-            label="向量模型（Embedding）"
-            connected={status.embedding.configured}
-            message={status.embedding.model}
+          <StatusItem
+            label="向量模型"
+            positive={status.embedding.configured}
+            positiveLabel="已配置"
+            negativeLabel="未配置"
+            detail={status.embedding.model}
           />
         </div>
       ) : null}
 
       {backendMeta || parserEntries.length ? (
-        <div className="rounded-lg border border-border/70 bg-card p-3.5 shadow-none">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="rounded-md border border-border bg-card p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className={cn(systemPageTokens.microLabel, 'flex items-center gap-1.5 text-foreground/80')}>
-                <Server className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Server className="size-4 text-primary" aria-hidden="true" />
                 运行能力
               </div>
-              <div className="mt-1 text-[11px] font-medium leading-5 text-muted-foreground">
-                API、运行环境与解析器可用性汇总
-              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                查看接口版本和文档解析能力。
+              </p>
             </div>
             {backendMeta ? (
-              <div className="text-right text-[11px] font-medium leading-5 text-muted-foreground">
-                <div className="text-foreground">
-                  {BRAND_CONFIG.name} · {backendMeta.api_version}
-                  {backendMeta.build?.sha ? ` · ${backendMeta.build.sha.slice(0, 7)}` : ''}
-                </div>
-                {backendMeta.runtime?.python ? <div>Python {backendMeta.runtime.python}</div> : null}
-              </div>
+              <dl className="grid min-w-0 gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground sm:grid-cols-[auto_auto]">
+                <dt>接口版本</dt>
+                <dd className="break-all text-right font-medium text-foreground">
+                  {backendMeta.api_version}
+                </dd>
+                {backendMeta.build?.sha ? (
+                  <>
+                    <dt>构建版本</dt>
+                    <dd className="break-all text-right font-medium text-foreground">
+                      {backendMeta.build.sha.slice(0, 7)}
+                    </dd>
+                  </>
+                ) : null}
+                {backendMeta.runtime?.python ? (
+                  <>
+                    <dt>运行环境</dt>
+                    <dd className="break-all text-right font-medium text-foreground">
+                      Python {backendMeta.runtime.python}
+                    </dd>
+                  </>
+                ) : null}
+              </dl>
             ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-1.5 border-t border-border/50 pt-3">
-            {parserEntries.map(([key, info]) => (
-              <span
-                key={key}
-                title={info.message || formatParserName(key)}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold',
-                  info.available
-                    ? 'border-success/25 bg-success/10 text-success'
-                    : 'border-border/60 bg-muted/35 text-muted-foreground'
-                )}
-              >
-                <span
-                  className={cn(
-                    'size-1.5 rounded-full',
-                    info.available ? 'bg-success' : 'bg-muted-foreground/45'
-                  )}
-                />
-                {formatParserName(key)}
-                <span className="font-medium opacity-75">
-                  {info.available ? '可用' : '未启用'}
+          {parserEntries.length ? (
+            <details className="group mt-3 border-t border-border pt-3">
+              <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-2 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                <span>文档解析能力</span>
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  {availableParserCount}/{parserEntries.length} 可用
+                  <ChevronDown
+                    className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
                 </span>
-              </span>
-            ))}
-          </div>
+              </summary>
+              <div className="mt-2 grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">
+                {parserEntries.map(([key, info]) => {
+                  const stateLabel = info.available
+                    ? '可用'
+                    : info.enabled
+                      ? '环境不可用'
+                      : '未启用'
+                  return (
+                    <div
+                      key={key}
+                      className="min-w-0 bg-card px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 text-sm font-medium text-foreground">
+                          {formatParserName(key)}
+                        </span>
+                        <span
+                          className={cn(
+                            'shrink-0 text-xs font-medium',
+                            info.available
+                              ? 'text-success'
+                              : info.enabled
+                                ? 'text-destructive'
+                                : 'text-muted-foreground'
+                          )}
+                        >
+                          {stateLabel}
+                        </span>
+                      </div>
+                      {info.message ? (
+                        <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+                          {info.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </section>
