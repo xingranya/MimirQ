@@ -51,6 +51,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { QueryErrorState } from '@/components/ui/query-error-state'
 import { SamlOpsPanel } from '@/components/settings/saml-ops-panel'
 import { ScimProvisioningPanel } from '@/components/settings/scim-provisioning-panel'
+import { OidcOpsPanel } from '@/components/settings/oidc-ops-panel'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { Link } from '@/i18n/navigation'
 
@@ -1177,8 +1178,9 @@ function SettingsRbacPageContent() {
             </section>
           ) : null}
 
-          <ScimProvisioningPanel />
+          <OidcOpsPanel />
           <SamlOpsPanel />
+          <ScimProvisioningPanel />
         </div>
       </PageScaffold>
     </>

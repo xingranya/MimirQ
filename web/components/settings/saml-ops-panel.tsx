@@ -1,26 +1,26 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { Download, Loader2, ShieldCheck } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Download, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import {
+  IDENTITY_INPUT_CLASS,
+  IdentityActionButton,
+  IdentityField,
+  IdentityNotice,
+  IdentityPanel,
+} from '@/components/settings/identity-ops-shared'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Panel } from '@/components/ui/panel'
 import { authApi } from '@/lib/api'
-import { formatApiError, toApiErrorInfo } from '@/lib/api-errors'
-import { cn, detachPromise } from '@/lib/utils'
+import { toApiErrorInfo } from '@/lib/api-errors'
 
-const SETTINGS_IDENTITY_PANEL_CLASS =
-  'overflow-hidden rounded-md border border-border bg-card'
-const SETTINGS_IDENTITY_LABEL_CLASS =
-  'text-xs font-medium text-muted-foreground'
-const SETTINGS_IDENTITY_INPUT_CLASS =
-  'h-9 rounded-md border-border bg-background text-sm'
-const SETTINGS_IDENTITY_ICON_CLASS =
-  'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary'
+type SamlStatus = 'idle' | 'checking' | 'ready' | 'unconfigured' | 'error'
+
+type SamlNotice = {
+  tone: 'warning' | 'error'
+  message: string
+}
 
 function downloadText(content: string, filename: string) {
   const blob = new Blob([content], { type: 'application/xml;charset=utf-8' })
@@ -33,164 +33,112 @@ function downloadText(content: string, filename: string) {
 }
 
 function isSamlNotConfiguredMessage(message: string): boolean {
-  return message.trim().toLowerCase() === 'saml not configured'
+  const normalized = message.trim().toLowerCase()
+  return normalized === 'saml not configured' || normalized === 'not found'
+}
+
+function samlFailureNotice(message: string): SamlNotice {
+  const normalized = message.trim().toLowerCase()
+  if (isSamlNotConfiguredMessage(message)) {
+    return {
+      tone: 'warning',
+      message: 'SAML 尚未启用。请先由部署人员添加身份源地址、回调地址和证书。',
+    }
+  }
+  if (normalized.includes('provider_id required')) {
+    return {
+      tone: 'warning',
+      message: '当前配置了多个身份源。请填写要检查的身份源标识。',
+    }
+  }
+  if (normalized.includes('unknown saml provider')) {
+    return {
+      tone: 'warning',
+      message: '没有找到这个身份源。请核对身份源标识后重试。',
+    }
+  }
+  return {
+    tone: 'error',
+    message: '暂时无法读取 SAML 元数据。请检查身份服务和后端连接后重试。',
+  }
 }
 
 export function SamlOpsPanel() {
   const [providerId, setProviderId] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [status, setStatus] = useState<SamlStatus>('idle')
+  const [notice, setNotice] = useState<SamlNotice | null>(null)
 
-  async function runAction(
-    key: string,
-    title: string,
-    action: () => Promise<unknown>
-  ) {
-    setBusy(key)
+  async function downloadMetadata() {
+    setStatus('checking')
+    setNotice(null)
     try {
-      await action()
-      setNotice(null)
-      toast.success(`${title}完成`)
+      const xml = await authApi.samlMetadata({
+        provider_id: provider || null,
+      })
+      downloadText(xml, `saml-metadata.${provider || 'default'}.xml`)
+      setStatus('ready')
+      toast.success('SAML 元数据已下载')
     } catch (error) {
-      const info = toApiErrorInfo(error, `${title}失败`)
-      if (isSamlNotConfiguredMessage(info.message)) {
-        setNotice('身份源尚未配置：请先完成 SAML 身份源配置，再下载元数据')
-        toast.warning('身份源尚未配置，暂时无法下载元数据')
-        return
-      }
-
-      setNotice(null)
-      toast.error(formatApiError(error, `${title}失败`))
-    } finally {
-      setBusy(null)
+      const info = toApiErrorInfo(error, 'SAML 元数据读取失败')
+      const nextNotice = samlFailureNotice(info.message)
+      setStatus(nextNotice.tone === 'warning' ? 'unconfigured' : 'error')
+      setNotice(nextNotice)
+      if (nextNotice.tone === 'warning') toast.warning(nextNotice.message)
+      else toast.error(nextNotice.message)
     }
   }
 
   const provider = providerId.trim()
+  const statusMeta = {
+    idle: { label: '待检查', tone: 'neutral' as const },
+    checking: { label: '正在检查', tone: 'progress' as const },
+    ready: { label: '元数据可用', tone: 'success' as const },
+    unconfigured: { label: '尚未可用', tone: 'warning' as const },
+    error: { label: '检查失败', tone: 'error' as const },
+  }[status]
 
   return (
-    <Panel
-      padding="sm"
-      className={SETTINGS_IDENTITY_PANEL_CLASS}
+    <IdentityPanel
+      icon={ShieldCheck}
+      title="SAML 单点登录"
+      description="连接企业身份源，并下载接入时需要的服务元数据。"
+      status={statusMeta.label}
+      statusTone={statusMeta.tone}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-3">
-          <div className={SETTINGS_IDENTITY_ICON_CLASS}>
-            <ShieldCheck className="size-4" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-              <span>SAML 单点登录</span>
-              <span className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                按需配置
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              连接企业身份源，统一登录方式和成员访问权限。
-            </p>
-          </div>
-        </div>
-        <div className="flex min-h-8 items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-          ) : (
-            <span className="size-1.5 rounded-sm bg-muted-foreground/45" />
-          )}
-          <span>{busy ? '正在生成元数据' : '等待配置身份源'}</span>
-        </div>
-      </div>
-
-      <div className="mt-4 border-t border-border pt-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-end">
-          <Field
-            label="身份源标识"
-            helper="留空时使用默认身份源；连接多个身份源时填写对应标识。"
-          >
-            <Input
-              value={providerId}
-              onChange={(event) => setProviderId(event.target.value)}
-              className={cn(SETTINGS_IDENTITY_INPUT_CLASS, 'min-w-[220px]')}
-              placeholder="使用默认身份源"
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <ActionButton
-              icon={Download}
-              busy={busy === 'metadata'}
-              disabled={Boolean(busy)}
-              label="下载元数据"
-              onClick={() =>
-                runAction('metadata', '获取 SAML 元数据', async () => {
-                  const xml = await authApi.samlMetadata({
-                    provider_id: provider || null,
-                  })
-                  downloadText(xml, `saml-metadata.${provider || 'default'}.xml`)
-                  return {
-                    provider_id: provider || null,
-                    chars: xml.length,
-                    preview: xml.slice(0, 2000),
-                  }
-                })
-              }
-            />
-          </div>
+      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-end">
+        <IdentityField
+          id="saml-provider-id"
+          label="身份源标识"
+          helper="留空时检查默认身份源；连接多个身份源时填写对应标识。"
+        >
+          <Input
+            id="saml-provider-id"
+            value={providerId}
+            onChange={(event) => {
+              setProviderId(event.target.value)
+              setStatus('idle')
+              setNotice(null)
+            }}
+            className={IDENTITY_INPUT_CLASS}
+            placeholder="使用默认身份源"
+          />
+        </IdentityField>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <IdentityActionButton
+            icon={Download}
+            busy={status === 'checking'}
+            disabled={status === 'checking'}
+            label="检查并下载元数据"
+            onClick={downloadMetadata}
+          />
         </div>
       </div>
       {notice ? (
-        <div className="mt-3 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-sm font-medium leading-5 text-warning">
-          {notice}
-        </div>
+        <IdentityNotice tone={notice.tone}>{notice.message}</IdentityNotice>
       ) : null}
-    </Panel>
-  )
-}
-
-function Field({
-  label,
-  helper,
-  children,
-}: Readonly<{ label: string; helper?: string; children: ReactNode }>) {
-  return (
-    <div className="space-y-1.5">
-      <Label className={SETTINGS_IDENTITY_LABEL_CLASS}>
-        {label}
-      </Label>
-      {children}
-      {helper ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          {helper}
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-function ActionButton({
-  busy,
-  disabled,
-  icon: Icon,
-  label,
-  onClick,
-}: Readonly<{
-  busy: boolean
-  disabled: boolean
-  icon: LucideIcon
-  label: string
-  onClick: () => Promise<void>
-}>) {
-  return (
-    <Button
-      variant="outline"
-      className="h-9 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted disabled:bg-muted/50 disabled:text-muted-foreground"
-      disabled={disabled}
-      onClick={() => detachPromise(onClick())}
-    >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-      ) : (
-        <Icon className="h-3.5 w-3.5" />
-      )}
-      {label}
-    </Button>
+      <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+        元数据可下载只表示服务配置已生效。上线前仍需从企业身份源完成一次登录，确认回调、证书和成员映射正常。
+      </p>
+    </IdentityPanel>
   )
 }

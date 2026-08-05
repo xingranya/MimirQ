@@ -1,31 +1,39 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
-import { Loader2, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Users } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
+import {
+  IDENTITY_INPUT_CLASS,
+  IdentityActionButton,
+  IdentityField,
+  IdentityNotice,
+  IdentityPanel,
+} from '@/components/settings/identity-ops-shared'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Panel } from '@/components/ui/panel'
 import { scimApi } from '@/lib/api'
-import { formatApiError } from '@/lib/api-errors'
+import { toApiErrorInfo } from '@/lib/api-errors'
 import { readClientStorage } from '@/lib/client-storage'
-import { cn, detachPromise } from '@/lib/utils'
 
-const SETTINGS_IDENTITY_PANEL_CLASS =
-  'overflow-hidden rounded-md border border-border bg-card'
-const SETTINGS_IDENTITY_LABEL_CLASS =
-  'text-xs font-medium text-muted-foreground'
-const SETTINGS_IDENTITY_INPUT_CLASS =
-  'h-9 rounded-md border-border bg-background text-sm'
-const SETTINGS_IDENTITY_ICON_CLASS =
-  'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary'
+type ScimStatus = 'idle' | 'testing' | 'connected' | 'error'
+
+function scimFailureMessage(status?: number): string {
+  if (status === 404) {
+    return 'SCIM 服务尚未启用。请先由部署人员开启成员同步并配置访问令牌。'
+  }
+  if (status === 401) return '访问令牌无效。请更换令牌后重新验证。'
+  if (status === 403) {
+    return '当前请求不在允许范围内。请检查组织标识和访问来源限制。'
+  }
+  return '暂时无法连接 SCIM 服务。请检查后端状态后重试。'
+}
 
 export function ScimProvisioningPanel() {
   const [tenantId, setTenantId] = useState('')
   const [scimToken, setScimToken] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
+  const [status, setStatus] = useState<ScimStatus>('idle')
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     const storedTenant = readClientStorage('mimirq_tenant_id')
@@ -33,154 +41,100 @@ export function ScimProvisioningPanel() {
   }, [])
 
   const base = { tenantId: tenantId.trim(), scimToken: scimToken.trim() }
-  const baseDisabled = Boolean(busy) || !base.tenantId || !base.scimToken
-  const configured = Boolean(base.tenantId && base.scimToken)
+  const hasCredentials = Boolean(base.tenantId && base.scimToken)
 
-  async function runAction(
-    key: string,
-    title: string,
-    action: () => Promise<unknown>
-  ) {
-    setBusy(key)
+  function invalidateConnection() {
+    setStatus('idle')
+    setNotice(null)
+  }
+
+  async function testConnection() {
+    setStatus('testing')
+    setNotice(null)
     try {
-      await action()
-      toast.success(`${title}完成`)
+      await scimApi.getServiceProviderConfig(base)
+      setStatus('connected')
+      setNotice('连接成功。当前凭据可以读取 SCIM 服务能力。')
+      toast.success('SCIM 连接验证通过')
     } catch (error) {
-      toast.error(formatApiError(error, `${title}失败`))
-    } finally {
-      setBusy(null)
+      const info = toApiErrorInfo(error, 'SCIM 连接失败')
+      const message = scimFailureMessage(info.status)
+      setStatus('error')
+      setNotice(message)
+      toast.error(message)
     }
   }
 
+  const statusMeta = {
+    idle: {
+      label: hasCredentials ? '待验证' : '未填写凭据',
+      tone: 'neutral' as const,
+    },
+    testing: { label: '正在验证', tone: 'progress' as const },
+    connected: { label: '已连接', tone: 'success' as const },
+    error: { label: '连接失败', tone: 'error' as const },
+  }[status]
+
   return (
-    <Panel
-      padding="sm"
-      className={SETTINGS_IDENTITY_PANEL_CLASS}
+    <IdentityPanel
+      icon={Users}
+      title="SCIM 成员同步"
+      description="从企业目录同步成员和成员组状态。"
+      status={statusMeta.label}
+      statusTone={statusMeta.tone}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-3">
-          <div className={SETTINGS_IDENTITY_ICON_CLASS}>
-            <Users className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-              <span>SCIM 同步</span>
-              <span
-                className={cn(
-                  'rounded-md border px-2 py-0.5 text-xs font-medium',
-                  configured
-                    ? 'border-success/20 bg-success/10 text-success'
-                    : 'border-border bg-muted/40 text-muted-foreground'
-                )}
-              >
-                {configured ? '可测试' : '未启用'}
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              同步企业成员和成员组，保持账号状态一致。
-            </p>
-          </div>
-        </div>
-        <div className="flex min-h-8 items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-          ) : (
-            <span
-              className={cn(
-                'size-1.5 rounded-sm',
-                configured ? 'bg-success' : 'bg-muted-foreground/45'
-              )}
-            />
-          )}
-          <span>{busy ? '连接测试中' : configured ? '凭据已填写' : '等待配置'}</span>
+      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1.4fr)_auto] lg:items-end">
+        <IdentityField
+          id="scim-tenant-id"
+          label="组织标识"
+          helper="必须与服务端绑定的组织一致。"
+        >
+          <Input
+            id="scim-tenant-id"
+            value={tenantId}
+            onChange={(event) => {
+              setTenantId(event.target.value)
+              invalidateConnection()
+            }}
+            className={IDENTITY_INPUT_CLASS}
+            placeholder="输入组织标识"
+          />
+        </IdentityField>
+        <IdentityField
+          id="scim-access-token"
+          label="SCIM 访问令牌"
+          helper="仅用于本次连接验证，不会保存在浏览器中。"
+        >
+          <Input
+            id="scim-access-token"
+            type="password"
+            autoComplete="new-password"
+            value={scimToken}
+            onChange={(event) => {
+              setScimToken(event.target.value)
+              invalidateConnection()
+            }}
+            className={IDENTITY_INPUT_CLASS}
+            placeholder="输入访问令牌"
+          />
+        </IdentityField>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <IdentityActionButton
+            busy={status === 'testing'}
+            disabled={status === 'testing' || !hasCredentials}
+            label="验证连接"
+            onClick={testConnection}
+          />
         </div>
       </div>
-
-      <div className="mt-4 border-t border-border pt-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1.4fr)_auto] lg:items-end">
-          <Field
-            label="组织标识"
-            helper="用于确认当前组织，确保同步内容写入正确的空间。"
-          >
-            <Input
-              value={tenantId}
-              onChange={(event) => setTenantId(event.target.value)}
-              className={SETTINGS_IDENTITY_INPUT_CLASS}
-              placeholder="输入组织标识"
-            />
-          </Field>
-          <Field
-            label="SCIM 访问令牌"
-            helper="用于验证 SCIM 服务连接，页面不会显示令牌内容。"
-          >
-            <Input
-              type="password"
-              value={scimToken}
-              onChange={(event) => setScimToken(event.target.value)}
-              className={SETTINGS_IDENTITY_INPUT_CLASS}
-              placeholder="输入访问令牌"
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <ActionButton
-              busy={busy === 'provider'}
-              disabled={baseDisabled}
-              label="测试连接"
-              onClick={() =>
-                runAction('provider', 'SCIM 服务配置', () =>
-                  scimApi.getServiceProviderConfig(base)
-                )
-              }
-            />
-          </div>
-        </div>
-      </div>
-    </Panel>
-  )
-}
-
-function Field({
-  label,
-  helper,
-  children,
-}: Readonly<{ label: string; helper?: string; children: ReactNode }>) {
-  return (
-    <div className="space-y-1.5">
-      <Label className={SETTINGS_IDENTITY_LABEL_CLASS}>
-        {label}
-      </Label>
-      {children}
-      {helper ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          {helper}
-        </p>
+      {notice ? (
+        <IdentityNotice tone={status === 'connected' ? 'success' : 'error'}>
+          {notice}
+        </IdentityNotice>
       ) : null}
-    </div>
-  )
-}
-
-function ActionButton({
-  busy,
-  disabled,
-  label,
-  onClick,
-}: Readonly<{
-  busy: boolean
-  disabled: boolean
-  label: string
-  onClick: () => Promise<void>
-}>) {
-  return (
-    <Button
-      variant="outline"
-      className="h-9 gap-1.5 rounded-md border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted disabled:bg-muted/50 disabled:text-muted-foreground"
-      disabled={disabled}
-      onClick={() => detachPromise(onClick())}
-    >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
-      ) : null}
-      {label}
-    </Button>
+      <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+        连接验证只读取服务能力，不会创建、修改或停用成员。正式同步由企业身份平台调用 SCIM 地址完成。
+      </p>
+    </IdentityPanel>
   )
 }

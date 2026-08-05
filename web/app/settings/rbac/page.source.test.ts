@@ -14,6 +14,10 @@ const scimSource = fs.readFileSync(
   ),
   'utf8'
 )
+const oidcSource = fs.readFileSync(
+  path.resolve(__dirname, '../../../components/settings/oidc-ops-panel.tsx'),
+  'utf8'
+)
 const selectSource = fs.readFileSync(
   path.resolve(__dirname, '../../../components/ui/select.tsx'),
   'utf8'
@@ -74,7 +78,7 @@ describe('成员管理页面源码契约', () => {
   })
 
   it('成员与企业身份配置使用扁平视觉和对外中文文案', () => {
-    const settingsSources = `${source}\n${samlSource}\n${scimSource}`
+    const settingsSources = `${source}\n${oidcSource}\n${samlSource}\n${scimSource}`
 
     expect(settingsSources).not.toMatch(/rounded-\[(?:1\.25|1\.15)rem\]/)
     expect(settingsSources).not.toContain('shadow-[0_12px_30px')
@@ -86,5 +90,17 @@ describe('成员管理页面源码契约', () => {
     expect(settingsSources).toContain('下载元数据')
     expect(settingsSources).toContain('组织标识')
     expect(settingsSources).toContain('SCIM 访问令牌')
+    expect(settingsSources).toContain('OIDC 企业登录')
+  })
+
+  it('企业身份状态来自部署配置或真实连接结果', () => {
+    expect(source).toContain('<OidcOpsPanel />')
+    expect(oidcSource).toContain('isOidcEnabled()')
+    expect(oidcSource).toContain('登录入口已发布')
+    expect(samlSource).toContain("setStatus('ready')")
+    expect(samlSource).toContain("setStatus(nextNotice.tone === 'warning' ? 'unconfigured' : 'error')")
+    expect(scimSource).toContain("setStatus('connected')")
+    expect(scimSource).toContain('invalidateConnection()')
+    expect(scimSource).not.toContain("configured ? '可测试'")
   })
 })

@@ -14,6 +14,11 @@ const routerMock = vi.hoisted(() => ({
 const sessionMock = vi.hoisted(() => ({
   setAuthSession: vi.fn(),
 }))
+const oidcMock = vi.hoisted(() => ({
+  enabled: false,
+  providers: [] as Array<{ id: string; name?: string; issuer: string; client_id: string }>,
+  startOidcLogin: vi.fn(),
+}))
 
 vi.mock('next/image', () => ({
   default: ({
@@ -33,10 +38,11 @@ vi.mock('@/lib/auth-storage', () => ({
   setAuthSession: sessionMock.setAuthSession,
 }))
 vi.mock('@/lib/oidc', () => ({
-  startOidcLogin: vi.fn(),
+  isOidcEnabled: () => oidcMock.enabled,
+  startOidcLogin: oidcMock.startOidcLogin,
 }))
 vi.mock('@/lib/oidc-providers', () => ({
-  getOidcPublicProvidersFromEnv: () => [],
+  getOidcPublicProvidersFromEnv: () => oidcMock.providers,
 }))
 
 import AuthPage from './page'
@@ -79,6 +85,31 @@ describe('auth page registration', () => {
     authApiMock.register.mockReset()
     routerMock.push.mockReset()
     sessionMock.setAuthSession.mockReset()
+    oidcMock.enabled = false
+    oidcMock.providers = []
+    oidcMock.startOidcLogin.mockReset()
+  })
+
+  it('企业登录总开关关闭时不显示已配置的身份源', () => {
+    oidcMock.enabled = false
+    oidcMock.providers = [
+      {
+        id: 'company',
+        name: '公司统一登录',
+        issuer: 'https://id.example.com',
+        client_id: 'client-id',
+      },
+    ]
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => root.render(<AuthPage />))
+
+    expect(container.textContent).not.toContain('公司统一登录')
+    expect(container.textContent).not.toContain('选择企业登录方式')
+
+    act(() => root.unmount())
   })
 
   afterEach(() => {

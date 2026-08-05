@@ -25,7 +25,7 @@ import {
 } from '@/lib/api-errors'
 import { setAuthSession } from '@/lib/auth-storage'
 import { BRAND_CONFIG } from '@/lib/brand'
-import { startOidcLogin } from '@/lib/oidc'
+import { isOidcEnabled, startOidcLogin } from '@/lib/oidc'
 import { getOidcPublicProvidersFromEnv } from '@/lib/oidc-providers'
 import { cn, detachPromise } from '@/lib/utils'
 
@@ -83,8 +83,8 @@ function toAuthPageError(err: unknown, mode: Mode): ApiErrorInfo {
 
 export default function AuthPage() {
   const router = useRouter()
-  const oidcProviders = getOidcPublicProvidersFromEnv()
-  const oidcEnabled = oidcProviders.length > 0
+  const oidcEnabled = isOidcEnabled()
+  const oidcProviders = oidcEnabled ? getOidcPublicProvidersFromEnv() : []
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
