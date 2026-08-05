@@ -139,14 +139,14 @@ export function GovernanceProfileSelector({ className, compact, onApplyPatch }: 
   }, [selectedRef, selectedSummary])
 
   const triggerCls = compact
-    ? 'h-8 rounded-[0.9rem] border-border/45 bg-card/74 text-[11px] font-medium text-foreground/80 shadow-none'
-    : 'h-9 rounded-[0.95rem] border-border/45 bg-card/78 text-sm font-medium text-foreground/80 shadow-none'
+    ? 'h-8 rounded-md border-border/70 bg-background text-[11px] font-medium text-foreground shadow-none'
+    : 'h-9 rounded-md border-border/70 bg-background text-sm font-medium text-foreground shadow-none'
   const primaryActionClass =
-    'h-7 gap-1.5 rounded-full border-primary/24 bg-primary/[0.09] px-2.5 text-[11px] font-semibold text-primary shadow-none hover:border-primary/34 hover:bg-primary/[0.16] hover:text-primary'
+    'h-8 gap-1.5 rounded-md border-primary bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-none hover:bg-primary/90'
   const secondaryActionClass =
-    'h-7 gap-1.5 rounded-full border-border/38 bg-background/36 px-2.5 text-[11px] font-medium text-muted-foreground/78 shadow-none hover:border-border/50 hover:bg-background/58 hover:text-foreground'
+    'h-8 gap-1.5 rounded-md border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground shadow-none hover:border-primary/30 hover:bg-muted/50 hover:text-foreground'
   const actionRailClass =
-    'flex flex-wrap items-center justify-end gap-1 rounded-[0.95rem] border border-border/28 bg-muted/[0.10] px-1.5 py-1'
+    'flex flex-wrap items-center justify-end gap-1.5 rounded-md border border-border/70 bg-muted/10 px-2 py-1.5'
 
   const inheritanceText = useMemo(() => {
     const chain = selectedResolved?.chain || []
@@ -160,7 +160,7 @@ export function GovernanceProfileSelector({ className, compact, onApplyPatch }: 
         <div className="min-w-0 flex-1">
           <Select value={selectedRef} onValueChange={setSelectedRef} disabled={loading}>
             <SelectTrigger className={cn('w-full', triggerCls)}>
-              <SelectValue placeholder={loading ? '加载治理预设…' : '选择治理预设（Profiles/脚本）'} />
+              <SelectValue placeholder={loading ? '加载治理预设…' : '选择治理预设'} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={SELECT_NONE}>不使用预设</SelectItem>
@@ -179,7 +179,7 @@ export function GovernanceProfileSelector({ className, compact, onApplyPatch }: 
           disabled={loading}
           aria-label="刷新治理预设"
           title="刷新治理预设"
-          className="h-8 rounded-[0.9rem] border-border/42 bg-background/46 px-2.5 text-muted-foreground shadow-none hover:bg-background/68 hover:text-foreground"
+          className="h-8 rounded-md border-border/70 bg-background px-2.5 text-muted-foreground shadow-none hover:border-primary/30 hover:bg-muted/50 hover:text-foreground"
         >
           <RefreshCw className="w-4 h-4" />
         </Button>
@@ -215,7 +215,7 @@ export function GovernanceProfileSelector({ className, compact, onApplyPatch }: 
           className={secondaryActionClass}
         >
           <FileUp className="w-4 h-4" />
-          导入脚本
+          导入配置
         </Button>
         <Button
           variant="outline"
@@ -225,7 +225,7 @@ export function GovernanceProfileSelector({ className, compact, onApplyPatch }: 
           disabled={!selectedRef || selectedRef === SELECT_NONE}
         >
           <Download className="w-4 h-4" />
-          导出
+          导出配置
         </Button>
       </div>
 
