@@ -87,8 +87,12 @@ import {
   RagasMetricSelector,
   ragasMetricLabel,
 } from '@/components/evaluation/ragas-metric-selector'
+import {
+  refreshEvaluationWorkspaceData,
+  shouldShowConversationSummary,
+  type EvaluationWorkspaceTab as TabType,
+} from './workspace-policy'
 
-type TabType = 'conversation' | 'regression' | 'queryset_health'
 type ConversationEvidenceFilter = 'ready' | 'missing' | 'all'
 type ConversationWorkspaceView = 'setup' | 'results' | 'runs'
 
@@ -1577,13 +1581,14 @@ function EvaluationsPageContent() {
   const refreshEvaluationWorkspace = async () => {
     setIsRefreshing(true)
     try {
-      if (activeTab === 'conversation') {
-        await Promise.all([conversationsQuery.refetch(), runsQuery.refetch()])
-      } else {
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.evaluations.all,
-        })
-      }
+      await refreshEvaluationWorkspaceData(activeTab, {
+        refreshConversations: () => conversationsQuery.refetch(),
+        refreshRuns: () => runsQuery.refetch(),
+        invalidateEvaluations: () =>
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.evaluations.all,
+          }),
+      })
     } finally {
       setIsRefreshing(false)
     }
@@ -1629,7 +1634,7 @@ function EvaluationsPageContent() {
             onRefresh={refreshEvaluationWorkspace}
             isLoading={activeTab === 'conversation' ? isLoading : isRefreshing}
             showAblationsEntry={showAblationsEntry}
-            showSummary={activeTab === 'conversation'}
+            showSummary={shouldShowConversationSummary(activeTab)}
           />
         }
         topClassName="pt-4"

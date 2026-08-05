@@ -1,3 +1,5 @@
+import type { OpenApiOkResponse } from './openapi-helpers'
+
 export interface RagMetricsSummaryResponse {
   enabled: boolean
   path: string
@@ -30,18 +32,15 @@ export interface OnlineQualitySummaryResponse {
   alerts: Array<Record<string, unknown>>
 }
 
-export interface QuerysetHealthRunsResponse {
-  enabled: boolean
-  path: string
-  total: number
-  truncated: boolean
-  items: Array<Record<string, unknown>>
-  timeseries: Record<string, unknown[]>
-}
+export type QuerysetHealthRunsResponse = OpenApiOkResponse<
+  '/api/v1/observability/queryset-health/runs',
+  'get'
+>
 
-export interface QuerysetHealthDiffResponse {
-  diff: Record<string, unknown>
-}
+export type QuerysetHealthDiffResponse = OpenApiOkResponse<
+  '/api/v1/observability/queryset-health/diff',
+  'get'
+>
 
 export interface RagQueryAnalyticsResponse {
   enabled: boolean
