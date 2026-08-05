@@ -193,7 +193,7 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
         <div
           ref={menuRef}
           className={cn(
-            'fixed overflow-hidden rounded-lg border border-border bg-card shadow-lg',
+            'fixed overflow-hidden rounded-md border border-border bg-card',
             UI_LAYER_CLASS.contextual
           )}
           style={{
@@ -212,10 +212,10 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
               return (
                 <div key={section.recommendation} className="py-1">
                   <div className="flex items-center justify-between px-3 py-1.5">
-                    <span className={cn('text-[10px] font-semibold tracking-[0.08em]', sectionStyle.section)}>
+                    <span className={cn('text-xs font-semibold', sectionStyle.section)}>
                       {sectionLabel}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{section.items.length}</span>
+                    <span className="text-xs text-muted-foreground">{section.items.length}</span>
                   </div>
                   {section.items.map((option: ChunkStrategyCatalogItem) => {
                     const Icon = ICON_MAP[option.icon]
@@ -235,7 +235,7 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
                           setIsOpen(false)
                         }}
                         className={cn(
-                          'h-[72px] w-full flex items-center gap-2.5 px-3 transition-colors',
+                          'flex h-16 w-full items-center gap-2.5 px-3 transition-colors',
                           isSelected ? 'bg-primary/10' : 'hover:bg-muted',
                           isDisabled && 'opacity-50 cursor-not-allowed hover:bg-transparent'
                         )}
@@ -247,22 +247,22 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
                           <div className="flex h-5 min-w-0 items-center gap-1.5">
                             <span
                               className={cn(
-                                'min-w-0 flex-1 truncate text-[11px] font-medium',
+                                'min-w-0 flex-1 truncate text-sm font-medium',
                                 isSelected ? 'text-primary' : 'text-foreground'
                               )}
                             >
                               {option.label}
                             </span>
-                            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium', recommendationStyle.chip)}>
+                            <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-xs font-medium', recommendationStyle.chip)}>
                               {option.recommendationLabel}
                             </span>
                             {option.badge ? (
-                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium bg-muted text-muted-foreground">
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                                 {option.badge}
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">{option.description}</p>
+                          <p className="mt-0.5 line-clamp-2 text-sm leading-5 text-muted-foreground">{option.description}</p>
                         </div>
                         {isSelected ? (
                           <Check className="size-4 flex-shrink-0 text-primary" />
@@ -290,7 +290,7 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
           setIsOpen(!isOpen)
         }}
         className={cn(
-          'h-[60px] w-full flex items-center gap-2.5 rounded-lg border px-2.5 transition-colors duration-150 motion-reduce:transition-none',
+          'flex h-10 w-full items-center gap-2.5 rounded-md border px-2.5 transition-colors duration-150 motion-reduce:transition-none',
           'bg-card hover:bg-muted',
           isOpen
             ? 'border-primary/30 ring-2 ring-primary/10'
@@ -302,24 +302,24 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
         </div>
         <div className="min-w-0 flex-1 text-left">
           <div className="flex h-5 min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
               {selectedView.label}
             </span>
             <span
               className={cn(
-                'shrink-0 rounded px-1.5 py-px text-[9px] font-medium leading-4',
+                'shrink-0 rounded px-1.5 py-px text-xs font-medium leading-4',
                 selectedRecommendationStyle.chip
               )}
             >
               {selectedRecommendationLabel}
             </span>
             {selectedView.badge && (
-              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-px text-[9px] font-medium leading-4 text-primary">
+              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-px text-xs font-medium leading-4 text-primary">
                 {selectedView.badge}
               </span>
             )}
           </div>
-          <p className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">{selectedView.description}</p>
+          <p className="mt-0.5 truncate text-sm leading-5 text-muted-foreground">{selectedView.description}</p>
         </div>
         <ChevronDown
           className={cn(

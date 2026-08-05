@@ -27,6 +27,7 @@ describe('全局界面层级', () => {
       'components/chat/voice-mode-overlay.tsx',
       'components/ingestion/drop-zone.tsx',
       'components/business/chunk-strategy-dropdown.tsx',
+      'components/business/parser-dropdown.tsx',
       'components/ui/dialog.tsx',
       'components/ui/alert-dialog.tsx',
       'components/ui/sheet.tsx',
@@ -41,6 +42,31 @@ describe('全局界面层级', () => {
       expect(source, relativePath).toContain('UI_LAYER_CLASS')
       expect(source, relativePath).not.toMatch(/z-\[\d+\]/)
     }
+  })
+
+  it('两个解析配置下拉框使用 Portal、碰撞边界和统一控件尺寸', () => {
+    const projectRoot = resolve(__dirname, '..')
+    const parserSource = readFileSync(
+      resolve(projectRoot, 'components/business/parser-dropdown.tsx'),
+      'utf8'
+    )
+    const chunkSource = readFileSync(
+      resolve(projectRoot, 'components/business/chunk-strategy-dropdown.tsx'),
+      'utf8'
+    )
+
+    expect(parserSource).toContain('createPortal(')
+    expect(parserSource).toContain('role="listbox"')
+    expect(parserSource).toContain('UI_LAYER_CLASS.contextual')
+    expect(parserSource).toContain('Math.max(240, viewportWidth - 24)')
+    expect(parserSource).not.toContain('rounded-2xl')
+    expect(parserSource).not.toContain('shadow-strong')
+
+    expect(chunkSource).toContain('createPortal(')
+    expect(chunkSource).toContain('UI_LAYER_CLASS.contextual')
+    expect(chunkSource).toContain('flex h-10 w-full items-center')
+    expect(chunkSource).not.toContain('text-[9px]')
+    expect(chunkSource).not.toContain('text-[11px]')
   })
 
   it('要求提示层通过 Portal 脱离滚动和裁切容器', () => {
