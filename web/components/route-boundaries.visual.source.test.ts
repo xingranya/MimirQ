@@ -5,6 +5,14 @@ import { describe, expect, it } from 'vitest'
 const routeErrorSource = readFileSync(resolve(__dirname, 'route-error.tsx'), 'utf8')
 const routeLoadingSource = readFileSync(resolve(__dirname, 'route-loading.tsx'), 'utf8')
 const appLoadingSource = readFileSync(resolve(__dirname, '../app/loading.tsx'), 'utf8')
+const settingsLoadingSource = readFileSync(
+  resolve(__dirname, '../app/settings/loading.tsx'),
+  'utf8'
+)
+const knowledgeLoadingSource = readFileSync(
+  resolve(__dirname, '../app/knowledge/loading.tsx'),
+  'utf8'
+)
 const notFoundSource = readFileSync(resolve(__dirname, '../app/not-found.tsx'), 'utf8')
 
 describe('全站路由边界视觉契约', () => {
@@ -29,5 +37,14 @@ describe('全站路由边界视觉契约', () => {
     expect(appLoadingSource).not.toMatch(/rounded-(?:xl|2xl|3xl)/)
     expect(routeLoadingSource).toContain('加载中…')
     expect(routeLoadingSource).not.toContain('<span className="sr-only">Loading</span>')
+  })
+
+  it('设置和知识库页面复用统一的扁平加载状态', () => {
+    for (const source of [settingsLoadingSource, knowledgeLoadingSource]) {
+      expect(source).toContain("import { RouteLoading } from '@/components/route-loading'")
+      expect(source).toContain('return <RouteLoading />')
+      expect(source).not.toContain('Skeleton')
+      expect(source).not.toMatch(/rounded-(?:xl|2xl|3xl)/)
+    }
   })
 })
