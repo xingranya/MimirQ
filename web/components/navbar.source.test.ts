@@ -130,6 +130,7 @@ describe('navbar source', () => {
     expect(src).not.toContain("href: '/audit'")
     expect(src).toContain("labelKey: 'items.members', href: '/settings/rbac'")
     expect(src).toContain("'/knowledge/similarity': '/evaluations'")
+    expect(src).toContain("'/settings/groups': '/settings/rbac'")
     expect(src.indexOf("labelKey: 'items.knowledgeGraph'")).toBeLessThan(
       src.indexOf("labelKey: 'items.ragas'")
     )

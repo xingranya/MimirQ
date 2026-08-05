@@ -53,6 +53,7 @@ import { QueryErrorState } from '@/components/ui/query-error-state'
 import { SamlOpsPanel } from '@/components/settings/saml-ops-panel'
 import { ScimProvisioningPanel } from '@/components/settings/scim-provisioning-panel'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
+import { Link } from '@/i18n/navigation'
 
 const ROLE_OPTIONS = [
   {
@@ -527,7 +528,18 @@ function SettingsRbacPageContent() {
           </div>
         }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="h-9 gap-2 rounded-md border-border px-3"
+            >
+              <Link href="/settings/groups">
+                <Users className="size-4" />
+                成员组
+              </Link>
+            </Button>
             <Dialog
               open={inviteOpen}
               onOpenChange={(open) => {

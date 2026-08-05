@@ -28,6 +28,11 @@ describe('成员管理页面源码契约', () => {
     expect(source).toContain('globalThis.navigator.clipboard.writeText(inviteLink)')
   })
 
+  it('从成员页直接进入成员组管理', () => {
+    expect(source).toContain('href="/settings/groups"')
+    expect(source).toContain('成员组')
+  })
+
   it('展示待处理邀请并支持按邀请 ID 撤销', () => {
     expect(source).toContain('rbacApi.listTenantInvitations')
     expect(source).toContain('rbacApi.revokeTenantInvitation')

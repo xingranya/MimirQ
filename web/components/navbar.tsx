@@ -119,11 +119,19 @@ const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v3'
 const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',
+  '/settings/groups': '/settings/rbac',
 }
 
 function isActiveRoute(pathname: string, href: string) {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+function resolveActivePathname(pathname: string): string {
+  for (const [routePrefix, parentHref] of Object.entries(NAVIGATION_PARENT_ROUTES)) {
+    if (isActiveRoute(pathname, routePrefix)) return parentHref
+  }
+  return pathname
 }
 
 function getMostSpecificActiveHref(pathname: string, items: MenuItem[]): string | null {
@@ -268,7 +276,7 @@ export function Navbar({
     [canAccessPermission, canShowNavigationModule]
   )
   const visibleMenuItems = useMemo(() => visibleMenuSections.flatMap((section) => section.items), [visibleMenuSections])
-  const activePathname = NAVIGATION_PARENT_ROUTES[pathname] || pathname
+  const activePathname = resolveActivePathname(pathname)
   const activeHref = getMostSpecificActiveHref(activePathname, visibleMenuItems)
   const readyDetails = backendReady.data ?? null
   const backendOk =

@@ -294,6 +294,21 @@ describe('Navbar behavior', () => {
     view.unmount()
   })
 
+  it('成员组及详情页继续高亮成员权限入口', () => {
+    routerMocks.pathname = '/settings/groups/group-a'
+    const view = renderComponent(React.createElement(Navbar))
+    const memberLink = Array.from(view.container.querySelectorAll('a')).find(
+      (node) => node.getAttribute('href') === '/settings/rbac'
+    )
+    const settingsLink = Array.from(view.container.querySelectorAll('a')).find(
+      (node) => node.getAttribute('href') === '/settings'
+    )
+
+    expect(memberLink?.getAttribute('aria-current')).toBe('page')
+    expect(settingsLink?.getAttribute('aria-current')).toBeNull()
+    view.unmount()
+  })
+
   it('offers appearance customization from the global navigation', () => {
     const view = renderComponent(React.createElement(Navbar))
 
