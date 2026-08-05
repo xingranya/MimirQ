@@ -25,7 +25,7 @@ import { FeatureFlagsSection } from './_sections/feature-flags-section'
 import { DifyIntegrationSection } from './_sections/dify-integration-section'
 import { FrontendPreferencesSection } from './_sections/frontend-preferences-section'
 import { GovernanceSection } from './_sections/governance-section'
-import { IndustryRulesSection } from './_sections/industry-rules-section'
+import { IndustryRulesSummarySection } from './_sections/industry-rules-summary-section'
 import { LtrModelRegistrySection } from './_sections/ltr-model-registry-section'
 import { ModelProvidersSection } from './_sections/model-providers-section'
 import { NavigationVisibilitySection } from './_sections/navigation-visibility-section'
@@ -647,7 +647,7 @@ function SettingsContent({
                   advanced
                   forceOpen={forcedOpenSubsectionIds.has('industry-rules')}
                 >
-                  <IndustryRulesSection writable={settingsWritable} />
+                  <IndustryRulesSummarySection />
                 </SettingsSubsection>
               </SettingsSectionFrame>
             ) : null}

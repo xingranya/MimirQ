@@ -46,7 +46,7 @@ describe('设置页信息架构', () => {
       'ParserServicesSection',
       'GovernanceSection',
       'UrlIngestSection',
-      'IndustryRulesSection',
+      'IndustryRulesSummarySection',
       'RagSection',
       'FeatureFlagsSection',
       'LtrModelRegistrySection',
