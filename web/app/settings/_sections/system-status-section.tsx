@@ -36,9 +36,7 @@ function StatusItem({
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{label}</p>
-          {systemName ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{systemName}</p>
-          ) : null}
+          {systemName ? <p className="mt-0.5 text-xs text-muted-foreground">{systemName}</p> : null}
         </div>
         <div
           className={cn(
@@ -55,9 +53,7 @@ function StatusItem({
         </div>
       </div>
       {detail ? (
-        <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">
-          {detail}
-        </p>
+        <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">{detail}</p>
       ) : null}
     </div>
   )
@@ -81,16 +77,41 @@ function formatParserName(key: string): string {
     mineru: 'MinerU',
     magicpdf: 'MagicPDF',
   }
-  return labels[key] || key
+  return labels[key] || '其他解析器'
 }
 
-export function SystemStatusSection({
-  status,
-  backendMeta,
-}: Readonly<SystemStatusSectionProps>) {
+function connectionDetail(systemName: string, connected: boolean): string {
+  return connected
+    ? `${systemName}连接正常。`
+    : `${systemName}暂时无法连接，请检查服务状态和网络配置。`
+}
+
+function parserState(enabled: boolean, available: boolean) {
+  if (!enabled) {
+    return {
+      label: '未启用',
+      tone: 'text-muted-foreground',
+      detail: '尚未启用，不会参与文档解析。',
+    }
+  }
+  if (available) {
+    return {
+      label: '可用',
+      tone: 'text-success',
+      detail: '已启用，当前环境可正常使用。',
+    }
+  }
+  return {
+    label: '环境不可用',
+    tone: 'text-destructive',
+    detail: '已启用，但当前运行环境未就绪。请检查解析服务的安装或连接配置。',
+  }
+}
+
+export function SystemStatusSection({ status, backendMeta }: Readonly<SystemStatusSectionProps>) {
   const parserEntries = Object.entries(status?.parsers || {})
   const availableParserCount = parserEntries.filter(
-    ([, info]) => info.available
+    ([, info]) => info.enabled && info.available
   ).length
 
   return (
@@ -103,7 +124,7 @@ export function SystemStatusSection({
             positive={status.database.connected}
             positiveLabel="已连接"
             negativeLabel="未连接"
-            detail={status.database.message}
+            detail={connectionDetail('主数据库', status.database.connected)}
           />
           <StatusItem
             label="向量数据库"
@@ -111,21 +132,21 @@ export function SystemStatusSection({
             positive={status.milvus.connected}
             positiveLabel="已连接"
             negativeLabel="未连接"
-            detail={status.milvus.message}
+            detail={connectionDetail('向量数据库', status.milvus.connected)}
           />
           <StatusItem
             label="对话模型"
             positive={status.llm.configured}
             positiveLabel="已配置"
             negativeLabel="未配置"
-            detail={status.llm.model}
+            detail={status.llm.configured ? status.llm.model : undefined}
           />
           <StatusItem
             label="向量模型"
             positive={status.embedding.configured}
             positiveLabel="已配置"
             negativeLabel="未配置"
-            detail={status.embedding.model}
+            detail={status.embedding.configured ? status.embedding.model : undefined}
           />
         </div>
       ) : null}
@@ -182,38 +203,20 @@ export function SystemStatusSection({
               </summary>
               <div className="mt-2 grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">
                 {parserEntries.map(([key, info]) => {
-                  const stateLabel = info.available
-                    ? '可用'
-                    : info.enabled
-                      ? '环境不可用'
-                      : '未启用'
+                  const state = parserState(info.enabled, info.available)
                   return (
-                    <div
-                      key={key}
-                      className="min-w-0 bg-card px-3 py-2.5"
-                    >
+                    <div key={key} className="min-w-0 bg-card px-3 py-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <span className="min-w-0 text-sm font-medium text-foreground">
                           {formatParserName(key)}
                         </span>
-                        <span
-                          className={cn(
-                            'shrink-0 text-xs font-medium',
-                            info.available
-                              ? 'text-success'
-                              : info.enabled
-                                ? 'text-destructive'
-                                : 'text-muted-foreground'
-                          )}
-                        >
-                          {stateLabel}
+                        <span className={cn('shrink-0 text-xs font-medium', state.tone)}>
+                          {state.label}
                         </span>
                       </div>
-                      {info.message ? (
-                        <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
-                          {info.message}
-                        </p>
-                      ) : null}
+                      <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+                        {state.detail}
+                      </p>
                     </div>
                   )
                 })}

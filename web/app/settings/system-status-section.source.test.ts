@@ -19,6 +19,15 @@ describe('系统状态区视觉契约', () => {
   it('模型使用配置语义，数据库使用连接语义', () => {
     expect(source).toContain('positiveLabel="已连接"')
     expect(source).toContain('positiveLabel="已配置"')
-    expect(source).toMatch(/info\.enabled\s+\? '环境不可用'/)
+    expect(source).toContain('info.enabled && info.available')
+    expect(source).toContain('if (!enabled)')
+    expect(source.indexOf('if (!enabled)')).toBeLessThan(source.indexOf('if (available)'))
+  })
+
+  it('使用结构化状态生成用户文案，不直接展示后端错误', () => {
+    expect(source).toContain("connectionDetail('主数据库'")
+    expect(source).toContain('parserState(info.enabled, info.available)')
+    expect(source).not.toContain('{info.message}')
+    expect(source).not.toContain('detail={status.database.message}')
   })
 })
