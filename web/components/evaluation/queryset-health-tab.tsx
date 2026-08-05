@@ -12,8 +12,13 @@ const QuerysetHealthTabClient = dynamic(
   {
     ssr: false,
     loading: () => (
-      <Panel className="h-80 rounded-2xl border border-border/60 bg-background/70 shadow-soft" padding="lg">
-        <div className="flex flex-col h-full items-start justify-between gap-6">
+      <Panel
+        role="status"
+        aria-label="正在加载检索集健康度"
+        className="h-80 border-border bg-card"
+        padding="sm"
+      >
+        <div className="flex h-full flex-col items-start justify-between gap-6 p-3">
           <div>
             <Skeleton className="h-5 w-32" />
             <Skeleton className="mt-2 h-4 w-48" />
@@ -24,8 +29,8 @@ const QuerysetHealthTabClient = dynamic(
             <Skeleton className="h-4 w-3/5" />
           </div>
           <div className="self-end flex items-center gap-3">
-            <Skeleton className="h-9 w-20 rounded-full" />
-            <Skeleton className="h-9 w-24 rounded-full" />
+            <Skeleton className="h-9 w-20 rounded-md" />
+            <Skeleton className="h-9 w-24 rounded-md" />
           </div>
         </div>
       </Panel>

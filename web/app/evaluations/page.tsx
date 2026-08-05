@@ -15,9 +15,10 @@ import {
   type ReactNode,
 } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AppFrame } from '@/components/app-frame'
 import { NavigationVisibilityGate } from '@/components/auth/navigation-visibility-gate'
+import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -79,6 +80,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { reportClientError } from '@/lib/client-logging'
 import { queryKeys } from '@/lib/query-keys'
+import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { RegressionTestTab } from '@/components/evaluation/regression-tab'
 import { QuerysetHealthTab } from '@/components/evaluation/queryset-health-tab'
 import {
@@ -723,6 +725,7 @@ function EvaluationHeroCard({
   onRefresh,
   isLoading,
   showAblationsEntry,
+  showSummary,
 }: Readonly<{
   title: string
   description: string
@@ -733,6 +736,7 @@ function EvaluationHeroCard({
   onRefresh: () => void
   isLoading: boolean
   showAblationsEntry: boolean
+  showSummary: boolean
 }>) {
   return (
     <section data-management-header="true" className={MANAGEMENT_HERO_PANEL_CLASS}>
@@ -755,8 +759,16 @@ function EvaluationHeroCard({
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[520px]">
-          <div className={cn(KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS, 'gap-2.5 px-4 py-2.5 text-[12px]')}>
+        <div
+          className={cn(
+            'grid min-w-0 gap-3',
+            showSummary
+              ? 'sm:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[520px]'
+              : 'sm:grid-cols-1'
+          )}
+        >
+          {showSummary ? (
+            <div className={cn(KNOWLEDGE_OPS_SUMMARY_PANEL_CLASS, 'gap-2.5 px-4 py-2.5 text-[12px]')}>
             <span className="inline-flex items-center gap-2 font-medium text-foreground">
               <span
                 className="size-1.5 rounded-full bg-info"
@@ -777,7 +789,8 @@ function EvaluationHeroCard({
             <span className="font-semibold tabular-nums text-success">
               {focusValue}
             </span>
-          </div>
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <DropdownMenu>
@@ -1215,6 +1228,7 @@ function EvaluationsLoading() {
 
 function EvaluationsPageContent() {
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const tenantAccess = useTenantAccess()
   const deepLinkedConversationId =
     searchParams.get('conversation_id')?.trim() || ''
@@ -1563,7 +1577,13 @@ function EvaluationsPageContent() {
   const refreshEvaluationWorkspace = async () => {
     setIsRefreshing(true)
     try {
-      await Promise.all([conversationsQuery.refetch(), runsQuery.refetch()])
+      if (activeTab === 'conversation') {
+        await Promise.all([conversationsQuery.refetch(), runsQuery.refetch()])
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.evaluations.all,
+        })
+      }
     } finally {
       setIsRefreshing(false)
     }
@@ -1607,8 +1627,9 @@ function EvaluationsPageContent() {
             focusLabel={heroFocusLabel}
             focusValue={heroFocusValue}
             onRefresh={refreshEvaluationWorkspace}
-            isLoading={isLoading}
+            isLoading={activeTab === 'conversation' ? isLoading : isRefreshing}
             showAblationsEntry={showAblationsEntry}
+            showSummary={activeTab === 'conversation'}
           />
         }
         topClassName="pt-4"
@@ -2129,7 +2150,13 @@ function EvaluationsPageContent() {
             </div>
           ) : (
             <div className="rounded-lg border border-border bg-card p-3">
-              <QuerysetHealthTab embedded />
+              <TenantPermissionGate
+                permission={TENANT_PERMISSIONS.OBSERVABILITY_READ}
+                pageName="检索集健康度"
+                withFrame={false}
+              >
+                <QuerysetHealthTab embedded />
+              </TenantPermissionGate>
             </div>
           )}
         </div>

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import {
+  AlertTriangle,
   RefreshCw,
   GitCompare,
   Target,
@@ -17,6 +17,7 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Panel } from '@/components/ui/panel'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { SafeResponsiveChart } from '@/components/ui/safe-responsive-chart'
 import {
   Select,
@@ -29,7 +30,7 @@ import { StatCard, StatsGrid } from '@/components/ui/stats-card'
 import { observabilityApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { queryKeys } from '@/lib/query-keys'
-import { cn } from '@/lib/utils'
+import { cn, detachPromise } from '@/lib/utils'
 import type { JsonObject } from '@/types'
 
 type QuerysetHealthRunItem = JsonObject & {
@@ -263,13 +264,28 @@ export function QuerysetHealthTab({
     queryKey: queryKeys.evaluations.querysetHealthRuns({ limit: 90 }),
     queryFn: () => observabilityApi.getQuerysetHealthRuns({ limit: 90 }),
   })
+  const runTimestamps = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (runsQuery.data?.items || [])
+            .map((item) => String(item.generated_at || '').trim())
+            .filter(Boolean)
+        )
+      ),
+    [runsQuery.data?.items]
+  )
+  const hasValidDiffSelection =
+    Boolean(baselineTs && currentTs && baselineTs !== currentTs) &&
+    runTimestamps.includes(baselineTs) &&
+    runTimestamps.includes(currentTs)
   const diffQuery = useQuery({
     queryKey: queryKeys.evaluations.querysetHealthDiff({
       baseline_generated_at: baselineTs,
       current_generated_at: currentTs,
       max_hard_case_ids: 20,
     }),
-    enabled: Boolean(baselineTs && currentTs && baselineTs !== currentTs),
+    enabled: hasValidDiffSelection,
     queryFn: () =>
       observabilityApi.getQuerysetHealthDiff({
         baseline_generated_at: baselineTs,
@@ -280,33 +296,41 @@ export function QuerysetHealthTab({
 
   const runs = runsQuery.data ?? null
   const diff = diffQuery.data ?? null
+  const hasDiffSnapshot = diffQuery.data !== undefined
+  const hasRunsSnapshot = runsQuery.data !== undefined
   const loadingRuns = runsQuery.isLoading || runsQuery.isFetching
   const loadingDiff = diffQuery.isLoading || diffQuery.isFetching
-
-  useEffect(() => {
-    if (!runsQuery.error) return
-    toast.error(
-      formatApiError(
+  const runsInitialLoading = !hasRunsSnapshot && !runsQuery.error
+  const runsInitialError = !hasRunsSnapshot && Boolean(runsQuery.error)
+  const runsRefreshing = hasRunsSnapshot && runsQuery.isFetching
+  const runsRefreshError = hasRunsSnapshot && Boolean(runsQuery.error)
+  const runsErrorMessage = runsQuery.error
+    ? formatApiError(
         runsQuery.error,
         '加载检索健康记录失败，请确认当前账号具有管理权限'
       )
+    : ''
+  const refreshRuns = () => {
+    detachPromise(runsQuery.refetch())
+  }
+  const refreshDiff = () => {
+    detachPromise(diffQuery.refetch())
+  }
+
+  useEffect(() => {
+    const latest = runTimestamps[0] || ''
+    const previous = runTimestamps[1] || latest
+    setCurrentTs((current) =>
+      current && runTimestamps.includes(current) ? current : latest
     )
-  }, [runsQuery.error])
-
-  useEffect(() => {
-    if (!diffQuery.error) return
-    toast.error(formatApiError(diffQuery.error, '加载检索集健康度差异失败'))
-  }, [diffQuery.error])
-
-  useEffect(() => {
-    const items = runsQuery.data?.items || []
-    const latest = String(items?.[0]?.generated_at || '')
-    const prev = String(items?.[1]?.generated_at || '')
-    if (latest) setCurrentTs((p) => p || latest)
-    if (latest || prev) setBaselineTs((p) => p || prev || latest)
-  }, [runsQuery.data])
+    setBaselineTs((baseline) =>
+      baseline && runTimestamps.includes(baseline) ? baseline : previous
+    )
+  }, [runTimestamps])
 
   const runItems = (runs?.items || []).map(querysetRunItem)
+  const hasRunItems = runItems.length > 0
+  const canCompareRuns = runTimestamps.length >= 2
   const visibleRunItems = showAllRuns ? runItems : runItems.slice(0, 30)
   const latest = runItems[0]
   const latestMetrics = isJsonObject(latest?.metrics) ? latest.metrics : {}
@@ -374,7 +398,7 @@ export function QuerysetHealthTab({
             variant="outline"
             size="sm"
             className="gap-2"
-            onClick={() => runsQuery.refetch()}
+            onClick={refreshRuns}
             disabled={loadingRuns}
           >
             <RefreshCw
@@ -388,36 +412,112 @@ export function QuerysetHealthTab({
         </div>
       )}
 
-      {runsQuery.error ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3"
+      {runsInitialLoading ? (
+        <Panel
+          role="status"
+          aria-live="polite"
+          padding="sm"
+          className="min-h-40 items-center justify-center border-border bg-card text-center"
         >
-          <div>
-            <div className="text-sm font-semibold text-destructive">
-              无法加载健康记录
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              请确认当前账号具有管理权限，然后重试。
-            </div>
+          <RefreshCw
+            className="size-5 animate-spin text-primary motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          <p className="mt-3 text-sm font-semibold text-foreground">
+            正在加载健康记录
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            指标和趋势会在加载完成后显示。
+          </p>
+        </Panel>
+      ) : null}
+
+      {runsInitialError ? (
+        <QueryErrorState
+          title="健康记录加载失败"
+          description={`${runsErrorMessage} 请重新加载后再试。`}
+          onRetry={refreshRuns}
+          retrying={loadingRuns}
+        />
+      ) : null}
+
+      {runsRefreshError ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex min-w-0 flex-col gap-3 rounded-md border border-warning/25 bg-warning/5 p-3 sm:flex-row sm:items-center"
+        >
+          <AlertTriangle
+            className="size-4 shrink-0 text-warning"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              健康记录刷新失败
+            </p>
+            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+              {runsErrorMessage} 当前仍显示上次成功加载的健康记录。
+            </p>
           </div>
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            className="h-8 rounded-md"
-            onClick={() => runsQuery.refetch()}
+            className="h-8 shrink-0 rounded-md"
+            onClick={refreshRuns}
             disabled={loadingRuns}
           >
+            <RefreshCw className="size-3.5" aria-hidden="true" />
             重新加载
           </Button>
         </div>
       ) : null}
 
-      <Panel
-        padding="sm"
-        className="border-border bg-card"
-        aria-busy={loadingRuns}
-      >
+      {runsRefreshing && !runsRefreshError ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-xs text-muted-foreground"
+        >
+          正在更新健康记录，当前数据仍可查看。
+        </p>
+      ) : null}
+
+      {hasRunsSnapshot && !hasRunItems ? (
+        <Panel
+          padding="sm"
+          className="min-h-48 items-center justify-center border-border bg-card px-5 text-center"
+        >
+          <div className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <SearchX className="size-5" aria-hidden="true" />
+          </div>
+          <h3 className="mt-3 text-sm font-semibold text-foreground">
+            {runs?.enabled ? '暂无健康快照' : '还没有健康记录'}
+          </h3>
+          <p className="mt-1 max-w-[42ch] text-xs leading-5 text-muted-foreground">
+            完成一次检索集评测后，这里会显示质量、延迟和退化趋势。
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4 h-8 rounded-md"
+            onClick={refreshRuns}
+            disabled={loadingRuns}
+          >
+            <RefreshCw className="size-3.5" aria-hidden="true" />
+            重新加载
+          </Button>
+        </Panel>
+      ) : null}
+
+      {hasRunItems ? (
+        <>
+          <Panel
+            padding="sm"
+            className="border-border bg-card"
+            aria-busy={runsRefreshing}
+          >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-foreground">
@@ -492,7 +592,7 @@ export function QuerysetHealthTab({
             <div className="mt-2 text-xs text-muted-foreground">无退化标记</div>
           )}
         </div>
-      </Panel>
+          </Panel>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel
@@ -620,9 +720,12 @@ export function QuerysetHealthTab({
                 <Select
                   value={baselineTs}
                   onValueChange={setBaselineTs}
-                  disabled={!runs?.items?.length}
+                  disabled={!canCompareRuns}
                 >
-                  <SelectTrigger className="h-9 rounded-md">
+                  <SelectTrigger
+                    className="h-9 rounded-md"
+                    aria-label="基准快照"
+                  >
                     <SelectValue placeholder="选择基准快照" />
                   </SelectTrigger>
                   <SelectContent>
@@ -644,9 +747,12 @@ export function QuerysetHealthTab({
                 <Select
                   value={currentTs}
                   onValueChange={setCurrentTs}
-                  disabled={!runs?.items?.length}
+                  disabled={!canCompareRuns}
                 >
-                  <SelectTrigger className="h-9 rounded-md">
+                  <SelectTrigger
+                    className="h-9 rounded-md"
+                    aria-label="当前快照"
+                  >
                     <SelectValue placeholder="选择当前快照" />
                   </SelectTrigger>
                   <SelectContent>
@@ -665,7 +771,9 @@ export function QuerysetHealthTab({
 
             {baselineTs && baselineTs === currentTs ? (
               <div className="mt-3 text-xs text-warning">
-                请选择两个不同的快照进行比较。
+                {canCompareRuns
+                  ? '请选择两个不同的快照进行比较。'
+                  : '至少需要两个快照才能比较。'}
               </div>
             ) : null}
 
@@ -675,13 +783,15 @@ export function QuerysetHealthTab({
                 className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-destructive/30 py-2.5"
               >
                 <span className="text-xs text-destructive">
-                  无法生成快照差异，请重试。
+                  {hasDiffSnapshot
+                    ? '差异刷新失败，当前仍显示上次计算结果。'
+                    : '无法生成快照差异，请重试。'}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 rounded-md"
-                  onClick={() => diffQuery.refetch()}
+                  onClick={refreshDiff}
                   disabled={loadingDiff}
                 >
                   重新计算
@@ -892,7 +1002,9 @@ export function QuerysetHealthTab({
             </tbody>
           </table>
         </div>
-      </Panel>
+          </Panel>
+        </>
+      ) : null}
     </div>
   )
 }

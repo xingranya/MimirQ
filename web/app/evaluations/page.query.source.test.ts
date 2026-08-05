@@ -8,7 +8,7 @@ describe('evaluations page query convergence', () => {
   it('uses TanStack Query for conversations, runs, and run detail loading', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'page.tsx'), 'utf8')
 
-    expect(src).toContain("import { useQuery } from '@tanstack/react-query'")
+    expect(src).toContain("import { useQuery, useQueryClient } from '@tanstack/react-query'")
     expect(src).toContain("useState<ConversationEvidenceFilter>('ready')")
     expect(src).toContain('queryKey: queryKeys.chat.conversations({ limit: 100 })')
     expect(src).toContain('queryKeys.evaluations.ragasConversationReadiness(')
@@ -31,6 +31,9 @@ describe('evaluations page query convergence', () => {
     expect(src).not.toContain('const loadRuns = useCallback(async (conversationId?: string) => {')
     expect(src).not.toContain('Promise.all([loadConversations(), loadRuns()])')
     expect(src).toContain('await Promise.all([conversationsQuery.refetch(), runsQuery.refetch()])')
+    expect(src).toContain('queryKey: queryKeys.evaluations.all')
+    expect(src).toContain('permission={TENANT_PERMISSIONS.OBSERVABILITY_READ}')
+    expect(src).toContain("showSummary={activeTab === 'conversation'}")
     expect(src).toContain('await runsQuery.refetch()')
   })
 })
