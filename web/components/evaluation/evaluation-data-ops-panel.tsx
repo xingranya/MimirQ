@@ -70,11 +70,22 @@ function describePayload(payload: unknown): string {
     'runs',
     'cases',
   ]
+  const labels: Record<string, string> = {
+    total: '总数',
+    count: '数量',
+    created: '新增',
+    deleted: '删除',
+    updated: '更新',
+    items: '条目',
+    runs: '运行记录',
+    cases: '测试样例',
+  }
   const parts = keys.flatMap((key) => {
     const value = record[key]
-    if (Array.isArray(value)) return `${key}: ${value.length}`
-    if (typeof value === 'number' || typeof value === 'string')
-      return `${key}: ${value}`
+    const label = labels[key]
+    if (!label) return []
+    if (Array.isArray(value)) return `${label}: ${value.length}`
+    if (typeof value === 'number' || typeof value === 'string') return `${label}: ${value}`
     return []
   })
 
@@ -119,7 +130,7 @@ export function EvaluationDataOpsPanel() {
   }
 
   const runKgDiagnostics = () =>
-    runAction('kg-run', 'KG 诊断', () =>
+    runAction('kg-run', '知识图谱诊断', () =>
       evaluationApi.runKgSearchDiagnostics({
         dataset_id: dataset,
         max_cases: maxItems,
@@ -132,7 +143,7 @@ export function EvaluationDataOpsPanel() {
 
   return (
     <div className="space-y-3">
-      <section className="rounded-xl border border-border/60 bg-card/95 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <section className="rounded-lg border border-border/70 bg-background p-4 shadow-none">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 gap-3">
             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -140,11 +151,11 @@ export function EvaluationDataOpsPanel() {
             </span>
             <div className="min-w-0">
               <h3 className="text-[15px] font-semibold text-foreground">
-                评测数据运维
+                评测数据管理
               </h3>
               <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                围绕选中的数据集维护固定测试集、生成困难样例并清理旧运行；导入
-                JSON 和 run 明细排查默认收起。
+                围绕选中的数据集维护测试样例、生成困难样例并清理旧运行记录；导入
+                JSON 和运行明细默认收起。
               </p>
             </div>
           </div>
@@ -157,7 +168,7 @@ export function EvaluationDataOpsPanel() {
           <DatasetSelectField
             value={datasetId}
             onChange={setDatasetId}
-            className="min-w-0 [&_button]:h-9 [&_button]:rounded-lg [&_button]:border-border [&_button]:bg-card [&_button]:text-[13px]"
+            className="min-w-0 [&_button]:h-9 [&_button]:rounded-md [&_button]:border-border/70 [&_button]:bg-background [&_button]:text-[13px]"
           />
           <Field label="样例上限">
             <Input
@@ -167,7 +178,7 @@ export function EvaluationDataOpsPanel() {
                   Number.parseInt(event.target.value || '0', 10) || 100
                 )
               }
-              className="h-9 rounded-lg border-border bg-card text-[13px]"
+              className="h-9 rounded-md border-border/70 bg-background text-[13px]"
               inputMode="numeric"
             />
           </Field>
@@ -179,7 +190,7 @@ export function EvaluationDataOpsPanel() {
                   Number.parseInt(event.target.value || '0', 10) || 30
                 )
               }
-              className="h-9 rounded-lg border-border bg-card text-[13px]"
+              className="h-9 rounded-md border-border/70 bg-background text-[13px]"
               inputMode="numeric"
             />
           </Field>
@@ -195,11 +206,11 @@ export function EvaluationDataOpsPanel() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              className="h-9 gap-1.5 rounded-lg border-border bg-card px-3 text-[12px] font-medium text-foreground/85 shadow-sm hover:bg-muted/50"
+              className="h-9 gap-1.5 rounded-md border-border/70 bg-background px-3 text-[12px] font-medium text-foreground shadow-none hover:bg-muted/50"
               disabled={Boolean(busy) || !dataset}
               onClick={() =>
                 detachPromise(
-                  runAction('export', '导出 cases', async () => {
+                  runAction('export', '导出测试样例', async () => {
                     const payload = await evaluationApi.exportRegressionCases({
                       dataset_id: dataset,
                     })
@@ -213,15 +224,15 @@ export function EvaluationDataOpsPanel() {
               }
             >
               <Download className="h-3.5 w-3.5" />
-              导出 cases
+              导出测试样例
             </Button>
             <ActionButton
               icon={Sparkles}
               busy={busy === 'hardcases'}
               disabled={Boolean(busy) || !dataset}
-              label="生成 hardcases"
+              label="生成困难样例"
               onClick={() =>
-                runAction('hardcases', '生成 hardcases', () =>
+                runAction('hardcases', '生成困难样例', () =>
                   evaluationApi.generateSyntheticHardcases({
                     dataset_id: dataset,
                     max_cases: maxItems,
@@ -232,16 +243,16 @@ export function EvaluationDataOpsPanel() {
               }
             />
             <ConfirmDialog
-              title={dryRun ? '执行 runs 清理预演？' : '清理旧 runs？'}
+              title={dryRun ? '执行运行记录清理预演？' : '清理旧运行记录？'}
               description={
                 dryRun
                   ? '当前是仅预演，只返回将被清理的范围。'
-                  : `将真实清理保留天数 ${retentionDays} 之外的 runs，最多 ${maxItems} 条。此操作不可撤销。`
+                  : `将真实清理超过 ${retentionDays} 天的运行记录，最多 ${maxItems} 条。此操作不可撤销。`
               }
               confirmLabel={dryRun ? '执行预演' : '清理'}
               confirmVariant={dryRun ? 'default' : 'destructive'}
               onConfirm={() =>
-                runAction('purge', '清理旧 runs', () =>
+                runAction('purge', '清理旧运行记录', () =>
                   evaluationApi.purgeRegressionRuns({
                     retention_days: retentionDays,
                     max_delete: maxItems,
@@ -253,7 +264,7 @@ export function EvaluationDataOpsPanel() {
             >
               <Button
                 variant="outline"
-                className="h-9 gap-1.5 rounded-lg border-border bg-card px-3 text-[12px] font-medium text-primary shadow-sm hover:bg-primary/10"
+                className="h-9 gap-1.5 rounded-md border-border/70 bg-background px-3 text-[12px] font-medium text-primary shadow-none hover:bg-primary/10"
                 disabled={Boolean(busy)}
               >
                 {busy === 'purge' ? (
@@ -261,23 +272,23 @@ export function EvaluationDataOpsPanel() {
                 ) : (
                   <Trash2 className="h-3.5 w-3.5" />
                 )}
-                清理旧 runs
+                清理旧运行记录
               </Button>
             </ConfirmDialog>
             <ActionButton
               icon={Search}
               busy={busy === 'kg-run'}
               disabled={Boolean(busy) || !dataset}
-              label="KG 诊断"
+              label="知识图谱诊断"
               onClick={runKgDiagnostics}
             />
             <ActionButton
               icon={ListChecks}
               busy={busy === 'kg-runs'}
               disabled={Boolean(busy) || !dataset}
-              label="KG 诊断 Runs"
+              label="知识图谱诊断记录"
               onClick={() =>
-                runAction('kg-runs', 'KG 诊断 Runs', () =>
+                runAction('kg-runs', '知识图谱诊断记录', () =>
                   evaluationApi.listKgSearchDiagnosticsRuns({
                     dataset_id: dataset,
                     limit: maxItems,
@@ -289,9 +300,9 @@ export function EvaluationDataOpsPanel() {
               icon={FileText}
               busy={busy === 'kg-quality'}
               disabled={Boolean(busy) || !dataset}
-              label="KG 质量报告"
+              label="知识图谱质量报告"
               onClick={() =>
-                runAction('kg-quality', 'KG 质量报告', () =>
+                runAction('kg-quality', '知识图谱质量报告', () =>
                   evaluationApi.getKgQualityReport({
                     dataset_id: dataset,
                     document_limit: maxItems,
@@ -301,7 +312,7 @@ export function EvaluationDataOpsPanel() {
             />
           </div>
           <Button
-            className="h-9 min-w-[110px] gap-1.5 rounded-lg bg-primary px-4 text-[12px] font-semibold text-primary-foreground shadow-[0_8px_18px_hsl(var(--primary)/0.24)] hover:bg-primary"
+            className="h-9 min-w-[110px] gap-1.5 rounded-md bg-primary px-4 text-[12px] font-semibold text-primary-foreground shadow-none hover:bg-primary/90"
             disabled={Boolean(busy) || !dataset}
             onClick={() => detachPromise(runKgDiagnostics())}
           >
@@ -315,10 +326,7 @@ export function EvaluationDataOpsPanel() {
         </div>
       </section>
 
-      <details
-        open
-        className="group rounded-xl border border-border/60 bg-card/95 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-      >
+      <details className="group rounded-lg border border-border/70 bg-background p-4 shadow-none">
         <summary className="flex cursor-pointer list-none items-start gap-2.5 [&::-webkit-details-marker]:hidden">
           <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 -rotate-90 text-primary transition-transform group-open:rotate-0" />
           <div>
@@ -326,34 +334,34 @@ export function EvaluationDataOpsPanel() {
               高级参数（可选）
             </h3>
             <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-              仅在导入外部 cases 或定位历史 KG 诊断 run 时使用。
+              仅在导入外部测试样例或查看历史知识图谱诊断记录时使用。
             </p>
           </div>
         </summary>
         <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <Field label="KG 诊断运行">
+            <Field label="诊断运行编号">
               <Input
                 value={kgRunId}
                 onChange={(event) => setKgRunId(event.target.value)}
-                placeholder="请输入 KG 诊断运行 ID 或名称"
-                className="h-9 rounded-lg border-border bg-card font-mono text-[12px]"
+                placeholder="请输入诊断运行编号或名称"
+                className="h-9 rounded-md border-border/70 bg-background font-mono text-[12px]"
               />
             </Field>
             <ActionButton
               icon={Search}
               busy={busy === 'kg-run-detail'}
               disabled={Boolean(busy) || !kgRunId.trim()}
-              label="KG Run 详情"
+              label="诊断记录详情"
               onClick={() =>
-                runAction('kg-run-detail', 'KG Run 详情', () =>
+                runAction('kg-run-detail', '诊断记录详情', () =>
                   evaluationApi.getKgSearchDiagnosticsRun(kgRunId.trim())
                 )
               }
             />
           </div>
-          <Field label="导入数据（JSON）">
-            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-inner">
+          <Field label="导入测试样例（JSON）">
+            <div className="overflow-hidden rounded-md border border-border/70 bg-background shadow-none">
               <div className="flex">
                 <div className="w-12 shrink-0 border-r border-border bg-muted/50 px-3 py-2 text-right font-mono text-[12px] leading-5 text-muted-foreground/70">
                   1
@@ -371,9 +379,9 @@ export function EvaluationDataOpsPanel() {
             icon={Upload}
             busy={busy === 'import'}
             disabled={Boolean(busy) || !dataset}
-            label="导入 cases"
+            label="导入测试样例"
             onClick={() =>
-              runAction('import', '导入 cases', () =>
+              runAction('import', '导入测试样例', () =>
                 evaluationApi.importRegressionCases({
                   dataset_id: dataset,
                   overwrite,
@@ -451,7 +459,7 @@ function ActionButton({
     <Button
       variant="outline"
       className={cn(
-        'h-9 gap-1.5 rounded-lg border-border bg-card px-3 text-[12px] font-medium text-foreground/85 shadow-sm hover:bg-muted/50',
+        'h-9 gap-1.5 rounded-md border-border/70 bg-background px-3 text-[12px] font-medium text-foreground shadow-none hover:bg-muted/50',
         className
       )}
       disabled={disabled}
@@ -479,9 +487,9 @@ function ResultCard({
   showRaw: boolean
 }>) {
   return (
-    <section className="rounded-xl border border-border/60 bg-card/95 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <section className="rounded-lg border border-border/70 bg-background p-4 shadow-none">
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/20">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary">
           <FileJson className="h-3.5 w-3.5" />
         </span>
         <h3 className="text-[14px] font-semibold text-foreground">
@@ -489,10 +497,10 @@ function ResultCard({
         </h3>
       </div>
 
-      <div className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3">
+      <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
         {result ? (
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-primary shadow-sm ring-1 ring-border">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-primary">
               <FileJson className="h-4 w-4" />
             </span>
             <div className="min-w-0">
@@ -500,17 +508,17 @@ function ResultCard({
                 {result.title}
               </div>
               <p className="mt-1 text-[12px] text-muted-foreground">
-                接口已返回真实数据，摘要：{describePayload(result.payload)}。
+                本次操作已完成，结果摘要：{describePayload(result.payload)}。
               </p>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-muted-foreground/70 shadow-sm ring-1 ring-border">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground/70">
               <FileJson className="h-4 w-4" />
             </span>
             <p className="text-[12px] leading-5 text-muted-foreground">
-              选择上方操作后，这里展示执行摘要；原始接口响应默认收起。
+              选择上方操作后，这里展示执行摘要；详细数据默认收起。
             </p>
           </div>
         )}
@@ -519,16 +527,16 @@ function ResultCard({
       <div className="mt-3 flex justify-end gap-2">
         <Button
           variant="outline"
-          className="h-8 gap-1.5 rounded-lg border-border bg-card px-3 text-[12px] font-medium text-foreground/85 shadow-sm hover:bg-muted/50"
+          className="h-8 gap-1.5 rounded-md border-border/70 bg-background px-3 text-[12px] font-medium text-foreground shadow-none hover:bg-muted/50"
           disabled={!result}
           onClick={onToggleRaw}
         >
           <Download className="h-3.5 w-3.5" />
-          {showRaw ? '收起原始响应' : '展开原始响应'}
+          {showRaw ? '收起详细数据' : '展开详细数据'}
         </Button>
         <Button
           variant="outline"
-          className="h-8 gap-1.5 rounded-lg border-border bg-card px-3 text-[12px] font-medium text-foreground/85 shadow-sm hover:bg-muted/50"
+          className="h-8 gap-1.5 rounded-md border-border/70 bg-background px-3 text-[12px] font-medium text-foreground shadow-none hover:bg-muted/50"
           disabled={!result}
           onClick={onClear}
         >
@@ -538,7 +546,7 @@ function ResultCard({
       </div>
 
       {result && showRaw ? (
-        <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-border bg-foreground p-3 text-[11px] leading-5 text-muted-foreground/30">
+        <pre className="mt-3 max-h-72 overflow-auto rounded-md border border-border/70 bg-muted/20 p-3 font-mono text-[11px] leading-5 text-foreground/85">
           {prettyJson(result.payload)}
         </pre>
       ) : null}
