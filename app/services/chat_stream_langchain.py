@@ -80,10 +80,26 @@ async def stream_langchain_chat_session_events(
                 except Exception as exc:
                     logger.debug("Ignoring chat stream disconnect check failure: %s", exc)
 
+            first_token_wait_remaining: float | None = None
+            if generation_started_at is not None and not first_token_received and first_token_timeout_sec > 0:
+                first_token_wait_remaining = first_token_timeout_sec - (loop.time() - generation_started_at)
+                if first_token_wait_remaining <= 0:
+                    raise TimeoutError(
+                        f"Model provider stream timed out before first token after {first_token_timeout_sec:.1f}s"
+                    )
+
+            queue_wait_timeout = options.heartbeat_sec if options.heartbeat_sec > 0 else None
+            if first_token_wait_remaining is not None:
+                queue_wait_timeout = (
+                    min(queue_wait_timeout, first_token_wait_remaining)
+                    if queue_wait_timeout is not None
+                    else first_token_wait_remaining
+                )
+
             try:
                 ev = (
-                    await asyncio.wait_for(q.get(), timeout=options.heartbeat_sec)
-                    if options.heartbeat_sec > 0
+                    await asyncio.wait_for(q.get(), timeout=queue_wait_timeout)
+                    if queue_wait_timeout is not None
                     else await q.get()
                 )
             except asyncio.TimeoutError as exc:
