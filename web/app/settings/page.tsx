@@ -265,6 +265,7 @@ export default function SettingsPage() {
 
 function SettingsPageContent() {
   const state = useSettingsPageState()
+  const settingsUnavailable = Boolean(state.loadError) && !state.hasSettingsSnapshot
   const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
   const access = useTenantAccess()
   const isAdmin = tenantAccessIsAdmin(access.data)
@@ -292,14 +293,14 @@ function SettingsPageContent() {
         bodyClassName="pt-0.5"
         top={
           <div className="space-y-2">
-            {state.loadError ? (
+            {state.loadError && state.hasSettingsSnapshot ? (
               <Alert
                 variant="destructive"
                 className="rounded-lg border-destructive/25 bg-destructive/10 shadow-none"
               >
                 <XCircle className="size-4" />
                 <div>
-                  <AlertTitle>加载失败</AlertTitle>
+                  <AlertTitle>设置刷新失败</AlertTitle>
                   <AlertDescription className="text-foreground/80">
                     {state.loadError}
                   </AlertDescription>
@@ -307,7 +308,7 @@ function SettingsPageContent() {
               </Alert>
             ) : null}
             {state.saveMessage ? <SettingsSaveFeedback message={state.saveMessage} /> : null}
-            {!state.loading && !state.settingsWritable ? (
+            {!state.loading && state.hasSettingsSnapshot && !state.settingsWritable ? (
               <Alert className="rounded-lg border-border bg-muted/40 shadow-none">
                 <AlertTitle>只读模式</AlertTitle>
                 <AlertDescription className="text-foreground/80">
@@ -343,9 +344,18 @@ function SettingsPageContent() {
           </>
         }
       >
-        {state.loading ? (
+        {state.loading && !state.hasSettingsSnapshot ? (
           <div className="flex h-64 items-center justify-center">
             <RefreshCw className="size-8 animate-spin text-muted-foreground motion-reduce:animate-none" />
+          </div>
+        ) : settingsUnavailable ? (
+          <div className="py-8">
+            <QueryErrorState
+              title="系统设置加载失败"
+              description={state.loadError || '暂时无法读取系统设置，请稍后重试。'}
+              onRetry={state.refreshSettings}
+              retrying={state.loading}
+            />
           </div>
         ) : (
           <>

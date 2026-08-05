@@ -470,6 +470,7 @@ export function useSettingsPageState() {
   const saveMessageTimeoutRef = useRef<number | null>(null)
   const [lastUpdatedKeys, setLastUpdatedKeys] = useState<string[]>([])
   const [editedSettings, setEditedSettings] = useState<EditedSystemSettings>({})
+  const hasSettingsSnapshot = settings !== null
   const settingsWritable = settings?.writable === true
 
   const editSettings = (updater: (current: EditedSystemSettings) => EditedSystemSettings) => {
@@ -1059,6 +1060,7 @@ export function useSettingsPageState() {
     handleConfigure,
     handleSaveConfig,
     hasChanges,
+    hasSettingsSnapshot,
     isGovernanceEnabled,
     isPiiAnonymizeEnabled,
     isQuarantineOnDropEnabled,
@@ -1088,6 +1090,7 @@ export function useSettingsPageState() {
     ragMerged,
     refreshAll,
     refreshBackendMeta: loadBackendMeta,
+    refreshSettings: loadSettings,
     refreshLtrModels,
     refreshSystemStatus: loadSystemStatus,
     refreshing,

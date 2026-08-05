@@ -340,6 +340,42 @@ describe('设置页保存校验', () => {
     hook.unmount()
   })
 
+  it('首次加载失败时不把默认值当成系统配置，并可单独重试恢复', async () => {
+    mocks.getSettings.mockRejectedValueOnce(new Error('配置服务暂时不可用'))
+    const hook = renderHook(() => useSettingsPageState())
+
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    expect(hook.result.current.hasSettingsSnapshot).toBe(false)
+    expect(hook.result.current.settingsWritable).toBe(false)
+    expect(hook.result.current.loadError).toContain('配置服务暂时不可用')
+
+    mocks.getSettings.mockResolvedValueOnce(settingsSnapshot)
+    await act(async () => hook.result.current.refreshSettings())
+
+    expect(hook.result.current.hasSettingsSnapshot).toBe(true)
+    expect(hook.result.current.settingsWritable).toBe(true)
+    expect(hook.result.current.loadError).toBeNull()
+    hook.unmount()
+  })
+
+  it('已有配置刷新失败时保留快照和未保存修改', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 10 }))
+    expect(hook.result.current.hasChanges).toBe(true)
+
+    mocks.getSettings.mockRejectedValueOnce(new Error('刷新暂时失败'))
+    await act(async () => hook.result.current.refreshSettings({ preserveEdits: true }))
+
+    expect(hook.result.current.hasSettingsSnapshot).toBe(true)
+    expect(hook.result.current.settingsWritable).toBe(true)
+    expect(hook.result.current.hasChanges).toBe(true)
+    expect(hook.result.current.loadError).toContain('刷新暂时失败')
+    hook.unmount()
+  })
+
   it('分别展示运行状态和后端信息错误并支持独立重试', async () => {
     mocks.getStatus.mockRejectedValueOnce(new Error('运行状态服务暂时不可用'))
     mocks.metaDetails.mockRejectedValueOnce(new Error('后端信息服务暂时不可用'))

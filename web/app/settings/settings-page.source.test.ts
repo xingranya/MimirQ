@@ -77,6 +77,23 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).toContain('if (!settingsWritable) return null')
   })
 
+  it('首次加载失败时只显示错误和专用重试，不展示默认配置或只读提示', () => {
+    expect(settingsStateSource).toContain('const hasSettingsSnapshot = settings !== null')
+    expect(settingsStateSource).toContain('refreshSettings: loadSettings')
+    expect(settingsPageSource).toContain(
+      'const settingsUnavailable = Boolean(state.loadError) && !state.hasSettingsSnapshot'
+    )
+    expect(settingsPageSource).toContain('state.loading && !state.hasSettingsSnapshot')
+    expect(settingsPageSource).toContain('settingsUnavailable ? (')
+    expect(settingsPageSource).toContain('title="系统设置加载失败"')
+    expect(settingsPageSource).toContain('onRetry={state.refreshSettings}')
+    expect(settingsPageSource).toContain(
+      '!state.loading && state.hasSettingsSnapshot && !state.settingsWritable'
+    )
+    expect(settingsPageSource).toContain('state.loadError && state.hasSettingsSnapshot')
+    expect(settingsPageSource).toContain('<AlertTitle>设置刷新失败</AlertTitle>')
+  })
+
   it('功能开关只保留一个知识图谱入口并接收只读状态', () => {
     const knowledgeSection = settingsPageSource.slice(
       settingsPageSource.indexOf("visibleSectionIdSet.has('settings-knowledge')"),
