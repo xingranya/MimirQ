@@ -107,6 +107,18 @@ from app.services.rag_runtime_limiter import (
 
 logger = get_logger("rag.engine")
 
+_POSTPROCESSED_STREAM_CHUNK_SIZE = 120
+_POSTPROCESSED_STREAM_CHUNK_INTERVAL_SEC = 0.02
+
+
+async def _stream_postprocessed_text(text: str) -> AsyncGenerator[dict[str, Any], None]:
+    """将已完成安全处理的回答分段发送，确保浏览器能逐步绘制正文。"""
+    for offset in range(0, len(text), _POSTPROCESSED_STREAM_CHUNK_SIZE):
+        chunk = text[offset : offset + _POSTPROCESSED_STREAM_CHUNK_SIZE]
+        yield {"type": "token", "data": {"content": chunk}}
+        if offset + _POSTPROCESSED_STREAM_CHUNK_SIZE < len(text):
+            await asyncio.sleep(_POSTPROCESSED_STREAM_CHUNK_INTERVAL_SEC)
+
 
 def get_agentic_runner(*, engine: "RAGEngine | None" = None) -> Any:
     from app.rag.agents.rag_agent import get_agentic_runner as _get_agentic_runner
@@ -3530,7 +3542,8 @@ Requirements:
                         yield {"type": "token", "data": {"content": suffix_md_safe}}
 
             if buffered_parts is not None:
-                yield {"type": "token", "data": {"content": full_response}}
+                async for safe_chunk in _stream_postprocessed_text(full_response):
+                    yield safe_chunk
 
             # Cost attribution per request.
             #

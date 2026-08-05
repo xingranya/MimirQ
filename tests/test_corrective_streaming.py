@@ -267,15 +267,17 @@ async def test_stream_chat_does_not_split_redacted_pii_across_chunks(
         visible_evidence_only=False,
         request_id="pii-stream-boundary-test",
     )
-    token_text = ""
+    token_chunks: list[str] = []
     try:
         async for event in stream:
             if event.get("type") == "token":
-                token_text += str((event.get("data") or {}).get("content") or "")
+                token_chunks.append(str((event.get("data") or {}).get("content") or ""))
             if event.get("type") == "done":
                 break
     finally:
         await stream.aclose()
 
+    token_text = "".join(token_chunks)
+    assert len(token_chunks) >= 2
     assert token_text == ("A" * 140) + "[REDACTED]" + ("B" * 140)
     assert raw_id not in token_text
