@@ -478,6 +478,11 @@ function SettingsContent({
     scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' })
   }, [])
 
+  const openRetrievalSettings = useCallback(() => {
+    setSearchQuery('')
+    globalThis.window.requestAnimationFrame(() => scrollTo('settings-retrieval'))
+  }, [scrollTo])
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -607,6 +612,7 @@ function SettingsContent({
                     <ModelProvidersSection
                       groupedProviders={state.groupedProviders}
                       onConfigure={state.handleConfigure}
+                      onOpenRetrievalSettings={openRetrievalSettings}
                     />
                   </SettingsSubsection>
                   {isAdmin ? (

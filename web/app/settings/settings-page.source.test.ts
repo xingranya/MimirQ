@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest'
 const settingsPageSource = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8')
 const settingsStateSource = readFileSync(resolve(__dirname, 'use-settings-page-state.ts'), 'utf8')
 const settingsGroupSource = readFileSync(resolve(__dirname, 'settings-sections.ts'), 'utf8')
+const modelProvidersSource = readFileSync(
+  resolve(__dirname, '_sections/model-providers-section.tsx'),
+  'utf8'
+)
 
 describe('设置页信息架构', () => {
   it('只保留五个一级任务分组', () => {
@@ -83,6 +87,20 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource.match(/<FeatureFlagsSection/g)).toHaveLength(1)
     expect(knowledgeSection).toContain('<SettingsSubsection title="功能开关" advanced>')
     expect(knowledgeSection).toContain('<FeatureFlagsSection')
+  })
+
+  it('重排序配置只链接到真实的检索与生成入口', () => {
+    const configurableCategories = modelProvidersSource.slice(
+      modelProvidersSource.indexOf('const CONFIGURABLE_CATEGORIES'),
+      modelProvidersSource.indexOf('const CATEGORY_INFO')
+    )
+    expect(configurableCategories).toContain("'model'")
+    expect(configurableCategories).toContain("'embedding'")
+    expect(configurableCategories).not.toContain("'reranker'")
+    expect(modelProvidersSource).toContain('href="#settings-retrieval"')
+    expect(modelProvidersSource).toContain('onOpenRetrievalSettings()')
+    expect(settingsPageSource).toContain("setSearchQuery('')")
+    expect(settingsPageSource).toContain("scrollTo('settings-retrieval')")
   })
 
   it('保存失败保持可见并允许再次保存', () => {

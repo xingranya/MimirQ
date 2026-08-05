@@ -3,7 +3,7 @@
  */
 'use client'
 
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   Eye,
   EyeOff,
@@ -24,6 +24,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ProviderIcon } from '@/components/provider-icon'
 import { cn } from '@/lib/utils'
@@ -80,6 +87,7 @@ export function ModelConfigDialog({
     message: string
   } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const saveRequestInFlightRef = useRef(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const apiKeyId = `${idPrefix}-apiKey`
@@ -122,11 +130,13 @@ export function ModelConfigDialog({
     setTestResult(null)
     setSaveError(null)
     setIsSaving(false)
+    saveRequestInFlightRef.current = false
     setShowAdvanced(false)
   }, [provider, open])
 
   const handleSave = async () => {
-    if (!provider) return
+    if (!provider || isTesting || saveRequestInFlightRef.current) return
+    saveRequestInFlightRef.current = true
     setIsSaving(true)
     setSaveError(null)
     try {
@@ -139,6 +149,7 @@ export function ModelConfigDialog({
     } catch {
       setSaveError('保存失败，请检查配置和服务连接后重试。')
     } finally {
+      saveRequestInFlightRef.current = false
       setIsSaving(false)
     }
   }
@@ -260,25 +271,29 @@ export function ModelConfigDialog({
             <Label htmlFor={modelId} className="text-sm font-medium text-foreground">
               模型
             </Label>
-            <select
-              id={modelId}
+            <Select
               value={config.model || ''}
-              onChange={(e) => setConfig({ ...config, model: e.target.value })}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-none ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onValueChange={(model) => setConfig({ ...config, model })}
+              disabled={isSaving || isTesting}
             >
-              {provider.models
-                .filter((m) => {
-                  if (provider.category === 'model') return m.type === 'chat'
-                  if (provider.category === 'embedding') return m.type === 'embedding'
-                  if (provider.category === 'reranker') return m.type === 'reranker'
-                  return true
-                })
-                .map((model) => (
-                  <option key={model.id} value={model.name}>
-                    {model.displayName}
-                  </option>
-                ))}
-            </select>
+              <SelectTrigger id={modelId} className="h-10 w-full">
+                <SelectValue placeholder="选择模型" />
+              </SelectTrigger>
+              <SelectContent>
+                {provider.models
+                  .filter((model) => {
+                    if (provider.category === 'model') return model.type === 'chat'
+                    if (provider.category === 'embedding') return model.type === 'embedding'
+                    if (provider.category === 'reranker') return model.type === 'reranker'
+                    return true
+                  })
+                  .map((model) => (
+                    <SelectItem key={model.id} value={model.name}>
+                      {model.displayName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {provider.category === 'model' ? (
@@ -371,7 +386,7 @@ export function ModelConfigDialog({
             ) : null}
             <Button
               onClick={handleSave}
-              disabled={!canSubmit || isSaving}
+              disabled={!canSubmit || isSaving || isTesting}
               className="h-10 flex-1 rounded-md"
             >
               {isSaving ? (

@@ -25,6 +25,13 @@ describe('模型配置弹窗视觉契约', () => {
     expect(source).not.toContain('Max Tokens')
   })
 
+  it('模型选择使用共享下拉层并在请求期间锁定', () => {
+    expect(source).toContain("from '@/components/ui/select'")
+    expect(source).toContain('<SelectContent>')
+    expect(source).toContain('disabled={isSaving || isTesting}')
+    expect(source).not.toContain('<select')
+  })
+
   it('保存完成前保持弹窗，失败时保留配置和错误提示', () => {
     expect(source).toContain(
       'onSave: (providerId: string, config: ProviderConfig) => Promise<boolean>'

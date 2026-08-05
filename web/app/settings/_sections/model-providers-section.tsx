@@ -31,11 +31,13 @@ const CATEGORY_INFO: Record<
 type ModelProvidersSectionProps = {
   groupedProviders: Record<ProviderCategory, ModelProvider[]>
   onConfigure: (provider: ModelProvider) => void
+  onOpenRetrievalSettings: () => void
 }
 
 export function ModelProvidersSection({
   groupedProviders,
   onConfigure,
+  onOpenRetrievalSettings,
 }: Readonly<ModelProvidersSectionProps>) {
   return (
     <section>
@@ -84,6 +86,10 @@ export function ModelProvidersSection({
           <a
             href="#settings-retrieval"
             className="inline-flex h-9 shrink-0 items-center gap-2 text-sm font-medium text-primary focus-ring"
+            onClick={(event) => {
+              event.preventDefault()
+              onOpenRetrievalSettings()
+            }}
           >
             前往检索与生成
             <ArrowRight className="size-4" aria-hidden="true" />

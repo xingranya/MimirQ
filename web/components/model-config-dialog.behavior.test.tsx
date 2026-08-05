@@ -81,6 +81,13 @@ describe('模型配置弹窗保存行为', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(buttonByText('保存中…').disabled).toBe(true)
 
+    act(() => {
+      buttonByText('保存中…').click()
+      buttonByText('关闭').click()
+    })
+    expect(onSave).toHaveBeenCalledOnce()
+    expect(onClose).not.toHaveBeenCalled()
+
     await act(async () => {
       resolveSave?.(false)
       await Promise.resolve()
@@ -92,6 +99,25 @@ describe('模型配置弹窗保存行为', () => {
     expect((document.body.querySelector('input[type="password"]') as HTMLInputElement).value).toBe(
       'saved-secret'
     )
+  })
+
+  it('保存请求异常时只显示可执行的用户提示', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('database connection refused'))
+    const onClose = vi.fn()
+
+    await act(async () => {
+      root.render(<ModelConfigDialog provider={provider} open onClose={onClose} onSave={onSave} />)
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      buttonByText('保存配置').click()
+      await Promise.resolve()
+    })
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('保存失败，请检查配置和服务连接后重试。')
+    expect(document.body.textContent).not.toContain('database connection refused')
   })
 
   it('保存成功后才关闭弹窗', async () => {
