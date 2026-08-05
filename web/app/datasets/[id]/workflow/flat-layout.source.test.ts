@@ -26,11 +26,13 @@ describe('数据集工作流页扁平化契约', () => {
     expect(pageSource).toContain('<WorkflowEditor')
     expect(pageSource).toContain('onWorkflowLayoutChange')
     expect(pageSource).toContain('copySelectedJson')
+    expect(pageSource).toContain('<QueryErrorState')
+    expect(pageSource).toContain('savedConfigJsonRef')
   })
 
   it('保护未保存布局并覆盖移动端程序化导航', () => {
     expect(pageSource).toContain('useUnsavedNavigationGuard')
-    expect(pageSource).toContain('enabled: hasUnsavedLayoutChanges && !saving')
+    expect(pageSource).toContain('enabled: hasUnsavedLayoutChanges || saving || importing')
     expect(pageSource).toContain('onSectionNavigate={navigationGuard.requestNavigation}')
     expect(pageSource).toContain('navigationGuard.navigationPending')
     expect(pageSource).toContain('放弃更改并离开')
@@ -48,5 +50,6 @@ describe('数据集工作流页扁平化契约', () => {
     expect(pageSource).not.toContain('text-[11px]')
     expect(pageSource).not.toContain('CONFIG GRAPH')
     expect(pageSource).not.toContain('replace=true')
+    expect(pageSource).not.toContain('formatApiError')
   })
 })
