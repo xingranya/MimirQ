@@ -118,7 +118,7 @@ const menuSections: MenuSection[] = [
 const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['conversation', 'knowledge'])
 const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v3'
 const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
-const NAV_ACTIVE_VISIBILITY_DELAY_MS = 220
+const NAV_ACTIVE_VISIBILITY_DELAY_MS = 360
 const NAV_ACTIVE_VISIBILITY_PADDING = 8
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',

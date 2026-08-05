@@ -467,7 +467,7 @@ describe('Navbar behavior', () => {
     } as DOMRect)
 
     act(() => {
-      vi.advanceTimersByTime(250)
+      vi.advanceTimersByTime(400)
     })
 
     expect(scrollArea?.scrollTop).toBe(54)
