@@ -446,6 +446,34 @@ describe('Navbar behavior', () => {
     secondView.unmount()
   })
 
+  it('活动入口被底部区域裁切时滚动到可见范围', () => {
+    vi.useFakeTimers()
+    routerMocks.pathname = '/settings'
+    const view = renderComponent(React.createElement(Navbar))
+    const scrollArea = view.container.querySelector<HTMLElement>(
+      '[data-sidebar-scroll-container="true"]'
+    )
+    const activeLink = scrollArea?.querySelector<HTMLElement>('a[aria-current="page"]')
+
+    expect(scrollArea).not.toBeNull()
+    expect(activeLink?.getAttribute('href')).toBe('/settings')
+    vi.spyOn(scrollArea as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      bottom: 100,
+    } as DOMRect)
+    vi.spyOn(activeLink as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 110,
+      bottom: 146,
+    } as DOMRect)
+
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(scrollArea?.scrollTop).toBe(54)
+    view.unmount()
+  })
+
   it('preserves manually collapsed sections across remounts while opening the active section', () => {
     routerMocks.pathname = '/'
 

@@ -118,6 +118,8 @@ const menuSections: MenuSection[] = [
 const DEFAULT_OPEN_SECTIONS = new Set<SectionId>(['conversation', 'knowledge'])
 const OPEN_SECTIONS_STORAGE_KEY = 'mimirq_navbar_open_sections_v3'
 const NAV_SCROLL_STORAGE_KEY = 'mimirq_navbar_scroll_top_v1'
+const NAV_ACTIVE_VISIBILITY_DELAY_MS = 220
+const NAV_ACTIVE_VISIBILITY_PADDING = 8
 const NAVIGATION_PARENT_ROUTES: Record<string, string> = {
   '/knowledge/similarity': '/evaluations',
   '/settings/groups': '/settings/rbac',
@@ -424,6 +426,34 @@ export function Navbar({
     })
     return () => globalThis.cancelAnimationFrame(frame)
   }, [hasHydratedOpenSections])
+
+  useEffect(() => {
+    if (!hasHydratedOpenSections || !activeHref) return
+
+    const timer = globalThis.window.setTimeout(() => {
+      const scrollContainer = navScrollRef.current
+      const activeItem = scrollContainer?.querySelector<HTMLElement>('a[aria-current="page"]')
+      if (!scrollContainer || !activeItem) return
+
+      const containerRect = scrollContainer.getBoundingClientRect()
+      const activeItemRect = activeItem.getBoundingClientRect()
+      if (containerRect.bottom <= containerRect.top || activeItemRect.bottom <= activeItemRect.top) return
+
+      let nextScrollTop = scrollContainer.scrollTop
+      if (activeItemRect.top < containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING) {
+        nextScrollTop -= containerRect.top + NAV_ACTIVE_VISIBILITY_PADDING - activeItemRect.top
+      } else if (activeItemRect.bottom > containerRect.bottom - NAV_ACTIVE_VISIBILITY_PADDING) {
+        nextScrollTop += activeItemRect.bottom - containerRect.bottom + NAV_ACTIVE_VISIBILITY_PADDING
+      }
+
+      nextScrollTop = Math.max(0, nextScrollTop)
+      if (nextScrollTop === scrollContainer.scrollTop) return
+      scrollContainer.scrollTop = nextScrollTop
+      writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(nextScrollTop))
+    }, NAV_ACTIVE_VISIBILITY_DELAY_MS)
+
+    return () => globalThis.window.clearTimeout(timer)
+  }, [activeHref, hasHydratedOpenSections, openSections])
 
   const handleNavScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     writeClientStorage(NAV_SCROLL_STORAGE_KEY, String(event.currentTarget.scrollTop))
