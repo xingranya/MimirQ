@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { AppFrame } from '@/components/app-frame'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import {
@@ -63,6 +64,12 @@ import type {
   OnlineQualitySummaryResponse,
   PromptPreviewResponse,
 } from '@/types'
+
+import {
+  clampDiagnosticInteger,
+  clampDiagnosticNumber,
+  DIAGNOSTIC_PARAMETER_LIMITS,
+} from './diagnostics-parameters'
 
 const CARD_BASE =
   'min-w-0 bg-card p-4'
@@ -480,7 +487,7 @@ function vectorBackendLabel(
     firstDiagnosticString(
       vectorBackend,
       healthPayload?.vector_backend
-    ) || 'milvus'
+    ) || '未确认'
   )
 }
 
@@ -846,6 +853,7 @@ export default function DiagnosticsPage() {
     null
   )
   const [probeRunning, setProbeRunning] = useState(false)
+  const [probeError, setProbeError] = useState('')
   const [selectedDimensions, setSelectedDimensions] = useState<
     DiagnosticDimensionId[]
   >(DIAGNOSTIC_DIMENSIONS.map((dimension) => dimension.id))
@@ -855,6 +863,7 @@ export default function DiagnosticsPage() {
   const [driftThreshold, setDriftThreshold] = useState(0.05)
   const [driftSnapshot, setDriftSnapshot] = useState<JsonObject | null>(null)
   const [driftRunning, setDriftRunning] = useState(false)
+  const [driftError, setDriftError] = useState('')
 
   const [perfSuiteIterations, setPerfSuiteIterations] = useState(10)
   const [perfSuiteTimeoutSec, setPerfSuiteTimeoutSec] = useState(2)
@@ -862,6 +871,7 @@ export default function DiagnosticsPage() {
     null
   )
   const [perfSuiteRunning, setPerfSuiteRunning] = useState(false)
+  const [perfSuiteError, setPerfSuiteError] = useState('')
 
   const datasetsQuery = useQuery({
     queryKey: queryKeys.datasets.exhaustive({ purpose: 'diagnostics' }),
@@ -870,6 +880,10 @@ export default function DiagnosticsPage() {
   })
   const datasets = datasetsQuery.data ?? EMPTY_DATASETS
   const datasetsLoading = datasetsQuery.isPending
+  const hasDatasetsSnapshot = datasetsQuery.data !== undefined
+  const datasetsLoadError = datasetsQuery.error
+    ? '当前无法读取数据集列表。请检查账号权限或服务连接。'
+    : ''
   const activeDatasetId = probeDatasetId || datasets[0]?.id || ''
 
   const documentsQuery = useQuery({
@@ -894,7 +908,11 @@ export default function DiagnosticsPage() {
     getListItems<KnowledgeDocument>(documentsQuery.data, EMPTY_DOCUMENTS)
   const documentsLoading =
     Boolean(activeDatasetId) &&
-    (documentsQuery.isPending || documentsQuery.isFetching)
+    documentsQuery.isPending
+  const hasDocumentsSnapshot = documentsQuery.data !== undefined
+  const documentsLoadError = documentsQuery.error
+    ? '当前无法读取文档范围。请检查数据集权限或服务连接。'
+    : ''
   const validSelectedDocumentIds = useMemo(() => {
     if (selectedDocumentIds.length === 0) return []
     const idSet = new Set(documents.map((document) => document.id))
@@ -906,16 +924,11 @@ export default function DiagnosticsPage() {
       window_minutes: 240,
       bucket_minutes: 5,
     }),
-    queryFn: async (): Promise<OnlineQualitySummaryResponse | null> => {
-      try {
-        return await observabilityApi.getOnlineQualitySummary({
-          window_minutes: 240,
-          bucket_minutes: 5,
-        })
-      } catch {
-        return null
-      }
-    },
+    queryFn: (): Promise<OnlineQualitySummaryResponse> =>
+      observabilityApi.getOnlineQualitySummary({
+        window_minutes: 240,
+        bucket_minutes: 5,
+      }),
     staleTime: 30_000,
   })
   const onlineQuality = onlineQualityQuery.data ?? null
@@ -925,15 +938,14 @@ export default function DiagnosticsPage() {
   const readySnapshotQuery = useQuery({
     queryKey: queryKeys.diagnostics.ready,
     queryFn: async (): Promise<JsonObject | null> => {
-      try {
-        const response = await fetch(`${API_V1_BASE_URL}/health/ready`, {
-          cache: 'no-store',
-        })
-        const payload = await response.json().catch(() => null)
-        return isDiagnosticRecord(payload) ? payload : null
-      } catch {
-        return null
+      const response = await fetch(`${API_V1_BASE_URL}/health/ready`, {
+        cache: 'no-store',
+      })
+      const payload = await response.json().catch(() => null)
+      if (!isDiagnosticRecord(payload)) {
+        throw new Error('就绪检查没有返回有效结果')
       }
+      return payload
     },
     refetchInterval: 30_000,
     staleTime: 10_000,
@@ -944,13 +956,8 @@ export default function DiagnosticsPage() {
 
   const depsSnapshotQuery = useQuery({
     queryKey: queryKeys.diagnostics.deps,
-    queryFn: async (): Promise<DepsDiagnosticsResponse | null> => {
-      try {
-        return await observabilityApi.getDepsDiagnosticsSnapshot()
-      } catch {
-        return null
-      }
-    },
+    queryFn: (): Promise<DepsDiagnosticsResponse> =>
+      observabilityApi.getDepsDiagnosticsSnapshot(),
     staleTime: 15_000,
   })
   const depsSnapshot = depsSnapshotQuery.data ?? null
@@ -962,7 +969,7 @@ export default function DiagnosticsPage() {
       return
     }
     setProbeRunning(true)
-    setProbeResult(null)
+    setProbeError('')
     try {
       const res = await ragApi.promptPreview({
         query: probeQuery.trim(),
@@ -973,42 +980,72 @@ export default function DiagnosticsPage() {
       setProbeResult(res)
       toast.success('检索预览完成')
     } catch (err) {
-      toast.error(formatApiError(err, '检索预览失败'))
+      const message = formatApiError(err, '检索预览失败')
+      setProbeError(message)
+      toast.error(message)
     } finally {
       setProbeRunning(false)
     }
   }
 
   async function runEmbeddingDriftProbe() {
+    const sampleN = clampDiagnosticInteger(
+      driftSampleN,
+      DIAGNOSTIC_PARAMETER_LIMITS.driftSample,
+      200
+    )
+    const threshold = clampDiagnosticNumber(
+      driftThreshold,
+      DIAGNOSTIC_PARAMETER_LIMITS.driftThreshold,
+      0.05
+    )
+    setDriftSampleN(sampleN)
+    setDriftThreshold(threshold)
     setDriftRunning(true)
-    setDriftSnapshot(null)
+    setDriftError('')
     try {
       const res = await observabilityApi.getEmbeddingDriftSnapshot({
         dataset_id: activeDatasetId || undefined,
-        sample_n: driftSampleN,
-        drift_threshold: driftThreshold,
+        sample_n: sampleN,
+        drift_threshold: threshold,
       })
       setDriftSnapshot(res)
       toast.success('漂移检查完成')
     } catch (err) {
-      toast.error(formatApiError(err, '漂移检查失败'))
+      const message = formatApiError(err, '漂移检查失败')
+      setDriftError(message)
+      toast.error(message)
     } finally {
       setDriftRunning(false)
     }
   }
 
   async function runPerfSuiteProbe() {
+    const iterations = clampDiagnosticInteger(
+      perfSuiteIterations,
+      DIAGNOSTIC_PARAMETER_LIMITS.perfIterations,
+      10
+    )
+    const timeoutSec = clampDiagnosticNumber(
+      perfSuiteTimeoutSec,
+      DIAGNOSTIC_PARAMETER_LIMITS.perfTimeout,
+      2
+    )
+    setPerfSuiteIterations(iterations)
+    setPerfSuiteTimeoutSec(timeoutSec)
     setPerfSuiteRunning(true)
-    setPerfSuiteResult(null)
+    setPerfSuiteError('')
     try {
       const res = await observabilityApi.runPerfSuite({
-        iterations: perfSuiteIterations,
-        timeout_sec: perfSuiteTimeoutSec,
+        iterations,
+        timeout_sec: timeoutSec,
       })
       setPerfSuiteResult(res)
       toast.success('性能门禁完成')
     } catch (err) {
-      toast.error(formatApiError(err, '性能门禁失败'))
+      const message = formatApiError(err, '性能门禁失败')
+      setPerfSuiteError(message)
+      toast.error(message)
     } finally {
       setPerfSuiteRunning(false)
     }
@@ -1039,6 +1076,20 @@ export default function DiagnosticsPage() {
   const driftStatusLabel = driftResultLabel(driftSnapshot, driftMetric)
   const perfGateStatus = perfGateResultStatus(perfSuiteResult)
   const perfGateTone = perfGateResultTone(perfSuiteResult, perfGateStatus)
+  const failedStatusLabels = [
+    health.error ? '系统健康' : '',
+    meta.error ? '服务信息' : '',
+    readySnapshotQuery.error ? '依赖就绪' : '',
+    onlineQualityQuery.error ? '在线评估' : '',
+    depsSnapshotQuery.error ? '依赖资源' : '',
+  ].filter(Boolean)
+  const statusRetrying = Boolean(
+    health.isFetching ||
+    meta.isFetching ||
+    readySnapshotQuery.isFetching ||
+    onlineQualityQuery.isFetching ||
+    depsSnapshotQuery.isFetching
+  )
   const dependencyItems = [
     {
       label: '检索库',
@@ -1072,6 +1123,8 @@ export default function DiagnosticsPage() {
   )
 
   const toggleDocument = useCallback((documentId: string) => {
+    setProbeResult(null)
+    setProbeError('')
     if (documentId === ALL_DOCUMENTS_VALUE) {
       setSelectedDocumentIds([])
       return
@@ -1305,16 +1358,20 @@ export default function DiagnosticsPage() {
             <TopHUDTile
               icon={ShieldCheck}
               label="系统健康"
-              value={healthStatusLabel(health.isPending, healthOk)}
+              value={
+                health.error && !health.data
+                  ? '检查失败'
+                  : healthStatusLabel(health.isPending, healthOk)
+              }
               detail="健康探针"
               tone={okTone(healthOk)}
             />
             <TopHUDTile
               icon={Clock}
               label="服务时间与接口版本"
-              value={serviceTime}
+              value={meta.error && !meta.data ? '检查失败' : serviceTime}
               detail={meta.data?.api_version || 'v1'}
-              tone="green"
+              tone={meta.error && !meta.data ? 'red' : 'green'}
             />
             <TopHUDTile
               icon={Database}
@@ -1324,7 +1381,9 @@ export default function DiagnosticsPage() {
                 readySnapshot,
                 readyOk,
                 '全部就绪',
-                '异常'
+                readySnapshotQuery.error && !readySnapshot
+                  ? '检查失败'
+                  : '异常'
               )}
               detail="就绪检查"
               tone={okTone(readyOk, 'blue')}
@@ -1332,12 +1391,18 @@ export default function DiagnosticsPage() {
             <TopHUDTile
               icon={Activity}
               label="在线评估"
-              value={onlineQualityStatusLabel(
-                onlineQualityLoading,
-                onlineQuality?.enabled
-              )}
+              value={
+                onlineQualityQuery.error && !onlineQuality
+                  ? '检查失败'
+                  : onlineQualityStatusLabel(
+                      onlineQualityLoading,
+                      onlineQuality?.enabled
+                    )
+              }
               detail="在线指标"
-              tone="purple"
+              tone={
+                onlineQualityQuery.error && !onlineQuality ? 'red' : 'purple'
+              }
             />
             <TopHUDTile
               icon={Gauge}
@@ -1351,9 +1416,24 @@ export default function DiagnosticsPage() {
               label="向量服务"
               value={currentVectorBackend}
               detail="向量服务"
-              tone="green"
+              tone={currentVectorBackend === '未确认' ? 'slate' : 'green'}
             />
           </section>
+
+          {failedStatusLabels.length > 0 && (
+            <QueryErrorState
+              title="部分诊断状态加载失败"
+              description={`无法读取：${failedStatusLabels.join('、')}。已有成功结果会继续显示。`}
+              onRetry={() => {
+                if (health.error) health.refetch()
+                if (meta.error) meta.refetch()
+                if (readySnapshotQuery.error) readySnapshotQuery.refetch()
+                if (onlineQualityQuery.error) onlineQualityQuery.refetch()
+                if (depsSnapshotQuery.error) depsSnapshotQuery.refetch()
+              }}
+              retrying={statusRetrying}
+            />
+          )}
 
           <section aria-label="诊断工作区" className="grid overflow-hidden rounded-md border border-border bg-border gap-px lg:grid-cols-12">
             <div className={cn(CARD_BASE, 'lg:col-span-4')}>
@@ -1368,6 +1448,8 @@ export default function DiagnosticsPage() {
                     onValueChange={(value) => {
                       setProbeDatasetId(value)
                       setSelectedDocumentIds([])
+                      setProbeResult(null)
+                      setProbeError('')
                     }}
                     disabled={datasetsLoading || datasets.length === 0}
                   >
@@ -1394,6 +1476,15 @@ export default function DiagnosticsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {datasetsLoadError && (
+                    <QueryErrorState
+                      title={hasDatasetsSnapshot ? '数据集刷新失败' : '数据集加载失败'}
+                      description={datasetsLoadError}
+                      onRetry={() => datasetsQuery.refetch()}
+                      retrying={datasetsQuery.isFetching}
+                      className="mt-2 p-3"
+                    />
+                  )}
                 </div>
                 <div>
                   <Label className={FIELD_LABEL}>文档范围</Label>
@@ -1447,6 +1538,15 @@ export default function DiagnosticsPage() {
                       })}
                     </SelectContent>
                   </Select>
+                  {documentsLoadError && (
+                    <QueryErrorState
+                      title={hasDocumentsSnapshot ? '文档范围刷新失败' : '文档范围加载失败'}
+                      description={documentsLoadError}
+                      onRetry={() => documentsQuery.refetch()}
+                      retrying={documentsQuery.isFetching}
+                      className="mt-2 p-3"
+                    />
+                  )}
                   {selectedDocuments.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {selectedDocuments.slice(0, 3).map((document) => (
@@ -1473,7 +1573,11 @@ export default function DiagnosticsPage() {
                   <Label className={FIELD_LABEL}>检索问题</Label>
                   <Textarea
                     value={probeQuery}
-                    onChange={(e) => setProbeQuery(e.target.value)}
+                    onChange={(e) => {
+                      setProbeQuery(e.target.value)
+                      setProbeResult(null)
+                      setProbeError('')
+                    }}
                     placeholder="输入需要验证的知识问题"
                     className="min-h-[80px] resize-none border-border bg-background text-sm"
                   />
@@ -1494,11 +1598,22 @@ export default function DiagnosticsPage() {
                       setProbeDatasetId(datasets[0]?.id || '')
                       setSelectedDocumentIds([])
                       setProbeQuery('')
+                      setProbeResult(null)
+                      setProbeError('')
                     }}
                   >
                     <Eraser className="size-4" aria-hidden="true" /> 清空
                   </Button>
                 </div>
+                {probeError && (
+                  <QueryErrorState
+                    title="检索预览失败"
+                    description={probeError}
+                    onRetry={runPromptPreviewProbe}
+                    retrying={probeRunning}
+                    className="p-3"
+                  />
+                )}
               </div>
             </div>
 
@@ -1538,48 +1653,108 @@ export default function DiagnosticsPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className={FIELD_LABEL}>相似度阈值</Label>
+                    <Label htmlFor="diagnostics-drift-threshold" className={FIELD_LABEL}>
+                      相似度阈值（0 到 1）
+                    </Label>
                     <Input
+                      id="diagnostics-drift-threshold"
                       type="number"
                       step="0.01"
+                      min={DIAGNOSTIC_PARAMETER_LIMITS.driftThreshold.min}
+                      max={DIAGNOSTIC_PARAMETER_LIMITS.driftThreshold.max}
                       value={driftThreshold}
-                      onChange={(e) =>
-                        setDriftThreshold(Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        setDriftThreshold(
+                          clampDiagnosticNumber(
+                            e.currentTarget.valueAsNumber,
+                            DIAGNOSTIC_PARAMETER_LIMITS.driftThreshold,
+                            driftThreshold
+                          )
+                        )
+                        setDriftSnapshot(null)
+                        setDriftError('')
+                      }}
+                      inputMode="decimal"
                       className="h-9 rounded-md border-border bg-background text-sm"
                     />
                   </div>
                   <div>
-                    <Label className={FIELD_LABEL}>采样数量</Label>
+                    <Label htmlFor="diagnostics-drift-sample" className={FIELD_LABEL}>
+                      采样数量（1 到 2000）
+                    </Label>
                     <Input
+                      id="diagnostics-drift-sample"
                       type="number"
+                      min={DIAGNOSTIC_PARAMETER_LIMITS.driftSample.min}
+                      max={DIAGNOSTIC_PARAMETER_LIMITS.driftSample.max}
+                      step="1"
                       value={driftSampleN}
-                      onChange={(e) => setDriftSampleN(Number(e.target.value))}
+                      onChange={(e) => {
+                        setDriftSampleN(
+                          clampDiagnosticInteger(
+                            e.currentTarget.valueAsNumber,
+                            DIAGNOSTIC_PARAMETER_LIMITS.driftSample,
+                            driftSampleN
+                          )
+                        )
+                        setDriftSnapshot(null)
+                        setDriftError('')
+                      }}
+                      inputMode="numeric"
                       className="h-9 rounded-md border-border bg-background text-sm"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className={FIELD_LABEL}>迭代次数</Label>
+                    <Label htmlFor="diagnostics-perf-iterations" className={FIELD_LABEL}>
+                      迭代次数（1 到 200）
+                    </Label>
                     <Input
+                      id="diagnostics-perf-iterations"
                       type="number"
+                      min={DIAGNOSTIC_PARAMETER_LIMITS.perfIterations.min}
+                      max={DIAGNOSTIC_PARAMETER_LIMITS.perfIterations.max}
+                      step="1"
                       value={perfSuiteIterations}
-                      onChange={(e) =>
-                        setPerfSuiteIterations(Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        setPerfSuiteIterations(
+                          clampDiagnosticInteger(
+                            e.currentTarget.valueAsNumber,
+                            DIAGNOSTIC_PARAMETER_LIMITS.perfIterations,
+                            perfSuiteIterations
+                          )
+                        )
+                        setPerfSuiteResult(null)
+                        setPerfSuiteError('')
+                      }}
+                      inputMode="numeric"
                       className="h-9 rounded-md border-border bg-background text-sm"
                     />
                   </div>
                   <div>
-                    <Label className={FIELD_LABEL}>超时时间（秒）</Label>
+                    <Label htmlFor="diagnostics-perf-timeout" className={FIELD_LABEL}>
+                      超时时间（0.05 到 10 秒）
+                    </Label>
                     <Input
+                      id="diagnostics-perf-timeout"
                       type="number"
-                      step="0.1"
+                      step="0.05"
+                      min={DIAGNOSTIC_PARAMETER_LIMITS.perfTimeout.min}
+                      max={DIAGNOSTIC_PARAMETER_LIMITS.perfTimeout.max}
                       value={perfSuiteTimeoutSec}
-                      onChange={(e) =>
-                        setPerfSuiteTimeoutSec(Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        setPerfSuiteTimeoutSec(
+                          clampDiagnosticNumber(
+                            e.currentTarget.valueAsNumber,
+                            DIAGNOSTIC_PARAMETER_LIMITS.perfTimeout,
+                            perfSuiteTimeoutSec
+                          )
+                        )
+                        setPerfSuiteResult(null)
+                        setPerfSuiteError('')
+                      }}
+                      inputMode="decimal"
                       className="h-9 rounded-md border-border bg-background text-sm"
                     />
                   </div>
@@ -1611,6 +1786,24 @@ export default function DiagnosticsPage() {
                     性能门禁
                   </Button>
                 </div>
+                {driftError && (
+                  <QueryErrorState
+                    title="漂移检查失败"
+                    description={driftError}
+                    onRetry={runEmbeddingDriftProbe}
+                    retrying={driftRunning}
+                    className="p-3"
+                  />
+                )}
+                {perfSuiteError && (
+                  <QueryErrorState
+                    title="性能门禁失败"
+                    description={perfSuiteError}
+                    onRetry={runPerfSuiteProbe}
+                    retrying={perfSuiteRunning}
+                    className="p-3"
+                  />
+                )}
               </div>
             </div>
           </section>

@@ -20,6 +20,30 @@ describe('诊断中心页面源码契约', () => {
     expect(source).toContain('probeRunning')
     expect(source).toContain('driftRunning')
     expect(source).toContain('perfSuiteRunning')
+    expect(source).toContain('probeError')
+    expect(source).toContain('driftError')
+    expect(source).toContain('perfSuiteError')
+    expect(source).not.toContain('setProbeResult(null)\n    try')
+    expect(source).not.toContain('setDriftSnapshot(null)\n    try')
+    expect(source).not.toContain('setPerfSuiteResult(null)\n    try')
+  })
+
+  it('区分请求失败与空数据，并提供局部重试', () => {
+    expect(source).toContain('failedStatusLabels')
+    expect(source).toContain('title="部分诊断状态加载失败"')
+    expect(source).toContain('datasetsLoadError')
+    expect(source).toContain('documentsLoadError')
+    expect(source).toContain('datasetsQuery.refetch()')
+    expect(source).toContain('documentsQuery.refetch()')
+    expect(source).not.toContain('return await observabilityApi.getDepsDiagnosticsSnapshot()')
+  })
+
+  it('按后端契约限制漂移和性能参数', () => {
+    expect(source).toContain('DIAGNOSTIC_PARAMETER_LIMITS.driftSample')
+    expect(source).toContain('DIAGNOSTIC_PARAMETER_LIMITS.driftThreshold')
+    expect(source).toContain('DIAGNOSTIC_PARAMETER_LIMITS.perfIterations')
+    expect(source).toContain('DIAGNOSTIC_PARAMETER_LIMITS.perfTimeout')
+    expect(source).toContain('valueAsNumber')
   })
 
   it('保留数据集、文档和诊断维度选择', () => {
