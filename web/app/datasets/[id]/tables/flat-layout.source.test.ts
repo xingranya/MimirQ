@@ -14,22 +14,24 @@ describe('数据集表格资产页扁平化契约', () => {
   })
 
   it('用标签页按需展示表格分析能力', () => {
-    expect(pageSource).toContain('<Tabs defaultValue="overview"')
-    expect(pageSource).toContain('<TabsTrigger value="overview"')
-    expect(pageSource).toContain('<TabsTrigger value="sql"')
-    expect(pageSource).toContain('<TabsTrigger value="ask"')
-    expect(pageSource).toContain('<TabsTrigger value="semantic"')
+    expect(pageSource).toMatch(/<Tabs\s+defaultValue="overview"/)
+    expect(pageSource).toMatch(/<TabsTrigger\s+value="overview"/)
+    expect(pageSource).toMatch(/<TabsTrigger\s+value="sql"/)
+    expect(pageSource).toMatch(/<TabsTrigger\s+value="ask"/)
+    expect(pageSource).toMatch(/<TabsTrigger\s+value="semantic"/)
     expect(pageSource).toContain('xl:overflow-hidden')
     expect(pageSource).toContain('overflow-y-auto')
   })
 
   it('保留详情、查询、问答和语义过滤接口', () => {
     expect(pageSource).toContain('datasetApi.getTable')
+    expect(pageSource).toContain('queryKeys.datasets.tableDetail')
     expect(pageSource).toContain('datasetApi.queryTable')
     expect(pageSource).toContain('datasetApi.askTable')
     expect(pageSource).toContain('datasetApi.lotusSemFilter')
     expect(pageSource).toContain('<TableResult ariaLabel="数据表查询结果"')
     expect(pageSource).toContain('<TableResult ariaLabel="语义过滤结果"')
+    expect(pageSource).toContain('<QueryErrorState')
   })
 
   it('移除旧装饰表面和用户可见内部开关名', () => {

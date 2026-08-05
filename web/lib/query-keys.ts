@@ -28,8 +28,7 @@ export const queryKeys = {
     config: (id: string) => ['datasets', 'config', id] as const,
     health: (id: string) => ['datasets', 'health', id] as const,
     ingestionPolicy: (id: string) => ['datasets', 'ingestion-policy', id] as const,
-    ingestionPolicyVersions: (id: string) =>
-      ['datasets', 'ingestion-policy-versions', id] as const,
+    ingestionPolicyVersions: (id: string) => ['datasets', 'ingestion-policy-versions', id] as const,
     ingestionStats: (id: string) => ['datasets', 'ingestion-stats', id] as const,
     precheckRuns: (id: string, params?: QueryParams) =>
       ['datasets', 'precheck-runs', id, params] as const,
@@ -47,6 +46,8 @@ export const queryKeys = {
       ['datasets', 'precheck-finding-files', id, runId, findingKey, params] as const,
     categories: (id: string) => ['datasets', 'categories', id] as const,
     tables: (id: string, params?: QueryParams) => ['datasets', 'tables', id, params] as const,
+    tableDetail: (id: string, tableId: string) =>
+      ['datasets', 'tables', id, 'detail', tableId] as const,
     dbCatalogTables: (id: string, params?: QueryParams) =>
       ['datasets', 'db-catalog', id, 'tables', params] as const,
     dbCatalogTableDetail: (id: string, tableId: string) =>
@@ -59,8 +60,7 @@ export const queryKeys = {
     conversationsAll: ['chat', 'conversations'] as const,
     conversations: (params?: QueryParams) => ['chat', 'conversations', params] as const,
     conversationPagesAll: ['chat', 'conversation-pages'] as const,
-    conversationPages: (params?: QueryParams) =>
-      ['chat', 'conversation-pages', params] as const,
+    conversationPages: (params?: QueryParams) => ['chat', 'conversation-pages', params] as const,
     messages: (conversationId: string) => ['chat', 'messages', conversationId] as const,
     summary: (conversationId: string) => ['chat', 'summary', conversationId] as const,
     ragTraces: (conversationId: string, params?: QueryParams) =>
@@ -138,8 +138,7 @@ export const queryKeys = {
     status: ['settings', 'status'] as const,
   },
   diagnostics: {
-    onlineQuality: (params?: QueryParams) =>
-      ['diagnostics', 'online-quality', params] as const,
+    onlineQuality: (params?: QueryParams) => ['diagnostics', 'online-quality', params] as const,
     ready: ['diagnostics', 'ready'] as const,
     deps: ['diagnostics', 'deps'] as const,
   },
@@ -163,8 +162,7 @@ export const queryKeys = {
       ['evaluations', 'ragas-conversation-readiness', conversationIds] as const,
     ragasRunDetail: (runId: string, params?: QueryParams) =>
       ['evaluations', 'ragas-run-detail', runId, params] as const,
-    regressionRuns: (params?: QueryParams) =>
-      ['evaluations', 'regression-runs', params] as const,
+    regressionRuns: (params?: QueryParams) => ['evaluations', 'regression-runs', params] as const,
     regressionRunDetail: (runId: string, params?: QueryParams) =>
       ['evaluations', 'regression-run-detail', runId, params] as const,
     querysetHealthRuns: (params?: QueryParams) =>
@@ -175,7 +173,6 @@ export const queryKeys = {
       ['evaluations', 'regression-leaderboard', params] as const,
     regressionRunDiff: (targetRunId: string, params?: QueryParams) =>
       ['evaluations', 'regression-run-diff', targetRunId, params] as const,
-    regressionCases: (params?: QueryParams) =>
-      ['evaluations', 'regression-cases', params] as const,
+    regressionCases: (params?: QueryParams) => ['evaluations', 'regression-cases', params] as const,
   },
 } as const
