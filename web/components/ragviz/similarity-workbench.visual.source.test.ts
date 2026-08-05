@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest'
 const workbenchSource = readFileSync(resolve(__dirname, 'similarity-workbench.tsx'), 'utf8')
 const displaySource = readFileSync(resolve(__dirname, 'similarity/display-components.tsx'), 'utf8')
 const controlsSource = readFileSync(resolve(__dirname, 'similarity/form-controls.tsx'), 'utf8')
+const filterControlsSource = readFileSync(
+  resolve(__dirname, 'similarity/filter-controls.tsx'),
+  'utf8'
+)
 const panelsSource = readFileSync(resolve(__dirname, 'similarity/panels.tsx'), 'utf8')
 const routeSource = readFileSync(resolve(__dirname, '../../app/knowledge/similarity/page.tsx'), 'utf8')
 
@@ -20,7 +24,7 @@ describe('相似度工作台视觉契约', () => {
   })
 
   it('空状态和内容面板不使用装饰性渐变与阴影', () => {
-    for (const source of [displaySource, controlsSource, panelsSource]) {
+    for (const source of [displaySource, controlsSource, filterControlsSource, panelsSource]) {
       expect(source).not.toContain('backdrop-blur')
       expect(source).not.toContain('linear-gradient')
       expect(source).not.toContain('shadow-[')
@@ -36,5 +40,15 @@ describe('相似度工作台视觉契约', () => {
     expect(workbenchSource).not.toContain('Resize left split')
     expect(workbenchSource).not.toContain('Resize right split')
     expect(workbenchSource).not.toContain('Matrix Setup')
+  })
+
+  it('筛选器拆分到支持模块并保留表单可访问性', () => {
+    expect(workbenchSource).toContain('<SimilarityFilterControls')
+    expect(filterControlsSource).toContain('htmlFor="similarity-x-display-field"')
+    expect(filterControlsSource).toContain('htmlFor="similarity-y-display-field"')
+    expect(filterControlsSource).toContain('aria-label="最低相似度"')
+    expect(filterControlsSource).toContain('aria-label="最高相似度"')
+    expect(filterControlsSource).toContain("aria-pressed={topK.axis === 'x'}")
+    expect(filterControlsSource).toContain("aria-pressed={topK.axis === 'y'}")
   })
 })

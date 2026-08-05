@@ -48,10 +48,10 @@ import {
   CollectionSelectorBlock,
   NumberField,
   isEmptyCollectionOption,
-  similarityInputClass,
   similarityNativeSelectClass,
   type SelectOption,
 } from '@/components/ragviz/similarity/form-controls'
+import { SimilarityFilterControls } from '@/components/ragviz/similarity/filter-controls'
 import {
   SimilarityMainPanel,
   type MainViewMode,
@@ -2158,210 +2158,15 @@ export function RagvizSimilarityWorkbench() {
 
             <div className="overflow-auto overscroll-contain bg-card p-3.5 no-scrollbar">
               {rightBottomPanel === 'filters' ? (
-                <Panel title="筛选器控制">
-                  {primaryEntry ? (
-                    <div className="space-y-5">
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-foreground/80">
-                          横坐标显示字段
-                        </div>
-                        <select
-                          className={similarityNativeSelectClass}
-                          value={primaryEntry.visualConfig.displayFields.xField}
-                          onChange={(e) =>
-                            updateDisplayFields(
-                              e.target.value,
-                              primaryEntry.visualConfig.displayFields.yField
-                            )
-                          }
-                        >
-                          {primaryEntry.result.x_available_fields.map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-foreground/80">
-                          纵坐标显示字段
-                        </div>
-                        <select
-                          className={similarityNativeSelectClass}
-                          value={primaryEntry.visualConfig.displayFields.yField}
-                          onChange={(e) =>
-                            updateDisplayFields(
-                              primaryEntry.visualConfig.displayFields.xField,
-                              e.target.value
-                            )
-                          }
-                        >
-                          {primaryEntry.result.y_available_fields.map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-foreground/80">
-                          相似度阈值范围
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="range"
-                              min={rangeBounds.min}
-                              max={rangeBounds.max}
-                              step={0.01}
-                              value={uiSimilarityRange.min}
-                              onChange={(e) =>
-                                updateSimilarityRange({
-                                  min: Number(e.target.value),
-                                  max: uiSimilarityRange.max,
-                                })
-                              }
-                              className="flex-1"
-                            />
-                            <input
-                              type="number"
-                              min={rangeBounds.min}
-                              max={rangeBounds.max}
-                              step={0.01}
-                              value={uiSimilarityRange.min}
-                              onChange={(e) =>
-                                updateSimilarityRange({
-                                  min: Number(e.target.value),
-                                  max: uiSimilarityRange.max,
-                                })
-                              }
-                              className={cn(similarityInputClass, 'w-20')}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="range"
-                              min={rangeBounds.min}
-                              max={rangeBounds.max}
-                              step={0.01}
-                              value={uiSimilarityRange.max}
-                              onChange={(e) =>
-                                updateSimilarityRange({
-                                  min: uiSimilarityRange.min,
-                                  max: Number(e.target.value),
-                                })
-                              }
-                              className="flex-1"
-                            />
-                            <input
-                              type="number"
-                              min={rangeBounds.min}
-                              max={rangeBounds.max}
-                              step={0.01}
-                              value={uiSimilarityRange.max}
-                              onChange={(e) =>
-                                updateSimilarityRange({
-                                  min: uiSimilarityRange.min,
-                                  max: Number(e.target.value),
-                                })
-                              }
-                              className={cn(similarityInputClass, 'w-20')}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-foreground/80">
-                          Top-K 筛选
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min={0}
-                            max={Math.max(
-                              0,
-                              uiTopK.axis === 'x'
-                                ? matrixShape(primaryEntry).cols
-                                : matrixShape(primaryEntry).rows
-                            )}
-                            step={1}
-                            value={uiTopK.value}
-                            onChange={(e) =>
-                              updateTopK({
-                                ...uiTopK,
-                                value: Number(e.target.value),
-                              })
-                            }
-                            className="flex-1"
-                          />
-                          <input
-                            type="number"
-                            min={0}
-                            max={Math.max(
-                              0,
-                              uiTopK.axis === 'x'
-                                ? matrixShape(primaryEntry).cols
-                                : matrixShape(primaryEntry).rows
-                            )}
-                            step={1}
-                            value={uiTopK.value}
-                            onChange={(e) =>
-                              updateTopK({
-                                ...uiTopK,
-                                value: Number(e.target.value),
-                              })
-                            }
-                            className={cn(similarityInputClass, 'w-20')}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant={
-                              uiTopK.axis === 'x' ? 'default' : 'outline'
-                            }
-                            size="sm"
-                            onClick={() => updateTopK({ ...uiTopK, axis: 'x' })}
-                            className="flex-1"
-                          >
-                            横轴Top-K
-                          </Button>
-                          <Button
-                            variant={
-                              uiTopK.axis === 'y' ? 'default' : 'outline'
-                            }
-                            size="sm"
-                            onClick={() => updateTopK({ ...uiTopK, axis: 'y' })}
-                            className="flex-1"
-                          >
-                            纵轴Top-K
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          当前：Top-{uiTopK.value}（
-                          {(() => {
-                            if (uiTopK.value === 0) {
-                              return '显示全部'
-                            } else if (uiTopK.axis === 'x') {
-                              return '按行取 Top-K'
-                            } else {
-                              return '按列取 Top-K'
-                            }
-                          })()}
-                          ）
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <RightEmptyInfoCard
-                      title=""
-                      icon={<Filter className="size-5" />}
-                      description="请先生成相似度矩阵后，在这里选择一个主图矩阵。"
-                    />
-                  )}
-                </Panel>
+                <SimilarityFilterControls
+                  entry={primaryEntry}
+                  rangeBounds={rangeBounds}
+                  similarityRange={uiSimilarityRange}
+                  topK={uiTopK}
+                  onDisplayFieldsChange={updateDisplayFields}
+                  onSimilarityRangeChange={updateSimilarityRange}
+                  onTopKChange={updateTopK}
+                />
               ) : (
                 <div />
               )}
