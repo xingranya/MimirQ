@@ -120,7 +120,7 @@ export function IndustryRulesSection() {
   return (
     <section>
       <div className={cn(systemWorkbenchTokens.panel, 'space-y-3.5 p-3.5')}>
-        <div className="rounded-lg border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.10),hsl(var(--background)/0.90),hsl(var(--accent)/0.08))] p-3">
+        <div className="rounded-lg border border-border/70 bg-muted/10 p-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -128,21 +128,21 @@ export function IndustryRulesSection() {
                   <WandSparkles className="h-4 w-4 text-primary" />
                   查询改写规则
                 </div>
-                <div className={settingsTextTokens.sectionBadge}>
-                  后端规则接口
+                <div className={cn(settingsTextTokens.sectionBadge, 'rounded-md')}>
+                  自动改写
                 </div>
-                <Button asChild variant="outline" className="h-7 gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold">
+                <Button asChild variant="outline" className="h-7 gap-1.5 rounded-md px-2.5 text-[11px] font-semibold">
                   <Link href="/governance/industry-rules">
-                    打开完整工作台
+                    打开规则工作台
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
               </div>
               <p className={cn(settingsTextTokens.helpText, 'mt-1 max-w-2xl')}>
-                维护行业术语、匹配规则和意图规则，用来把用户问题补全成更适合检索的表达保存前可以先运行预览，确认改写结果
+                维护行业术语、匹配规则和意图规则，把用户问题补全成更适合检索的表达。保存前可以先运行预览，确认改写结果。
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-1.5 text-center sm:min-w-[270px]">
+            <div className="grid grid-cols-3 divide-x divide-border/70 text-center sm:min-w-[270px]">
               <RuleMetric label="术语" value={loadedRuleset?.glossary_count ?? selectedRulesetSummary?.glossary_count ?? '—'} />
               <RuleMetric label="匹配" value={loadedRuleset?.pattern_count ?? selectedRulesetSummary?.pattern_count ?? '—'} />
               <RuleMetric label="意图" value={loadedRuleset?.intent_count ?? selectedRulesetSummary?.intent_count ?? '—'} />
@@ -191,11 +191,12 @@ export function IndustryRulesSection() {
                     key={item.name}
                     type="button"
                     className={cn(
-                      'rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                      'rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
                       item.name === trimmedRulesetName
-                        ? 'border-primary/25 bg-primary/10 text-primary'
-                        : 'border-border/60 bg-background/70 text-muted-foreground hover:border-primary/25 hover:text-primary'
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border/60 bg-background text-muted-foreground hover:border-primary/30 hover:text-primary'
                     )}
+                    aria-pressed={item.name === trimmedRulesetName}
                     onClick={() => setRulesetName(item.name)}
                   >
                     {item.name}
@@ -243,13 +244,13 @@ export function IndustryRulesSection() {
               </Button>
             </div>
             {previewResult ? (
-              <div className="rounded-lg border border-primary/20 bg-background/85 p-2.5">
+              <div className="rounded-md border border-primary/20 bg-background p-2.5">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/78">
                     <CheckCircle2 className={cn('h-3.5 w-3.5', previewResult.changed ? 'text-success' : 'text-muted-foreground')} />
                     {previewResult.changed ? '已命中行业术语' : '未产生改写'}
                   </div>
-                  <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {previewResult.ruleset}
                   </span>
                 </div>
@@ -352,7 +353,7 @@ export function IndustryRulesSection() {
 
 function RuleMetric({ label, value }: Readonly<{ label: string; value: number | string }>) {
   return (
-    <div className="rounded-lg border border-primary/20 bg-card/75 px-2 py-1.5">
+    <div className="px-2 py-1.5 first:pl-0 last:pr-0">
       <div className="text-[14px] font-semibold text-foreground">{value}</div>
       <div className="text-[10px] font-medium text-muted-foreground">{label}</div>
     </div>
@@ -404,8 +405,8 @@ function JsonField({
           <Label className={cn(settingsTextTokens.panelTitle, 'flex items-center gap-1.5')}>
             {icon}
             {label}
-            <span className="rounded-full border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              JSON
+            <span className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              高级格式
             </span>
           </Label>
           <div className={cn(settingsTextTokens.helpText, 'mt-1')}>{meta}</div>
