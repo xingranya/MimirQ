@@ -32,6 +32,21 @@ describe('对话 Markdown 规范化', () => {
     )
   })
 
+  it('拆分紧跟在中文句末的无序列表项', () => {
+    const source =
+      '-**比赛规则与任务流程**：每局下发 5 个订单。-**场景与商品配置变化**：新版场景包含 45 个货位。'
+    const normalized = normalizeChatMarkdown(source)
+
+    expect(normalized).toBe(
+      '- **比赛规则与任务流程**：每局下发 5 个订单。\n\n- **场景与商品配置变化**：新版场景包含 45 个货位。'
+    )
+
+    const rendered = renderToStaticMarkup(
+      createElement(ReactMarkdown, { remarkPlugins: [remarkGfm] }, normalized)
+    )
+    expect(rendered.match(/<li>/g)).toHaveLength(2)
+  })
+
   it('不改写版本号、小数、行内代码和围栏代码块', () => {
     const source = [
       '版本 V2.0，阈值 0.50，示例 `1.**原样**：值`。',

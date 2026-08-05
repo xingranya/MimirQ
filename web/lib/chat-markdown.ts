@@ -14,6 +14,10 @@ function normalizeProseSegment(segment: string): string {
     .replace(/^(#{1,6})([^\s#])/gm, '$1 $2')
     .replace(/^([ \t]*[-+*])(?=\*\*)/gm, '$1 ')
     .replace(
+      new RegExp(`([。！？；：:!?;）\\]])[ \\t]*-[ \\t]*(?=${boldTitle})`, 'g'),
+      '$1\n\n- '
+    )
+    .replace(
       new RegExp(`([。！？；：:!?;）\\]])[ \\t]*(\\d{1,2})[.．、][ \\t]*(?=${boldTitle})`, 'g'),
       '$1\n\n$2. '
     )
