@@ -144,8 +144,22 @@ export function useChatStream({
     }
   }, [clearRaf])
 
+  const flushCurrentResponseUpdate = useCallback(() => {
+    clearRaf()
+    const targetResponse = fullResponseRef.current
+    if (visibleResponseRef.current !== targetResponse) {
+      visibleResponseRef.current = targetResponse
+      setCurrentResponse(targetResponse)
+    }
+    resolveResponseRenderWaiters()
+  }, [clearRaf, resolveResponseRenderWaiters])
+
   const scheduleCurrentResponseUpdate = useCallback(() => {
     if (rafIdRef.current != null) return
+    if (globalThis.document.hidden) {
+      flushCurrentResponseUpdate()
+      return
+    }
 
     const renderNextFrame = () => {
       rafIdRef.current = globalThis.window.requestAnimationFrame(() => {
@@ -170,7 +184,15 @@ export function useChatStream({
     }
 
     renderNextFrame()
-  }, [resolveResponseRenderWaiters])
+  }, [flushCurrentResponseUpdate, resolveResponseRenderWaiters])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (globalThis.document.hidden) flushCurrentResponseUpdate()
+    }
+    globalThis.document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => globalThis.document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [flushCurrentResponseUpdate])
 
   const waitForCurrentResponseUpdate = useCallback(async () => {
     if (visibleResponseRef.current.length >= fullResponseRef.current.length && rafIdRef.current == null) return

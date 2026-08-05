@@ -99,6 +99,7 @@ describe('useChatStream accepted-stream recovery', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    Reflect.deleteProperty(document, 'hidden')
     document.body.innerHTML = ''
   })
 
@@ -450,6 +451,51 @@ describe('useChatStream accepted-stream recovery', () => {
       })
       expect(hook.result.current.isLoading).toBe(false)
     })
+    hook.unmount()
+  })
+
+  it('后台标签页收到 done 后不等待停摆的动画帧', async () => {
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: true,
+    })
+    const requestAnimationFrame = vi.fn(() => 1)
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame)
+
+    chatApiMock.streamChat.mockImplementation(
+      async (
+        _request: unknown,
+        onJson: (json: string) => void,
+        options?: { onOpen?: (meta: { requestId: string; conversationId?: string }) => void }
+      ) => {
+        options?.onOpen?.({ requestId: 'req-hidden', conversationId: 'conv-hidden' })
+        onJson(JSON.stringify({ type: 'token', data: { content: '后台收到的完整回答' } }))
+        onJson(
+          JSON.stringify({
+            type: 'done',
+            data: {
+              assistant_message_id: 'assistant-hidden',
+              conversation_id: 'conv-hidden',
+            },
+          })
+        )
+        return { requestId: 'req-hidden', conversationId: 'conv-hidden' }
+      }
+    )
+
+    const hook = renderChatStreamHook()
+    act(() => {
+      void hook.result.current.sendMessage('hello')
+    })
+
+    await waitForAssertion(() => {
+      expect(hook.result.current.messages.at(-1)).toMatchObject({
+        id: 'assistant-hidden',
+        content: '后台收到的完整回答',
+      })
+      expect(hook.result.current.isLoading).toBe(false)
+    })
+    expect(requestAnimationFrame).not.toHaveBeenCalled()
     hook.unmount()
   })
 })
