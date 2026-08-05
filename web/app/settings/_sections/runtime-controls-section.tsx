@@ -5,7 +5,6 @@ import { SettingsSwitch } from '@/components/settings/settings-switch'
 import { Input } from '@/components/ui/input'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 import type { CacheConfig, ChatConfig, LangGraphConfig, SafetyConfig } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { Database, EyeOff, Network, Server } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -21,11 +20,9 @@ type RuntimeControlsSectionProps = {
   updateLangGraph: (patch: Partial<LangGraphConfig>) => void
 }
 
-const RUNTIME_CARD =
-  'rounded-[16px] border border-border/60 bg-card/82 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.03)]'
 const RUNTIME_LABEL = settingsTextTokens.fieldLabel
 const RUNTIME_HINT = settingsTextTokens.helpText
-const RUNTIME_INPUT = 'h-8 rounded-lg border-border/60 bg-background text-[12px]'
+const RUNTIME_INPUT = 'h-9 rounded-md border-border bg-background text-sm'
 
 function RuntimeToggle({
   checked,
@@ -44,30 +41,27 @@ function RuntimeToggle({
 
 function RuntimeCard({
   icon: Icon,
-  label,
   title,
   description,
   action,
   children,
 }: Readonly<{
   icon: LucideIcon
-  label: string
   title: string
   description: string
   action?: ReactNode
   children?: ReactNode
 }>) {
   return (
-    <div className={RUNTIME_CARD}>
+    <div className="min-w-0 border-b border-border py-4 xl:px-4 xl:[&:nth-child(odd)]:border-r">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-[12px] border border-primary/20 bg-primary/10 text-primary">
-            <Icon className="h-4 w-4" />
+        <div className="flex min-w-0 gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
+            <Icon className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary/75">{label}</div>
-            <div className="mt-0.5 text-[13px] font-medium tracking-[-0.005em] text-foreground">{title}</div>
-            <div className={cn(RUNTIME_HINT, 'mt-0.5')}>{description}</div>
+            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
           </div>
         </div>
         {action}
@@ -91,15 +85,10 @@ function OptionRow({
   label: string
 }>) {
   return (
-    <div
-      className={cn(
-        'flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors',
-        checked ? 'border-primary/25 bg-primary/10' : 'border-border/60 bg-muted/28'
-      )}
-    >
+    <div className="flex items-start justify-between gap-3 border-t border-border py-3">
       <div className="min-w-0">
         <div className={settingsTextTokens.panelTitle}>{title}</div>
-        <div className={cn(RUNTIME_HINT, 'mt-0.5')}>{description}</div>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       <RuntimeToggle checked={checked} onToggle={onToggle} label={label} />
     </div>
@@ -107,15 +96,16 @@ function OptionRow({
 }
 
 function Field({
+  id,
   label,
   children,
   hint,
-}: Readonly<{ label: string; children: ReactNode; hint?: string }>) {
+}: Readonly<{ id: string; label: string; children: ReactNode; hint?: string }>) {
   return (
     <div className="space-y-1.5">
-      <div className={RUNTIME_LABEL}>{label}</div>
+      <label htmlFor={id} className={RUNTIME_LABEL}>{label}</label>
       {children}
-      {hint ? <div className={RUNTIME_HINT}>{hint}</div> : null}
+      {hint ? <p className={RUNTIME_HINT}>{hint}</p> : null}
     </div>
   )
 }
@@ -145,10 +135,9 @@ export function RuntimeControlsSection({
       tone="neutral"
       icon="help"
     >
-      <section className="grid gap-3 xl:grid-cols-2">
-      <RuntimeCard
+      <section className="grid border-t border-border xl:grid-cols-2">
+        <RuntimeCard
         icon={Server}
-        label="流式"
         title="对话流式稳定性"
         description="心跳保活连接，断连后自动释放资源"
         action={
@@ -164,8 +153,9 @@ export function RuntimeControlsSection({
         }
       >
         <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-          <Field label="心跳间隔" hint="0 表示禁用，不推荐">
+          <Field id="runtime-heartbeat-sec" label="心跳间隔（秒）" hint="0 表示禁用，不推荐。">
             <Input
+              id="runtime-heartbeat-sec"
               type="number"
               min={0}
               max={120}
@@ -177,17 +167,16 @@ export function RuntimeControlsSection({
               className={RUNTIME_INPUT}
             />
           </Field>
-          <div className={cn('rounded-xl border border-border/60 bg-muted/35 px-3 py-2', settingsTextTokens.helpText)}>
-            适合经过代理或负载均衡的长连接场景，避免空闲连接被误断
-          </div>
+          <p className="border-t border-border pt-3 text-sm leading-6 text-muted-foreground sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+            适合经过代理或负载均衡的长连接场景，避免空闲连接被误断。
+          </p>
         </div>
       </RuntimeCard>
 
       <RuntimeCard
         icon={Database}
-        label="缓存"
         title="性能与缓存"
-        description="去重与缓存为尽力而为，Redis 不可用时放行主流程"
+        description="去重与缓存用于减少重复处理，缓存服务不可用时不会阻断主流程。"
       >
         <div className="grid gap-2">
           <OptionRow
@@ -209,9 +198,10 @@ export function RuntimeControlsSection({
         </div>
 
         {isChatResponseCacheEnabled ? (
-          <div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/8 p-3 md:grid-cols-3">
-            <Field label="缓存时长（秒）">
+          <div className="grid gap-3 border-t border-primary/25 pt-3 md:grid-cols-3">
+            <Field id="runtime-cache-ttl" label="缓存时长（秒）">
               <Input
+                id="runtime-cache-ttl"
                 type="number"
                 min={0}
                 max={86400}
@@ -224,8 +214,9 @@ export function RuntimeControlsSection({
                 className={RUNTIME_INPUT}
               />
             </Field>
-            <Field label="最大字节">
+            <Field id="runtime-cache-max-bytes" label="单条结果最大字节数">
               <Input
+                id="runtime-cache-max-bytes"
                 type="number"
                 min={0}
                 max={5000000}
@@ -241,7 +232,7 @@ export function RuntimeControlsSection({
                 className={RUNTIME_INPUT}
               />
             </Field>
-            <div className="flex items-center justify-between gap-3 pt-5 text-[12px] font-medium text-muted-foreground">
+            <div className="flex items-center justify-between gap-3 pt-5 text-sm font-medium text-muted-foreground">
               <span>仅无历史</span>
               <SettingsSwitch
                 checked={cache.chat_response_cache_require_empty_history ?? true}
@@ -257,7 +248,6 @@ export function RuntimeControlsSection({
 
       <RuntimeCard
         icon={EyeOff}
-        label="安全"
         title="敏感信息脱敏"
         description="对模型输入、输出和工具调用做敏感信息遮蔽"
         action={
@@ -270,15 +260,17 @@ export function RuntimeControlsSection({
       >
         {isPiiRedactionEnabled ? (
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="脱敏占位符">
+            <Field id="runtime-pii-mask" label="脱敏占位符">
               <Input
+                id="runtime-pii-mask"
                 value={safety.pii_redaction_mask ?? '[REDACTED]'}
                 onChange={(event) => updateSafety({ pii_redaction_mask: event.target.value })}
                 className={RUNTIME_INPUT}
               />
             </Field>
-            <Field label="流式缓冲字符">
+            <Field id="runtime-pii-holdback" label="流式缓冲字符数">
               <Input
+                id="runtime-pii-holdback"
                 type="number"
                 min={0}
                 max={2048}
@@ -297,9 +289,8 @@ export function RuntimeControlsSection({
 
       <RuntimeCard
         icon={Network}
-        label="编排"
-        title="子图编排"
-        description="将检索和生成拆成子图节点，便于后续扩展编排"
+        title="流程拆分"
+        description="将检索和生成拆成独立步骤，便于定位问题和调整流程。"
         action={
           <RuntimeToggle
             checked={isSubgraphEnabled}
