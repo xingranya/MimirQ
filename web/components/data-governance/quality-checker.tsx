@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle,
@@ -11,6 +11,7 @@ import {
   Info,
   Languages,
   List,
+  Loader2,
   Play,
   ScanLine,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ import { pipelineApi } from '@/lib/api'
 import { reportClientError } from '@/lib/client-logging'
 import { cn, detachPromise } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 
 interface QualityIssue {
   id: string
@@ -209,6 +211,9 @@ export function QualityChecker({
   const [backendScanEnabled, setBackendScanEnabled] = useState(true)
   const [expandedItems, setExpandedItems] = useState<Set<CheckItemId>>(new Set(['chars']))
   const [scanProgress, setScanProgress] = useState(0)
+  const [hasScanResult, setHasScanResult] = useState(initialScore > 0 || initialIssues.length > 0)
+  const lastAutoScannedContentRef = useRef<string | null>(null)
+  const scanRequestIdRef = useRef(0)
 
   const textStats = useMemo(() => {
     const text = content || ''
@@ -273,6 +278,8 @@ export function QualityChecker({
   }, [content, t])
 
   const handleScan = useCallback(async () => {
+    const requestId = scanRequestIdRef.current + 1
+    scanRequestIdRef.current = requestId
     setIsScanning(true)
     setScanProgress(20)
 
@@ -284,12 +291,15 @@ export function QualityChecker({
         ...(await getBackendQualityIssues(content, formatInfo.format === t('format.types.html') ? 'html' : 'markdown', t))
       )
     }
+    if (requestId !== scanRequestIdRef.current) return
+
     setScanProgress(100)
 
     setIssues(detectedIssues)
 
     const calculatedScore = calculateQualityScore(detectedIssues)
     setScore(calculatedScore)
+    setHasScanResult(true)
 
     if (detectedIssues.length > 0) {
       setExpandedItems((prev) => new Set([...prev, 'issues']))
@@ -329,21 +339,26 @@ export function QualityChecker({
   }, [score, t])
 
   useEffect(() => {
-    if (content && initialScore === 0) {
-      detachPromise(handleScan())
+    if (!content) {
+      scanRequestIdRef.current += 1
+      lastAutoScannedContentRef.current = null
+      setIsScanning(false)
+      setScanProgress(0)
+      setScore(0)
+      setIssues([])
+      setHasScanResult(false)
+      return
     }
+
+    if (initialScore !== 0 || lastAutoScannedContentRef.current === content) return
+    lastAutoScannedContentRef.current = content
+    detachPromise(handleScan())
   }, [content, handleScan, initialScore])
 
-  const backendScanToggleClass = cn(
-    'h-7 rounded-lg px-2.5 text-[11px] shadow-none transition-colors motion-reduce:transition-none',
-    backendScanEnabled
-      ? 'border-success/25 bg-success/10 text-success hover:border-success/35 hover:bg-success/20 hover:text-success'
-      : 'border-border/60 bg-background/70 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-  )
   const scanButtonClass =
-    'h-7 gap-1.5 rounded-lg border-info/25 bg-info/10 text-info px-2.5 text-[11px] shadow-none hover:border-info/35 hover:bg-info/20 hover:text-info'
+    'h-9 gap-2 rounded-md px-4 text-sm font-medium shadow-none'
   const scoreCardClass = cn(
-    'rounded-xl border p-3',
+    'rounded-lg border p-4',
     scoreGrade.tone === 'success' && 'border-success/25 bg-success/8',
     scoreGrade.tone === 'info' && 'border-info/25 bg-info/8',
     scoreGrade.tone === 'warning' && 'border-warning/25 bg-warning/10',
@@ -351,72 +366,61 @@ export function QualityChecker({
   )
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+    <div className="space-y-4 p-4 sm:p-5">
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <ScanLine className="size-4 text-info" />
-            <h3 className="text-[14px] font-medium tracking-[-0.01em] text-foreground/85">{t("header.title")}</h3>
+            <ScanLine className="size-5 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">{t('header.title')}</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={backendScanToggleClass}
-              onClick={() => setBackendScanEnabled((value) => !value)}
-            >
-              {backendScanEnabled ? t('actions.backendScanOn') : t('actions.backendScanOff')}
-            </Button>
-            <Button onClick={handleScan} disabled={isScanning} variant="outline" size="sm" className={scanButtonClass}>
+          <Button onClick={handleScan} disabled={isScanning || !content.trim()} size="sm" className={scanButtonClass}>
               {isScanning ? (
                 <>
-                  <div className="h-3.5 w-3.5 rounded-full border-2 border-info/25 border-t-info motion-safe:animate-spin motion-reduce:animate-none" />
+                  <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
                   {t('actions.scanning', { progress: scanProgress })}
                 </>
               ) : (
                 <>
                   <Play className="size-3.5" />
-                  {t("actions.scan")}
+                  {t('actions.scan')}
                 </>
               )}
             </Button>
-          </div>
         </div>
 
-        {score > 0 && (
+        <div className="flex items-center justify-between gap-3 border-y border-border py-3">
+          <div className="min-w-0">
+            <label htmlFor="quality-deep-scan" className="text-sm font-medium text-foreground">
+              {t('actions.backendScanLabel')}
+            </label>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              {t('actions.backendScanDescription')}
+            </p>
+          </div>
+          <Switch
+            id="quality-deep-scan"
+            aria-label={t('actions.backendScanLabel')}
+            checked={backendScanEnabled}
+            onCheckedChange={setBackendScanEnabled}
+          />
+        </div>
+
+        {hasScanResult && (
           <div className={scoreCardClass}>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="mb-1 text-[11px] font-medium text-muted-foreground/80">{t('score.title')}</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-[28px] font-semibold leading-none text-foreground">{score}</span>
-                  <span className="text-[12px] text-muted-foreground">{t('score.outOf')}</span>
-                  <span className={cn('rounded-full px-1.5 py-0.5 text-[10.5px] font-medium leading-none', scoreGrade.badge)}>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">{t('score.title')}</div>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-2xl font-semibold leading-none text-foreground">{score}</span>
+                  <span className="text-xs text-muted-foreground">{t('score.outOf')}</span>
+                  <span className={cn('rounded-md px-2 py-1 text-xs font-medium leading-none', scoreGrade.badge)}>
                     {scoreGrade.label}
                   </span>
                 </div>
               </div>
-              <div
-                className={cn(
-                  'flex h-12 w-12 items-center justify-center rounded-full border-2',
-                  scoreGrade.tone === 'success' && 'border-success/30 bg-success/10',
-                  scoreGrade.tone === 'info' && 'border-info/30 bg-info/10',
-                  scoreGrade.tone === 'warning' && 'border-warning/30 bg-warning/10',
-                  scoreGrade.tone === 'destructive' && 'border-destructive/30 bg-destructive/10'
-                )}
-              >
-                <span
-                  className={cn(
-                    'text-[18px] font-semibold leading-none',
-                    scoreGrade.tone === 'success' && 'text-success',
-                    scoreGrade.tone === 'info' && 'text-info',
-                    scoreGrade.tone === 'warning' && 'text-warning',
-                    scoreGrade.tone === 'destructive' && 'text-destructive'
-                  )}
-                >
-                  {score}
-                </span>
-              </div>
+              <span className="text-xs text-muted-foreground">
+                {t('score.issueCount', { count: issues.length })}
+              </span>
             </div>
           </div>
         )}
@@ -427,21 +431,24 @@ export function QualityChecker({
           const Icon = item.icon
           const isExpanded = expandedItems.has(item.id)
           const issueCount = issues.filter((issue) => issue.type !== 'info').length
+          const detailId = `quality-check-${item.id}-details`
 
           return (
-            <div key={item.id} className="overflow-hidden rounded-xl border border-border">
+            <div key={item.id} className="overflow-hidden rounded-lg border border-border">
               <button
                 type="button"
+                aria-expanded={isExpanded}
+                aria-controls={detailId}
                 onClick={() => toggleExpanded(item.id)}
                 className="flex w-full items-center justify-between p-3 transition-colors hover:bg-muted motion-reduce:transition-none"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
                     <Icon className="size-4 text-muted-foreground" />
                   </div>
                   <span className="text-sm font-medium text-foreground/80">{item.label}</span>
                   {item.id === 'issues' && issueCount > 0 && (
-                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                    <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
                       {issueCount}
                     </span>
                   )}
@@ -454,9 +461,9 @@ export function QualityChecker({
               </button>
 
               {isExpanded && (
-                <div className="border-t border-border bg-muted/60 p-4 pt-0">
+                <div id={detailId} className="border-t border-border p-3">
                   {item.id === 'chars' && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
                       <StatRow label={t('stats.totalCharacters')} value={textStats.chars.toLocaleString()} />
                       <StatRow label={t('stats.charactersNoSpaces')} value={textStats.charsNoSpaces.toLocaleString()} />
                       <StatRow label={t('stats.wordCount')} value={textStats.words.toLocaleString()} />
@@ -511,10 +518,10 @@ export function QualityChecker({
                           <div
                             key={issue.id}
                             className={cn(
-                              'flex items-start gap-2 rounded-lg p-3',
-                              issue.type === 'error' && 'border border-destructive/20 bg-destructive/10',
-                              issue.type === 'warning' && 'border border-warning/20 bg-warning/10',
-                              issue.type === 'info' && 'border border-info/20 bg-info/10'
+                              'flex items-start gap-2 border-b border-border py-3 last:border-b-0',
+                              issue.type === 'error' && 'text-destructive',
+                              issue.type === 'warning' && 'text-warning',
+                              issue.type === 'info' && 'text-info'
                             )}
                           >
                             {issue.type === 'error' && (
@@ -551,7 +558,7 @@ export function QualityChecker({
 
 function StatRow({ label, value }: Readonly<{ label: string; value: string | number | boolean }>) {
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm font-medium text-foreground">{value}</span>
     </div>
