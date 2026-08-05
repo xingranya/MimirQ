@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 const settingsPageSource = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8')
 const settingsStateSource = readFileSync(resolve(__dirname, 'use-settings-page-state.ts'), 'utf8')
 const settingsGroupSource = readFileSync(resolve(__dirname, 'settings-sections.ts'), 'utf8')
+const settingsSubsectionSource = readFileSync(resolve(__dirname, 'settings-subsection.tsx'), 'utf8')
 const modelProvidersSource = readFileSync(
   resolve(__dirname, '_sections/model-providers-section.tsx'),
   'utf8'
@@ -25,6 +26,14 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).toContain('data-testid="settings-search"')
     expect(settingsPageSource).toContain('data-testid="settings-search-empty"')
     expect(settingsPageSource).toContain('data-testid="settings-mobile-group-select"')
+    expect(settingsPageSource).toContain('findSettingsSectionMatches(searchQuery)')
+    expect(settingsPageSource).toContain('match.matchedSubsectionIds')
+    expect(settingsPageSource).toContain(
+      "forceOpen={forcedOpenSubsectionIds.has('parser-services')}"
+    )
+    expect(settingsPageSource).toContain(
+      "forceOpen={forcedOpenSubsectionIds.has('object-storage')}"
+    )
   })
 
   it('保留原有设置能力', () => {
@@ -52,10 +61,10 @@ describe('设置页信息架构', () => {
   })
 
   it('低频能力使用高级配置折叠容器', () => {
-    expect(settingsPageSource).toContain('data-testid="settings-advanced-section"')
+    expect(settingsSubsectionSource).toContain('data-testid="settings-advanced-section"')
     expect(
-      settingsPageSource.match(/<SettingsSubsection[^>]+advanced>/g)?.length
-    ).toBeGreaterThanOrEqual(6)
+      settingsPageSource.match(/forceOpen={forcedOpenSubsectionIds\.has/g)?.length
+    ).toBeGreaterThanOrEqual(8)
   })
 
   it('使用固定保存栏展示未保存数量和保存状态', () => {
@@ -102,7 +111,12 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).not.toContain('RetrievalEnhancementSection')
     expect(settingsPageSource).toContain('disabled={!settingsWritable}')
     expect(settingsPageSource.match(/<FeatureFlagsSection/g)).toHaveLength(1)
-    expect(knowledgeSection).toContain('<SettingsSubsection title="功能开关" advanced>')
+    const featureFlagsBlock = knowledgeSection.slice(
+      knowledgeSection.indexOf('id="feature-flags"'),
+      knowledgeSection.indexOf('<FeatureFlagsSection')
+    )
+    expect(featureFlagsBlock).toContain('title="功能开关"')
+    expect(featureFlagsBlock).toContain('advanced')
     expect(knowledgeSection).toContain('<FeatureFlagsSection')
   })
 

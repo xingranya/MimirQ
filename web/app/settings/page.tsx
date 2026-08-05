@@ -37,8 +37,13 @@ import { RuntimeControlsSection } from './_sections/runtime-controls-section'
 import { SystemStatusSection } from './_sections/system-status-section'
 import { UrlIngestSection } from './_sections/url-ingest-section'
 import { useSettingsPageState } from './use-settings-page-state'
-import { SETTINGS_SECTIONS, type SettingsSectionDefinition } from './settings-sections'
-import { CheckCircle2, ChevronDown, RefreshCw, Save, Search, XCircle } from 'lucide-react'
+import {
+  findSettingsSectionMatches,
+  SETTINGS_SECTIONS,
+  type SettingsSectionDefinition,
+} from './settings-sections'
+import { SettingsSubsection } from './settings-subsection'
+import { CheckCircle2, RefreshCw, Save, Search, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
@@ -216,41 +221,6 @@ function SettingsSectionFrame({
   )
 }
 
-function SettingsSubsection({
-  title,
-  children,
-  advanced = false,
-}: Readonly<{
-  title: string
-  children: ReactNode
-  advanced?: boolean
-}>) {
-  if (advanced) {
-    return (
-      <details
-        data-testid="settings-advanced-section"
-        className="group border-t border-border pt-3"
-      >
-        <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-3 py-1 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-          <span>{title}</span>
-          <span className="flex shrink-0 items-center gap-2 text-xs font-normal text-muted-foreground">
-            高级配置
-            <ChevronDown className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
-          </span>
-        </summary>
-        <div className="pt-4">{children}</div>
-      </details>
-    )
-  }
-
-  return (
-    <section className="space-y-3">
-      <h3 className="text-sm font-medium text-foreground">{title}</h3>
-      {children}
-    </section>
-  )
-}
-
 export default function SettingsPage() {
   return (
     <TenantPermissionGate
@@ -401,18 +371,14 @@ function SettingsContent({
   setChunkStrategy,
 }: Readonly<SettingsContentProps>) {
   const [searchQuery, setSearchQuery] = useState('')
-  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase('zh-CN')
+  const sectionMatches = useMemo(() => findSettingsSectionMatches(searchQuery), [searchQuery])
   const visibleSections = useMemo(
-    () =>
-      normalizedSearchQuery
-        ? SETTINGS_SECTIONS.filter((section) =>
-            [section.label, section.hint, ...section.keywords]
-              .join(' ')
-              .toLocaleLowerCase('zh-CN')
-              .includes(normalizedSearchQuery)
-          )
-        : SETTINGS_SECTIONS,
-    [normalizedSearchQuery]
+    () => sectionMatches.map((match) => match.section),
+    [sectionMatches]
+  )
+  const forcedOpenSubsectionIds = useMemo(
+    () => new Set(sectionMatches.flatMap((match) => match.matchedSubsectionIds)),
+    [sectionMatches]
   )
   const visibleSectionIds = useMemo(
     () => visibleSections.map((section) => section.id),
@@ -522,7 +488,7 @@ function SettingsContent({
           <div className="min-w-0 space-y-8">
             {visibleSectionIdSet.has('settings-runtime') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-runtime']}>
-                <SettingsSubsection title="系统状态">
+                <SettingsSubsection id="system-status" title="系统状态">
                   {state.statusError ? (
                     <QueryErrorState
                       title={state.status ? '运行状态刷新失败' : '运行状态加载失败'}
@@ -550,7 +516,12 @@ function SettingsContent({
                   ) : null}
                 </SettingsSubsection>
                 <fieldset disabled={!settingsWritable} className="contents">
-                  <SettingsSubsection title="运行控制" advanced>
+                  <SettingsSubsection
+                    id="runtime-controls"
+                    title="运行控制"
+                    advanced
+                    forceOpen={forcedOpenSubsectionIds.has('runtime-controls')}
+                  >
                     <RuntimeControlsSection
                       chat={state.chatMerged}
                       updateChat={state.updateChat}
@@ -569,7 +540,7 @@ function SettingsContent({
             {visibleSectionIdSet.has('settings-models') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-models']}>
                 <fieldset disabled={!settingsWritable} className="contents">
-                  <SettingsSubsection title="模型接入">
+                  <SettingsSubsection id="model-providers" title="模型接入">
                     <ModelProvidersSection
                       groupedProviders={state.groupedProviders}
                       onConfigure={state.handleConfigure}
@@ -577,7 +548,12 @@ function SettingsContent({
                     />
                   </SettingsSubsection>
                   {isAdmin ? (
-                    <SettingsSubsection title="对象存储" advanced>
+                    <SettingsSubsection
+                      id="object-storage"
+                      title="对象存储"
+                      advanced
+                      forceOpen={forcedOpenSubsectionIds.has('object-storage')}
+                    >
                       <ObjectStorageSection
                         minio={state.minioMerged}
                         updateMinIO={state.updateMinIO}
@@ -585,7 +561,12 @@ function SettingsContent({
                     </SettingsSubsection>
                   ) : null}
                   {isAdmin ? (
-                    <SettingsSubsection title="Dify 接入" advanced>
+                    <SettingsSubsection
+                      id="dify-integration"
+                      title="Dify 接入"
+                      advanced
+                      forceOpen={forcedOpenSubsectionIds.has('dify-integration')}
+                    >
                       <DifyIntegrationSection
                         difyExternalKnowledge={state.difyExternalKnowledgeMerged}
                         updateDifyExternalKnowledge={state.updateDifyExternalKnowledge}
@@ -599,7 +580,12 @@ function SettingsContent({
             {visibleSectionIdSet.has('settings-knowledge') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-knowledge']}>
                 <fieldset disabled={!settingsWritable} className="contents">
-                  <SettingsSubsection title="高级解析">
+                  <SettingsSubsection
+                    id="parser-services"
+                    title="高级解析"
+                    advanced
+                    forceOpen={forcedOpenSubsectionIds.has('parser-services')}
+                  >
                     <ParserServicesSection
                       mineru={state.mineruMerged}
                       etl4llm={state.etl4llmMerged}
@@ -615,7 +601,12 @@ function SettingsContent({
                       updateMagicPDF={state.updateMagicPDF}
                     />
                   </SettingsSubsection>
-                  <SettingsSubsection title="功能开关" advanced>
+                  <SettingsSubsection
+                    id="feature-flags"
+                    title="功能开关"
+                    advanced
+                    forceOpen={forcedOpenSubsectionIds.has('feature-flags')}
+                  >
                     <FeatureFlagsSection
                       editedFeatureFlags={state.editedFeatureFlags}
                       getFeatureValue={state.getFeatureValue}
@@ -625,7 +616,7 @@ function SettingsContent({
                     />
                   </SettingsSubsection>
                 </fieldset>
-                <SettingsSubsection title="数据治理">
+                <SettingsSubsection id="governance" title="数据治理">
                   <GovernanceSection
                     settingsWritable={settingsWritable}
                     isGovernanceEnabled={state.isGovernanceEnabled}
@@ -637,7 +628,12 @@ function SettingsContent({
                 </SettingsSubsection>
                 {isAdmin ? (
                   <fieldset disabled={!settingsWritable} className="contents">
-                    <SettingsSubsection title="URL 采集" advanced>
+                    <SettingsSubsection
+                      id="url-ingest"
+                      title="URL 采集"
+                      advanced
+                      forceOpen={forcedOpenSubsectionIds.has('url-ingest')}
+                    >
                       <UrlIngestSection
                         urlIngest={state.urlIngestMerged}
                         updateUrlIngest={state.updateUrlIngest}
@@ -645,7 +641,12 @@ function SettingsContent({
                     </SettingsSubsection>
                   </fieldset>
                 ) : null}
-                <SettingsSubsection title="行业规则" advanced>
+                <SettingsSubsection
+                  id="industry-rules"
+                  title="行业规则"
+                  advanced
+                  forceOpen={forcedOpenSubsectionIds.has('industry-rules')}
+                >
                   <IndustryRulesSection writable={settingsWritable} />
                 </SettingsSubsection>
               </SettingsSectionFrame>
@@ -654,14 +655,19 @@ function SettingsContent({
             {visibleSectionIdSet.has('settings-retrieval') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-retrieval']}>
                 <fieldset disabled={!settingsWritable} className="contents">
-                  <SettingsSubsection title="RAG 配置">
+                  <SettingsSubsection id="rag" title="RAG 配置">
                     <RagSection
                       rag={state.ragMerged}
                       updateRag={state.updateRag}
                       ltrAvailable={state.ltrModels.some((model) => model.active)}
                     />
                   </SettingsSubsection>
-                  <SettingsSubsection title="LTR 模型" advanced>
+                  <SettingsSubsection
+                    id="ltr-models"
+                    title="LTR 模型"
+                    advanced
+                    forceOpen={forcedOpenSubsectionIds.has('ltr-models')}
+                  >
                     <LtrModelRegistrySection
                       ltrError={state.ltrError}
                       ltrMessage={state.ltrMessage}
@@ -690,7 +696,7 @@ function SettingsContent({
 
             {visibleSectionIdSet.has('settings-platform') ? (
               <SettingsSectionFrame section={SETTINGS_SECTION_BY_ID['settings-platform']}>
-                <SettingsSubsection title="前端偏好">
+                <SettingsSubsection id="frontend-preferences" title="前端偏好">
                   <FrontendPreferencesSection
                     parserBackend={parserBackend}
                     setParserBackend={setParserBackend}
@@ -700,7 +706,12 @@ function SettingsContent({
                 </SettingsSubsection>
                 <fieldset disabled={!settingsWritable} className="contents">
                   {isAdmin ? (
-                    <SettingsSubsection title="导航权限" advanced>
+                    <SettingsSubsection
+                      id="navigation-visibility"
+                      title="导航权限"
+                      advanced
+                      forceOpen={forcedOpenSubsectionIds.has('navigation-visibility')}
+                    >
                       <NavigationVisibilitySection
                         navigation={state.navigationMerged}
                         updateNavigation={state.updateNavigation}
@@ -708,7 +719,12 @@ function SettingsContent({
                     </SettingsSubsection>
                   ) : null}
                   {isAdmin ? (
-                    <SettingsSubsection title="可观测性" advanced>
+                    <SettingsSubsection
+                      id="observability"
+                      title="可观测性"
+                      advanced
+                      forceOpen={forcedOpenSubsectionIds.has('observability')}
+                    >
                       <ObservabilitySection
                         observability={state.observabilityMerged}
                         updateObservability={state.updateObservability}
