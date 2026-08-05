@@ -7,6 +7,7 @@ const providersSectionSource = readFileSync(
   resolve(__dirname, '../app/settings/_sections/model-providers-section.tsx'),
   'utf8'
 )
+const modelTypesSource = readFileSync(resolve(__dirname, '../types/models.ts'), 'utf8')
 
 describe('模型配置弹窗视觉契约', () => {
   it('保留弹窗滚动边界并移除旧装饰样式', () => {
@@ -23,6 +24,11 @@ describe('模型配置弹窗视觉契约', () => {
     expect(source).not.toContain('最多输出字数')
     expect(source).not.toContain('获取 Key')
     expect(source).not.toContain('Max Tokens')
+    const providerConfigSource = modelTypesSource.slice(
+      modelTypesSource.indexOf('export interface ProviderConfig'),
+      modelTypesSource.indexOf('export const MODEL_PROVIDERS')
+    )
+    expect(providerConfigSource).not.toContain('maxTokens')
   })
 
   it('模型选择使用共享下拉层并在请求期间锁定', () => {

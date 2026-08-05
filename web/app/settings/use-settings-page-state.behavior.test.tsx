@@ -189,7 +189,6 @@ describe('设置页保存校验', () => {
         model: 'gpt-5.4-mini',
         temperature: 0.4,
         timeout: 45,
-        maxTokens: 1234,
       })
     })
 

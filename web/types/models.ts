@@ -36,7 +36,6 @@ export interface ProviderConfig {
   organizationId?: string
   projectId?: string
   temperature?: number
-  maxTokens?: number
   timeout?: number
 }
 
