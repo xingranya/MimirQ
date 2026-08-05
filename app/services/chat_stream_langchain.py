@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass, replace
 from typing import Any, AsyncIterator, Awaitable, Callable, cast
 
+from app.core.config import settings
 from app.core.stream_events import StreamEmitter, bind_stream_emitter, reset_stream_emitter
 from app.rag.core.logging import get_logger
 from app.services.chat_execution_runtime import ChatExecutionContext
@@ -63,6 +64,10 @@ async def stream_langchain_chat_session_events(
     response_parts: list[str] = []
     metrics_data: dict[str, Any] | None = {}
     structured_data: object | None = None
+    generation_started_at: float | None = None
+    first_token_received = False
+    first_token_timeout_sec = max(0.0, float(getattr(settings, "LLM_TIMEOUT", 60) or 60))
+    loop = asyncio.get_running_loop()
 
     try:
         while True:
@@ -81,7 +86,16 @@ async def stream_langchain_chat_session_events(
                     if options.heartbeat_sec > 0
                     else await q.get()
                 )
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as exc:
+                if (
+                    generation_started_at is not None
+                    and not first_token_received
+                    and first_token_timeout_sec > 0
+                    and loop.time() - generation_started_at >= first_token_timeout_sec
+                ):
+                    raise TimeoutError(
+                        f"Model provider stream timed out before first token after {first_token_timeout_sec:.1f}s"
+                    ) from exc
                 yield ": keepalive\n\n"
                 continue
 
@@ -91,6 +105,8 @@ async def stream_langchain_chat_session_events(
             event = ev
             if event.get("type") == "citations":
                 citations_data = event.get("data") or []
+                if generation_started_at is None:
+                    generation_started_at = loop.time()
 
             if event.get("type") == "error":
                 data = event.get("data") if isinstance(event.get("data"), dict) else {}
@@ -134,6 +150,7 @@ async def stream_langchain_chat_session_events(
                     event["data"]["metrics"] = dict(metrics_data)
 
             if event.get("type") == "token":
+                first_token_received = True
                 data = event.get("data") if isinstance(event.get("data"), dict) else {}
                 response_parts.append(str((data or {}).get("content") or ""))
 

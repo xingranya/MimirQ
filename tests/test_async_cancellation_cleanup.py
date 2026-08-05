@@ -94,6 +94,42 @@ async def test_langchain_stream_aclose_cancels_producer(
         await asyncio.gather(*producer_tasks, return_exceptions=True)
 
 
+@pytest.mark.asyncio
+async def test_langchain_stream_times_out_before_first_model_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.services.chat_stream_langchain as stream_module
+    from app.core.config import settings
+
+    cleaned_up = asyncio.Event()
+
+    async def produce_citations_then_wait(*, queue, **_kwargs) -> None:  # noqa: ANN001, ANN003
+        try:
+            await queue.put({"type": "citations", "data": [{"document_id": "doc-1"}]})
+            await asyncio.Event().wait()
+        finally:
+            cleaned_up.set()
+
+    monkeypatch.setattr(settings, "LLM_TIMEOUT", 0.03, raising=False)
+    monkeypatch.setattr(
+        stream_module,
+        "produce_langchain_stream_events",
+        produce_citations_then_wait,
+    )
+    options = _langchain_options()
+    options.heartbeat_sec = 0.01
+    stream = stream_module.stream_langchain_chat_session_events(
+        engine=object(),
+        options=options,
+    )
+
+    assert '"type": "citations"' in await anext(stream)
+    with pytest.raises(TimeoutError, match="before first token"):
+        while True:
+            await anext(stream)
+    assert cleaned_up.is_set()
+
+
 async def _multi_agent_stream(monkeypatch: pytest.MonkeyPatch, run_sub_agent):  # noqa: ANN001, ANN202
     import app.rag.agents.multi_agent as multi_agent
 
