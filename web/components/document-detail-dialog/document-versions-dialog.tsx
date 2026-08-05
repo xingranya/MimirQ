@@ -74,7 +74,7 @@ export function DocumentVersionsDialog({
             </Alert>
           ) : null}
 
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
             <div className="text-xs text-muted-foreground">{t('currentHash.label')}</div>
             <div className="mt-2 flex items-center justify-between gap-2">
               <div className="min-w-0 font-mono text-xs text-foreground">{activePipelineHash || '-'}</div>
@@ -97,7 +97,7 @@ export function DocumentVersionsDialog({
                   <div
                     key={version.pipeline_hash}
                     className={cn(
-                      'flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-card p-3',
+                      'flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-start sm:justify-between',
                       version.active ? 'border-primary/30 bg-primary/5' : 'bg-card'
                     )}
                   >
@@ -105,7 +105,7 @@ export function DocumentVersionsDialog({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-foreground">{version.pipeline_hash}</span>
                         {version.active ? (
-                          <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                             {t('activeBadge')}
                           </span>
                         ) : null}
@@ -116,7 +116,7 @@ export function DocumentVersionsDialog({
                       </div>
                     </div>
 
-                    <div className="flex flex-shrink-0 items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                       <IconButton
                         label={t('actions.copyVersionHash')}
                         variant="ghost"

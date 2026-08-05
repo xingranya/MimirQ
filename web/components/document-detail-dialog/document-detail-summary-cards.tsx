@@ -84,10 +84,10 @@ export function DocumentDetailSummaryCards({
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <Panel className="rounded-2xl">
+      <Panel className="rounded-lg">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-primary/10 text-primary">
+            <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -97,19 +97,19 @@ export function DocumentDetailSummaryCards({
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
-          <TraceRow label="parser_backend" value={traceValue(parserBackend)} mono />
-          <TraceRow label="requested" value={traceValue(requestedParserBackend)} mono />
-          <TraceRow label="char_count" value={traceValue(analyticsRaw?.char_count)} mono />
-          <TraceRow label="page_count" value={traceValue(analyticsRaw?.page_count)} mono />
-          <TraceRow label="table_count" value={traceValue(analyticsRaw?.table_count)} mono />
-          <TraceRow label="image_count" value={traceValue(analyticsRaw?.image_count)} mono />
+          <TraceRow label="解析方式" value={traceValue(parserBackend)} mono />
+          <TraceRow label="请求方式" value={traceValue(requestedParserBackend)} mono />
+          <TraceRow label="字符数" value={traceValue(analyticsRaw?.char_count)} mono />
+          <TraceRow label="页数" value={traceValue(analyticsRaw?.page_count)} mono />
+          <TraceRow label="表格数" value={traceValue(analyticsRaw?.table_count)} mono />
+          <TraceRow label="图片数" value={traceValue(analyticsRaw?.image_count)} mono />
         </div>
       </Panel>
 
-      <Panel className="rounded-2xl">
+      <Panel className="rounded-lg">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-success/10 text-success">
+            <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-success/10 text-success">
               <Shield className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -120,26 +120,26 @@ export function DocumentDetailSummaryCards({
             </div>
           </div>
           {governanceRulePacks.length ? (
-            <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
+            <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground">
               {t('cards.governance.packsCount', { count: governanceRulePacks.length })}
             </span>
           ) : null}
         </div>
         <div className="mt-3 space-y-1.5">
-          <TraceRow label="rules_applied" value={traceValue(governanceRulesApplied)} mono />
-          <TraceRow label="changed_docs" value={traceValue(governanceChangedDocuments)} mono />
-          <TraceRow label="dropped_docs" value={traceValue(governanceDroppedDocuments)} mono />
+          <TraceRow label="已应用规则" value={traceValue(governanceRulesApplied)} mono />
+          <TraceRow label="有变化的文档" value={traceValue(governanceChangedDocuments)} mono />
+          <TraceRow label="已过滤文档" value={traceValue(governanceDroppedDocuments)} mono />
           <TraceRow
-            label="rule_packs"
+            label="规则包"
             value={governanceRulePacks.length ? governanceRulePacks.slice(0, 4).join(', ') : '-'}
           />
         </div>
       </Panel>
 
-      <Panel className="rounded-2xl">
+      <Panel className="rounded-lg">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-info/10 text-info">
+            <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-info/10 text-info">
               <Hash className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -159,13 +159,13 @@ export function DocumentDetailSummaryCards({
           ) : null}
         </div>
         <div className="mt-3 space-y-1.5">
-          <TraceRow label="viewing_pipeline_hash" value={traceValue(viewingPipelineHash)} mono />
-          <TraceRow label="active_pipeline_hash" value={traceValue(activePipelineHash)} mono />
-          <TraceRow label="last_pipeline_hash" value={traceValue(lastPipelineHash)} mono />
-          <TraceRow label="chunk_size" value={traceValue(pipelineEffective?.chunk_size)} mono />
-          <TraceRow label="chunk_overlap" value={traceValue(pipelineEffective?.chunk_overlap)} mono />
-          <TraceRow label="vector_enabled" value={pipelineEffective?.chunk_vector_enabled ? 'true' : 'false'} mono />
-          <TraceRow label="bm25_enabled" value={pipelineEffective?.bm25_index_enabled ? 'true' : 'false'} mono />
+          <TraceRow label="当前版本" value={traceValue(viewingPipelineHash)} mono />
+          <TraceRow label="生效版本" value={traceValue(activePipelineHash)} mono />
+          <TraceRow label="最近版本" value={traceValue(lastPipelineHash)} mono />
+          <TraceRow label="切块大小" value={traceValue(pipelineEffective?.chunk_size)} mono />
+          <TraceRow label="切块重叠" value={traceValue(pipelineEffective?.chunk_overlap)} mono />
+          <TraceRow label="向量索引" value={pipelineEffective?.chunk_vector_enabled ? '已启用' : '未启用'} />
+          <TraceRow label="关键词索引" value={pipelineEffective?.bm25_index_enabled ? '已启用' : '未启用'} />
         </div>
       </Panel>
     </div>

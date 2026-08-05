@@ -69,16 +69,22 @@ export function DocumentDetailLifecyclePanel({
 }: DocumentDetailLifecyclePanelProps) {
   const commonT = useTranslations('Common')
   const t = useTranslations('DocumentDetailDialog')
+  const displayPublicationStatus =
+    displayDoc.publication_status === 'draft'
+      ? t('lifecycle.fields.publicationStatus.options.draft')
+      : displayDoc.publication_status === 'deprecated'
+        ? t('lifecycle.fields.publicationStatus.options.deprecated')
+        : t('lifecycle.fields.publicationStatus.options.published')
 
   return (
-    <Panel className="rounded-2xl">
+    <Panel className="rounded-lg">
       {editing ? (
         <form action={saveAction}>
           <input type="hidden" name="publication_status" value={lifecyclePublicationStatusDraft} />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-warning/10 text-warning">
+              <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-warning/10 text-warning">
                 <Calendar className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -192,7 +198,7 @@ export function DocumentDetailLifecyclePanel({
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-warning/10 text-warning">
+              <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-warning/10 text-warning">
                 <Calendar className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -226,31 +232,31 @@ export function DocumentDetailLifecyclePanel({
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-muted-foreground">publication_status</span>
-                <span className="min-w-0 truncate text-foreground" title={String(displayDoc.publication_status || 'published')}>
-                  {String(displayDoc.publication_status || 'published')}
+                <span className="text-muted-foreground">发布状态</span>
+                <span className="min-w-0 truncate text-foreground" title={displayPublicationStatus}>
+                  {displayPublicationStatus}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-muted-foreground">lifecycle_owner</span>
+                <span className="text-muted-foreground">维护人</span>
                 <span className="min-w-0 truncate text-foreground" title={String(displayDoc.lifecycle_owner || '-')}>
                   {String(displayDoc.lifecycle_owner || '-')}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-muted-foreground">review_due_at</span>
+                <span className="text-muted-foreground">复审时间</span>
                 <span className="min-w-0 truncate text-foreground" title={displayDoc.review_due_at ? new Date(String(displayDoc.review_due_at)).toLocaleString('zh-CN') : '-'}>
                   {displayDoc.review_due_at ? new Date(String(displayDoc.review_due_at)).toLocaleString('zh-CN') : '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-muted-foreground">authority_level</span>
+                <span className="text-muted-foreground">权威等级</span>
                 <span className="min-w-0 truncate text-foreground font-mono" title={displayDoc.authority_level == null ? '-' : String(displayDoc.authority_level)}>
                   {displayDoc.authority_level == null ? '-' : String(displayDoc.authority_level)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-muted-foreground">supersedes_document_id</span>
+                <span className="text-muted-foreground">替代文档</span>
                 <span className="min-w-0 truncate text-foreground font-mono" title={String(displayDoc.supersedes_document_id || '-')}>
                   {String(displayDoc.supersedes_document_id || '-')}
                 </span>

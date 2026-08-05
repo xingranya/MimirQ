@@ -131,7 +131,7 @@ function ChunkLineageButton({ chunkId }: Readonly<{ chunkId: string }>) {
     queryFn: () => lineageApi.getChunkLineage(chunkId),
   })
   const error = lineageQuery.error
-    ? formatApiError(lineageQuery.error, '加载 Chunk 血缘失败')
+    ? formatApiError(lineageQuery.error, '加载文本块血缘失败')
     : null
 
   useEffect(() => {
@@ -142,7 +142,7 @@ function ChunkLineageButton({ chunkId }: Readonly<{ chunkId: string }>) {
   return (
     <>
       <IconButton
-        label="查看 Chunk 血缘"
+        label="查看文本块血缘"
         variant="ghost"
         className="h-9 w-9 text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(true)}
@@ -151,17 +151,17 @@ function ChunkLineageButton({ chunkId }: Readonly<{ chunkId: string }>) {
       </IconButton>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl border-border bg-background/95 shadow-strong sm:rounded-2xl">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-3xl overflow-y-auto rounded-lg border-border bg-background shadow-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-info" />
-              Chunk Lineage
+              文本块血缘
             </DialogTitle>
-            <DialogDescription className="font-mono text-xs">chunk_id={chunkId}</DialogDescription>
+            <DialogDescription className="font-mono text-xs">文本块编号：{chunkId}</DialogDescription>
           </DialogHeader>
           {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
           <pre className={cn('max-h-[520px] overflow-auto rounded-lg border border-border/60 bg-muted/20 p-3 text-xs', 'whitespace-pre-wrap break-words')}>
-            {lineageQuery.isFetching ? 'Loading...' : prettyJson(lineageQuery.data ?? { message: '暂无 Chunk 血缘数据' })}
+            {lineageQuery.isFetching ? '正在加载…' : prettyJson(lineageQuery.data ?? { message: '暂无文本块血缘数据' })}
           </pre>
         </DialogContent>
       </Dialog>
@@ -308,29 +308,29 @@ export function DocumentDetailActivityPanel({
               >
                 <div
                   className={cn(
-                    'group rounded-xl border border-border/60 bg-card p-4 transition-colors',
-                    'hover:border-primary/25 hover:shadow-soft/30',
+                    'group rounded-lg border border-border/60 bg-card p-4 transition-colors',
+                    'hover:border-primary/25',
                     chunk.disabled_at ? 'opacity-70' : null
                   )}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full border border-border/60 bg-muted px-2 py-0.5 font-mono font-medium text-muted-foreground">
+                      <span className="rounded-md border border-border/60 bg-muted px-2 py-0.5 font-mono font-medium text-muted-foreground">
                         #{chunk.chunk_index}
                       </span>
                       {typeof chunk.page_number === 'number' ? (
-                        <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 text-muted-foreground">
-                          P.{chunk.page_number}
+                        <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                          第 {chunk.page_number} 页
                         </span>
                       ) : null}
                       <span className="text-muted-foreground">{t('chunks.charCount', { count: (chunk.content || '').length })}</span>
                       {chunk.disabled_at ? (
-                        <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 text-muted-foreground">
+                        <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 text-muted-foreground">
                           {t('chunks.disabledBadge')}
                         </span>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1 sm:justify-end">
                       <IconButton
                         label={canMutateChunks ? t('chunks.actions.edit') : t('chunks.actions.editDisabled')}
                         variant="ghost"
@@ -497,16 +497,16 @@ export function DocumentDetailActivityPanel({
                 }}
                 className="pb-3"
               >
-                <div className={cn('group rounded-xl border border-border/60 bg-card p-4 transition-colors', 'hover:border-primary/25 hover:shadow-soft/30')}>
-                  <div className="flex items-start justify-between gap-3">
+                <div className="group rounded-lg border border-border/60 bg-card p-4 transition-colors hover:border-primary/25">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-border/60 bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                        <span className="rounded-md border border-border/60 bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
                           {formatDate(ev.created_at)}
                         </span>
                         <span className="truncate font-mono text-xs text-foreground/90">{ev.action}</span>
                         {ev.source === 'synthetic' ? (
-                          <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                          <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
                             {t('timeline.synthetic')}
                           </span>
                         ) : null}
@@ -517,12 +517,12 @@ export function DocumentDetailActivityPanel({
                         {ev.status ? <span>{t('timeline.meta.status')}: {ev.status}</span> : null}
                         {typeof ev.progress === 'number' ? <span>{t('timeline.meta.progress')}: {ev.progress}%</span> : null}
                         {ev.request_id ? (
-                          <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 font-mono">
+                          <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono">
                             {t('timeline.meta.requestId')}: {ev.request_id}
                           </span>
                         ) : null}
                         {ev.actor_id ? (
-                          <span className="rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 font-mono">
+                          <span className="rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono">
                             {t('timeline.meta.actorId')}: {ev.actor_id}
                           </span>
                         ) : null}
@@ -580,8 +580,8 @@ export function DocumentDetailActivityPanel({
   }
 
   return (
-    <Panel padding="none" className="flex-1 min-h-0 overflow-hidden rounded-2xl">
-      <div className="flex items-center gap-3 border-b border-border/60 bg-background/40 px-4 py-3">
+    <Panel padding="none" className="min-h-[360px] flex-none overflow-hidden rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background/40 px-3 py-3 sm:gap-3 sm:px-4">
         <div
           className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground"
           role="tablist"
@@ -622,7 +622,7 @@ export function DocumentDetailActivityPanel({
         </div>
 
         {activeView === 'chunks' ? (
-          <div className="relative flex-1">
+          <div className="relative min-w-[180px] flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={chunkQuery}
@@ -632,7 +632,7 @@ export function DocumentDetailActivityPanel({
             />
           </div>
         ) : (
-          <div className="flex-1 text-sm text-muted-foreground">{t('timeline.description')}</div>
+          <div className="min-w-[180px] flex-1 text-sm text-muted-foreground">{t('timeline.description')}</div>
         )}
 
         {activeView === 'chunks' && versions?.items?.length ? (
@@ -652,7 +652,7 @@ export function DocumentDetailActivityPanel({
           </Select>
         ) : null}
 
-        <span className="hidden sm:inline-flex rounded-full border border-border/60 bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+        <span className="hidden rounded-md border border-border/60 bg-muted/60 px-2 py-1 text-xs text-muted-foreground sm:inline-flex">
           {activeView === 'chunks' ? `${chunks.length}/${chunksTotal}` : `${timelineItems.length}/${timelineTotal}`}
         </span>
 

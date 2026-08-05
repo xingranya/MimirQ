@@ -40,13 +40,13 @@ export function DocumentDetailTagsPanel({
   const t = useTranslations('DocumentDetailDialog')
 
   return (
-    <Panel className="rounded-2xl">
+    <Panel className="rounded-lg">
       {editing ? (
         <form action={saveAction} className="space-y-4">
           <input type="hidden" name="tags_json" value={JSON.stringify(tagsDraft)} />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-muted/40 text-muted-foreground">
+              <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-muted/40 text-muted-foreground">
                 <Tags className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -78,7 +78,7 @@ export function DocumentDetailTagsPanel({
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-muted/40 text-muted-foreground">
+              <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-muted/40 text-muted-foreground">
                 <Tags className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">

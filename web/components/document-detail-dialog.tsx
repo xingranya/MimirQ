@@ -965,12 +965,12 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
         )}
       </DialogTrigger>
 
-      <DialogContent className="!max-w-5xl h-[80vh] !p-0 !gap-0 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-start justify-between gap-6 border-b border-border bg-muted/20 px-6 py-4">
-          <div className="flex items-start gap-4 min-w-0">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl border border-border bg-primary/10 text-primary">
-              <Database className="h-6 w-6" />
+      <DialogContent className="h-[min(88dvh,900px)] !max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] !gap-0 overflow-hidden rounded-lg !p-0">
+        {/* 页头 */}
+        <header className="flex flex-col gap-3 border-b border-border bg-muted/20 py-3 pl-4 pr-14 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:py-4 sm:pl-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border bg-primary/10 text-primary">
+              <Database className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <DialogTitle className="truncate">{displayDoc.filename}</DialogTitle>
@@ -995,20 +995,20 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-start gap-2 sm:items-end">
             <StatusBadge status={status} />
             <div className="flex flex-wrap justify-end gap-2">
               {parserLabel ? (
-                <span className="rounded-full border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                <span className="rounded-md border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   {t('header.parserChip', { label: parserLabel })}
                 </span>
               ) : null}
               {chunkStrategyLabel ? (
-                <span className="rounded-full border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                <span className="rounded-md border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                   {t('header.chunkingChip', { label: chunkStrategyLabel })}
                 </span>
               ) : null}
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 <Shield className="h-3.5 w-3.5" />
                 {accessModeLabel}
               </span>
@@ -1016,8 +1016,8 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
           </div>
         </header>
 
-        {/* Body */}
-        <main className="min-h-0 p-6 flex flex-col gap-4">
+        {/* 主内容 */}
+        <main className="flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-4 sm:gap-4 sm:p-5">
           <DocumentDetailSummaryCards
             parserLabel={parserLabel}
             parserBackend={String(pipeline?.parser_backend || parserBackend || '-')}
@@ -1137,10 +1137,10 @@ export function DocumentDetailDialog({ document: initialDocument, trigger }: Rea
           />
         </main>
 
-        {/* Footer */}
-        <footer className="border-t border-border bg-muted/20 px-6 py-4">
+        {/* 底部操作 */}
+        <footer className="border-t border-border bg-muted/20 px-4 py-3 sm:px-5 sm:py-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <DocumentVersionsDialog
                 open={versionsDialogOpen}
                 onOpenChange={handleVersionsDialogOpenChange}
