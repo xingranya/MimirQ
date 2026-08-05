@@ -84,35 +84,35 @@ CommonUi: {
     themeCustomizer: {
       openLabel: '打开主题定制',
       title: '主题定制',
-      description: '自定义界面颜色与风格',
+      description: '选择背景、主色和明暗模式',
       resetAppearance: '重置外观',
       surfaceLabel: '背景风格',
       surfacePresetLabel: '选择背景风格：{name}',
       surfacePresets: {
         ocean: {
           title: '默认海洋',
-          description: '冷静蓝绿，保持当前默认观感。',
+          description: '浅色背景搭配蓝绿色主色。',
         },
         deepsea: {
           title: '深海留白',
-          description: '雾白蓝灰表面、深海蓝焦点与轻柔光晕，简洁但保留清晰层级。',
+          description: '雾白蓝灰表面搭配深海蓝主色。',
         },
         neutral: {
           title: '中性白',
-          description: '纯白表面、石墨文字与浅灰层级，仅保留必要的业务状态色。',
+          description: '纯白背景搭配深灰文字，内容对比更清楚。',
         },
         classic: {
           title: '经典白灰',
-          description: '背景 #F8F9FA，正文深灰，强调蓝色，干净现代且阅读友好。',
+          description: '浅灰背景搭配深灰正文和蓝色主色。',
         },
         earth: {
           title: '米白大地',
-          description: '暖米白背景与柔和灰褐层次，长时间阅读更温和。',
+          description: '暖米白背景搭配柔和灰褐色。',
         },
       },
       colorLabel: '主色调',
       useSurfaceColor: '跟随背景风格',
-      surfaceColorActive: '当前跟随背景风格（{color}），切换明暗模式时会自动保持对比度。',
+      surfaceColorActive: '当前使用背景风格的主色，并自动适配明暗模式。',
       customColorActive: '当前使用自定义强调色。',
       modeLabel: '模式',
       presetLabel: '选择主色调：{name}',
