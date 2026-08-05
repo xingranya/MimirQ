@@ -88,6 +88,9 @@ describe('TenantPermissionGate', () => {
     expect(mounted).not.toHaveBeenCalled()
     expect(container.textContent).toContain('无权限访问')
     expect(container.textContent).not.toContain('检索集健康度请求')
+    expect(container.querySelector('.rounded-md')).not.toBeNull()
+    expect(container.querySelector('.rounded-2xl')).toBeNull()
+    expect(container.querySelector('.shadow-sm')).toBeNull()
 
     act(() => root.unmount())
   })

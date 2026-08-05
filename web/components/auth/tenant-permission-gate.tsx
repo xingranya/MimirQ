@@ -69,7 +69,7 @@ export function TenantPermissionGate({
           size="5xl"
           compact
         >
-          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
+          <div className="rounded-md border border-border bg-card p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">需要权限：{permission}</p>
