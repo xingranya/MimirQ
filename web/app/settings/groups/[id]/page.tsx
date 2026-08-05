@@ -12,7 +12,6 @@ import { ArrowLeft, Loader2, RefreshCw, Save, Trash2, UserPlus, Users } from 'lu
 import { toast } from 'sonner'
 
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
-import { AppFrame } from '@/components/app-frame'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -62,7 +61,11 @@ function asGroupId(raw: unknown): string | null {
 
 export default function SettingsGroupDetailPage() {
   return (
-    <TenantPermissionGate permission={TENANT_PERMISSIONS.SETTINGS_READ} pageName="成员组管理">
+    <TenantPermissionGate
+      permission={TENANT_PERMISSIONS.SETTINGS_READ}
+      pageName="成员组管理"
+      withFrame={false}
+    >
       <SettingsGroupDetailPageContent />
     </TenantPermissionGate>
   )
@@ -291,7 +294,7 @@ function SettingsGroupDetailPageContent() {
   })
 
   return (
-    <AppFrame>
+    <>
       <PageScaffold
         title={title}
         description="编辑成员组信息，并维护成员归属。"
@@ -643,7 +646,7 @@ function SettingsGroupDetailPageContent() {
           description="成员组名称或外部目录标识尚未保存。继续后，这些修改将丢失。"
         />
       </PageScaffold>
-    </AppFrame>
+    </>
   )
 }
 

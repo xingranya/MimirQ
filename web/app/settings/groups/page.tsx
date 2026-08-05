@@ -19,7 +19,6 @@ import {
 import { toast } from 'sonner'
 
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
-import { AppFrame } from '@/components/app-frame'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -82,6 +81,7 @@ export default function SettingsGroupsPage() {
     <TenantPermissionGate
       permission={TENANT_PERMISSIONS.SETTINGS_READ}
       pageName="成员组管理"
+      withFrame={false}
     >
       <SettingsGroupsPageContent />
     </TenantPermissionGate>
@@ -201,7 +201,7 @@ function SettingsGroupsPageContent() {
   }, [pageCount])
 
   return (
-    <AppFrame>
+    <>
       <PageScaffold
         title="成员组"
         description="按团队维护成员归属，并控制知识内容的访问范围。"
@@ -573,7 +573,7 @@ function SettingsGroupsPageContent() {
           </div>
         </div>
       </PageScaffold>
-    </AppFrame>
+    </>
   )
 }
 

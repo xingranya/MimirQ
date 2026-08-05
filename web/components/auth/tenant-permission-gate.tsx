@@ -16,9 +16,23 @@ type TenantPermissionGateProps = {
   permission: TenantPermission
   pageName: string
   children: ReactNode
+  /** 父布局已经提供应用壳层时设为 false，避免重复挂载侧栏。 */
+  withFrame?: boolean
 }
 
-export function TenantPermissionGate({ permission, pageName, children }: Readonly<TenantPermissionGateProps>) {
+function PermissionGateFrame({
+  children,
+  withFrame,
+}: Readonly<{ children: ReactNode; withFrame: boolean }>) {
+  return withFrame ? <AppFrame>{children}</AppFrame> : <>{children}</>
+}
+
+export function TenantPermissionGate({
+  permission,
+  pageName,
+  children,
+  withFrame = true,
+}: Readonly<TenantPermissionGateProps>) {
   const [hasHydrated, setHasHydrated] = useState(false)
   const { isDevMode } = useAuth()
   const access = useTenantAccess()
@@ -30,20 +44,20 @@ export function TenantPermissionGate({ permission, pageName, children }: Readonl
 
   if (!hasHydrated || (!isDevMode && access.isLoading)) {
     return (
-      <AppFrame>
+      <PermissionGateFrame withFrame={withFrame}>
         <PageLoading
           className="min-h-full bg-transparent"
           message="正在校验页面权限..."
           srMessage={`正在校验${pageName}访问权限`}
         />
-      </AppFrame>
+      </PermissionGateFrame>
     )
   }
 
   if (!allowed) {
     const isUnknown = access.isError || !access.data
     return (
-      <AppFrame>
+      <PermissionGateFrame withFrame={withFrame}>
         <PageScaffold
           title={isUnknown ? '无法确认权限' : '无权限访问'}
           description={
@@ -77,7 +91,7 @@ export function TenantPermissionGate({ permission, pageName, children }: Readonl
             </div>
           </div>
         </PageScaffold>
-      </AppFrame>
+      </PermissionGateFrame>
     )
   }
 

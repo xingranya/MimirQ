@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
-import { AppFrame } from '@/components/app-frame'
 import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
@@ -313,6 +312,7 @@ export default function SettingsPage() {
     <TenantPermissionGate
       permission={TENANT_PERMISSIONS.SETTINGS_READ}
       pageName="系统设置"
+      withFrame={false}
     >
       <SettingsPageContent />
     </TenantPermissionGate>
@@ -341,7 +341,7 @@ function SettingsPageContent() {
   }, [state])
 
   return (
-    <AppFrame>
+    <>
       <PageScaffold
         title="设置"
         iconImage="settings"
@@ -450,7 +450,7 @@ function SettingsPageContent() {
           state.refreshAll()
         }}
       />
-    </AppFrame>
+    </>
   )
 }
 

@@ -20,7 +20,6 @@ import {
 import { toast } from 'sonner'
 
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
-import { AppFrame } from '@/components/app-frame'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -181,6 +180,7 @@ export default function SettingsRbacPage() {
     <TenantPermissionGate
       permission={TENANT_PERMISSIONS.SETTINGS_READ}
       pageName="成员权限"
+      withFrame={false}
     >
       <SettingsRbacPageContent />
     </TenantPermissionGate>
@@ -490,7 +490,7 @@ function SettingsRbacPageContent() {
   }
 
   return (
-    <AppFrame>
+    <>
       <PageScaffold
         title="成员权限"
         description="管理成员角色、访问范围和权限状态"
@@ -1181,7 +1181,7 @@ function SettingsRbacPageContent() {
           <SamlOpsPanel />
         </div>
       </PageScaffold>
-    </AppFrame>
+    </>
   )
 }
 
