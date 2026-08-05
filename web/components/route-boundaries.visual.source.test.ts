@@ -13,6 +13,15 @@ const knowledgeLoadingSource = readFileSync(
   resolve(__dirname, '../app/knowledge/loading.tsx'),
   'utf8'
 )
+const datasetDetailLoadingSource = readFileSync(
+  resolve(__dirname, '../app/datasets/[id]/loading.tsx'),
+  'utf8'
+)
+const graphLoadingSource = readFileSync(resolve(__dirname, '../app/graph/loading.tsx'), 'utf8')
+const evaluationsLoadingSource = readFileSync(
+  resolve(__dirname, '../app/evaluations/loading.tsx'),
+  'utf8'
+)
 const notFoundSource = readFileSync(resolve(__dirname, '../app/not-found.tsx'), 'utf8')
 
 describe('全站路由边界视觉契约', () => {
@@ -40,7 +49,13 @@ describe('全站路由边界视觉契约', () => {
   })
 
   it('设置和知识库页面复用统一的扁平加载状态', () => {
-    for (const source of [settingsLoadingSource, knowledgeLoadingSource]) {
+    for (const source of [
+      settingsLoadingSource,
+      knowledgeLoadingSource,
+      datasetDetailLoadingSource,
+      graphLoadingSource,
+      evaluationsLoadingSource,
+    ]) {
       expect(source).toContain("import { RouteLoading } from '@/components/route-loading'")
       expect(source).toContain('return <RouteLoading />')
       expect(source).not.toContain('Skeleton')
