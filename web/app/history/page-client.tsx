@@ -3,7 +3,16 @@
  */
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef, Suspense, useCallback, useDeferredValue, useMemo } from 'react'
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+} from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,13 +41,13 @@ import { RagTraceDialog } from '@/components/rag-trace/rag-trace-dialog'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { PageLoading } from '@/components/ui/page-loading'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { PageTitleIcon } from '@/components/ui/page-title-icon'
 import { Link, useRouter } from '@/i18n/navigation'
 import { chatApi } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
 import { cn } from '@/lib/utils'
-import { formatApiError } from '@/lib/api-errors'
 import { reportClientError } from '@/lib/client-logging'
 import { toast } from 'sonner'
 import type { Conversation, Message } from '@/types'
@@ -100,10 +109,7 @@ export async function deleteConversationFromHistory(
               return {
                 ...page,
                 items,
-                returned: Math.max(
-                  0,
-                  Number(page.returned ?? page.items?.length ?? 0) - removed
-                ),
+                returned: Math.max(0, Number(page.returned ?? page.items?.length ?? 0) - removed),
                 total: Math.max(0, Number(page.total || 0) - removed),
               }
             }),
@@ -176,10 +182,13 @@ function HistoryPageContent({
   const conversationId = searchParams.get('id') || initialConversationId || null
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(initialSelectedConversation)
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(
+    initialSelectedConversation
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [historyView, setHistoryView] = useState<'all' | 'recent'>('all')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null)
   const [isTraceOpen, setIsTraceOpen] = useState(false)
   const [recentConversationCutoff, setRecentConversationCutoff] = useState<number | null>(null)
 
@@ -188,6 +197,7 @@ function HistoryPageContent({
   const conversationLoadMoreRef = useRef<HTMLDivElement>(null)
   const pendingPrependScrollRef = useRef<{ top: number; height: number } | null>(null)
   const shouldScrollToEndRef = useRef(false)
+  const deleteInFlightRef = useRef(false)
   const deferredSearchQuery = useDeferredValue(searchQuery)
   const conversationSearchTerm = deferredSearchQuery.trim()
   const conversationListParams = useMemo(
@@ -216,22 +226,26 @@ function HistoryPageContent({
     getNextPageParam: (lastPage, allPages) => {
       if (!lastPage.has_more) return undefined
       if (typeof lastPage.next_skip === 'number') return lastPage.next_skip
-      return allPages.reduce((sum, page) => sum + Number(page.returned ?? page.items?.length ?? 0), 0)
+      return allPages.reduce(
+        (sum, page) => sum + Number(page.returned ?? page.items?.length ?? 0),
+        0
+      )
     },
-    initialData: initialConversationsLoaded && !conversationSearchTerm
-      ? {
-          pages: [
-            {
-              items: initialConversations,
-              total: initialConversationTotal,
-              returned: initialConversations.length,
-              has_more: initialHasMoreConversations,
-              next_skip: initialConversationNextSkip,
-            },
-          ],
-          pageParams: [0],
-        }
-      : undefined,
+    initialData:
+      initialConversationsLoaded && !conversationSearchTerm
+        ? {
+            pages: [
+              {
+                items: initialConversations,
+                total: initialConversationTotal,
+                returned: initialConversations.length,
+                has_more: initialHasMoreConversations,
+                next_skip: initialConversationNextSkip,
+              },
+            ],
+            pageParams: [0],
+          }
+        : undefined,
   })
   const conversations = useMemo(() => {
     const seen = new Set<string>()
@@ -246,6 +260,12 @@ function HistoryPageContent({
     return merged.length ? merged : EMPTY_CONVERSATIONS
   }, [conversationsQuery.data])
   const isLoadingList = conversationsQuery.isLoading
+  const hasConversationSnapshot = conversationsQuery.data !== undefined
+  const conversationsUnavailable = Boolean(conversationsQuery.error) && !hasConversationSnapshot
+  const conversationRefreshFailed =
+    Boolean(conversationsQuery.error) &&
+    hasConversationSnapshot &&
+    !conversationsQuery.isFetchNextPageError
   const hasMoreConversations = conversationsQuery.hasNextPage
   const isLoadingMoreConversations = conversationsQuery.isFetchingNextPage
   const selectedConversationId = selectedConversation?.id || conversationId || null
@@ -287,15 +307,16 @@ function HistoryPageContent({
     () => messagesQuery.data?.pages.flatMap((page) => page.messages || []) ?? EMPTY_MESSAGES,
     [messagesQuery.data]
   )
+  const hasMessagesSnapshot = messagesQuery.data !== undefined
   const displayConversation = useMemo<Conversation | null>(() => {
     if (selectedConversation) return selectedConversation
-    if (!selectedConversationId || messagesQuery.isError) return null
+    if (!selectedConversationId || (messagesQuery.isError && !hasMessagesSnapshot)) {
+      return null
+    }
     const firstMessage = messages[0]
     const lastMessage = messages[messages.length - 1]
     const createdAt =
-      firstMessage?.created_at
-      || lastMessage?.created_at
-      || new Date().toISOString()
+      firstMessage?.created_at || lastMessage?.created_at || new Date().toISOString()
     const updatedAt = lastMessage?.created_at || createdAt
     return {
       id: selectedConversationId,
@@ -306,23 +327,35 @@ function HistoryPageContent({
       created_at: createdAt,
       updated_at: updatedAt,
     }
-  }, [messages, messagesQuery.isError, selectedConversation, selectedConversationId])
+  }, [
+    hasMessagesSnapshot,
+    messages,
+    messagesQuery.isError,
+    selectedConversation,
+    selectedConversationId,
+  ])
   const hasMoreMessages = messagesQuery.hasPreviousPage
   const isLoadingOlder = messagesQuery.isFetchingPreviousPage
   const isLoadingMessages = Boolean(selectedConversationId) && messagesQuery.isLoading
+  const messagesUnavailable = Boolean(messagesQuery.error) && !hasMessagesSnapshot
+  const messagesRefreshFailed =
+    Boolean(messagesQuery.error) && hasMessagesSnapshot && !messagesQuery.isFetchPreviousPageError
 
-  const handleSelectConversation = useCallback(async (conversation: Conversation) => {
-    if (selectedConversation?.id === conversation.id) return
+  const handleSelectConversation = useCallback(
+    async (conversation: Conversation) => {
+      if (selectedConversation?.id === conversation.id) return
 
-    shouldScrollToEndRef.current = true
-    setSelectedConversation(conversation)
-    if (globalThis.window.matchMedia('(max-width: 767px)').matches) {
-      setIsSidebarCollapsed(true)
-    }
+      shouldScrollToEndRef.current = true
+      setSelectedConversation(conversation)
+      if (globalThis.window.matchMedia('(max-width: 767px)').matches) {
+        setIsSidebarCollapsed(true)
+      }
 
-    // 更新 URL
-    router.push(`/history?id=${conversation.id}`, { scroll: false })
-  }, [router, selectedConversation?.id])
+      // 更新 URL
+      router.push(`/history?id=${conversation.id}`, { scroll: false })
+    },
+    [router, selectedConversation?.id]
+  )
 
   useEffect(() => {
     if (conversationId && globalThis.window.matchMedia('(max-width: 767px)').matches) {
@@ -333,8 +366,7 @@ function HistoryPageContent({
   useEffect(() => {
     if (!conversationsQuery.error) return
     reportClientError('Failed to load conversations', conversationsQuery.error)
-    toast.error(formatApiError(conversationsQuery.error, t('loadConversationListFailed')))
-  }, [conversationsQuery.error, t])
+  }, [conversationsQuery.error])
 
   useEffect(() => {
     if (historyView !== 'recent') return
@@ -345,18 +377,23 @@ function HistoryPageContent({
   }, [historyView])
 
   const loadMoreConversations = useCallback(async () => {
-    if (!hasMoreConversations || isLoadingMoreConversations) return
+    if (
+      !hasMoreConversations ||
+      isLoadingMoreConversations ||
+      conversationsQuery.isFetchNextPageError
+    ) {
+      return
+    }
     try {
       await conversationsQuery.fetchNextPage()
     } catch (error) {
       reportClientError('Failed to load older conversations', error)
-      toast.error(formatApiError(error, t('loadConversationListFailed')))
     }
-  }, [conversationsQuery, hasMoreConversations, isLoadingMoreConversations, t])
+  }, [conversationsQuery, hasMoreConversations, isLoadingMoreConversations])
 
   useEffect(() => {
     const node = conversationLoadMoreRef.current
-    if (!node || !hasMoreConversations) return
+    if (!node || !hasMoreConversations || conversationsQuery.isFetchNextPageError) return
 
     const root = node.closest('[data-history-sidebar-scroll]')
     const observer = new IntersectionObserver(
@@ -371,7 +408,7 @@ function HistoryPageContent({
     )
     observer.observe(node)
     return () => observer.disconnect()
-  }, [hasMoreConversations, loadMoreConversations])
+  }, [conversationsQuery.isFetchNextPageError, hasMoreConversations, loadMoreConversations])
 
   // 当 URL 中有 id 参数时，自动选中对话
   useEffect(() => {
@@ -389,13 +426,18 @@ function HistoryPageContent({
       shouldScrollToEndRef.current = true
       setSelectedConversation(null)
     }
-  }, [conversationId, conversations, conversationSearchTerm, selectedConversation, selectedConversation?.id])
+  }, [
+    conversationId,
+    conversations,
+    conversationSearchTerm,
+    selectedConversation,
+    selectedConversation?.id,
+  ])
 
   useEffect(() => {
     if (!selectedConversationId) return
     if (messagesQuery.error) {
       reportClientError('Failed to load conversation messages', messagesQuery.error)
-      toast.error(formatApiError(messagesQuery.error, t('loadConversationMessagesFailed')))
       return
     }
     if (!messagesQuery.isSuccess) return
@@ -421,15 +463,22 @@ function HistoryPageContent({
   }, [messages])
 
   const handleDeleteConversation = async (conversationId: string) => {
+    if (deleteInFlightRef.current) return
+    deleteInFlightRef.current = true
+    setDeletingConversationId(conversationId)
     try {
       await deleteConversationFromHistory(conversationId, queryClient)
+      toast.success(t('conversationDeleted'))
       if (displayConversation?.id === conversationId) {
         setSelectedConversation(null)
         router.push('/history', { scroll: false })
       }
     } catch (error) {
       reportClientError('Failed to delete conversation', error)
+      toast.error(t('deleteConversationFailed'))
     } finally {
+      deleteInFlightRef.current = false
+      setDeletingConversationId(null)
       setShowDeleteConfirm(null)
     }
   }
@@ -506,11 +555,21 @@ function HistoryPageContent({
       await messagesQuery.fetchPreviousPage()
     } catch (error) {
       reportClientError('Failed to load older messages', error)
-      toast.error(formatApiError(error, t('loadOlderMessagesFailed')))
     }
-  }, [selectedConversationId, hasMoreMessages, isLoadingMessages, isLoadingOlder, oldestMessageId, messagesQuery, t])
+  }, [
+    selectedConversationId,
+    hasMoreMessages,
+    isLoadingMessages,
+    isLoadingOlder,
+    oldestMessageId,
+    messagesQuery,
+  ])
   return (
-    <AppFrame rightPanel={<DocumentViewerPanel />} withDocumentViewerPadding mainClassName="overflow-hidden">
+    <AppFrame
+      rightPanel={<DocumentViewerPanel />}
+      withDocumentViewerPadding
+      mainClassName="overflow-hidden"
+    >
       <PageScaffold
         title={t('pageTitle')}
         icon={History}
@@ -522,16 +581,16 @@ function HistoryPageContent({
         <div className="h-full overflow-hidden">
           <section className="relative flex h-full min-h-0 overflow-hidden bg-background">
             {/* 侧边栏 - 对话列表 */}
-            <motion.aside 
+            <motion.aside
               initial={false}
-              animate={{ 
+              animate={{
                 opacity: isSidebarCollapsed ? 0 : 1,
-                borderRightWidth: isSidebarCollapsed ? 0 : 1
+                borderRightWidth: isSidebarCollapsed ? 0 : 1,
               }}
               transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
               className={cn(
-                "relative z-10 flex shrink-0 flex-col overflow-hidden border-r border-border bg-muted/20 transition-[width] duration-200",
-                isSidebarCollapsed ? "w-0" : "w-full md:w-[19.5rem] xl:w-[20.75rem]"
+                'relative z-10 flex shrink-0 flex-col overflow-hidden border-r border-border bg-muted/20 transition-[width] duration-200',
+                isSidebarCollapsed ? 'w-0' : 'w-full md:w-[19.5rem] xl:w-[20.75rem]'
               )}
             >
               {/* 头部 - 已扁平化 */}
@@ -556,7 +615,7 @@ function HistoryPageContent({
                     </Button>
                   </div>
                 </div>
-                
+
                 <input
                   maxLength={500}
                   value={searchQuery}
@@ -566,10 +625,12 @@ function HistoryPageContent({
                 />
 
                 <div className="flex items-center gap-1 px-0.5 pb-0.5">
-                  {([
-                    ['all', '全部'],
-                    ['recent', '最近'],
-                  ] as const).map(([value, label]) => (
+                  {(
+                    [
+                      ['all', '全部'],
+                      ['recent', '最近'],
+                    ] as const
+                  ).map(([value, label]) => (
                     <button
                       key={value}
                       type="button"
@@ -597,73 +658,125 @@ function HistoryPageContent({
                 data-history-sidebar-scroll
                 className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-0 py-0.5"
               >
-                {(() => {
-    if (isLoadingList) {
-        return (<div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none text-muted-foreground"/>
-                    </div>);
-    }
-    else if (filteredConversations.length === 0) {
-            return <HistorySidebarEmptyState isSearching={Boolean(searchQuery.trim())} />;
-        }
-        else {
-            return (<>
-              {groupOrder.map((group) => {
-                const convs = groupedConversations[group];
-                if (!convs || convs.length === 0)
-                    return null;
-                const groupTone = getConversationGroupTone();
-                return (<div key={group} className="pb-0.5 last:pb-0">
-                          <div className="sticky top-0 z-10 px-0 pb-0 pt-0 bg-transparent">
-                            <div className="flex items-center gap-2">
-                              <div className={cn("h-px flex-1", groupTone.lineClass)} />
-                              <div className={cn("inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium", groupTone.chipClass)}>
-                                <span suppressHydrationWarning>{group}</span>
-                                <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", groupTone.countClass)}>
-                                  {convs.length}
-                                </span>
-                              </div>
-                              <div className={cn("h-px flex-1", groupTone.lineClass)} />
-                            </div>
-                          </div>
-                          <div className="space-y-0 px-0 pb-0">
-                            {convs.map((conversation) => (<ConversationItem key={conversation.id} conversation={conversation} isSelected={selectedConversation?.id === conversation.id} onSelect={() => handleSelectConversation(conversation)} onDelete={() => setShowDeleteConfirm(conversation.id)} showDeleteConfirm={showDeleteConfirm === conversation.id} onConfirmDelete={() => handleDeleteConversation(conversation.id)} onCancelDelete={() => setShowDeleteConfirm(null)}/>))}
-                          </div>
-                        </div>);
-              })}
-              <div ref={conversationLoadMoreRef} className="px-3 py-3 text-center">
-                {hasMoreConversations ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={loadMoreConversations}
-                    disabled={isLoadingMoreConversations}
-                    className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    {isLoadingMoreConversations ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
-                        加载中
-                      </>
-                    ) : (
-                      '加载更早记录'
-                    )}
-                  </Button>
+                {conversationsUnavailable ? (
+                  <QueryErrorState
+                    title={t('loadConversationListFailed')}
+                    description={t('loadConversationListFailedDescription')}
+                    onRetry={() => conversationsQuery.refetch()}
+                    retrying={conversationsQuery.isFetching}
+                    className="mx-2 mt-3"
+                  />
+                ) : isLoadingList ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-6 animate-spin text-muted-foreground motion-reduce:animate-none" />
+                  </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground">已显示全部历史</span>
+                  <>
+                    {conversationRefreshFailed ? (
+                      <QueryErrorState
+                        title={t('refreshConversationListFailed')}
+                        description={t('refreshConversationListFailedDescription')}
+                        onRetry={() => conversationsQuery.refetch()}
+                        retrying={conversationsQuery.isFetching}
+                        className="mx-2 mt-3"
+                      />
+                    ) : null}
+
+                    {filteredConversations.length === 0 ? (
+                      <HistorySidebarEmptyState isSearching={Boolean(searchQuery.trim())} />
+                    ) : (
+                      <>
+                        {groupOrder.map((group) => {
+                          const convs = groupedConversations[group]
+                          if (!convs || convs.length === 0) return null
+                          const groupTone = getConversationGroupTone()
+
+                          return (
+                            <div key={group} className="pb-0.5 last:pb-0">
+                              <div className="sticky top-0 z-10 bg-transparent px-0 pb-0 pt-0">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn('h-px flex-1', groupTone.lineClass)} />
+                                  <div
+                                    className={cn(
+                                      'inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium',
+                                      groupTone.chipClass
+                                    )}
+                                  >
+                                    <span suppressHydrationWarning>{group}</span>
+                                    <span
+                                      className={cn(
+                                        'rounded px-1.5 py-0.5 text-xs font-medium',
+                                        groupTone.countClass
+                                      )}
+                                    >
+                                      {convs.length}
+                                    </span>
+                                  </div>
+                                  <div className={cn('h-px flex-1', groupTone.lineClass)} />
+                                </div>
+                              </div>
+                              <div className="space-y-0 px-0 pb-0">
+                                {convs.map((conversation) => (
+                                  <ConversationItem
+                                    key={conversation.id}
+                                    conversation={conversation}
+                                    isSelected={selectedConversation?.id === conversation.id}
+                                    isDeleting={deletingConversationId === conversation.id}
+                                    onSelect={() => handleSelectConversation(conversation)}
+                                    onDelete={() => setShowDeleteConfirm(conversation.id)}
+                                    showDeleteConfirm={showDeleteConfirm === conversation.id}
+                                    onConfirmDelete={() =>
+                                      handleDeleteConversation(conversation.id)
+                                    }
+                                    onCancelDelete={() => setShowDeleteConfirm(null)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })}
+                        <div ref={conversationLoadMoreRef} className="px-3 py-3 text-center">
+                          {conversationsQuery.isFetchNextPageError ? (
+                            <QueryErrorState
+                              title={t('loadOlderConversationsFailed')}
+                              description={t('loadOlderConversationsFailedDescription')}
+                              onRetry={() => conversationsQuery.fetchNextPage()}
+                              retrying={isLoadingMoreConversations}
+                              className="text-left"
+                            />
+                          ) : hasMoreConversations ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={loadMoreConversations}
+                              disabled={isLoadingMoreConversations}
+                              className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                            >
+                              {isLoadingMoreConversations ? (
+                                <>
+                                  <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+                                  加载中
+                                </>
+                              ) : (
+                                '加载更早记录'
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">已显示全部历史</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
-            </>);
-        }
-        })()}
-        </div>
-        </motion.aside>
+            </motion.aside>
             {/* 主区域 - 对话详情 */}
-            <motion.div 
+            <motion.div
               layout
               className={cn(
-                "relative min-w-0 flex-1 flex-col transition-colors duration-500",
-                isSidebarCollapsed ? "flex bg-background/40" : "hidden bg-background/65 md:flex"
+                'relative min-w-0 flex-1 flex-col transition-colors duration-500',
+                isSidebarCollapsed ? 'flex bg-background/40' : 'hidden bg-background/65 md:flex'
               )}
             >
               {/* 悬浮侧边栏展开按钮 - 仅在收起时显示，且固定在边缘 */}
@@ -690,15 +803,25 @@ function HistoryPageContent({
                 )}
               </AnimatePresence>
 
-              {displayConversation ? (
+              {messagesUnavailable ? (
+                <div className="flex flex-1 items-center justify-center bg-background p-4 md:p-6">
+                  <QueryErrorState
+                    title={t('loadConversationMessagesFailed')}
+                    description={t('loadConversationMessagesFailedDescription')}
+                    onRetry={() => messagesQuery.refetch()}
+                    retrying={messagesQuery.isFetching}
+                    className="w-full max-w-xl"
+                  />
+                </div>
+              ) : displayConversation ? (
                 <>
                   {/* 对话头部 - 极简重构版 */}
                   <div className="sticky top-0 z-20 border-b border-border bg-background">
-                    <motion.div 
+                    <motion.div
                       layout
                       className={cn(
-                        "mx-auto px-4 py-3 md:px-6 xl:px-8 transition-all duration-500",
-                        isSidebarCollapsed ? "max-w-6xl" : "max-w-5xl"
+                        'mx-auto px-4 py-3 md:px-6 xl:px-8 transition-all duration-500',
+                        isSidebarCollapsed ? 'max-w-6xl' : 'max-w-5xl'
                       )}
                     >
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -711,18 +834,20 @@ function HistoryPageContent({
                               <div className="w-px h-6 bg-border/40 mx-1 hidden md:block" />
                             </>
                           )}
-                          
+
                           {/* 如果收起，留出悬浮按钮的位移空间 */}
-                          <div className={cn(
-                            "min-w-0 flex flex-col justify-center transition-all duration-500",
-                            isSidebarCollapsed ? "ml-12" : "ml-0"
-                          )}>
+                          <div
+                            className={cn(
+                              'min-w-0 flex flex-col justify-center transition-all duration-500',
+                              isSidebarCollapsed ? 'ml-12' : 'ml-0'
+                            )}
+                          >
                             <h2 className="truncate text-base font-medium text-foreground/92  leading-tight md:text-lg">
-                              {displayConversation.title || t("untitledConversation")}
+                              {displayConversation.title || t('untitledConversation')}
                             </h2>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground tabular-nums">
                               <span>
-                                {t("messageCount", { count: displayConversation.message_count })}
+                                {t('messageCount', { count: displayConversation.message_count })}
                               </span>
                               <span className="text-border">·</span>
                               <span suppressHydrationWarning>
@@ -774,63 +899,101 @@ function HistoryPageContent({
                     className="flex-1 overflow-y-auto overscroll-contain no-scrollbar bg-muted/[0.12] px-4 pt-0 pb-6 md:px-6 md:pb-8 xl:px-8"
                   >
                     {(() => {
-    if (isLoadingMessages) {
-        return (<div className="flex h-full items-center justify-center">
-                          <Loader2 className="h-8 w-8 animate-spin motion-reduce:animate-none text-muted-foreground"/>
-                        </div>);
-    }
-    else if (messages.length === 0) {
-            return (<div className="flex h-full items-center justify-center">
-                          <div className="rounded-lg border border-dashed border-border bg-background px-8 py-12 text-center text-muted-foreground">
-                            <MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-10"/>
-                            <p>{t('noMessageRecords')}</p>
+                      if (isLoadingMessages) {
+                        return (
+                          <div className="flex h-full items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin motion-reduce:animate-none text-muted-foreground" />
                           </div>
-                        </div>);
-        }
-                        else {
-            return (<AnimatePresence mode="wait">
-                        <motion.div 
-                          layout
-                          key={displayConversation.id}
-                          initial="hidden"
-                          animate="visible"
-                          variants={{
-                            hidden: { opacity: 0 },
-                            visible: { 
-                              opacity: 1,
-                              transition: {
-                                staggerChildren: 0.05
-                              }
-                            }
-                          }}
-                          className={cn(
-                            "mx-auto w-full space-y-6 pt-4 transition-all duration-500",
-                            isSidebarCollapsed ? "max-w-6xl" : "max-w-5xl"
-                          )}
-                        >
-                          <ConversationOpsPanel conversationId={displayConversation.id} />
-                          {hasMoreMessages ? (<div className="flex justify-center mb-4">
-                              <Button variant="ghost" size="sm" onClick={loadOlderMessages} disabled={isLoadingOlder} className="rounded-md text-xs font-medium text-muted-foreground hover:text-foreground">
-                                {isLoadingOlder ? t('loading') : t('loadOlderMessages')}
-                              </Button>
-                            </div>) : null}
-                          {groupedMessages.map((group) => (<div key={group.key} className="space-y-6">
-                              <div className="flex items-center gap-6 py-1">
-                                <div className="h-px flex-1 bg-border/30" />
-                                <div suppressHydrationWarning className="whitespace-nowrap text-xs font-medium text-muted-foreground/60">
-                                  {group.label}
+                        )
+                      } else if (messages.length === 0) {
+                        return (
+                          <div className="flex h-full items-center justify-center">
+                            <div className="rounded-lg border border-dashed border-border bg-background px-8 py-12 text-center text-muted-foreground">
+                              <MessageSquare className="mx-auto mb-4 h-12 w-12 opacity-10" />
+                              <p>{t('noMessageRecords')}</p>
+                            </div>
+                          </div>
+                        )
+                      } else {
+                        return (
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              layout
+                              key={displayConversation.id}
+                              initial="hidden"
+                              animate="visible"
+                              variants={{
+                                hidden: { opacity: 0 },
+                                visible: {
+                                  opacity: 1,
+                                  transition: {
+                                    staggerChildren: 0.05,
+                                  },
+                                },
+                              }}
+                              className={cn(
+                                'mx-auto w-full space-y-6 pt-4 transition-all duration-500',
+                                isSidebarCollapsed ? 'max-w-6xl' : 'max-w-5xl'
+                              )}
+                            >
+                              {messagesRefreshFailed ? (
+                                <QueryErrorState
+                                  title={t('refreshConversationMessagesFailed')}
+                                  description={t('refreshConversationMessagesFailedDescription')}
+                                  onRetry={() => messagesQuery.refetch()}
+                                  retrying={messagesQuery.isFetching}
+                                />
+                              ) : null}
+                              <ConversationOpsPanel conversationId={displayConversation.id} />
+                              {messagesQuery.isFetchPreviousPageError ? (
+                                <QueryErrorState
+                                  title={t('loadOlderMessagesFailed')}
+                                  description={t('loadOlderMessagesFailedDescription')}
+                                  onRetry={() => messagesQuery.fetchPreviousPage()}
+                                  retrying={isLoadingOlder}
+                                />
+                              ) : hasMoreMessages ? (
+                                <div className="flex justify-center mb-4">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={loadOlderMessages}
+                                    disabled={isLoadingOlder}
+                                    className="rounded-md text-xs font-medium text-muted-foreground hover:text-foreground"
+                                  >
+                                    {isLoadingOlder ? t('loading') : t('loadOlderMessages')}
+                                  </Button>
                                 </div>
-                                <div className="h-px flex-1 bg-border/30" />
-                              </div>
-                              <div className="space-y-6">
-                                {group.messages.map((message) => (<HistoryMessageEntry key={message.id} message={message} locale={locale} />))}
-                              </div>
-                            </div>))}
-                          <div ref={messagesEndRef} className="h-4"/>
-                        </motion.div>
-                      </AnimatePresence>);
-        }
-})()}
+                              ) : null}
+                              {groupedMessages.map((group) => (
+                                <div key={group.key} className="space-y-6">
+                                  <div className="flex items-center gap-6 py-1">
+                                    <div className="h-px flex-1 bg-border/30" />
+                                    <div
+                                      suppressHydrationWarning
+                                      className="whitespace-nowrap text-xs font-medium text-muted-foreground/60"
+                                    >
+                                      {group.label}
+                                    </div>
+                                    <div className="h-px flex-1 bg-border/30" />
+                                  </div>
+                                  <div className="space-y-6">
+                                    {group.messages.map((message) => (
+                                      <HistoryMessageEntry
+                                        key={message.id}
+                                        message={message}
+                                        locale={locale}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                              <div ref={messagesEndRef} className="h-4" />
+                            </motion.div>
+                          </AnimatePresence>
+                        )
+                      }
+                    })()}
                   </div>
                 </>
               ) : (
@@ -864,14 +1027,13 @@ function HistoryMainEmptyState() {
           <div className="mb-5 grid size-14 place-items-center rounded-md bg-muted text-foreground">
             <History className="size-8" />
           </div>
-          <p className="text-xs font-medium text-muted-foreground">
-            {t('historyEmptyKicker')}
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">{t('historyEmptyKicker')}</p>
           <h2 className="mt-2 text-xl font-semibold text-foreground">
             {t('noConversationSelected')}
           </h2>
           <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground/78">
-            {descriptionLines[0]}<br />
+            {descriptionLines[0]}
+            <br />
             {descriptionLines[1]}
           </p>
 
@@ -915,9 +1077,7 @@ function HistorySidebarEmptyState({
       <div className="mx-auto mb-4 grid size-12 place-items-center rounded-md bg-primary/10 text-primary">
         <History className="size-6" />
       </div>
-      <p className="text-xs font-medium text-muted-foreground">
-        {t('historyEmptyKicker')}
-      </p>
+      <p className="text-xs font-medium text-muted-foreground">{t('historyEmptyKicker')}</p>
       <h3 className="mt-2 text-[15px] font-semibold text-foreground">
         {t('noConversationRecords')}
       </h3>
@@ -925,11 +1085,7 @@ function HistorySidebarEmptyState({
         {t('historyEmptyDescription')}
       </p>
 
-      <Button
-        asChild
-        size="sm"
-        className="mt-5 h-9 rounded-md px-4 text-xs font-medium"
-      >
+      <Button asChild size="sm" className="mt-5 h-9 rounded-md px-4 text-xs font-medium">
         <Link href="/">
           <Plus className="size-3.5" />
           {t('startNewConversation')}
@@ -943,6 +1099,7 @@ function HistorySidebarEmptyState({
 export function ConversationItem({
   conversation,
   isSelected,
+  isDeleting,
   onSelect,
   onDelete,
   showDeleteConfirm,
@@ -951,6 +1108,7 @@ export function ConversationItem({
 }: Readonly<{
   conversation: Conversation
   isSelected: boolean
+  isDeleting: boolean
   onSelect: () => void
   onDelete: () => void
   showDeleteConfirm: boolean
@@ -965,38 +1123,50 @@ export function ConversationItem({
       <motion.button
         type="button"
         onClick={onSelect}
+        disabled={isDeleting}
+        aria-busy={isDeleting}
         className={cn(
-          'relative flex w-full flex-col gap-1 overflow-hidden rounded-md border border-transparent py-2 pl-3 pr-12 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 motion-reduce:transition-none',
-          isSelected 
+          'relative flex w-full flex-col gap-1 overflow-hidden rounded-md border border-transparent py-2 pl-3 pr-12 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none',
+          isSelected
             ? 'border-primary/20 bg-primary/10 text-primary'
             : 'bg-transparent text-foreground/80 hover:bg-muted/60 hover:text-foreground'
         )}
       >
         {/* 选中时的左侧指示条 */}
         {isSelected && (
-          <motion.div 
+          <motion.div
             layoutId="active-indicator"
             className="absolute bottom-2 left-0 top-2 w-px bg-primary"
           />
         )}
 
         <div className="flex items-start justify-between gap-3">
-          <span className={cn(
-            'flex-1 truncate text-[13.5px] font-normal leading-snug ',
-            isSelected ? 'text-primary' : 'text-foreground/88'
-          )}>
+          <span
+            className={cn(
+              'flex-1 truncate text-[13.5px] font-normal leading-snug ',
+              isSelected ? 'text-primary' : 'text-foreground/88'
+            )}
+          >
             {conversation.title || t('untitledConversation')}
           </span>
           <time
             suppressHydrationWarning
-            dateTime={conversation.last_message_at || conversation.updated_at || conversation.created_at}
+            dateTime={
+              conversation.last_message_at || conversation.updated_at || conversation.created_at
+            }
             className="shrink-0 pt-0.5 text-xs font-medium text-muted-foreground tabular-nums"
           >
-            {formatRelativeTime(conversation.last_message_at || conversation.updated_at, locale, t('justNow'))}
+            {formatRelativeTime(
+              conversation.last_message_at || conversation.updated_at,
+              locale,
+              t('justNow')
+            )}
           </time>
         </div>
         <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground tabular-nums">
-          <span className="shrink-0">{t('messageCount', { count: conversation.message_count })}</span>
+          <span className="shrink-0">
+            {t('messageCount', { count: conversation.message_count })}
+          </span>
           <span className="text-muted-foreground/20">/</span>
           <p className="truncate flex-1 font-normal  text-muted-foreground/50 lowercase">
             {conversation.last_message || t('noMessage')}
@@ -1004,27 +1174,41 @@ export function ConversationItem({
         </div>
       </motion.button>
 
-      <div className={cn(
-        "absolute right-2 top-1/2 flex -translate-y-1/2 items-center transition-opacity duration-200 motion-reduce:transition-none",
-        showDeleteConfirm
-          ? "opacity-100"
-          : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-      )}>
+      <div
+        className={cn(
+          'absolute right-2 top-1/2 flex -translate-y-1/2 items-center transition-opacity duration-200 motion-reduce:transition-none',
+          showDeleteConfirm
+            ? 'opacity-100'
+            : 'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100'
+        )}
+      >
         {showDeleteConfirm ? (
           <div className="flex items-center gap-1.5 animate-fade-in-up">
             <IconButton
               label={t('confirmDeleteConversation')}
               variant="ghost"
+              disabled={isDeleting}
               className="size-8 rounded-md border border-transparent text-destructive hover:border-destructive/10 hover:bg-destructive/10 active:bg-destructive/20"
-              onClick={(e) => { e.stopPropagation(); onConfirmDelete() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onConfirmDelete()
+              }}
             >
-              <Trash2 className="size-4" />
+              {isDeleting ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
             </IconButton>
             <IconButton
               label={t('cancelDelete')}
               variant="ghost"
+              disabled={isDeleting}
               className="size-8 rounded-md text-muted-foreground/40 hover:bg-muted hover:text-foreground"
-              onClick={(e) => { e.stopPropagation(); onCancelDelete() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onCancelDelete()
+              }}
             >
               <X className="size-4" />
             </IconButton>
@@ -1035,7 +1219,10 @@ export function ConversationItem({
               label={t('deleteConversation')}
               variant="ghost"
               className="size-8 rounded-md text-muted-foreground/30 hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20"
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
             >
               <Trash2 className="size-4" />
             </IconButton>
@@ -1058,20 +1245,17 @@ function HistoryMessageEntry({
   const showAnswerLineage = Boolean(requestId && hasAnswerLineageEvidence(message))
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-20px" }}
+      viewport={{ once: true, margin: '-20px' }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "w-full py-4 transition-all duration-300",
-        isUser ? "flex justify-end" : "flex justify-start"
+        'w-full py-4 transition-all duration-300',
+        isUser ? 'flex justify-end' : 'flex justify-start'
       )}
     >
-      <div className={cn(
-        "w-full max-w-4xl",
-        isUser ? "flex justify-end" : "flex justify-start"
-      )}>
+      <div className={cn('w-full max-w-4xl', isUser ? 'flex justify-end' : 'flex justify-start')}>
         <div className={cn('flex min-w-0 flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
           <ChatMessageItem message={message} variant="minimal" />
           {showAnswerLineage ? <AnswerLineageAction requestId={requestId} /> : null}

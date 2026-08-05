@@ -1,5 +1,5 @@
 const chatMessages = {
-Chat: {
+  Chat: {
     requestFailed: '聊天请求失败',
     openRagConfig: '已打开 RAG 配置',
     clearInput: '已清空当前输入',
@@ -20,7 +20,8 @@ Chat: {
     defaultTemplate: '默认模板',
     selectPromptTemplate: '选择 Prompt 模板',
     selectDataset: '选择数据集',
-    datasetScopeHint: '未打开文档时，会按这里选中的数据集检索；打开文档后会优先按当前文档范围检索。',
+    datasetScopeHint:
+      '未打开文档时，会按这里选中的数据集检索；打开文档后会优先按当前文档范围检索。',
     datasetScopeLoading: '正在读取数据集...',
     datasetScopeEmpty: '当前没有可用数据集',
     datasetScopeRequired: '请先选择一个数据集，或先打开一个文档后再提问',
@@ -131,9 +132,9 @@ Chat: {
     firstUseAdviceDescription:
       '先问一个具体问题，再用 / 快捷指令或 RAG 配置逐步缩小范围，会比一次性堆太多要求更稳。',
   },
-History: {
+  History: {
     loadingPage: '正在加载历史记录...',
-    loadingPageSr: 'Loading history',
+    loadingPageSr: '正在加载历史记录',
     pageTitle: '问答历史',
     pageDescription: '查看与管理历史对话，并快速回到对话继续交流',
     newConversation: '新建对话',
@@ -144,8 +145,17 @@ History: {
     historyEmptyKicker: '历史归档',
     historyEmptyDescription: '提问后，对话会按时间自动沉淀到这里，方便回看答案、证据和评测链路。',
     loadConversationListFailed: '加载对话列表失败',
+    loadConversationListFailedDescription: '暂时无法获取对话列表，请重新加载。',
+    refreshConversationListFailed: '刷新对话列表失败',
+    refreshConversationListFailedDescription: '当前仍显示上次成功加载的记录。',
+    loadOlderConversationsFailed: '加载更早记录失败',
+    loadOlderConversationsFailedDescription: '当前记录不受影响，请重新加载更早记录。',
     loadConversationMessagesFailed: '加载对话消息失败',
+    loadConversationMessagesFailedDescription: '暂时无法获取这段对话，请重新加载。',
+    refreshConversationMessagesFailed: '刷新对话消息失败',
+    refreshConversationMessagesFailedDescription: '当前仍显示上次成功加载的消息。',
     loadOlderMessagesFailed: '加载更早消息失败',
+    loadOlderMessagesFailedDescription: '当前消息不受影响，请重新加载更早消息。',
     untitledConversation: '未命名对话',
     continueConversation: '继续对话',
     noMessageRecords: '暂无消息记录',
@@ -160,6 +170,8 @@ History: {
     confirmDeleteConversation: '确认删除对话',
     cancelDelete: '取消删除',
     deleteConversation: '删除对话',
+    conversationDeleted: '对话已删除',
+    deleteConversationFailed: '删除对话失败，请稍后重试',
     evaluateConversation: '质量评测',
     ragTrace: '数据追踪',
     messageCount: '{count} 条消息',
@@ -172,7 +184,7 @@ History: {
     groupLast30Days: '最近30天',
     groupEarlier: '更早',
   },
-Navbar: {
+  Navbar: {
     brand: {
       tagline: '智能知识库',
     },
@@ -250,7 +262,7 @@ Navbar: {
       requestIdHint: '请求可追踪',
     },
   },
-SlashMenu: {
+  SlashMenu: {
     placeholder: '搜索命令或用途...',
     empty: '未找到匹配命令',
     heading: '快捷指令',
@@ -286,7 +298,7 @@ SlashMenu: {
         keywords: ['clear', 'erase', '清空'],
       },
     },
-  }
+  },
 } as const
 
 export default chatMessages

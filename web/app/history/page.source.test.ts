@@ -20,7 +20,9 @@ describe('history route source', () => {
     expect(client).toContain('initialConversations')
     expect(client).toContain('initialMessages')
     expect(client).toContain('initialConversationId')
-    expect(client).toContain("import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'")
+    expect(client).toContain(
+      "import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'"
+    )
     expect(client).toContain('queryKey: queryKeys.chat.conversationPages(conversationListParams)')
     expect(client).toContain('...(conversationSearchTerm ? { q: conversationSearchTerm } : {})')
     expect(client).toContain('maxLength={500}')
@@ -39,14 +41,20 @@ describe('history route source', () => {
 
     expect(client).toContain('<time')
     expect(client).toContain('suppressHydrationWarning')
-    expect(client).toContain('dateTime={conversation.last_message_at || conversation.updated_at || conversation.created_at}')
-    expect(client).toContain("formatRelativeTime(conversation.last_message_at || conversation.updated_at, locale, t('justNow'))")
+    expect(client).toMatch(
+      /dateTime=\{\s*conversation\.last_message_at\s*\|\|\s*conversation\.updated_at\s*\|\|\s*conversation\.created_at\s*\}/
+    )
+    expect(client).toMatch(
+      /formatRelativeTime\(\s*conversation\.last_message_at\s*\|\|\s*conversation\.updated_at,\s*locale,\s*t\('justNow'\)\s*\)/
+    )
   })
 
   it('suppresses hydration drift for message-group date labels in the active conversation pane', () => {
     const client = fs.readFileSync(path.resolve(__dirname, 'page-client.tsx'), 'utf8')
 
-    expect(client).toContain('<div suppressHydrationWarning className="whitespace-nowrap text-xs font-medium text-muted-foreground/60">')
+    expect(client).toMatch(
+      /<div\s+suppressHydrationWarning\s+className="whitespace-nowrap text-xs font-medium text-muted-foreground\/60"\s*>/
+    )
     expect(client).toContain('{group.label}')
   })
 
@@ -61,7 +69,9 @@ describe('history route source', () => {
     const client = fs.readFileSync(path.resolve(__dirname, 'page-client.tsx'), 'utf8')
 
     expect(client).toContain('py-2 pl-3 pr-12')
-    expect(client).toContain('opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100')
+    expect(client).toContain(
+      'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100'
+    )
     expect(client).toContain("label={t('deleteConversation')}")
   })
 

@@ -10,6 +10,10 @@ const chatApiMock = vi.hoisted(() => ({
   getMessages: vi.fn(),
   listConversations: vi.fn(),
 }))
+const toastMock = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}))
 
 vi.mock('@/components/app-frame', () => ({
   AppFrame: ({ children }: { children: React.ReactNode }) =>
@@ -29,12 +33,15 @@ vi.mock('next-intl', () => ({
   useLocale: () => 'en',
   useTranslations: () => (key: string) => key,
 }))
+vi.mock('sonner', () => ({ toast: toastMock }))
 
 import HistoryPageClient, { ConversationItem, deleteConversationFromHistory } from './page-client'
 import { queryKeys } from '@/lib/query-keys'
 
 beforeEach(() => {
-  ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  ;(
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true
   chatApiMock.deleteConversation.mockResolvedValue(undefined)
   chatApiMock.getMessages.mockResolvedValue({
     conversation_id: 'conversation-default',
@@ -80,6 +87,84 @@ afterEach(() => {
 })
 
 describe('history page delete action', () => {
+  it('shows a recoverable error instead of an empty archive when the first list request fails', async () => {
+    chatApiMock.listConversations.mockRejectedValueOnce(new Error('network unavailable'))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(HistoryPageClient, { initialConversationId: null })
+        )
+      )
+    })
+
+    await act(async () => {
+      await vi.waitFor(() => expect(container.textContent).toContain('loadConversationListFailed'))
+    })
+    expect(container.querySelector('[data-history-empty-archive="true"]')).toBeNull()
+
+    const retryButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('重新加载')
+    )
+    expect(retryButton).not.toBeUndefined()
+    act(() => retryButton?.click())
+
+    await act(async () => {
+      await vi.waitFor(() => expect(chatApiMock.listConversations).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() =>
+        expect(container.querySelector('[data-history-empty-archive="true"]')).not.toBeNull()
+      )
+    })
+
+    act(() => root.unmount())
+  })
+
+  it('keeps the previous conversation list visible when a background refresh fails', async () => {
+    const conversation = {
+      id: 'conversation-snapshot',
+      title: 'Saved conversation',
+      message_count: 1,
+      last_message: 'saved message',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    chatApiMock.listConversations.mockRejectedValueOnce(new Error('refresh failed'))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(HistoryPageClient, {
+            initialConversations: [conversation],
+            initialConversationTotal: 1,
+            initialConversationsLoaded: true,
+          })
+        )
+      )
+    })
+
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(container.textContent).toContain('refreshConversationListFailed')
+      )
+    })
+    expect(container.textContent).toContain(conversation.title)
+    expect(container.querySelector('[data-history-empty-archive="true"]')).toBeNull()
+
+    act(() => root.unmount())
+  })
+
   it('loads conversations at runtime when the server shell no longer prefetched them', async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -182,7 +267,9 @@ describe('history page delete action', () => {
       await vi.waitFor(() => expect(chatApiMock.listConversations).toHaveBeenCalled())
     })
 
-    const input = container.querySelector<HTMLInputElement>('input[placeholder="searchPlaceholder"]')
+    const input = container.querySelector<HTMLInputElement>(
+      'input[placeholder="searchPlaceholder"]'
+    )
     expect(input).not.toBeNull()
     expect(input?.maxLength).toBe(500)
     const recentButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
@@ -308,9 +395,9 @@ describe('history page delete action', () => {
     })
 
     expect(container.querySelector('[data-history-main-empty="true"]')).toBeNull()
-    const loadOlderButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent === 'loadOlderMessages'
-    )
+    const loadOlderButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent === 'loadOlderMessages')
     expect(loadOlderButton).not.toBeUndefined()
     expect(chatApiMock.getMessages).toHaveBeenCalledTimes(1)
 
@@ -328,7 +415,7 @@ describe('history page delete action', () => {
     act(() => root.unmount())
   })
 
-  it('does not expose actions for a rejected deep-linked conversation', async () => {
+  it('shows a recoverable error for a rejected deep link and restores the conversation after retry', async () => {
     chatApiMock.getMessages.mockRejectedValueOnce(new Error('conversation not found'))
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -353,13 +440,83 @@ describe('history page delete action', () => {
 
     await act(async () => {
       await vi.waitFor(() =>
-        expect(container.querySelector('[data-history-main-empty="true"]')).not.toBeNull()
+        expect(container.textContent).toContain('loadConversationMessagesFailed')
       )
     })
 
+    expect(container.querySelector('[data-history-main-empty="true"]')).toBeNull()
     expect(container.querySelector('[aria-label="继续当前对话"]')).toBeNull()
     expect(container.querySelector('[aria-label="进行对话分析评测"]')).toBeNull()
     expect(container.querySelector('[aria-label="查看数据追踪"]')).toBeNull()
+
+    const retryButton = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('重新加载')
+    )
+    expect(retryButton).not.toBeUndefined()
+    act(() => retryButton?.click())
+    await act(async () => {
+      await vi.waitFor(() => expect(chatApiMock.getMessages).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() =>
+        expect(container.querySelector('[aria-label="继续当前对话"]')).not.toBeNull()
+      )
+    })
+
+    act(() => root.unmount())
+  })
+
+  it('keeps deep-linked message snapshots visible when their background refresh fails', async () => {
+    const conversation = {
+      id: 'conversation-message-snapshot',
+      title: 'Snapshot conversation',
+      message_count: 1,
+      last_message: 'saved answer',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    const message = {
+      id: 'message-snapshot',
+      role: 'assistant' as const,
+      content: 'saved answer',
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    chatApiMock.listConversations.mockResolvedValue({
+      items: [conversation],
+      total: 1,
+      returned: 1,
+      has_more: false,
+      next_skip: null,
+    })
+    chatApiMock.getMessages.mockRejectedValueOnce(new Error('refresh failed'))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(HistoryPageClient, {
+            initialConversationId: conversation.id,
+            initialConversations: [conversation],
+            initialSelectedConversation: conversation,
+            initialMessages: [message],
+            initialConversationTotal: 1,
+            initialConversationsLoaded: true,
+          })
+        )
+      )
+    })
+
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(container.textContent).toContain('refreshConversationMessagesFailed')
+      )
+    })
+    expect(container.textContent).toContain(message.content)
+    expect(container.querySelector('[data-history-main-empty="true"]')).toBeNull()
+
     act(() => root.unmount())
   })
 
@@ -394,6 +551,7 @@ describe('history page delete action', () => {
       return React.createElement(ConversationItem, {
         conversation: conversation as never,
         isSelected: false,
+        isDeleting: false,
         onSelect: () => undefined,
         onDelete: () => setConfirming(true),
         showDeleteConfirm: confirming,
@@ -416,16 +574,92 @@ describe('history page delete action', () => {
     expect(confirmButton).not.toBeNull()
     act(() => confirmButton?.click())
 
-    await vi.waitFor(() => expect(chatApiMock.deleteConversation).toHaveBeenCalledWith('conversation-1'))
+    await vi.waitFor(() =>
+      expect(chatApiMock.deleteConversation).toHaveBeenCalledWith('conversation-1')
+    )
     await vi.waitFor(() => {
       const cached = queryClient.getQueryData<{ pages: Array<{ items: unknown[] }> }>(cacheKey)
       expect(cached?.pages[0].items).toEqual([])
-      const searched = queryClient.getQueryData<{ pages: Array<{ items: unknown[] }> }>(searchCacheKey)
+      const searched = queryClient.getQueryData<{ pages: Array<{ items: unknown[] }> }>(
+        searchCacheKey
+      )
       expect(searched?.pages[0].items).toEqual([])
       expect(queryClient.getQueryState(cacheKey)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(searchCacheKey)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(commandCacheKey)?.isInvalidated).toBe(true)
     })
+    act(() => root.unmount())
+  })
+
+  it('blocks duplicate delete requests and keeps the conversation visible after failure', async () => {
+    const conversation = {
+      id: 'conversation-delete-failure',
+      title: 'Keep this conversation',
+      message_count: 1,
+      last_message: 'hello',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+    let rejectDelete: (reason?: unknown) => void = () => undefined
+    chatApiMock.deleteConversation.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectDelete = reject
+        })
+    )
+    chatApiMock.listConversations.mockResolvedValue({
+      items: [conversation],
+      total: 1,
+      returned: 1,
+      has_more: false,
+      next_skip: null,
+    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => {
+      root.render(
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(HistoryPageClient, {
+            initialConversations: [conversation],
+            initialConversationTotal: 1,
+            initialConversationsLoaded: true,
+          })
+        )
+      )
+    })
+
+    const deleteButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="deleteConversation"]'
+    )
+    expect(deleteButton).not.toBeNull()
+    act(() => deleteButton?.click())
+    const confirmButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="confirmDeleteConversation"]'
+    )
+    expect(confirmButton).not.toBeNull()
+
+    act(() => {
+      confirmButton?.click()
+      confirmButton?.click()
+    })
+    await act(async () => {
+      await vi.waitFor(() => expect(chatApiMock.deleteConversation).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(confirmButton?.disabled).toBe(true))
+    })
+
+    await act(async () => {
+      rejectDelete(new Error('delete failed'))
+      await vi.waitFor(() =>
+        expect(toastMock.error).toHaveBeenCalledWith('deleteConversationFailed')
+      )
+    })
+    expect(container.textContent).toContain(conversation.title)
+
     act(() => root.unmount())
   })
 })
