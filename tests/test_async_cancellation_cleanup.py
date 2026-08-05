@@ -171,6 +171,87 @@ async def test_langchain_stream_first_token_timeout_ignores_non_token_events(
     assert cleaned_up.is_set()
 
 
+def _graph_options() -> SimpleNamespace:
+    return SimpleNamespace(
+        execution=SimpleNamespace(
+            db=None,
+            tenant_id="tenant-1",
+            conversation_id=None,
+            request_id="graph-timeout-test",
+            dataset_id_used=None,
+            effective_rag_config=SimpleNamespace(retrieval_mode="hybrid"),
+            rag_config_template_meta=None,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_graph_stream_times_out_when_model_blocks_after_citations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.services.chat_stream_graph as stream_module
+    from app.core.config import settings
+
+    cleaned_up = asyncio.Event()
+
+    async def stream_citations_then_wait(**_kwargs):  # noqa: ANN003, ANN202
+        try:
+            yield {"type": "citations", "data": [{"document_id": "doc-1"}]}
+            await asyncio.Event().wait()
+        finally:
+            cleaned_up.set()
+
+    monkeypatch.setattr(settings, "LLM_TIMEOUT", 0.03, raising=False)
+    monkeypatch.setattr(
+        stream_module,
+        "stream_graph_chat_events",
+        stream_citations_then_wait,
+    )
+    stream = stream_module.stream_graph_chat_session_events(options=_graph_options())
+
+    assert (await anext(stream))["type"] == "citations"
+    with pytest.raises(TimeoutError, match="before first token"):
+        await asyncio.wait_for(anext(stream), timeout=0.3)
+    assert cleaned_up.is_set()
+
+
+@pytest.mark.asyncio
+async def test_graph_stream_first_token_timeout_ignores_non_token_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.services.chat_stream_graph as stream_module
+    from app.core.config import settings
+
+    cleaned_up = asyncio.Event()
+
+    async def stream_progress_without_tokens(**_kwargs):  # noqa: ANN003, ANN202
+        try:
+            yield {"type": "citations", "data": [{"document_id": "doc-1"}]}
+            while True:
+                yield {"type": "graph", "data": {"status": "waiting"}}
+                await asyncio.sleep(0.005)
+        finally:
+            cleaned_up.set()
+
+    monkeypatch.setattr(settings, "LLM_TIMEOUT", 0.03, raising=False)
+    monkeypatch.setattr(
+        stream_module,
+        "stream_graph_chat_events",
+        stream_progress_without_tokens,
+    )
+    stream = stream_module.stream_graph_chat_session_events(options=_graph_options())
+
+    assert (await anext(stream))["type"] == "citations"
+
+    async def consume_until_timeout() -> None:
+        while True:
+            await anext(stream)
+
+    with pytest.raises(TimeoutError, match="before first token"):
+        await asyncio.wait_for(consume_until_timeout(), timeout=0.3)
+    assert cleaned_up.is_set()
+
+
 async def _multi_agent_stream(monkeypatch: pytest.MonkeyPatch, run_sub_agent):  # noqa: ANN001, ANN202
     import app.rag.agents.multi_agent as multi_agent
 

@@ -320,12 +320,48 @@ async def stream_graph_chat_session_events(
     rag_config_template_meta = context.rag_config_template_meta
 
     graph_stream_state: dict[str, Any] = {}
-    async for graph_event in stream_graph_chat_events(
+    graph_stream = stream_graph_chat_events(
         context=context,
         result_holder=graph_stream_state,
-    ):
-        graph_event["request_id"] = str(request_id)
-        yield graph_event
+    )
+    first_token_timeout_sec = max(0.0, float(getattr(settings, "LLM_TIMEOUT", 60) or 60))
+    generation_started_at: float | None = None
+    first_token_received = False
+    loop = asyncio.get_running_loop()
+
+    try:
+        while True:
+            first_token_wait_remaining: float | None = None
+            if generation_started_at is not None and not first_token_received and first_token_timeout_sec > 0:
+                first_token_wait_remaining = first_token_timeout_sec - (loop.time() - generation_started_at)
+                if first_token_wait_remaining <= 0:
+                    raise TimeoutError(
+                        f"Model provider stream timed out before first token after {first_token_timeout_sec:.1f}s"
+                    )
+
+            try:
+                graph_event = (
+                    await asyncio.wait_for(anext(graph_stream), timeout=first_token_wait_remaining)
+                    if first_token_wait_remaining is not None
+                    else await anext(graph_stream)
+                )
+            except StopAsyncIteration:
+                break
+            except asyncio.TimeoutError as exc:
+                raise TimeoutError(
+                    f"Model provider stream timed out before first token after {first_token_timeout_sec:.1f}s"
+                ) from exc
+
+            event_type = graph_event.get("type")
+            if event_type == "citations" and generation_started_at is None:
+                generation_started_at = loop.time()
+            elif event_type == "token":
+                first_token_received = True
+
+            graph_event["request_id"] = str(request_id)
+            yield graph_event
+    finally:
+        await graph_stream.aclose()
 
     citations_data = list(graph_stream_state.get("citations") or [])
     full_response = str(graph_stream_state.get("content") or "")
