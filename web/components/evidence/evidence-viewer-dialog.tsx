@@ -5,44 +5,68 @@ import { Copy, ExternalLink, FileText, Image as ImageIcon, Table2 } from 'lucide
 import { toast } from 'sonner'
 
 import { AuthImage, useResolvedAuthAssetUrl } from '@/components/auth-image'
-import type { Citation } from '@/types'
-import { getDocumentPreviewAnchorFromCitation } from '@/lib/document-preview-anchor'
-import { toPrimitiveString } from '@/lib/primitive-text'
-import { cn } from '@/lib/utils'
-import { resolveSafeCitationImageUrl } from '@/lib/citation-images'
-import type { DocumentViewSourceContext } from '@/store/document-view'
-import { useDocumentView } from '@/store/document-view'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { resolveSafeCitationImageUrl } from '@/lib/citation-images'
+import { getDocumentPreviewAnchorFromCitation } from '@/lib/document-preview-anchor'
+import { toPrimitiveString } from '@/lib/primitive-text'
+import type { DocumentViewSourceContext } from '@/store/document-view'
+import { useDocumentView } from '@/store/document-view'
+import type { Citation } from '@/types'
 
-function asText(v: unknown): string {
-  if (v == null) return ''
-  if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint' || typeof v === 'symbol') return toPrimitiveString(v)
+type EvidenceKind = 'image' | 'table' | 'text'
+
+type EvidenceMetaRow = Readonly<{
+  key: string
+  label: string
+  value: string
+}>
+
+function asText(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint' ||
+    typeof value === 'symbol'
+  ) {
+    return toPrimitiveString(value)
+  }
   try {
-    return JSON.stringify(v)
+    return JSON.stringify(value)
   } catch {
     return ''
   }
 }
 
-function clampText(v: unknown, max = 240): string {
-  const s = asText(v).trim()
-  if (!s) return ''
-  return s.length > max ? `${s.slice(0, max)}…` : s
+function clampText(value: unknown, max = 240): string {
+  const text = asText(value).trim()
+  if (!text) return ''
+  return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
-function inferEvidenceKind(citation: Citation | null): 'image' | 'table' | 'text' {
+function inferEvidenceKind(citation: Citation | null): EvidenceKind {
   if (!citation) return 'text'
-  const hitType = String(citation.hit_type || '').trim().toLowerCase()
-  const chunkRole = String(citation.chunk_role || '').trim().toLowerCase()
-  const semanticRole = String(citation.chunk_semantic_role || '').trim().toLowerCase()
-  const hasImage = Boolean(citation.has_image)
+  const hitType = String(citation.hit_type || '')
+    .trim()
+    .toLowerCase()
+  const chunkRole = String(citation.chunk_role || '')
+    .trim()
+    .toLowerCase()
+  const semanticRole = String(citation.chunk_semantic_role || '')
+    .trim()
+    .toLowerCase()
 
-  if (hasImage || hitType === 'image') return 'image'
+  if (citation.has_image || hitType === 'image') return 'image'
   if (
     hitType === 'tag' ||
     hitType === 'table' ||
@@ -53,6 +77,24 @@ function inferEvidenceKind(citation: Citation | null): 'image' | 'table' | 'text
     return 'table'
   }
   return 'text'
+}
+
+function evidenceKindLabel(kind: EvidenceKind): string {
+  if (kind === 'image') return '图片'
+  if (kind === 'table') return '表格'
+  return '文本'
+}
+
+function evidenceKindTitle(kind: EvidenceKind): string {
+  if (kind === 'image') return '图片证据'
+  if (kind === 'table') return '表格证据'
+  return '文本证据'
+}
+
+function EvidenceKindIcon({ kind }: Readonly<{ kind: EvidenceKind }>) {
+  if (kind === 'image') return <ImageIcon className="size-3.5" aria-hidden="true" />
+  if (kind === 'table') return <Table2 className="size-3.5" aria-hidden="true" />
+  return <FileText className="size-3.5" aria-hidden="true" />
 }
 
 async function copyToClipboard(text: string) {
@@ -80,164 +122,147 @@ export function EvidenceViewerDialog({
   sourceContext?: DocumentViewSourceContext | null
 }>) {
   const { openDocument } = useDocumentView()
-
+  const openingDocumentRef = React.useRef(false)
   const kind = inferEvidenceKind(citation)
   const imgUrl = kind === 'image' ? resolveSafeCitationImageUrl(citation?.img_url) : null
-  const resolvedImgUrl = useResolvedAuthAssetUrl(imgUrl)
+  const resolvedImgUrl = useResolvedAuthAssetUrl(imgUrl, { enabled: open })
 
-  const title = (() => {
-    if (!citation) return 'Evidence'
-    const doc = clampText(citation.document_name || 'Document', 80)
-    const p = citation.page_number
-    const pageLabel = typeof p === 'number' && p > 0 ? ` · P.${p}` : ''
-    if (kind === 'image') return `Image Evidence · ${doc}${pageLabel}`
-    if (kind === 'table') return `Table Evidence · ${doc}${pageLabel}`
-    return `Evidence · ${doc}${pageLabel}`
-  })()
+  const title = React.useMemo(() => {
+    const documentName = clampText(citation?.document_name || '未命名文档', 80)
+    const pageNumber = citation?.page_number
+    const pageLabel =
+      typeof pageNumber === 'number' && pageNumber > 0 ? ` · 第 ${pageNumber} 页` : ''
+    return `${evidenceKindTitle(kind)} · ${documentName}${pageLabel}`
+  }, [citation?.document_name, citation?.page_number, kind])
 
-  const onOpenInDoc = React.useCallback(() => {
+  const handleCloseAutoFocus = React.useCallback((event: Event) => {
+    if (!openingDocumentRef.current) return
+    openingDocumentRef.current = false
+    event.preventDefault()
+  }, [])
+
+  const handleOpenInDocument = React.useCallback(() => {
     if (!citation?.document_id) return
     const start =
-      (() => {
-    if (typeof citation.evidence_start_char === 'number') {
-        return citation.evidence_start_char;
-    }
-    else if (typeof citation.start_char === 'number') {
-            return citation.start_char;
-        }
-        else {
-            return null;
-        }
-})()
+      typeof citation.evidence_start_char === 'number'
+        ? citation.evidence_start_char
+        : typeof citation.start_char === 'number'
+          ? citation.start_char
+          : null
     const end =
-      (() => {
-    if (typeof citation.evidence_end_char === 'number') {
-        return citation.evidence_end_char;
-    }
-    else if (typeof citation.end_char === 'number') {
-            return citation.end_char;
-        }
-        else {
-            return null;
-        }
-})()
+      typeof citation.evidence_end_char === 'number'
+        ? citation.evidence_end_char
+        : typeof citation.end_char === 'number'
+          ? citation.end_char
+          : null
     const range = start != null && end != null && end > start ? { start, end } : undefined
+
+    openingDocumentRef.current = true
+    onOpenChange(false)
     openDocument(citation.document_id, citation.chunk_id, range, {
       previewAnchor: getDocumentPreviewAnchorFromCitation(citation),
       sourceContext,
     })
-  }, [citation, openDocument, sourceContext])
+  }, [citation, onOpenChange, openDocument, sourceContext])
 
-  const onCopyJson = React.useCallback(async () => {
+  const handleCopyDetails = React.useCallback(async () => {
     if (!citation) return
-    const ok = await copyToClipboard(JSON.stringify(citation, null, 2))
-    if (ok) toast.success('已复制证据信息（JSON）')
+    const copied = await copyToClipboard(JSON.stringify(citation, null, 2))
+    if (copied) toast.success('已复制证据信息')
   }, [citation])
 
-  const meta = React.useMemo(() => {
+  const metadata = React.useMemo(() => {
     if (!citation) return []
 
-    const rows: Array<{ k: string; v: string }> = []
-    const push = (k: string, v: unknown) => {
-      const s = clampText(v, 260)
-      if (!s) return
-      rows.push({ k, v: s })
+    const rows: EvidenceMetaRow[] = []
+    const push = (key: string, label: string, value: unknown) => {
+      const text = clampText(value, 260)
+      if (text) rows.push({ key, label, value: text })
     }
 
-    push('document_id', citation.document_id)
-    push('chunk_id', citation.chunk_id)
-    push('page_number', citation.page_number)
-    push('chunk_index', citation.chunk_index)
-    push('span', (() => {
-      const s = citation.start_char
-      const e = citation.end_char
-      if (typeof s === 'number' && typeof e === 'number' && e >= s) return `${s}..${e}`
-      return ''
-    })())
-    push('evidence_span', (() => {
-      const s = citation.evidence_start_char
-      const e = citation.evidence_end_char
-      if (typeof s === 'number' && typeof e === 'number' && e >= s) return `${s}..${e}`
-      return ''
-    })())
-    push('hit_type', citation.hit_type)
-    push('retrieval_role', citation.retrieval_role)
-    push('neighbor_of', citation.neighbor_of)
-    push('doc_pipeline_key', citation.doc_pipeline_key)
-    push('pipeline_hash', citation.pipeline_hash)
-    push('retrieval_mode', citation.retrieval_mode)
-    push('reranker_provider', citation.reranker_provider)
-    push('relevance_score', citation.relevance_score)
-    push('vector_score', citation.vector_score)
-    push('bm25_score', citation.bm25_score)
-    push('keyword_score', citation.keyword_score)
-    push('rerank_score', citation.rerank_score)
-    push('retrieval_score', citation.retrieval_score)
-    push('retrieval_elapsed_sec', citation.retrieval_elapsed_sec)
-    push('rerank_elapsed_sec', citation.rerank_elapsed_sec)
+    push('document-id', '文档 ID', citation.document_id)
+    push('chunk-id', '切片 ID', citation.chunk_id)
+    push('page-number', '页码', citation.page_number)
+    push('chunk-index', '切片序号', citation.chunk_index)
+    push(
+      'span',
+      '正文位置',
+      typeof citation.start_char === 'number' &&
+        typeof citation.end_char === 'number' &&
+        citation.end_char >= citation.start_char
+        ? `${citation.start_char}..${citation.end_char}`
+        : ''
+    )
+    push(
+      'evidence-span',
+      '证据位置',
+      typeof citation.evidence_start_char === 'number' &&
+        typeof citation.evidence_end_char === 'number' &&
+        citation.evidence_end_char >= citation.evidence_start_char
+        ? `${citation.evidence_start_char}..${citation.evidence_end_char}`
+        : ''
+    )
+    push('hit-type', '命中类型', citation.hit_type)
+    push('retrieval-role', '检索角色', citation.retrieval_role)
+    push('neighbor-of', '关联切片', citation.neighbor_of)
+    push('pipeline-key', '处理管线', citation.doc_pipeline_key)
+    push('pipeline-hash', '管线版本', citation.pipeline_hash)
+    push('retrieval-mode', '检索方式', citation.retrieval_mode)
+    push('reranker-provider', '重排服务', citation.reranker_provider)
+    push('relevance-score', '相关性分数', citation.relevance_score)
+    push('vector-score', '向量分数', citation.vector_score)
+    push('bm25-score', '关键词分数', citation.bm25_score)
+    push('keyword-score', '关键词匹配分数', citation.keyword_score)
+    push('rerank-score', '重排分数', citation.rerank_score)
+    push('retrieval-score', '检索分数', citation.retrieval_score)
+    push('retrieval-elapsed', '检索耗时（秒）', citation.retrieval_elapsed_sec)
+    push('rerank-elapsed', '重排耗时（秒）', citation.rerank_elapsed_sec)
 
     return rows
   }, [citation])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b border-border/60">
-          <DialogTitle className="text-sm">{title}</DialogTitle>
+      <DialogContent
+        className="flex max-h-[min(90dvh,760px)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-16 text-left sm:px-6">
+          <DialogTitle className="text-base">{title}</DialogTitle>
+          <DialogDescription>查看证据正文、来源位置和检索信息。</DialogDescription>
         </DialogHeader>
 
-        <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/40">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="soft" className="text-[11px]">
-              {(() => {
-    if (kind === 'image') {
-        return (<span className="inline-flex items-center gap-1">
-                  <ImageIcon className="h-3 w-3"/>
-                  image
-                </span>);
-    }
-    else if (kind === 'table') {
-            return (<span className="inline-flex items-center gap-1">
-                  <Table2 className="h-3 w-3"/>
-                  table
-                </span>);
-        }
-        else {
-            return (<span className="inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3"/>
-                  text
-                </span>);
-        }
-})()}
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge variant="soft" className="gap-1.5">
+              <EvidenceKindIcon kind={kind} />
+              {evidenceKindLabel(kind)}
             </Badge>
             {citation?.document_name ? (
-              <Badge variant="soft" className="text-[11px]" title={String(citation.document_name)}>
+              <Badge variant="outline" title={String(citation.document_name)}>
                 {clampText(citation.document_name, 64)}
               </Badge>
             ) : null}
             {typeof citation?.page_number === 'number' ? (
-              <Badge variant="soft" className="text-[11px]">
-                P.{citation.page_number}
-              </Badge>
+              <Badge variant="outline">第 {citation.page_number} 页</Badge>
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="outline"
               size="sm"
-              className="rounded-xl gap-2"
-              onClick={onCopyJson}
+              className="w-full gap-2 sm:w-auto"
+              onClick={handleCopyDetails}
               disabled={!citation}
             >
-              <Copy className="h-4 w-4" />
-              复制 JSON
+              <Copy className="size-4" aria-hidden="true" />
+              复制详情
             </Button>
             <Button
-              variant="default"
               size="sm"
-              className="rounded-xl"
-              onClick={onOpenInDoc}
+              className="w-full sm:w-auto"
+              onClick={handleOpenInDocument}
               disabled={!citation?.document_id}
             >
               打开文档
@@ -245,90 +270,90 @@ export function EvidenceViewerDialog({
           </div>
         </div>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-5 px-5 py-4 sm:px-6">
             {kind === 'image' ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+              <section className="space-y-3" aria-labelledby="evidence-image-title">
+                <h3 id="evidence-image-title" className="text-sm font-semibold text-foreground">
+                  图片预览
+                </h3>
+                <div className="overflow-hidden rounded-md border border-border bg-muted/20">
                   {resolvedImgUrl ? (
-                    <div className="relative w-full aspect-video">
+                    <div className="relative aspect-video w-full">
                       <AuthImage
-                        src={imgUrl}
-                        alt="evidence image"
+                        src={resolvedImgUrl}
+                        alt="证据图片"
                         fill
                         unoptimized
                         sizes="(max-width: 768px) 100vw, 900px"
-                        className="object-contain bg-background"
+                        className="bg-background object-contain"
                       />
                     </div>
                   ) : (
-                    <div className="p-6 text-sm text-muted-foreground">
-                      无法加载图片预览（URL 不安全或缺失）。
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      图片预览暂不可用。
                     </div>
                   )}
                 </div>
 
                 {resolvedImgUrl ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl gap-2"
-                      onClick={() => globalThis.window.open(resolvedImgUrl, '_blank', 'noopener,noreferrer')}
+                      className="w-full gap-2 sm:w-auto"
+                      onClick={() =>
+                        globalThis.window.open(resolvedImgUrl, '_blank', 'noopener,noreferrer')
+                      }
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="size-4" aria-hidden="true" />
                       新窗口打开
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl gap-2"
+                      className="w-full gap-2 sm:w-auto"
                       onClick={async () => {
-                        const ok = await copyToClipboard(resolvedImgUrl)
-                        if (ok) toast.success('已复制临时图片链接')
+                        const copied = await copyToClipboard(resolvedImgUrl)
+                        if (copied) toast.success('已复制图片链接')
                       }}
                     >
-                      <Copy className="h-4 w-4" />
-                      复制 URL
+                      <Copy className="size-4" aria-hidden="true" />
+                      复制图片链接
                     </Button>
                   </div>
                 ) : null}
-              </div>
+              </section>
             ) : null}
 
             {citation?.chunk_content ? (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-foreground">Evidence Snippet</div>
-                <pre
-                  className={cn(
-                    'rounded-xl border border-border/60 bg-muted/20 p-3',
-                    'text-xs leading-relaxed overflow-auto whitespace-pre-wrap'
-                  )}
-                >
+              <section className="space-y-2" aria-labelledby="evidence-content-title">
+                <h3 id="evidence-content-title" className="text-sm font-semibold text-foreground">
+                  证据内容
+                </h3>
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-muted/20 p-3 text-sm leading-6 text-foreground">
                   {String(citation.chunk_content)}
-                </pre>
-              </div>
+                </div>
+              </section>
             ) : null}
 
-            {meta.length ? (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-foreground">Provenance</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {meta.map((row) => (
+            {metadata.length ? (
+              <section className="space-y-2" aria-labelledby="evidence-metadata-title">
+                <h3 id="evidence-metadata-title" className="text-sm font-semibold text-foreground">
+                  溯源信息
+                </h3>
+                <dl className="overflow-hidden rounded-md border border-border">
+                  {metadata.map((row) => (
                     <div
-                      key={row.k}
-                      className="rounded-xl border border-border/60 bg-card px-3 py-2"
+                      key={row.key}
+                      className="grid gap-1 border-b border-border px-3 py-2.5 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-3"
                     >
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase">
-                        {row.k}
-                      </div>
-                      <div className="mt-1 text-xs font-mono text-foreground break-words">
-                        {row.v}
-                      </div>
+                      <dt className="text-xs font-medium text-muted-foreground">{row.label}</dt>
+                      <dd className="break-words text-sm text-foreground">{row.value}</dd>
                     </div>
                   ))}
-                </div>
-              </div>
+                </dl>
+              </section>
             ) : null}
           </div>
         </ScrollArea>
