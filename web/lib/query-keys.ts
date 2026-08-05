@@ -70,6 +70,7 @@ export const queryKeys = {
     capabilities: ['pipeline', 'capabilities'] as const,
   },
   connectors: {
+    catalog: ['connectors', 'catalog'] as const,
     runs: (params?: QueryParams) => ['connectors', 'runs', params] as const,
   },
   groups: {

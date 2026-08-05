@@ -2,11 +2,13 @@
 
 import type { ConnectorRunOut, Dataset } from '@/types'
 import type { ChangeEvent } from 'react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { KnowledgeImportMenu } from '@/components/knowledge/import/knowledge-import-menu'
+import { resolveKnowledgeImportAvailability } from '@/components/knowledge/import/knowledge-import-availability'
 import { KnowledgeJiraProjectDialog } from '@/components/knowledge/import/knowledge-jira-project-dialog'
 import { KnowledgePipelineConfigDialog } from '@/components/knowledge/import/knowledge-pipeline-config-dialog'
 import { KnowledgeUrlBatchDialog } from '@/components/knowledge/import/knowledge-url-batch-dialog'
@@ -19,11 +21,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { UPLOAD_ACCEPT } from '@/lib/upload-extensions'
-import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/use-auth'
+import { useTenantAccess } from '@/hooks/use-tenant-access'
+import { connectorApi } from '@/lib/api'
+import { queryKeys } from '@/lib/query-keys'
+import { cn, detachPromise } from '@/lib/utils'
 
 type KnowledgeWorkbenchActionsProps = {
   datasets: Dataset[]
   datasetsLoading: boolean
+  datasetsError: unknown
+  refreshDatasets: () => void | Promise<void>
   selectedDatasetId?: string
   datasetDefaultValue: string
   handleFileUpload: (event: ChangeEvent<HTMLInputElement>) => void
@@ -37,6 +45,8 @@ type KnowledgeWorkbenchActionsProps = {
 export function KnowledgeWorkbenchActions({
   datasets,
   datasetsLoading,
+  datasetsError,
+  refreshDatasets,
   selectedDatasetId,
   datasetDefaultValue,
   handleFileUpload,
@@ -47,6 +57,14 @@ export function KnowledgeWorkbenchActions({
   className,
 }: Readonly<KnowledgeWorkbenchActionsProps>) {
   const t = useTranslations('KnowledgeWorkbenchActions')
+  const { isDevMode } = useAuth()
+  const tenantAccessQuery = useTenantAccess()
+  const connectorCatalogQuery = useQuery({
+    queryKey: queryKeys.connectors.catalog,
+    queryFn: () => connectorApi.listConnectors(),
+    staleTime: 60_000,
+    retry: 1,
+  })
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [pipelineConfigOpen, setPipelineConfigOpen] = useState(false)
   const [urlImportOpen, setUrlImportOpen] = useState(false)
@@ -54,9 +72,48 @@ export function KnowledgeWorkbenchActions({
   const [webCrawlOpen, setWebCrawlOpen] = useState(false)
   const [jiraProjectOpen, setJiraProjectOpen] = useState(false)
 
+  const importAvailability = useMemo(
+    () =>
+      resolveKnowledgeImportAvailability({
+        isDevMode,
+        tenantAccess: tenantAccessQuery.data,
+        tenantAccessLoading: tenantAccessQuery.isLoading,
+        tenantAccessError: tenantAccessQuery.isError,
+        datasetsLoading,
+        datasetsError: Boolean(datasetsError),
+        connectors: connectorCatalogQuery.data,
+        connectorsLoading: connectorCatalogQuery.isLoading,
+        connectorsError: connectorCatalogQuery.isError,
+      }),
+    [
+      connectorCatalogQuery.data,
+      connectorCatalogQuery.isError,
+      connectorCatalogQuery.isLoading,
+      datasetsError,
+      datasetsLoading,
+      isDevMode,
+      tenantAccessQuery.data,
+      tenantAccessQuery.isError,
+      tenantAccessQuery.isLoading,
+    ]
+  )
+
   const handleOpenFilePicker = useCallback(() => {
+    if (importAvailability.filesDisabledReason) return
     fileInputRef.current?.click()
-  }, [])
+  }, [importAvailability.filesDisabledReason])
+
+  const handleRetryAvailability = useCallback(() => {
+    if (datasetsError) detachPromise(refreshDatasets())
+    if (!isDevMode && tenantAccessQuery.isError) detachPromise(tenantAccessQuery.refetch())
+    if (connectorCatalogQuery.isError) detachPromise(connectorCatalogQuery.refetch())
+  }, [
+    connectorCatalogQuery,
+    datasetsError,
+    isDevMode,
+    refreshDatasets,
+    tenantAccessQuery,
+  ])
 
   return (
     <>
@@ -66,6 +123,7 @@ export function KnowledgeWorkbenchActions({
         multiple
         accept={UPLOAD_ACCEPT}
         className="hidden"
+        disabled={Boolean(importAvailability.filesDisabledReason)}
         onChange={handleFileUpload}
       />
 
@@ -91,6 +149,9 @@ export function KnowledgeWorkbenchActions({
             onOpenWebCrawl={() => setWebCrawlOpen(true)}
             onOpenJiraProject={() => setJiraProjectOpen(true)}
             onOpenPipelineConfig={() => setPipelineConfigOpen(true)}
+            filesDisabledReason={importAvailability.filesDisabledReason}
+            urlDisabledReason={importAvailability.urlDisabledReason}
+            onRetryAvailability={importAvailability.canRetry ? handleRetryAvailability : undefined}
           />
         </DropdownMenuContent>
       </DropdownMenu>

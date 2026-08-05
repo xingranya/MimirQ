@@ -234,7 +234,12 @@ export default function KnowledgePage() {
   const selectedDatasetId =
     datasetScope === DATASET_ALL ? undefined : datasetScope
   const documentsModeActive = activeTab === 'documents'
-  const { datasets, isLoading: datasetsLoading } = useDatasets()
+  const {
+    datasets,
+    isLoading: datasetsLoading,
+    error: datasetsError,
+    refreshDatasets,
+  } = useDatasets()
 
   const {
     documents,
@@ -1046,6 +1051,8 @@ export default function KnowledgePage() {
                     className="h-9 rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                     datasets={datasets}
                     datasetsLoading={datasetsLoading}
+                    datasetsError={datasetsError}
+                    refreshDatasets={refreshDatasets}
                     selectedDatasetId={selectedDatasetId}
                     datasetDefaultValue={DATASET_ALL}
                     handleFileUpload={handleFileUpload}

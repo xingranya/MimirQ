@@ -21,7 +21,14 @@ export type TenantAccess = {
   is_current: boolean
 }
 
+const DATASET_EDIT_ROLES = new Set(['owner', 'admin', 'editor', 'dataset_operator'])
+
 export function tenantAccessAllows(access: TenantAccess | null | undefined, permission: TenantPermission): boolean {
   if (!access?.is_active) return false
   return new Set(access.permissions || []).has(permission)
+}
+
+export function tenantAccessCanEditDatasets(access: TenantAccess | null | undefined): boolean {
+  if (!access?.is_active) return false
+  return DATASET_EDIT_ROLES.has(String(access.role || '').trim().toLowerCase())
 }
