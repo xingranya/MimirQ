@@ -23708,6 +23708,11 @@ export interface components {
          * @description Full system config.
          */
         SystemSettings: {
+            /**
+             * Writable
+             * @default false
+             */
+            writable: boolean;
             feature_flags: components["schemas"]["FeatureFlags"];
             kg: components["schemas"]["KGConfig"];
             llm: components["schemas"]["LLMConfig"];
@@ -24278,7 +24283,7 @@ export interface components {
             /**
              * Auto Save As Cases
              * @description Auto-save as regression test cases
-             * @default true
+             * @default false
              */
             auto_save_as_cases: boolean;
         };
@@ -24294,7 +24299,7 @@ export interface components {
             dataset_id?: string | null;
             /**
              * Document Ids
-             * @description Document ID list (takes priority over dataset_id)
+             * @description Document ID list (must belong to dataset_id when both are provided)
              */
             document_ids?: string[];
             /**
@@ -24311,7 +24316,7 @@ export interface components {
             /**
              * Auto Save As Cases
              * @description Auto-save as regression test cases
-             * @default true
+             * @default false
              */
             auto_save_as_cases: boolean;
             /**

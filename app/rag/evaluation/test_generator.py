@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 import httpx
+from fastapi import HTTPException, status
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -221,18 +222,43 @@ def _resolve_document_scope_ids(
     dataset_id: UUID | None,
     document_ids: list[UUID] | None,
 ) -> list[UUID]:
-    if document_ids:
-        return filter_allowed_document_ids(db, tenant_id, account_id, document_ids)
+    dataset = None
     if dataset_id:
         from app.services.dataset_service import DatasetService
 
-        DatasetService.ensure_member(db, tenant_id, account_id)
+        dataset = DatasetService.get_dataset(db, tenant_id, dataset_id)
+        DatasetService.assert_dataset_readable(db, dataset, account_id)
+
+    if document_ids:
+        allowed_document_ids = filter_allowed_document_ids(db, tenant_id, account_id, document_ids)
+        if dataset_id:
+            scoped_rows = (
+                db.query(DBDocument.id)
+                .filter(
+                    DBDocument.tenant_id == tenant_id,
+                    DBDocument.dataset_id == dataset_id,
+                    DBDocument.id.in_(allowed_document_ids),
+                )
+                .all()
+            )
+            scoped_document_ids = {row[0] for row in scoped_rows}
+            if any(document_id not in scoped_document_ids for document_id in allowed_document_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Selected documents must belong to the selected dataset",
+                )
+        return allowed_document_ids
+
+    if dataset is not None:
         query = db.query(DBDocument).filter(
             DBDocument.tenant_id == tenant_id,
             DBDocument.dataset_id == dataset_id,
             DBDocument.status == "completed",
         )
-        return [doc.id for doc in query.all()]
+        dataset_document_ids = [doc.id for doc in query.all()]
+        if not dataset_document_ids:
+            return []
+        return filter_allowed_document_ids(db, tenant_id, account_id, dataset_document_ids)
     from app.services.document_access import list_accessible_document_ids
 
     return list_accessible_document_ids(db, tenant_id, account_id)
@@ -426,7 +452,7 @@ def generate_questions_from_documents(
         tenant_id: Tenant ID.
         account_id: Account ID.
         dataset_id: Dataset ID (optional).
-        document_ids: Document IDs (optional, preferred over dataset_id).
+        document_ids: Document IDs (optional; validated against dataset_id when both are provided).
         num_questions: Number of questions to generate.
         question_types: Question type list.
 

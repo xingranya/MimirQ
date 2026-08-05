@@ -1943,13 +1943,17 @@ def generate_test_cases_from_documents(
             saved_case_ids=saved_case_ids,
         )
 
-    except Exception as e:
+    except HTTPException:
         db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("生成文档测试问题失败")
         return TestGenResponse(
             status="failed",
             generated_questions=[],
             saved_case_ids=[],
-            error_message=str(e),
+            error_message="暂时无法生成问题，请稍后重试。",
         )
 
 
@@ -2261,11 +2265,12 @@ def generate_test_cases_from_conversations(
     except HTTPException:
         db.rollback()
         raise
-    except Exception as e:
+    except Exception:
         db.rollback()
+        logger.exception("生成对话测试问题失败")
         return TestGenResponse(
             status="failed",
             generated_questions=[],
             saved_case_ids=[],
-            error_message=str(e),
+            error_message="暂时无法生成问题，请稍后重试。",
         )

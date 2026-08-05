@@ -100,7 +100,10 @@ class TestGenFromDocsRequest(BaseModel):
     """Request to generate test questions from documents."""
 
     dataset_id: UUID | None = Field(default=None, description="Dataset ID (optional)")
-    document_ids: list[UUID] = Field(default_factory=list, description="Document ID list (takes priority over dataset_id)")
+    document_ids: list[UUID] = Field(
+        default_factory=list,
+        description="Document ID list (must belong to dataset_id when both are provided)",
+    )
     num_questions: int = Field(default=10, ge=1, le=50, description="Number of questions to generate")
     question_types: list[str] = Field(
         default_factory=lambda: ["factual", "multi_hop", "comparison"],
@@ -109,7 +112,7 @@ class TestGenFromDocsRequest(BaseModel):
             "Back-compat: 'reasoning' is treated as 'multi_hop'."
         ),
     )
-    auto_save_as_cases: bool = Field(default=True, description="Auto-save as regression test cases")
+    auto_save_as_cases: bool = Field(default=False, description="Auto-save as regression test cases")
     prompt_template_id: UUID | None = Field(default=None, description="Optional prompt template id for document test generation")
     prompt_template_key: str | None = Field(default=None, description="Optional prompt template key for latest active version")
     prompt_ab_experiment_key: str | None = Field(default=None, description="Optional A/B experiment key for prompt selection")
@@ -121,7 +124,7 @@ class TestGenFromConversationsRequest(BaseModel):
     conversation_ids: list[UUID] = Field(..., min_length=1, description="Conversation ID list")
     num_questions: int = Field(default=10, ge=1, le=50, description="Number of questions to generate")
     quality_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Quality threshold")
-    auto_save_as_cases: bool = Field(default=True, description="Auto-save as regression test cases")
+    auto_save_as_cases: bool = Field(default=False, description="Auto-save as regression test cases")
 
 
 class GeneratedQuestion(BaseModel):
