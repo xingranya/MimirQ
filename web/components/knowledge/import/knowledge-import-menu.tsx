@@ -1,6 +1,6 @@
 'use client'
 
-import { Bug, CircleAlert, Globe, Link2, RefreshCw, SlidersHorizontal, Upload, Zap } from 'lucide-react'
+import { Bug, CircleAlert, FileStack, Globe, Link2, RefreshCw, SlidersHorizontal, Upload } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
@@ -47,37 +47,32 @@ export function KnowledgeImportMenu({
           重新检查
         </DropdownMenuItem>
       ) : null}
-      <DropdownMenuLabel className="text-xs text-muted-foreground">添加</DropdownMenuLabel>
+      <DropdownMenuLabel className="text-xs text-muted-foreground">添加到知识库</DropdownMenuLabel>
       <DropdownMenuItem onSelect={onUploadFiles} className="gap-2" disabled={Boolean(filesDisabledReason)}>
-        <Upload className="size-4 text-muted-foreground" />
+        <Upload className="size-4 text-muted-foreground" aria-hidden="true" />
         上传文件
       </DropdownMenuItem>
-
-      <DropdownMenuSeparator />
-      <DropdownMenuLabel className="text-xs text-muted-foreground">导入</DropdownMenuLabel>
-
       <DropdownMenuItem onSelect={onOpenUrlImport} className="gap-2" disabled={Boolean(urlDisabledReason)}>
-        <Link2 className="size-4 text-muted-foreground" />
-        通过 URL
+        <Link2 className="size-4 text-muted-foreground" aria-hidden="true" />
+        导入网页文档
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={onOpenUrlBatch} className="gap-2" disabled={Boolean(urlDisabledReason)}>
-        <Zap className="size-4 text-muted-foreground" />
-        URL 批量（Connector）
+        <FileStack className="size-4 text-muted-foreground" aria-hidden="true" />
+        批量导入网址
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={onOpenWebCrawl} className="gap-2" disabled={Boolean(urlDisabledReason)}>
-        <Globe className="size-4 text-muted-foreground" />
-        Website Crawl
+        <Globe className="size-4 text-muted-foreground" aria-hidden="true" />
+        抓取网站内容
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={onOpenJiraProject} className="gap-2" disabled={Boolean(urlDisabledReason)}>
-        <Bug className="size-4 text-muted-foreground" />
-        Jira Project
+        <Bug className="size-4 text-muted-foreground" aria-hidden="true" />
+        同步 Jira 项目
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />
-      <DropdownMenuLabel className="text-xs text-muted-foreground">配置</DropdownMenuLabel>
       <DropdownMenuItem onSelect={onOpenPipelineConfig} className="gap-2">
-        <SlidersHorizontal className="size-4 text-muted-foreground" />
-        管线配置
+        <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden="true" />
+        导入设置
       </DropdownMenuItem>
     </div>
   )
