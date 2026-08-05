@@ -15,6 +15,9 @@ describe('图谱面板响应式与视觉契约', () => {
   const explainPanelSource = componentSource('graph-explainability-panel.tsx')
   const canvasSource = componentSource('graph-canvas.tsx')
   const controlsSource = componentSource('graph-floating-controls.tsx')
+  const actionDialogsSource = componentSource('graph-action-dialogs.tsx')
+  const scopePickerSource = componentSource('graph-scope-picker-dialog.tsx')
+  const contextMenuSource = componentSource('graph-context-menu.tsx')
   const legendSource = fs.readFileSync(
     path.resolve(__dirname, '../../components/graph/graph-legend.tsx'),
     'utf8'
@@ -42,7 +45,9 @@ describe('图谱面板响应式与视觉契约', () => {
   it('保留移动端图谱搜索入口', () => {
     expect(headerSource).toContain('aria-label="搜索图谱"')
     expect(headerSource).toContain('mobileSearchInputRef')
-    expect(headerSource).toContain('className="size-9 shrink-0 border-border bg-background md:hidden"')
+    expect(headerSource).toContain(
+      'className="size-9 shrink-0 border-border bg-background md:hidden"'
+    )
   })
 
   it('移除详情与分析面板的旧装饰效果', () => {
@@ -97,5 +102,28 @@ describe('图谱面板响应式与视觉契约', () => {
     expect(canvasSource).toContain('description={loadError}')
     expect(canvasSource).toContain('onRetry={onRetryLoad}')
     expect(canvasSource).toContain('QueryErrorState')
+  })
+
+  it('二级弹窗和上下文菜单使用扁平视觉与中文状态文案', () => {
+    for (const source of [actionDialogsSource, scopePickerSource, contextMenuSource]) {
+      expect(source).not.toContain('backdrop-blur')
+      expect(source).not.toContain('rounded-xl')
+      expect(source).not.toContain('rounded-2xl')
+      expect(source).not.toContain('shadow-strong')
+    }
+    expect(actionDialogsSource).toContain('正在搜索…')
+    expect(actionDialogsSource).toContain('没有找到匹配的实体')
+    expect(actionDialogsSource).toContain('正在生成预览…')
+    expect(actionDialogsSource).toContain('暂无可拆分事件')
+    expect(actionDialogsSource).not.toContain('Searching…')
+    expect(actionDialogsSource).not.toContain('No preview available')
+  })
+
+  it('图谱范围刷新失败时保留已有知识库并提供恢复入口', () => {
+    expect(scopePickerSource).toContain('loadFailed && datasets.length === 0')
+    expect(scopePickerSource).toContain('loadFailed && datasets.length > 0')
+    expect(scopePickerSource).toContain('知识库列表刷新失败，当前保留最近一次结果。')
+    expect(scopePickerSource).toContain('onRetry={() => void refetchDatasets()}')
+    expect(scopePickerSource).toContain('aria-pressed={isSelected}')
   })
 })

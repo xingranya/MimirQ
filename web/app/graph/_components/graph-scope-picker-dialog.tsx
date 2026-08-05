@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { Database, Loader2, Network, Search } from 'lucide-react'
+import { Database, Loader2, Network, RefreshCw, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { datasetApi } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
 import { cn } from '@/lib/utils'
@@ -48,7 +49,7 @@ export function GraphScopePickerDialog({
   })
   const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data])
   const loading = datasetsQuery.isFetching
-  const error = datasetsQuery.error ? '加载知识库列表失败，请稍后重试。' : null
+  const loadFailed = Boolean(datasetsQuery.error)
   const { refetch: refetchDatasets } = datasetsQuery
 
   useEffect(() => {
@@ -96,26 +97,35 @@ export function GraphScopePickerDialog({
       <button
         key={dataset.id}
         type="button"
+        aria-pressed={isSelected}
         className={cn(
-          'w-full rounded-xl border px-4 py-3 text-left transition-colors',
-          isSelected ? 'border-primary/40 bg-primary/5 shadow-sm' : 'border-border/50 bg-background hover:border-border hover:bg-muted/40'
+          'w-full rounded-md border px-3 py-3 text-left transition-colors',
+          isSelected
+            ? 'border-primary/40 bg-primary/5'
+            : 'border-border bg-background hover:bg-muted'
         )}
         onClick={() => setSelectedDatasetId(dataset.id)}
       >
         <div className="flex items-start gap-3">
           <div
             className={cn(
-              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-              isSelected ? 'bg-primary/12 text-primary' : 'bg-muted/60 text-muted-foreground'
+              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+              isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
             )}
           >
-            <Database className="h-4 w-4" />
+            <Database className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-foreground">{dataset.name || dataset.id}</div>
-            <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{dataset.id}</div>
+            <div className="truncate text-sm font-medium text-foreground">
+              {dataset.name || dataset.id}
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+              {dataset.id}
+            </div>
             {dataset.description ? (
-              <div className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{dataset.description}</div>
+              <div className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                {dataset.description}
+              </div>
             ) : null}
           </div>
         </div>
@@ -124,21 +134,34 @@ export function GraphScopePickerDialog({
   })
   if (loading && datasets.length === 0) {
     datasetListContent = [
-      <div key="loading" className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+      <div
+        key="loading"
+        className="flex min-h-40 items-center justify-center text-sm text-muted-foreground"
+      >
         <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
         正在读取知识库列表...
       </div>,
     ]
-  } else if (error) {
+  } else if (loadFailed && datasets.length === 0) {
     datasetListContent = [
-      <div key="error" className="flex min-h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-        {error}
-      </div>,
+      <QueryErrorState
+        key="error"
+        title="无法加载知识库"
+        description="知识库列表暂时不可用，请检查连接后重新加载。"
+        onRetry={() => void refetchDatasets()}
+        retrying={loading}
+        className="min-h-40 rounded-md border-0"
+      />,
     ]
   } else if (filteredDatasets.length === 0) {
     datasetListContent = [
-      <div key="empty" className="flex min-h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-        没有匹配的知识库。可尝试清空搜索，或导入 KG JSON / JSONL 创建后端图谱。
+      <div
+        key="empty"
+        className="flex min-h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground"
+      >
+        {query.trim()
+          ? '没有匹配的知识库，请调整搜索关键词。'
+          : '还没有可用的知识库。可以先创建知识库，或导入图谱文件。'}
       </div>,
     ]
   }
@@ -147,15 +170,17 @@ export function GraphScopePickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[42rem] gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b border-border/60 px-6 py-5">
-          <DialogTitle className="text-base font-semibold text-foreground">选择图谱范围</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">
+            选择图谱范围
+          </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             优先加载已有知识库 KG；外部图谱统一使用 KG JSON / JSONL 导入。
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 px-6 py-5">
-          <div className="rounded-xl border border-border/60 bg-muted/35 px-4 py-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">当前范围</div>
+          <div className="border-b border-border pb-3">
+            <div className="text-xs font-medium text-muted-foreground">当前范围</div>
             <div className="mt-1 text-sm text-foreground">{currentScopeSummary}</div>
           </div>
 
@@ -166,25 +191,46 @@ export function GraphScopePickerDialog({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜索知识库名称或 ID..."
-                className="h-10 rounded-xl border-border/60 bg-background pl-9 shadow-none"
+                className="h-9 rounded-md border-border bg-background pl-9 shadow-none"
               />
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-10 rounded-xl px-3 text-muted-foreground"
-              onClick={() => refetchDatasets()}
+              className="h-9 px-3 text-muted-foreground"
+              onClick={() => void refetchDatasets()}
               disabled={loading}
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : '刷新'}
+              <RefreshCw
+                className={cn('h-4 w-4', loading ? 'animate-spin motion-reduce:animate-none' : '')}
+                aria-hidden="true"
+              />
+              {loading ? '刷新中…' : '刷新'}
             </Button>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-2">
-            <div className="max-h-[22rem] space-y-2 overflow-auto pr-1">
-              {datasetListContent}
+          {loadFailed && datasets.length > 0 ? (
+            <div
+              role="alert"
+              className="flex flex-col gap-2 rounded-md border border-warning/25 bg-warning/5 px-3 py-2 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span>知识库列表刷新失败，当前保留最近一次结果。</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => void refetchDatasets()}
+                disabled={loading}
+              >
+                重新加载
+              </Button>
             </div>
+          ) : null}
+
+          <div className="rounded-md border border-border bg-background p-1">
+            <div className="max-h-[22rem] space-y-1 overflow-auto">{datasetListContent}</div>
           </div>
         </div>
 
@@ -192,7 +238,6 @@ export function GraphScopePickerDialog({
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
-              className="rounded-xl"
               onClick={() => {
                 onOpenChange(false)
                 onTriggerManualKgUpload()
@@ -204,19 +249,14 @@ export function GraphScopePickerDialog({
             <Button
               type="button"
               variant="ghost"
-              className="rounded-xl text-muted-foreground"
+              className="text-muted-foreground"
               onClick={handleResetScope}
             >
               清空范围
             </Button>
           </div>
 
-          <Button
-            type="button"
-            className="rounded-xl"
-            onClick={handleOpenSelectedScope}
-            disabled={!selectedDatasetId}
-          >
+          <Button type="button" onClick={handleOpenSelectedScope} disabled={!selectedDatasetId}>
             打开图谱
           </Button>
         </DialogFooter>
