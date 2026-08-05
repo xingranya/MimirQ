@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent } from 'react'
 
+import { computeGraphMinimapTransform, type GraphMinimapPoint } from '@/lib/graph-minimap-transform'
 import { cn } from '@/lib/utils'
 
 type GraphMinimapProps = {
@@ -35,8 +36,12 @@ type GraphMinimapHandle = {
 }
 
 function safeNumber(value: unknown, fallback: number): number {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : fallback
+  const number = Number(value)
+  return Number.isFinite(number) ? number : fallback
+}
+
+function clampCanvasCoordinate(value: number, limit: number): number {
+  return Math.min(limit, Math.max(0, value))
 }
 
 export function GraphMinimap({
@@ -52,83 +57,60 @@ export function GraphMinimap({
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const nodePositions = useMemo(() => {
-    const out: Array<{ x: number; y: number }> = []
-    for (const n of data.nodes || []) {
-      const x = safeNumber(n?.x, Number.NaN)
-      const y = safeNumber(n?.y, Number.NaN)
+    const positions: GraphMinimapPoint[] = []
+    for (const node of data.nodes || []) {
+      const x = safeNumber(node?.x, Number.NaN)
+      const y = safeNumber(node?.y, Number.NaN)
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-      out.push({ x, y })
+      positions.push({ x, y })
     }
-    return out
+    return positions
   }, [data.nodes])
+
+  const getTransform = useCallback(() => {
+    const canvas = canvasRef.current
+    const graph = graphRef.current
+    if (!canvas || !graph) return null
+
+    let graphBbox: GraphBbox | null = null
+    try {
+      graphBbox = graph.getGraphBbox?.() ?? null
+    } catch {
+      // 图布局尚未稳定时，坐标变换会自动回退到节点位置。
+    }
+
+    return computeGraphMinimapTransform({
+      graphBbox,
+      nodePositions,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+    })
+  }, [graphRef, nodePositions])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
-    const g = graphRef?.current
-    if (!canvas || !g) return
-    if (!graphWidth || !graphHeight) return
+    const graph = graphRef.current
+    if (!canvas || !graph || !graphWidth || !graphHeight) return
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const context = canvas.getContext('2d')
+    if (!context) return
 
-    const w = canvas.width
-    const h = canvas.height
-    ctx.clearRect(0, 0, w, h)
+    const transform = getTransform()
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    if (!transform) return
 
-    // Background
-    ctx.fillStyle = isDark ? 'rgba(2, 6, 23, 0.6)' : 'rgba(255, 255, 255, 0.8)'
-    ctx.fillRect(0, 0, w, h)
-
-    // BBox (prefer force-graph API when available)
-    let xmin = Infinity
-    let xmax = -Infinity
-    let ymin = Infinity
-    let ymax = -Infinity
-    try {
-      const bbox = g.getGraphBbox?.()
-      const xRange = Array.isArray(bbox?.x) ? bbox.x : null
-      const yRange = Array.isArray(bbox?.y) ? bbox.y : null
-      if (xRange && yRange) {
-        xmin = safeNumber(xRange[0], xmin)
-        xmax = safeNumber(xRange[1], xmax)
-        ymin = safeNumber(yRange[0], ymin)
-        ymax = safeNumber(yRange[1], ymax)
-      }
-    } catch {}
-
-    if (!Number.isFinite(xmin) || !Number.isFinite(xmax) || !Number.isFinite(ymin) || !Number.isFinite(ymax)) {
-      for (const p of nodePositions) {
-        xmin = Math.min(xmin, p.x)
-        xmax = Math.max(xmax, p.x)
-        ymin = Math.min(ymin, p.y)
-        ymax = Math.max(ymax, p.y)
-      }
+    context.fillStyle = isDark ? 'rgba(148, 163, 184, 0.72)' : 'rgba(71, 85, 105, 0.62)'
+    for (const point of nodePositions) {
+      const canvasPoint = transform.toCanvas(point)
+      context.fillRect(canvasPoint.x - 1, canvasPoint.y - 1, 2, 2)
     }
 
-    if (!Number.isFinite(xmin) || !Number.isFinite(xmax) || xmax - xmin <= 0) return
-    if (!Number.isFinite(ymin) || !Number.isFinite(ymax) || ymax - ymin <= 0) return
-
-    const padX = (xmax - xmin) * 0.08
-    const padY = (ymax - ymin) * 0.08
-    xmin -= padX
-    xmax += padX
-    ymin -= padY
-    ymax += padY
-
-    const sx = (x: number) => ((x - xmin) / (xmax - xmin)) * w
-    const sy = (y: number) => ((y - ymin) / (ymax - ymin)) * h
-
-    // Nodes
-    ctx.fillStyle = isDark ? 'rgba(148, 163, 184, 0.65)' : 'rgba(71, 85, 105, 0.55)'
-    for (const p of nodePositions) {
-      ctx.fillRect(sx(p.x), sy(p.y), 1.5, 1.5)
-    }
-
-    // Viewport rectangle
     let center = { x: 0, y: 0 }
     let zoom = 1
     try {
-      const currentCenter = g.centerAt?.()
+      const currentCenter = graph.centerAt?.()
       if (
         currentCenter &&
         typeof currentCenter === 'object' &&
@@ -140,91 +122,93 @@ export function GraphMinimap({
           y: safeNumber(currentCenter.y, center.y),
         }
       }
-      zoom = safeNumber(g.zoom?.(), 1)
-    } catch {}
+      zoom = safeNumber(graph.zoom?.(), 1)
+    } catch {
+      // 图谱实例切换期间保留默认视口，下一帧会重新读取。
+    }
     zoom = Math.max(0.1, zoom)
 
-    const halfW = graphWidth / (2 * zoom)
-    const halfH = graphHeight / (2 * zoom)
-    const left = center.x - halfW
-    const right = center.x + halfW
-    const top = center.y - halfH
-    const bottom = center.y + halfH
+    const topLeft = transform.toCanvas({
+      x: center.x - graphWidth / (2 * zoom),
+      y: center.y - graphHeight / (2 * zoom),
+    })
+    const bottomRight = transform.toCanvas({
+      x: center.x + graphWidth / (2 * zoom),
+      y: center.y + graphHeight / (2 * zoom),
+    })
+    const left = clampCanvasCoordinate(Math.min(topLeft.x, bottomRight.x), canvas.width)
+    const right = clampCanvasCoordinate(Math.max(topLeft.x, bottomRight.x), canvas.width)
+    const top = clampCanvasCoordinate(Math.min(topLeft.y, bottomRight.y), canvas.height)
+    const bottom = clampCanvasCoordinate(Math.max(topLeft.y, bottomRight.y), canvas.height)
 
-    const vx = Math.min(w, Math.max(0, sx(left)))
-    const vy = Math.min(h, Math.max(0, sy(top)))
-    const vw = Math.min(w, Math.max(0, sx(right))) - vx
-    const vh = Math.min(h, Math.max(0, sy(bottom))) - vy
-
-    ctx.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.9)' : 'rgba(2, 132, 199, 0.9)'
-    ctx.lineWidth = 1
-    ctx.strokeRect(vx, vy, Math.max(0, vw), Math.max(0, vh))
-  }, [graphRef, graphWidth, graphHeight, isDark, nodePositions])
+    context.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.95)' : 'rgba(2, 132, 199, 0.95)'
+    context.lineWidth = 1
+    context.strokeRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top))
+  }, [getTransform, graphHeight, graphRef, graphWidth, isDark, nodePositions])
 
   useEffect(() => {
-    let raf = 0
-    let last = 0
+    let animationFrame = 0
+    let lastDrawAt = 0
 
-    const tick = (t: number) => {
-      if (t - last > 140) {
-        last = t
+    const tick = (timestamp: number) => {
+      if (timestamp - lastDrawAt > 140) {
+        lastDrawAt = timestamp
         draw()
       }
-      raf = requestAnimationFrame(tick)
+      animationFrame = requestAnimationFrame(tick)
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    animationFrame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animationFrame)
   }, [draw])
 
+  const centerGraphAtCanvasPoint = useCallback(
+    (canvasPoint: GraphMinimapPoint) => {
+      const graphPoint = getTransform()?.toGraph(canvasPoint)
+      if (!graphPoint) return
+      graphRef.current?.centerAt?.(graphPoint.x, graphPoint.y, 400)
+    },
+    [getTransform, graphRef]
+  )
+
   const handleClick = useCallback(
-    (evt: MouseEvent<HTMLCanvasElement>) => {
+    (event: MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current
-      const g = graphRef?.current
-      if (!canvas || !g) return
+      if (!canvas) return
 
       const rect = canvas.getBoundingClientRect()
-      const cx = evt.clientX - rect.left
-      const cy = evt.clientY - rect.top
-
-      // Recompute bbox quickly (same as draw; keep it simple).
-      let xmin = Infinity
-      let xmax = -Infinity
-      let ymin = Infinity
-      let ymax = -Infinity
-      for (const p of nodePositions) {
-        xmin = Math.min(xmin, p.x)
-        xmax = Math.max(xmax, p.x)
-        ymin = Math.min(ymin, p.y)
-        ymax = Math.max(ymax, p.y)
-      }
-      if (!Number.isFinite(xmin) || !Number.isFinite(xmax) || xmax - xmin <= 0) return
-      if (!Number.isFinite(ymin) || !Number.isFinite(ymax) || ymax - ymin <= 0) return
-
-      const tx = xmin + (cx / canvas.width) * (xmax - xmin)
-      const ty = ymin + (cy / canvas.height) * (ymax - ymin)
-
-      try {
-        g.centerAt?.(tx, ty, 400)
-      } catch {}
+      if (rect.width <= 0 || rect.height <= 0) return
+      centerGraphAtCanvasPoint({
+        x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+        y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+      })
     },
-    [graphRef, nodePositions]
+    [centerGraphAtCanvasPoint]
+  )
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLCanvasElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      event.preventDefault()
+      centerGraphAtCanvasPoint({ x: canvas.width / 2, y: canvas.height / 2 })
+    },
+    [centerGraphAtCanvasPoint]
   )
 
   return (
-    <div
-      className={cn(
-        'rounded-xl border border-border/50 bg-card/60 shadow-sm backdrop-blur-sm',
-        className
-      )}
-    >
+    <div className={cn('max-w-full rounded-md border border-border bg-background', className)}>
       <canvas
         ref={canvasRef}
         width={width}
         height={height}
-        className="block cursor-pointer rounded-xl"
+        role="button"
+        tabIndex={0}
+        className="block h-auto max-w-full cursor-crosshair rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         onClick={handleClick}
-        aria-label="Graph minimap"
+        onKeyDown={handleKeyDown}
+        aria-label="图谱缩略图，点击定位，按回车居中"
       />
     </div>
   )

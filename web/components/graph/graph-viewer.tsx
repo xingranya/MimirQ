@@ -11,6 +11,8 @@ import { decorateLinksForDisplay } from '@/lib/graph-edge-display'
 import { buildGraphLinkProvenanceTooltipHtml } from '@/lib/graph-provenance'
 import { buildGraphViewportLod, type GraphViewportLod, type GraphViewportRect } from '@/lib/graph-viewport-lod'
 import { reportClientError } from '@/lib/client-logging'
+import { UI_LAYER_CLASS } from '@/lib/ui-layers'
+import { cn } from '@/lib/utils'
 import { buildTypeColorMap, EVENT_COLOR, NODE_COLOR_PALETTE } from './graph-colors'
 import { GraphMinimap } from './graph-minimap'
 import { Loader2 } from 'lucide-react'
@@ -1409,6 +1411,12 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
     }
   }
 
+  const minimapWidth = Math.min(160, Math.max(120, Math.round(width * 0.16)))
+  const minimapHeight = Math.round(minimapWidth * (5 / 7))
+  const hasGraphOverlay =
+    Boolean(isLargeGraph && viewportLod) ||
+    Boolean(showMinimap && !isLargeGraph && sanitizedData.nodes.length > 0)
+
   return (
     <div ref={containerRef} className="relative h-full w-full bg-transparent">
       {(!mounted || width === 0 || height === 0) ? (
@@ -1567,22 +1575,34 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
                 })
               }}
             />
-            {isLargeGraph && viewportLod ? (
-              <div className="pointer-events-none absolute left-5 top-5 z-10 rounded-full border border-border/70 bg-card/82 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-soft backdrop-blur-md">
-                LOD {viewportLod.tier} · 隐藏 {viewportLod.hiddenNodeCount} 节点 / {viewportLod.hiddenLinkCount} 连线
+            {hasGraphOverlay ? (
+              <div
+                className={cn(
+                  'pointer-events-none absolute inset-0 flex flex-col p-4 pb-24',
+                  UI_LAYER_CLASS.floatingAction
+                )}
+              >
+                {isLargeGraph && viewportLod ? (
+                  <div className="self-start rounded-md border border-border bg-background/95 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    LOD {viewportLod.tier} · 隐藏 {viewportLod.hiddenNodeCount} 个节点、
+                    {viewportLod.hiddenLinkCount} 条连线
+                  </div>
+                ) : null}
+                {showMinimap && !isLargeGraph && sanitizedData.nodes.length > 0 ? (
+                  <div className="pointer-events-auto mt-auto ml-auto hidden md:block">
+                    <GraphMinimap
+                      graphRef={fgRef}
+                      data={sanitizedData}
+                      graphWidth={width}
+                      graphHeight={height}
+                      isDark={isDark}
+                      width={minimapWidth}
+                      height={minimapHeight}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
-            {showMinimap && !isLargeGraph && sanitizedData.nodes.length > 0 && (
-              <div className="absolute bottom-24 right-6 z-10">
-                <GraphMinimap
-                  graphRef={fgRef}
-                  data={sanitizedData}
-                  graphWidth={width}
-                  graphHeight={height}
-                  isDark={isDark}
-                />
-              </div>
-            )}
           </>
         </GraphRenderBoundary>
       )}
