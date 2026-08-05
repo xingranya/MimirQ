@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import {
   Select,
   SelectContent,
@@ -482,7 +483,7 @@ function AuditLogsPageContent() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const resp = logsQuery.data ?? null
+  const resp = logsQuery.isPlaceholderData ? null : (logsQuery.data ?? null)
   const filterSeedItems = useMemo(
     () => filterOptionsQuery.data ?? [],
     [filterOptionsQuery.data]
@@ -492,6 +493,7 @@ function AuditLogsPageContent() {
   const loadErrorMessage = logsQuery.error
     ? formatApiError(logsQuery.error, t('errors.loadLogs'))
     : ''
+  const isShowingSavedResult = Boolean(resp && loadErrorMessage)
 
   const total = resp?.total || 0
   const page = Math.floor(skip / limit) + 1
@@ -567,6 +569,11 @@ function AuditLogsPageContent() {
     setSkip(0)
     setFilters((current) => ({ ...current, [key]: value }))
   }, [])
+
+  useEffect(() => {
+    setExpandedId(null)
+    setSelectedIds([])
+  }, [auditQueryParams])
 
   const handleCopy = async (text: string) => {
     try {
@@ -688,13 +695,13 @@ function AuditLogsPageContent() {
             <HUDTile
               icon={FileJson}
               label={t('strip.total')}
-              value={total}
+              value={resp ? total : '—'}
               tone="blue"
             />
             <HUDTile
               icon={LayoutGrid}
               label={t('strip.currentPage')}
-              value={`${page}/${totalPages}`}
+              value={resp ? `${page}/${totalPages}` : '—'}
               tone="green"
             />
             <HUDTile
@@ -707,8 +714,10 @@ function AuditLogsPageContent() {
               icon={CheckCircle2}
               label={t('strip.status')}
               value={
-                loading
-                  ? t('strip.loading')
+                loadErrorMessage && !resp
+                  ? '加载失败'
+                  : loading
+                    ? t('strip.loading')
                   : total > 0
                     ? t('strip.ready')
                     : t('strip.empty')
@@ -832,6 +841,15 @@ function AuditLogsPageContent() {
               filterOptionsQuery.refetch()
             }}
           />
+
+          {isShowingSavedResult && (
+            <QueryErrorState
+              title="刷新审计日志失败"
+              description={`${loadErrorMessage}。当前显示上次成功结果。`}
+              onRetry={() => logsQuery.refetch()}
+              retrying={logsQuery.isFetching}
+            />
+          )}
 
           <div className={cn(AUDIT_PANEL_CLASS, 'overflow-hidden')}>
             <div className="flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
@@ -957,23 +975,33 @@ function AuditLogsPageContent() {
                         </td>
                       </tr>
                     )
+                  ) : loadErrorMessage ? (
+                    <tr>
+                      <td colSpan={6} className="p-4">
+                        <QueryErrorState
+                          title="无法加载审计日志"
+                          description={loadErrorMessage || t('alerts.unableToLoad')}
+                          onRetry={() => logsQuery.refetch()}
+                          retrying={logsQuery.isFetching}
+                          className="border-0 bg-transparent px-2 py-8"
+                        />
+                      </td>
+                    </tr>
                   ) : (
                     <tr>
                       <td
                         colSpan={6}
                         className="p-12 text-center text-sm font-medium text-muted-foreground"
                       >
-                        {loading ? (
-                          <RefreshCw className="size-5 animate-spin mx-auto mb-2" />
-                        ) : (
-                          loadErrorMessage || t('alerts.unableToLoad')
-                        )}
+                        <RefreshCw className="mx-auto mb-2 size-5 animate-spin motion-reduce:animate-none" />
+                        正在加载审计日志
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            {resp && (
             <div className="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span>共 {total} 条</span>
@@ -1030,8 +1058,10 @@ function AuditLogsPageContent() {
                 </Button>
               </div>
             </div>
+            )}
           </div>
 
+          {resp && (
           <details className="group rounded-md border border-border bg-card px-4 py-3">
             <summary className="flex cursor-pointer list-none items-center justify-between text-muted-foreground transition-colors hover:text-foreground">
               <div className="flex items-center gap-3">
@@ -1048,6 +1078,7 @@ function AuditLogsPageContent() {
               </pre>
             </div>
           </details>
+          )}
         </div>
       </PageScaffold>
     </AppFrame>

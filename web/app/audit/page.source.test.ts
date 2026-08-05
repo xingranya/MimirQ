@@ -18,6 +18,17 @@ describe('审计日志页面源码契约', () => {
     expect(pageSource).toContain('AUDIT_PAGE_SIZE_OPTIONS')
   })
 
+  it('筛选请求期间隔离旧结果，并在失败后提供准确恢复入口', () => {
+    expect(pageSource).toContain(
+      'logsQuery.isPlaceholderData ? null : (logsQuery.data ?? null)'
+    )
+    expect(pageSource).toContain('setExpandedId(null)')
+    expect(pageSource).toContain('setSelectedIds([])')
+    expect(pageSource).toContain('当前显示上次成功结果')
+    expect(pageSource).toContain('title="无法加载审计日志"')
+    expect(pageSource).toContain('{resp && (')
+  })
+
   it('默认收起高级筛选并保留快速筛选', () => {
     expect(pageSource).toContain('useState(false)')
     expect(pageSource).toContain('setShowAdvanced(!showAdvanced)')
