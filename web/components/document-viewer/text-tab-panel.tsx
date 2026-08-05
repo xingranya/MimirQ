@@ -89,7 +89,7 @@ export function TextTabPanel({
   let retrieveResultsPanel: React.ReactNode = null
   if (retrieveCitations.length) {
     retrieveResultsPanel = (
-      <div className="max-h-[220px] overflow-auto rounded-xl border border-border/60 bg-background/60 p-3">
+      <div className="max-h-[220px] overflow-auto rounded-md border border-border bg-background p-3">
         <div className="mb-2 text-xs font-semibold text-foreground">检索命中</div>
         <div className="space-y-2">
           {retrieveCitations.slice(0, 6).map((citation) => {
@@ -99,7 +99,7 @@ export function TextTabPanel({
                 key={`${String(citation.document_id || "")}:${String(citation.chunk_id || "")}:${String(citation.page_number ?? "")}`}
                 type="button"
                 className={cn(
-                  "w-full rounded-lg border border-border bg-background px-3 py-2 text-left",
+                  "w-full rounded-md border border-border bg-background px-3 py-2 text-left",
                   "transition-colors hover:border-primary/30 hover:bg-muted/30",
                 )}
                 disabled={!hasChunk}
@@ -109,13 +109,13 @@ export function TextTabPanel({
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] text-muted-foreground">
-                    score <span className="font-mono">{Number(citation.relevance_score || 0).toFixed(4)}</span>
+                  <div className="text-xs text-muted-foreground">
+                    相关度 <span className="tabular-nums">{Number(citation.relevance_score || 0).toFixed(4)}</span>
                     {typeof citation.page_number === "number" ? <span className="ml-2">P.{citation.page_number}</span> : null}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">{hasChunk ? "点击定位" : "无 chunk_id"}</div>
+                  <div className="text-xs text-muted-foreground">{hasChunk ? "点击定位" : "无法定位"}</div>
                 </div>
-                <div className="mt-1 line-clamp-3 whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/90">
+                <div className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
                   {citation.chunk_content || ""}
                 </div>
               </button>
@@ -149,7 +149,7 @@ export function TextTabPanel({
   } else {
     textPanelContent = (
       <div className="flex h-full items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-sm">
+        <div className="w-full max-w-md rounded-md border border-border bg-background p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-primary/10 p-2">
               <FileText className="size-5 text-primary" />
@@ -157,7 +157,7 @@ export function TextTabPanel({
             <div className="flex-1">
               <h4 className="text-sm font-semibold">未持久化解析文本</h4>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                当前文档未开启 <span className="font-mono">persist_parsed_content</span>，因此无法在此处高亮定位切片位置。你可以在上传/流水线配置中开启该选项后重新入库，或继续使用「智能切片」查看内容。
+                当前文档没有可用于定位的解析文本。请在上传或入库设置中开启“保存解析文本”后重新入库，也可以直接查看智能切片。
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <Button size="sm" variant="outline" onClick={onGoToChunks}>
@@ -188,7 +188,7 @@ export function TextTabPanel({
               </Button>
 
               {highlightChunkId && !loadAllChunks && !chunksLoaded ? (
-                <span className="text-[11px] text-muted-foreground">仅加载引用切片位置；如需展示全部切片位置，请点右侧「加载全部切片」。</span>
+                <span className="text-xs text-muted-foreground">当前只加载了引用位置。需要浏览完整内容时，可加载全部切片。</span>
               ) : null}
             </div>
 
@@ -216,8 +216,8 @@ export function TextTabPanel({
                 event.preventDefault()
                 onRunRetrieve()
               }}
-              placeholder="检索测试：输入问题，查看真实检索命中的切片…"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="输入问题，查看实际命中的切片"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <div className="flex items-center justify-end gap-2">
               <Button type="button" size="sm" variant="outline" disabled={!retrieveQuery.trim() || retrieveLoading} onClick={onRunRetrieve}>
@@ -232,23 +232,23 @@ export function TextTabPanel({
           </div>
 
           {retrieveError ? (
-            <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">{retrieveError}</div>
+            <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">{retrieveError}</div>
           ) : null}
 
           {retrieveResultsPanel}
 
           {textMode === "original" ? (
-            <div className="text-[11px] text-muted-foreground">提示：切片的 start/end 偏移通常基于「清洗后」文本；在「原始解析」视图中高亮定位可能不准确。</div>
+            <div className="text-xs leading-5 text-muted-foreground">切片位置以清洗后的文本为准，切换到原始解析内容后，高亮位置可能会有偏差。</div>
           ) : null}
 
           {parsedContent?.markdown_truncated || parsedContent?.original_markdown_truncated ? (
-            <div className="text-[11px] text-muted-foreground">
-              文本已截断显示（max_chars={parsedContent?.max_chars ?? 0}）。如需完整内容，请提高 persist_parsed_content_max_chars 或缩小文件。
+            <div className="text-xs leading-5 text-muted-foreground">
+              文本较长，当前显示前 {parsedContent?.max_chars ?? 0} 个字符。需要完整内容时，请在解析设置中提高保存上限，或使用较小的文件。
             </div>
           ) : null}
 
           {parsedContentError ? (
-            <div className="rounded-lg border border-destructive/25 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">{parsedContentError}</div>
+            <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">{parsedContentError}</div>
           ) : null}
         </div>
       </div>

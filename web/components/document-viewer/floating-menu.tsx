@@ -40,8 +40,7 @@ export function FloatingMenu() {
       const range = sel.getRangeAt(0)
       const rect = range.getBoundingClientRect()
       
-      // Calculate relative to viewport, but we need to handle scroll offsets if inside iframe/div
-      // For simplicity, we assume fixed positioning relative to viewport
+      // 菜单使用视口坐标定位，适配面板内部滚动。
       const x = rect.left + rect.width / 2
       setAnchor({ x, top: rect.top, bottom: rect.bottom })
       setPosition({ top: rect.top - 50, left: x })
@@ -63,13 +62,13 @@ export function FloatingMenu() {
       const viewportW = globalThis.window.innerWidth
       const viewportH = globalThis.window.innerHeight
 
-      // Keep a bit of breathing room from the edges (and let CSS safe-area padding handle notches).
+      // 与视口边缘保留间距，安全区由样式处理。
       const padding = 10
       const halfW = menuRect.width / 2
 
       const left = clamp(anchor.x, padding + halfW, viewportW - padding - halfW)
 
-      // Prefer above selection; if it doesn't fit, place below.
+      // 优先显示在选区上方，空间不足时改到下方。
       const gap = 10
       let top = anchor.top - menuRect.height - gap
       if (top < padding) top = anchor.bottom + gap
@@ -120,7 +119,7 @@ export function FloatingMenu() {
     <div
         ref={menuRef}
         className={cn(
-          "fixed flex gap-1 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none",
+          "fixed flex gap-1 rounded-md border border-border bg-popover p-1 text-popover-foreground animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none",
           UI_LAYER_CLASS.contextual
         )}
         style={{

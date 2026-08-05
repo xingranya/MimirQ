@@ -39,10 +39,10 @@ export function DocumentChunkCard({
     <div
       id={`chunk-${chunk.id}`}
       className={cn(
-        'group rounded-xl border p-4 transition-colors transition-shadow duration-200 motion-reduce:transition-none',
+        'group rounded-md border p-4 transition-colors duration-200 motion-reduce:transition-none',
         isActive
-          ? 'bg-primary/5 border-primary shadow-[0_0_0_1px_rgba(var(--primary),0.2)] ring-1 ring-primary/20'
-          : 'bg-background border-border hover:border-primary/30 hover:shadow-sm'
+          ? 'border-primary bg-primary/5'
+          : 'border-border bg-background hover:border-primary/30'
       )}
     >
       <div className="mb-2 flex items-center justify-between">
@@ -88,16 +88,16 @@ export function DocumentChunkCard({
               className="h-7 w-7"
               onClick={() => onEdit(chunk)}
               disabled={!canEditChunks || chunkEditorSubmitting}
-              aria-label="Edit chunk"
-              title="Edit chunk"
+              aria-label="编辑切片"
+              title="编辑切片"
             >
               <Pencil className="size-4" />
             </Button>
             <ConfirmDialog
-              title={`Delete chunk #${chunk.chunk_index}?`}
-              description="This cannot be undone."
-              confirmLabel="Delete"
-              cancelLabel="Cancel"
+              title={`删除切片 #${chunk.chunk_index}？`}
+              description="删除后无法恢复。"
+              confirmLabel="删除"
+              cancelLabel="取消"
               confirmVariant="destructive"
               confirmDisabled={!canEditChunks || chunkDeleteSubmitting === chunk.id}
               onConfirm={() => onDelete(chunk)}
@@ -108,8 +108,8 @@ export function DocumentChunkCard({
                 size="icon"
                 className="h-7 w-7 text-destructive hover:text-destructive"
                 disabled={!canEditChunks || chunkDeleteSubmitting === chunk.id}
-                aria-label="Delete chunk"
-                title="Delete chunk"
+                aria-label="删除切片"
+                title="删除切片"
               >
                 {chunkDeleteSubmitting === chunk.id ? (
                   <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
@@ -121,7 +121,7 @@ export function DocumentChunkCard({
           </div>
         </div>
       </div>
-      <p className="font-mono text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+      <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/90">
         <HighlightLayer content={chunk.content} query={query} />
       </p>
     </div>

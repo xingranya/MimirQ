@@ -237,7 +237,7 @@ export function DocumentViewerPanelShell({
         ref={panelRef}
         style={panelStyle}
         className={cn(
-          "fixed inset-y-0 right-0 flex flex-col border-l border-sidebar-border bg-background shadow-lg",
+          "fixed inset-y-0 right-0 flex flex-col border-l border-sidebar-border bg-background",
           UI_LAYER_CLASS.documentPanel,
           isResizing ? "select-none" : "transition-[width] duration-150 ease-out motion-reduce:transition-none",
           isExpanded
@@ -273,8 +273,8 @@ export function DocumentViewerPanelShell({
           <span
             aria-hidden="true"
             className={cn(
-              "h-16 w-1 rounded-full border border-border/70 bg-background/80 shadow-sm transition-colors",
-              isResizing ? "border-primary/50 bg-primary/35" : "group-hover:bg-primary/25"
+              "h-16 w-1 rounded-sm bg-border transition-colors",
+              isResizing ? "bg-primary" : "group-hover:bg-primary/50"
             )}
           />
         </div>

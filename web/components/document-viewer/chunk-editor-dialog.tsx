@@ -6,6 +6,7 @@ import type { DocumentChunk } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
 type ChunkEditorDialogProps = {
@@ -49,68 +50,72 @@ export function ChunkEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Add chunk" : `Edit chunk #${target?.chunk_index ?? "-"}`}</DialogTitle>
+          <DialogTitle>{mode === "create" ? "新增切片" : `编辑切片 #${target?.chunk_index ?? "-"}`}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <div className="text-sm font-medium text-foreground/80">Content</div>
+            <Label htmlFor="chunk-editor-content">切片内容</Label>
             <Textarea
+              id="chunk-editor-content"
               value={content}
               onChange={(event) => onContentChange(event.target.value)}
               className="min-h-[220px] font-mono"
-              placeholder="Paste or edit chunk content..."
+              placeholder="输入或粘贴切片内容"
             />
-            <div className="text-xs text-muted-foreground tabular-nums">{content.length.toLocaleString()} chars</div>
+            <div className="text-xs text-muted-foreground tabular-nums">{content.length.toLocaleString()} 个字符</div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">Page (optional)</div>
+              <Label htmlFor="chunk-editor-page">页码（可选）</Label>
               <Input
+                id="chunk-editor-page"
                 value={pageNumber}
                 onChange={(event) => onPageNumberChange(event.target.value)}
                 inputMode="numeric"
-                placeholder="e.g. 12"
+                placeholder="例如 12"
               />
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">Status</div>
-              <div className="text-xs text-muted-foreground">
-                {canEditChunks ? "Editable" : "Document is processing; editing disabled"}
+              <div className="text-sm font-medium text-foreground">编辑状态</div>
+              <div className="text-sm leading-6 text-muted-foreground">
+                {canEditChunks ? "可以编辑" : "文档正在处理中，暂时无法编辑"}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">Start Char</div>
+              <Label htmlFor="chunk-editor-start">起始字符位置</Label>
               <Input
+                id="chunk-editor-start"
                 value={startChar}
                 onChange={(event) => onStartCharChange(event.target.value)}
                 inputMode="numeric"
-                placeholder="e.g. 1200"
+                placeholder="例如 1200"
               />
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground/80">End Char</div>
+              <Label htmlFor="chunk-editor-end">结束字符位置</Label>
               <Input
+                id="chunk-editor-end"
                 value={endChar}
                 onChange={(event) => onEndCharChange(event.target.value)}
                 inputMode="numeric"
-                placeholder="e.g. 1680"
+                placeholder="例如 1680"
               />
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            调整 Start/End Char 可以直接修正 chunk boundary。保存后可选择局部重嵌入，或在已有检索 query 时保存后复跑检索。
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            起始和结束位置用于修正切片边界。保存后可以重新生成向量，已有检索问题时也可以立即复跑检索。
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:flex-wrap">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
+            取消
           </Button>
           <Button
             type="button"
@@ -120,7 +125,7 @@ export function ChunkEditorDialog({
             className="gap-2"
           >
             {submitting ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> : null}
-            Save
+            保存
           </Button>
           <Button
             type="button"

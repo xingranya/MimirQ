@@ -26,12 +26,12 @@ export function DocumentViewerHeader({
   return (
     <div className="flex items-center justify-between border-b border-sidebar-border/70 bg-sidebar px-4 pb-3 pt-3 supports-[padding:env(safe-area-inset-top)]:pt-[calc(env(safe-area-inset-top)+0.75rem)]">
       <div className="flex items-center gap-3 overflow-hidden">
-        <div className="rounded-xl p-2">
-          <FileText className="size-5 text-muted-foreground" />
+        <div className="rounded-md bg-muted p-2">
+          <FileText className="size-5 text-muted-foreground" aria-hidden="true" />
         </div>
         <div className="flex min-w-0 flex-col">
           <h2 className="max-w-[200px] truncate text-sm font-semibold leading-snug" title={filename ?? undefined}>
-            {filename || "加载中..."}
+            {filename || "正在加载..."}
           </h2>
           <span className="text-xs text-muted-foreground">{chunkCount} 个切片</span>
         </div>
@@ -39,8 +39,8 @@ export function DocumentViewerHeader({
 
       <div className="flex items-center gap-1">
         {onJumpToSource ? (
-          <Button variant="ghost" size="sm" className="gap-2 rounded-full px-3 text-xs" onClick={onJumpToSource}>
-            <CornerUpLeft className="size-4" />
+          <Button variant="ghost" size="sm" className="gap-2 rounded-md px-3 text-xs" onClick={onJumpToSource}>
+            <CornerUpLeft className="size-4" aria-hidden="true" />
             回到对话引用
           </Button>
         ) : null}

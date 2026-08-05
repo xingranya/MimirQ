@@ -76,7 +76,7 @@ export function ChunksToolbarPanel({
           onChange={(event) => onChunkQueryChange(event.target.value)}
           onKeyDown={onSearchKeyDown}
           placeholder={searchPlaceholder}
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <div className="flex items-center gap-2">
           <div className="min-w-[88px] text-right text-xs text-muted-foreground tabular-nums">{matchSummary}</div>
@@ -89,8 +89,6 @@ export function ChunksToolbarPanel({
         </div>
       </div>
 
-      <div className="mt-2 text-[11px] text-muted-foreground">快捷键：<span className="font-mono">/</span> 聚焦搜索 · <span className="font-mono">j / k</span> 快速切换结果</div>
-
       <div className="mt-2 flex items-center justify-end gap-2">
         <Button
           type="button"
@@ -99,10 +97,10 @@ export function ChunksToolbarPanel({
           className="gap-2"
           onClick={onOpenCreateChunk}
           disabled={!canEditChunks}
-          title={canEditChunks ? "Add a new chunk" : "Document is processing; editing disabled"}
+          title={canEditChunks ? "新增切片" : "文档正在处理中，暂时无法编辑"}
         >
           <Plus className="size-4" />
-          Add chunk
+          新增切片
         </Button>
         <Button
           type="button"
@@ -111,23 +109,23 @@ export function ChunksToolbarPanel({
           className="gap-2"
           onClick={onOpenQaDialog}
           disabled={!canEditChunks}
-          title={canEditChunks ? "Generate FAQ-style Q&A chunks" : "Document is processing; editing disabled"}
+          title={canEditChunks ? "生成问答切片" : "文档正在处理中，暂时无法编辑"}
         >
           <Sparkles className="size-4" />
-          Q&A
+          生成问答
         </Button>
       </div>
 
       {serverMatchTruncatedHint ? (
-        <div className="mt-2 text-[11px] text-muted-foreground">匹配结果过多，仅返回前若干条（计数后缀 “+” 表示截断）。</div>
+        <div className="mt-2 text-xs text-muted-foreground">匹配结果较多，当前只显示前几项，数量后的“+”表示还有更多结果。</div>
       ) : null}
 
       {highlightChunkId && !loadAllChunks && !chunksLoaded ? (
-        <div className="mt-3 rounded-xl border border-border/60 bg-background/60 p-4">
+        <div className="mt-3 rounded-md border border-border bg-background p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="text-xs font-semibold text-foreground">引用切片</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">为避免一次性加载大量切片，先展示命中内容；需要全文切片可点击「加载全部切片」。</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">当前先展示命中的内容，需要浏览全文时可加载全部切片。</div>
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button type="button" size="sm" variant="outline" onClick={onClearHighlight} disabled={highlightChunkLoading}>
