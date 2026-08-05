@@ -164,7 +164,12 @@ from app.services.governance_profiles import (
     validate_profile_key,
 )
 from app.services.governance_profiles_resolver import resolve_governance_profile_ref_effective
-from app.services.ingestion_policy import export_policy_json, match_ingestion_rule, parse_ingestion_policy_from_metadata
+from app.services.ingestion_policy import (
+    export_policy_json,
+    match_ingestion_rule,
+    parse_ingestion_policy_from_metadata,
+    validate_and_normalize_ingestion_policy,
+)
 from app.services.pipeline_config import resolve_pipeline_effective
 from app.services.rbac_service import TenantPermissions, ensure_tenant_permission
 from app.types.pipeline import PipelineOptions
@@ -1217,6 +1222,7 @@ async def ingestion_preview(
     parser_backend: Annotated[str | None, Form()] = None,
     chunk_strategy: Annotated[str | None, Form()] = None,
     diff_max_lines: Annotated[int, Form()] = 2000,
+    policy_json: Annotated[str | None, Form()] = None,
     *,
     tenant_id: Annotated[UUID, Depends(get_tenant_id)],
     account_id: Annotated[str, Depends(get_current_account_id)],
@@ -1234,6 +1240,16 @@ async def ingestion_preview(
     dataset = DatasetService.get_dataset(db, tenant_id, dataset_id)
     DatasetService.assert_dataset_readable(db, dataset, account_id)
 
+    dataset_meta = _dataset_metadata_dict(dataset)
+    if policy_json is None:
+        policy = parse_ingestion_policy_from_metadata(dataset_meta) or None
+    else:
+        DatasetService.assert_dataset_writable(db, dataset, account_id)
+        try:
+            policy = validate_and_normalize_ingestion_policy(IngestionPolicy.model_validate_json(policy_json))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid ingestion policy") from exc
+
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in settings.allowed_extensions_list:
         raise HTTPException(status_code=400, detail=f"Unsupported file type. Allowed: {settings.allowed_extensions_list}")
@@ -1247,8 +1263,6 @@ async def ingestion_preview(
     try:
         await save_upload_file(file, temp_path, max_bytes=settings.MAX_FILE_SIZE)
 
-        dataset_meta = _dataset_metadata_dict(dataset)
-        policy = parse_ingestion_policy_from_metadata(dataset_meta) or None
         matched_rule = match_ingestion_rule(policy, filename=file.filename, file_ext=file_ext)
         config = _resolve_ingestion_preview_config(
             matched_rule=matched_rule,

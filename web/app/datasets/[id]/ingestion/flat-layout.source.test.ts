@@ -10,7 +10,7 @@ describe('数据集入库策略页扁平化契约', () => {
     expect(pageSource).toContain('activeSection="ingestion"')
     expect(pageSource).toContain('datasetName={dataset?.name}')
     expect(pageSource).toContain('保存策略')
-    expect(pageSource).toContain('disabled={saving || !policy || !isDirty}')
+    expect(pageSource).toContain('disabled={saving || !activePolicy || !canEditPolicy || !isDirty}')
     expect(pageSource).not.toContain('<PageScaffold')
   })
 
@@ -18,8 +18,13 @@ describe('数据集入库策略页扁平化契约', () => {
     expect(pageSource).toContain('applyDraft')
     expect(pageSource).toContain('applyTemplate')
     expect(pageSource).toContain('pipelineApi.ingestionPreview')
+    expect(pageSource).toContain('policy: isDirty ? activePolicy : undefined')
     expect(pageSource).toContain('datasetApi.updateIngestionPolicy')
     expect(pageSource).toContain('生成预览')
+    expect(pageSource).toContain('<QueryErrorState')
+    expect(pageSource).toContain('savedPolicyJsonRef')
+    expect(pageSource).toContain('previewAbortRef')
+    expect(pageSource).toContain('当前为只读模式')
   })
 
   it('为桌面链接和移动端选择器提供未保存保护', () => {
@@ -28,6 +33,7 @@ describe('数据集入库策略页扁平化契约', () => {
     expect(pageSource).toContain('navigationGuard.navigationPending')
     expect(pageSource).toContain('navigationGuard.confirmNavigation')
     expect(pageSource).toContain('放弃更改并离开')
+    expect(pageSource).toContain('enabled: isDirty || saving')
   })
 
   it('移除旧装饰表面并使用面向用户的中文标签', () => {
@@ -38,6 +44,11 @@ describe('数据集入库策略页扁平化契约', () => {
     expect(pageSource).not.toContain('rounded-[')
     expect(pageSource).not.toContain('shadow-[')
     expect(pageSource).not.toContain('text-[11px]')
+    expect(pageSource).not.toContain('rounded-lg')
+    expect(pageSource).not.toContain('formatApiError')
+    expect(pageSource).not.toContain('parser:')
+    expect(pageSource).not.toContain('profile:')
+    expect(pageSource).not.toContain('>patch:')
     expect(pageSource).toContain('文件名正则（可选）')
     expect(pageSource).toContain('切片策略（可选覆盖）')
     expect(pageSource).toContain('高级策略参数（JSON，可选）')

@@ -90,6 +90,7 @@ class DatasetTableRoutingPolicyAudit(BaseModel):
 
 
 class IngestionPolicyWithAudit(IngestionPolicy):
+    writable: bool
     table_routing_policy_audit: DatasetTableRoutingPolicyAudit
 
 

@@ -16,6 +16,7 @@ import type {
   GovernanceProfileResolvedResponse,
   GovernanceProcessingScript,
   GovernanceProfileUpdate,
+  IngestionPolicy,
   IngestionPreviewResponse,
   KeywordExtractRequest,
   KeywordExtractResponse,
@@ -698,7 +699,14 @@ export const pipelineApi = {
 
   async ingestionPreview(
     file: File,
-    params: { dataset_id: string; parser_backend?: string; chunk_strategy?: string; diff_max_lines?: number }
+    params: {
+      dataset_id: string
+      parser_backend?: string
+      chunk_strategy?: string
+      diff_max_lines?: number
+      policy?: IngestionPolicy
+    },
+    options?: { signal?: AbortSignal }
   ): Promise<IngestionPreviewResponse> {
     const formData = new FormData()
     formData.append('file', file)
@@ -706,7 +714,11 @@ export const pipelineApi = {
     if (params.parser_backend) formData.append('parser_backend', params.parser_backend)
     if (params.chunk_strategy) formData.append('chunk_strategy', params.chunk_strategy)
     if (params.diff_max_lines != null) formData.append('diff_max_lines', String(params.diff_max_lines))
-    const { data } = await apiClient.post('/pipeline/ingestion-preview', formData, { timeout: API_LONG_TIMEOUT_MS })
+    if (params.policy) formData.append('policy_json', JSON.stringify(params.policy))
+    const { data } = await apiClient.post('/pipeline/ingestion-preview', formData, {
+      timeout: API_LONG_TIMEOUT_MS,
+      signal: options?.signal,
+    })
     return data
   },
 

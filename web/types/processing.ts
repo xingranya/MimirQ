@@ -722,6 +722,7 @@ export interface IngestionRule {
 export interface IngestionPolicy {
   version: string
   rules?: IngestionRule[]
+  writable?: boolean
 }
 
 export interface IngestionPolicyImportResponse {

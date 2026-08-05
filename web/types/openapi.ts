@@ -7885,6 +7885,8 @@ export interface components {
              * @default 2000
              */
             diff_max_lines: number;
+            /** Policy Json */
+            policy_json?: string | null;
         };
         /** Body_parse_preview_api_v1_pipeline_parse_preview_post */
         Body_parse_preview_api_v1_pipeline_parse_preview_post: {
@@ -17432,6 +17434,8 @@ export interface components {
             version: string;
             /** Rules */
             rules?: components["schemas"]["IngestionRule-Output"][];
+            /** Writable */
+            writable: boolean;
             table_routing_policy_audit: components["schemas"]["DatasetTableRoutingPolicyAudit"];
         };
         /** IngestionPreprocessConfig */

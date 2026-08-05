@@ -1991,6 +1991,13 @@ def get_dataset_ingestion_policy(
 ):
     dataset = DatasetService.get_dataset(db, tenant_id, dataset_id)
     DatasetService.assert_dataset_readable(db, dataset, account_id)
+    try:
+        DatasetService.assert_dataset_writable(db, dataset, account_id)
+        writable = True
+    except HTTPException as exc:
+        if exc.status_code != 403:
+            raise
+        writable = False
     meta = getattr(dataset, "dataset_metadata", None)
     meta_obj = meta if isinstance(meta, dict) else {}
     policy = parse_ingestion_policy_from_metadata(meta_obj) or IngestionPolicy(version="1", rules=[])
@@ -1998,6 +2005,7 @@ def get_dataset_ingestion_policy(
     return IngestionPolicyWithAudit(
         version=policy.version,
         rules=policy.rules,
+        writable=writable,
         table_routing_policy_audit=audit,
     )
 

@@ -1,7 +1,8 @@
+import json
 import uuid
 from types import SimpleNamespace
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.auth import get_current_account_id
@@ -9,7 +10,7 @@ from app.api.dependencies.tenant import get_tenant_id
 from app.core.database import get_db
 
 
-def test_ingestion_preview_accepts_sync_clean_preview(monkeypatch, tmp_path) -> None:
+def test_ingestion_preview_accepts_sync_clean_preview_and_policy_override(monkeypatch, tmp_path) -> None:
     import app.api.v1.pipeline as pipeline_module
     from app.services.dataset_service import DatasetService
 
@@ -22,6 +23,13 @@ def test_ingestion_preview_accepts_sync_clean_preview(monkeypatch, tmp_path) -> 
     monkeypatch.setattr(DatasetService, "ensure_member", lambda *_a, **_k: None, raising=True)
     monkeypatch.setattr(DatasetService, "get_dataset", lambda *_a, **_k: object(), raising=True)
     monkeypatch.setattr(DatasetService, "assert_dataset_readable", lambda *_a, **_k: None, raising=True)
+    writable_checks: list[object] = []
+    monkeypatch.setattr(
+        DatasetService,
+        "assert_dataset_writable",
+        lambda *_a, **_k: writable_checks.append(object()),
+        raising=True,
+    )
 
     async def _fake_save_upload_file(file, path, *, max_bytes):  # noqa: ANN001, ANN202
         path.write_bytes(await file.read())
@@ -36,12 +44,13 @@ def test_ingestion_preview_accepts_sync_clean_preview(monkeypatch, tmp_path) -> 
     monkeypatch.setattr(pipeline_module, "save_upload_file", _fake_save_upload_file, raising=True)
     monkeypatch.setattr(pipeline_module, "_dataset_metadata_dict", lambda _dataset: {}, raising=True)
     monkeypatch.setattr(pipeline_module, "parse_ingestion_policy_from_metadata", lambda _meta: None, raising=True)
-    monkeypatch.setattr(
-        pipeline_module,
-        "match_ingestion_rule",
-        lambda _policy, *, filename, file_ext: None,
-        raising=True,
-    )
+    matched_policies: list[object | None] = []
+
+    def _fake_match_ingestion_rule(policy, *, filename, file_ext):  # noqa: ANN001, ANN202, ARG001
+        matched_policies.append(policy)
+        return None
+
+    monkeypatch.setattr(pipeline_module, "match_ingestion_rule", _fake_match_ingestion_rule, raising=True)
     monkeypatch.setattr(
         pipeline_module,
         "_resolve_ingestion_preview_config",
@@ -122,3 +131,50 @@ def test_ingestion_preview_accepts_sync_clean_preview(monkeypatch, tmp_path) -> 
     body = response.json()
     assert body["clean"]["markdown"] == "Hello"
     assert body["parse"]["backend"] == "basic"
+    assert matched_policies == [None]
+    assert writable_checks == []
+
+    policy_json = json.dumps(
+        {
+            "version": "1",
+            "rules": [
+                {
+                    "id": "draft-rule",
+                    "name": "草稿规则",
+                    "match": {"extensions": [".txt"]},
+                }
+            ],
+        }
+    )
+    override_response = client.post(
+        "/api/v1/pipeline/ingestion-preview",
+        data={"dataset_id": str(dataset_id), "policy_json": policy_json},
+        files={"file": ("preview.txt", b"hello", "text/plain")},
+    )
+
+    assert override_response.status_code == 200, override_response.text
+    assert len(writable_checks) == 1
+    override_policy = matched_policies[-1]
+    assert override_policy is not None
+    assert override_policy.rules[0].id == "draft-rule"
+
+    invalid_response = client.post(
+        "/api/v1/pipeline/ingestion-preview",
+        data={"dataset_id": str(dataset_id), "policy_json": '{"version":"2","rules":[]}'},
+        files={"file": ("preview.txt", b"hello", "text/plain")},
+    )
+
+    assert invalid_response.status_code == 400
+    assert invalid_response.json()["detail"] == "Invalid ingestion policy"
+
+    def _deny_write(*_args, **_kwargs):  # noqa: ANN202
+        raise HTTPException(status_code=403, detail="No dataset write access")
+
+    monkeypatch.setattr(DatasetService, "assert_dataset_writable", _deny_write, raising=True)
+    forbidden_response = client.post(
+        "/api/v1/pipeline/ingestion-preview",
+        data={"dataset_id": str(dataset_id), "policy_json": policy_json},
+        files={"file": ("preview.txt", b"hello", "text/plain")},
+    )
+
+    assert forbidden_response.status_code == 403

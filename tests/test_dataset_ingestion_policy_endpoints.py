@@ -2,7 +2,7 @@
 import json
 import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.auth import get_current_account_id
@@ -93,6 +93,7 @@ def test_dataset_ingestion_policy_put_get_and_import_export(monkeypatch):  # noq
     assert res.status_code == 200
     assert res.json()["version"] == "1"
     assert len(res.json()["rules"]) == 1
+    assert res.json()["writable"] is True
     audit = res.json().get("table_routing_policy_audit") or {}
     assert audit.get("version") == "1"
     assert isinstance(audit.get("rules"), list)
@@ -113,6 +114,14 @@ def test_dataset_ingestion_policy_put_get_and_import_export(monkeypatch):  # noq
     exported = json.loads(res.content.decode("utf-8"))
     assert exported["version"] == "1"
     assert len(exported["rules"]) == 1
+
+    def _deny_write(_db, _dataset, _account_id):  # noqa: ANN001, ANN202
+        raise HTTPException(status_code=403, detail="No dataset write permission")
+
+    monkeypatch.setattr(DatasetService, "assert_dataset_writable", _deny_write, raising=True)
+    res = client.get(f"/api/v1/datasets/{dataset_id}/ingestion-policy")
+    assert res.status_code == 200
+    assert res.json()["writable"] is False
 
 
 def test_dataset_ingestion_policy_import_replace_false_conflict(monkeypatch):  # noqa: ANN001
@@ -188,6 +197,7 @@ def test_dataset_ingestion_policy_get_exposes_table_routing_policy_audit(monkeyp
 
     monkeypatch.setattr(DatasetService, "get_dataset", lambda _db, _tenant_id, _did: ds, raising=True)
     monkeypatch.setattr(DatasetService, "assert_dataset_readable", lambda _db, _dataset, _account_id: None, raising=True)
+    monkeypatch.setattr(DatasetService, "assert_dataset_writable", lambda _db, _dataset, _account_id: None, raising=True)
 
     app = FastAPI()
     app.dependency_overrides[get_db] = _override_get_db
