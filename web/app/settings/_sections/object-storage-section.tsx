@@ -2,10 +2,10 @@
 
 import { SettingsSwitch } from '@/components/settings/settings-switch'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 import type { SystemSettings } from '@/lib/api'
 import { getObjectStorageEnabledPatch } from '@/lib/object-storage-settings'
-import { cn } from '@/lib/utils'
 import { Archive, FileText, ImageIcon, LockKeyhole, Server } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -17,40 +17,33 @@ type ObjectStorageSectionProps = {
   updateMinIO: (patch: Partial<MinIOSettings>) => void
 }
 
-const STORAGE_CARD =
-  'rounded-[16px] border border-border/60 bg-card/82 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.03)]'
-const STORAGE_INPUT = 'h-8 rounded-lg border-border/60 bg-background text-[12px]'
+const STORAGE_INPUT = 'h-9 rounded-md border-border bg-background text-sm'
 
 function StorageCard({
   icon: Icon,
-  label,
   title,
   description,
   action,
   children,
 }: Readonly<{
   icon: LucideIcon
-  label: string
   title: string
   description: string
   action?: ReactNode
   children?: ReactNode
 }>) {
   return (
-    <div className={STORAGE_CARD}>
+    <div className="min-w-0 border-b border-border py-4 xl:px-4 xl:[&:nth-child(odd)]:border-r">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-[12px] border border-primary/20 bg-primary/10 text-primary">
-            <Icon className="h-4 w-4" />
+        <div className="flex min-w-0 gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">
+            <Icon className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary/75">
-              {label}
-            </div>
-            <div className="mt-0.5 text-[13px] font-medium tracking-[-0.005em] text-foreground">
+            <h3 className="text-sm font-semibold text-foreground">
               {title}
-            </div>
-            <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>{description}</div>
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
           </div>
         </div>
         {action}
@@ -61,15 +54,16 @@ function StorageCard({
 }
 
 function Field({
+  id,
   label,
   children,
   hint,
-}: Readonly<{ label: string; children: ReactNode; hint?: string }>) {
+}: Readonly<{ id: string; label: string; children: ReactNode; hint?: string }>) {
   return (
     <div className="space-y-1.5">
-      <div className={settingsTextTokens.fieldLabel}>{label}</div>
+      <Label htmlFor={id} className={settingsTextTokens.fieldLabel}>{label}</Label>
       {children}
-      {hint ? <div className={settingsTextTokens.helpText}>{hint}</div> : null}
+      {hint ? <p className={settingsTextTokens.helpText}>{hint}</p> : null}
     </div>
   )
 }
@@ -90,15 +84,10 @@ function ToggleRow({
   disabled?: boolean
 }>) {
   return (
-    <div
-      className={cn(
-        'flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors',
-        checked ? 'border-primary/25 bg-primary/10' : 'border-border/60 bg-muted/28'
-      )}
-    >
+    <div className="flex items-start justify-between gap-3 border-t border-border py-3">
       <div className="min-w-0">
-        <div className={settingsTextTokens.panelTitle}>{title}</div>
-        <div className={cn(settingsTextTokens.helpText, 'mt-0.5')}>{description}</div>
+        <p className={settingsTextTokens.panelTitle}>{title}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       <SettingsSwitch
         checked={checked}
@@ -120,12 +109,11 @@ export function ObjectStorageSection({
   const isSslEnabled = Boolean(minio.use_ssl)
 
   return (
-    <section className="grid gap-3 xl:grid-cols-2">
+    <section className="grid border-t border-border xl:grid-cols-2">
       <StorageCard
         icon={Archive}
-        label="MinIO"
         title="对象存储开关"
-        description="控制图片、解析产物和可选文档对象存储；Docker MinIO 已启动时仍需打开这里的应用开关"
+        description="控制图片、解析结果和文档的对象存储。服务已启动时，仍需打开此开关。"
         action={
           <SettingsSwitch
             checked={isEnabled}
@@ -138,16 +126,18 @@ export function ObjectStorageSection({
         }
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Endpoint" hint="本机启动后端通常为 localhost:9000，容器内为 mimirq-minio:9000">
+          <Field id="minio-endpoint" label="服务地址" hint="本机部署通常为 localhost:9000，容器部署通常为 mimirq-minio:9000。">
             <Input
+              id="minio-endpoint"
               value={minio.endpoint}
               onChange={(event) => updateMinIO({ endpoint: event.target.value })}
               placeholder="localhost:9000"
               className={STORAGE_INPUT}
             />
           </Field>
-          <Field label="Bucket">
+          <Field id="minio-bucket" label="存储桶名称">
             <Input
+              id="minio-bucket"
               value={minio.bucket_name}
               onChange={(event) => updateMinIO({ bucket_name: event.target.value })}
               placeholder="mimirq"
@@ -159,21 +149,22 @@ export function ObjectStorageSection({
 
       <StorageCard
         icon={LockKeyhole}
-        label="凭证"
         title="访问凭证"
-        description="已保存的密钥会脱敏显示；留着脱敏值保存不会覆盖真实密钥"
+        description="已保存的密钥会脱敏显示。保留脱敏值不会覆盖原密钥。"
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Access Key">
+          <Field id="minio-access-key" label="访问密钥">
             <Input
+              id="minio-access-key"
               value={minio.access_key}
               onChange={(event) => updateMinIO({ access_key: event.target.value })}
               placeholder="minioadmin"
               className={STORAGE_INPUT}
             />
           </Field>
-          <Field label="Secret Key">
+          <Field id="minio-secret-key" label="私密密钥">
             <Input
+              id="minio-secret-key"
               type="password"
               value={minio.secret_key}
               onChange={(event) => updateMinIO({ secret_key: event.target.value })}
@@ -186,9 +177,8 @@ export function ObjectStorageSection({
 
       <StorageCard
         icon={Server}
-        label="传输"
         title="连接与 TLS"
-        description="本地 Docker MinIO 默认 HTTP；生产 S3/OSS/COS 通常需要启用 SSL"
+        description="本地服务通常使用 HTTP，生产环境的对象存储通常需要启用 HTTPS。"
       >
         <ToggleRow
           title="使用 SSL"
@@ -201,9 +191,8 @@ export function ObjectStorageSection({
 
       <StorageCard
         icon={FileText}
-        label="文档"
         title="文档对象存储"
-        description="启用后文档下载、对象引用和大文件生命周期会依赖 MinIO"
+        description="启用后，文档下载、对象引用和大文件管理将使用对象存储。"
       >
         <ToggleRow
           title="存储文档对象"
@@ -221,12 +210,12 @@ export function ObjectStorageSection({
 
       <StorageCard
         icon={ImageIcon}
-        label="图片"
         title="图片读取上限"
-        description="限制通过 MinIO 读取图片字节，0 表示不额外限制"
+        description="限制单张图片的最大读取字节数，0 表示不额外限制。"
       >
-        <Field label="图片最大字节">
+        <Field id="minio-image-max-bytes" label="单张图片最大字节数">
           <Input
+            id="minio-image-max-bytes"
             type="number"
             min={0}
             value={minio.image_max_bytes}
