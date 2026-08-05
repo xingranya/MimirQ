@@ -286,9 +286,16 @@ function normalizeApiBase(value: unknown): string {
 }
 
 function providerHasModel(provider: ModelProvider, modelName: string): boolean {
-  const target = String(modelName || '').trim().toLowerCase()
+  const target = String(modelName || '')
+    .trim()
+    .toLowerCase()
   if (!target) return false
-  return provider.models.some((model) => String(model.name || '').trim().toLowerCase() === target)
+  return provider.models.some(
+    (model) =>
+      String(model.name || '')
+        .trim()
+        .toLowerCase() === target
+  )
 }
 
 function findProviderIdByModel(
@@ -298,8 +305,7 @@ function findProviderIdByModel(
 ): string | null {
   return (
     providers.find(
-      (provider) =>
-        provider.category === category && providerHasModel(provider, modelName)
+      (provider) => provider.category === category && providerHasModel(provider, modelName)
     )?.id ?? null
   )
 }
@@ -397,7 +403,9 @@ function hydrateProvidersFromSettings(
 }
 
 function resolveEmbeddingProvider(providerId: string): string {
-  const pid = String(providerId || '').trim().toLowerCase()
+  const pid = String(providerId || '')
+    .trim()
+    .toLowerCase()
   if (pid === 'qwen-embedding') return 'dashscope'
   if (pid === 'local-embedding') return 'local'
   return 'openai_compatible'
@@ -426,9 +434,7 @@ export function useSettingsPageState() {
   const [editedSettings, setEditedSettings] = useState<EditedSystemSettings>({})
   const settingsWritable = settings?.writable === true
 
-  const editSettings = (
-    updater: (current: EditedSystemSettings) => EditedSystemSettings
-  ) => {
+  const editSettings = (updater: (current: EditedSystemSettings) => EditedSystemSettings) => {
     if (!settingsWritable) return
     setEditedSettings(updater)
   }
@@ -456,7 +462,12 @@ export function useSettingsPageState() {
     [settings?.governance, editedSettings.governance]
   )
   const observabilityMerged = useMemo(
-    () => mergeWithDefaults(DEFAULT_OBSERVABILITY, settings?.observability, editedSettings.observability),
+    () =>
+      mergeWithDefaults(
+        DEFAULT_OBSERVABILITY,
+        settings?.observability,
+        editedSettings.observability
+      ),
     [settings?.observability, editedSettings.observability]
   )
   const safetyMerged = useMemo(
@@ -522,13 +533,13 @@ export function useSettingsPageState() {
   const isSecretsRedactEnabled = governanceMerged.secrets_redact
   const isQuarantineOnDropEnabled = governanceMerged.quarantine_on_drop
 
-  const loadSettings = async () => {
+  const loadSettings = async ({ preserveEdits = false }: { preserveEdits?: boolean } = {}) => {
     setLoading(true)
     setLoadError(null)
     try {
       const settingsData = await settingsApi.get()
       setSettings(settingsData)
-      setEditedSettings({})
+      if (!preserveEdits) setEditedSettings({})
     } catch (error) {
       setLoadError(formatApiError(error, '加载失败'))
     } finally {
@@ -741,10 +752,7 @@ export function useSettingsPageState() {
   const updateSafety = (patch: Partial<SafetyConfig>) => {
     editSettings((prev) => ({
       ...prev,
-      safety: mergeConfig(
-        mergeWithDefaults(DEFAULT_SAFETY, settings?.safety, prev.safety),
-        patch
-      ),
+      safety: mergeConfig(mergeWithDefaults(DEFAULT_SAFETY, settings?.safety, prev.safety), patch),
     }))
   }
 
@@ -816,10 +824,7 @@ export function useSettingsPageState() {
   const updateMinerU = (patch: Partial<MinerUConfig>) => {
     editSettings((prev) => ({
       ...prev,
-      mineru: mergeConfig(
-        mergeWithDefaults(DEFAULT_MINERU, settings?.mineru, prev.mineru),
-        patch
-      ),
+      mineru: mergeConfig(mergeWithDefaults(DEFAULT_MINERU, settings?.mineru, prev.mineru), patch),
     }))
   }
 
@@ -853,23 +858,14 @@ export function useSettingsPageState() {
   const updateTextIn = (patch: Partial<TextInConfig>) => {
     editSettings((prev) => ({
       ...prev,
-      textin: mergeConfig(
-        mergeWithDefaults(DEFAULT_TEXTIN, settings?.textin, prev.textin),
-        patch
-      ),
+      textin: mergeConfig(mergeWithDefaults(DEFAULT_TEXTIN, settings?.textin, prev.textin), patch),
     }))
   }
 
   const updateRag = (patch: Partial<RagSettings>) => {
     editSettings((prev) => {
-      const nextRag = mergeConfig(
-        mergeWithDefaults(DEFAULT_RAG, settings?.rag, prev.rag),
-        patch
-      )
-      nextRag.chunk_overlap = Math.min(
-        nextRag.chunk_overlap,
-        Math.max(0, nextRag.chunk_size - 1)
-      )
+      const nextRag = mergeConfig(mergeWithDefaults(DEFAULT_RAG, settings?.rag, prev.rag), patch)
+      nextRag.chunk_overlap = Math.min(nextRag.chunk_overlap, Math.max(0, nextRag.chunk_size - 1))
       return {
         ...prev,
         rag: nextRag,
@@ -909,44 +905,59 @@ export function useSettingsPageState() {
   const handleSaveConfig = async (providerId: string, config: ProviderConfig) => {
     if (!settingsWritable) {
       setSaveMessage({ type: 'error', text: '当前账号只能查看系统设置。' })
-      return
+      return false
     }
     const provider = providers.find((item) => item.id === providerId)
-    if (!provider) return
+    if (!provider) {
+      setSaveMessage({ type: 'error', text: '没有找到对应的模型服务，请刷新后重试。' })
+      return false
+    }
 
-    if (provider.category === 'model' || provider.category === 'embedding') {
-      setSaving(true)
-      setSaveMessage(null)
-      try {
-        const payload =
-          provider.category === 'model'
-            ? {
-                llm: {
-                  api_key: config.apiKey || '',
-                  api_base: config.apiBase || '',
-                  model: config.model || '',
-                  temperature: config.temperature ?? 0.7,
-                  timeout: config.timeout ?? 60,
-                  max_retries: 3,
-                },
-              }
-            : {
-                embedding: {
-                  provider: resolveEmbeddingProvider(provider.id),
-                  model: config.model || '',
-                  api_key: config.apiKey || '',
-                  api_base: config.apiBase || '',
-                },
-              }
+    if (provider.category !== 'model' && provider.category !== 'embedding') {
+      setSaveMessage({
+        type: 'error',
+        text: '重排序服务请在“检索与生成”中配置。',
+      })
+      return false
+    }
 
-        await settingsApi.update(payload)
-        setSaveMessage(createSettingsSaveSuccessMessage())
-        await Promise.all([loadSettings(), loadSystemStatus(), loadBackendMeta()])
-      } catch (error) {
-        setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
-      } finally {
-        setSaving(false)
-      }
+    setSaving(true)
+    setSaveMessage(null)
+    try {
+      const payload =
+        provider.category === 'model'
+          ? {
+              llm: {
+                api_key: config.apiKey || '',
+                api_base: config.apiBase || '',
+                model: config.model || '',
+                temperature: config.temperature ?? 0.7,
+                timeout: config.timeout ?? 60,
+                max_retries: 3,
+              },
+            }
+          : {
+              embedding: {
+                provider: resolveEmbeddingProvider(provider.id),
+                model: config.model || '',
+                api_key: config.apiKey || '',
+                api_base: config.apiBase || '',
+              },
+            }
+
+      await settingsApi.update(payload)
+      setSaveMessage(createSettingsSaveSuccessMessage())
+      await Promise.all([
+        loadSettings({ preserveEdits: true }),
+        loadSystemStatus(),
+        loadBackendMeta(),
+      ])
+      return true
+    } catch (error) {
+      setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
+      return false
+    } finally {
+      setSaving(false)
     }
   }
 

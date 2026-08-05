@@ -4,10 +4,20 @@
 'use client'
 
 import { useEffect, useId, useState } from 'react'
-import { Eye, EyeOff, AlertCircle, CheckCircle2, FlaskConical, Save, ChevronRight } from 'lucide-react'
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  FlaskConical,
+  Save,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -26,7 +36,7 @@ interface ModelConfigDialogProps {
   provider: ModelProvider | null
   open: boolean
   onClose: () => void
-  onSave: (providerId: string, config: ProviderConfig) => void
+  onSave: (providerId: string, config: ProviderConfig) => Promise<boolean>
 }
 
 function getDefaultApiBase(providerId: string): string {
@@ -61,7 +71,6 @@ export function ModelConfigDialog({
     apiBase: '',
     model: '',
     temperature: 0.7,
-    maxTokens: 4096,
     timeout: 60,
   })
   const [showApiKey, setShowApiKey] = useState(false)
@@ -70,14 +79,16 @@ export function ModelConfigDialog({
     success: boolean
     message: string
   } | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const apiKeyId = `${idPrefix}-apiKey`
   const apiBaseId = `${idPrefix}-apiBase`
   const modelId = `${idPrefix}-model`
   const temperatureId = `${idPrefix}-temperature`
-  const maxTokensId = `${idPrefix}-maxTokens`
   const effectiveApiBase = config.apiBase || (provider ? getDefaultApiBase(provider.id) : '')
-  const apiKeyOptional = provider?.id === 'ollama' || isLocalOpenAICompatibleBaseUrl(effectiveApiBase)
+  const apiKeyOptional =
+    provider?.id === 'ollama' || isLocalOpenAICompatibleBaseUrl(effectiveApiBase)
   const canSubmit = Boolean(config.model && (config.apiKey || apiKeyOptional))
 
   useEffect(() => {
@@ -97,7 +108,6 @@ export function ModelConfigDialog({
         apiBase: provider.config.apiBase || getDefaultApiBase(provider.id),
         model: provider.config.model || defaultModel,
         temperature: provider.config.temperature ?? 0.7,
-        maxTokens: provider.config.maxTokens ?? 4096,
         timeout: provider.config.timeout ?? 60,
       })
     } else if (provider) {
@@ -106,18 +116,31 @@ export function ModelConfigDialog({
         apiBase: getDefaultApiBase(provider.id),
         model: defaultModel,
         temperature: 0.7,
-        maxTokens: 4096,
         timeout: 60,
       })
     }
     setTestResult(null)
+    setSaveError(null)
+    setIsSaving(false)
     setShowAdvanced(false)
   }, [provider, open])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!provider) return
-    onSave(provider.id, config)
-    onClose()
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      const saved = await onSave(provider.id, config)
+      if (!saved) {
+        setSaveError('保存失败，请检查配置和服务连接后重试。')
+        return
+      }
+      onClose()
+    } catch {
+      setSaveError('保存失败，请检查配置和服务连接后重试。')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleTest = async () => {
@@ -158,7 +181,12 @@ export function ModelConfigDialog({
   if (!provider) return null
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isSaving) onClose()
+      }}
+    >
       <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto p-0 gap-0 rounded-lg border border-border shadow-lg sm:max-w-[550px]">
         {/* 头部 */}
         <div className="flex items-start gap-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
@@ -169,9 +197,9 @@ export function ModelConfigDialog({
             <DialogTitle className="mb-1 text-base font-semibold text-foreground sm:text-lg">
               配置 {provider.name}
             </DialogTitle>
-            <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+            <DialogDescription className="text-xs leading-5 text-muted-foreground sm:text-sm">
               {provider.description}
-            </p>
+            </DialogDescription>
           </div>
         </div>
 
@@ -253,54 +281,50 @@ export function ModelConfigDialog({
             </select>
           </div>
 
-          {/* 高级设置开关 */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors motion-reduce:transition-none group"
-            >
-              <ChevronRight className={cn("size-4 transition-transform", showAdvanced && "rotate-90")} />
-              高级设置
-            </button>
-            
-            {showAdvanced && (
-              <div className="mt-4 grid grid-cols-1 gap-3 motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-200 sm:grid-cols-2 sm:gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor={temperatureId} className="text-xs font-medium text-muted-foreground">
-                    随机度
-                  </Label>
-                  <Input
-                    id={temperatureId}
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
-                    value={config.temperature}
-                    onChange={(e) => setConfig({ ...config, temperature: Number.parseFloat(e.target.value) })}
-                    className="h-9 text-sm"
-                  />
+          {provider.category === 'model' ? (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors motion-reduce:transition-none group"
+              >
+                <ChevronRight
+                  className={cn('size-4 transition-transform', showAdvanced && 'rotate-90')}
+                />
+                高级设置
+              </button>
+
+              {showAdvanced ? (
+                <div className="mt-4 motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-200">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor={temperatureId}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      随机度
+                    </Label>
+                    <Input
+                      id={temperatureId}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="2"
+                      value={config.temperature}
+                      onChange={(e) =>
+                        setConfig({ ...config, temperature: Number.parseFloat(e.target.value) })
+                      }
+                      className="h-9 text-sm"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={maxTokensId} className="text-xs font-medium text-muted-foreground">
-                    最多输出字数
-                  </Label>
-                  <Input
-                    id={maxTokensId}
-                    type="number"
-                    value={config.maxTokens}
-                    onChange={(e) => setConfig({ ...config, maxTokens: Number.parseInt(e.target.value) })}
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* 测试结果 */}
           {testResult && (
             <Alert
-              variant={testResult.success ? "success" : "destructive"}
+              variant={testResult.success ? 'success' : 'destructive'}
               className="animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none"
             >
               {testResult.success ? (
@@ -315,32 +339,50 @@ export function ModelConfigDialog({
               </div>
             </Alert>
           )}
+
+          {saveError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="size-5" aria-hidden="true" />
+              <AlertDescription className="font-medium text-foreground">
+                {saveError}
+              </AlertDescription>
+            </Alert>
+          ) : null}
         </div>
 
         <DialogFooter className="border-t border-border bg-background p-4 pt-3 sm:px-5">
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:gap-3">
+            {provider.category === 'model' ? (
+              <Button
+                variant="outline"
+                onClick={handleTest}
+                disabled={!canSubmit || isTesting || isSaving}
+                className="h-10 flex-1 rounded-md"
+              >
+                {isTesting ? (
+                  <span className="animate-pulse motion-reduce:animate-none">测试中...</span>
+                ) : (
+                  <>
+                    <FlaskConical className="mr-2 size-4" aria-hidden="true" />
+                    测试连接
+                  </>
+                )}
+              </Button>
+            ) : null}
             <Button
-              variant="outline"
-              onClick={handleTest}
-              disabled={!canSubmit || isTesting}
+              onClick={handleSave}
+              disabled={!canSubmit || isSaving}
               className="h-10 flex-1 rounded-md"
             >
-              {isTesting ? (
-                <span className="animate-pulse motion-reduce:animate-none">测试中...</span>
+              {isSaving ? (
+                <Loader2
+                  className="mr-2 size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
               ) : (
-                <>
-                  <FlaskConical className="size-4 mr-2" />
-                  测试连接
-                </>
+                <Save className="mr-2 size-4" aria-hidden="true" />
               )}
-            </Button>
-            <Button 
-              onClick={handleSave} 
-              disabled={!canSubmit}
-              className="h-10 flex-1 rounded-md"
-            >
-              <Save className="size-4 mr-2" />
-              保存配置
+              {isSaving ? '保存中…' : '保存配置'}
             </Button>
           </div>
         </DialogFooter>

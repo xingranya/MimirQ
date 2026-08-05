@@ -138,8 +138,7 @@ describe('设置页保存校验', () => {
       hook.result.current.updateDifyExternalKnowledge({
         enabled: true,
         api_keys: 'valid-key',
-        knowledge_map_json:
-          '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
+        knowledge_map_json: '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
       })
     })
     await act(async () => {
@@ -151,14 +150,85 @@ describe('设置页保存校验', () => {
       expect.objectContaining({
         dify_external_knowledge: expect.objectContaining({
           enabled: true,
-          knowledge_map_json:
-            '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
+          knowledge_map_json: '{"kb_policy":["00000000-0000-4000-8000-000000000001"]}',
         }),
       })
     )
     expect(hook.result.current.saveMessage?.detail).toBe(
       '多数配置会用于当前服务的后续请求。若部署了独立后台处理服务或多个后端进程，请重启相关服务，无需重新构建镜像。'
     )
+    hook.unmount()
+  })
+
+  it('模型配置保存后保留其他设置草稿，且不提交无效字段', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 12 }))
+    let saved = false
+    await act(async () => {
+      saved = await hook.result.current.handleSaveConfig('openai', {
+        apiKey: 'secret',
+        apiBase: 'https://api.example.test/v1',
+        model: 'gpt-5.4-mini',
+        temperature: 0.4,
+        timeout: 45,
+        maxTokens: 1234,
+      })
+    })
+
+    expect(saved).toBe(true)
+    expect(mocks.updateSettings).toHaveBeenCalledWith({
+      llm: {
+        api_key: 'secret',
+        api_base: 'https://api.example.test/v1',
+        model: 'gpt-5.4-mini',
+        temperature: 0.4,
+        timeout: 45,
+        max_retries: 3,
+      },
+    })
+    expect(hook.result.current.ragMerged.retrieval_top_k).toBe(12)
+    expect(hook.result.current.hasChanges).toBe(true)
+    hook.unmount()
+  })
+
+  it('拒绝通过模型弹窗保存重排序配置', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    let saved = true
+    await act(async () => {
+      saved = await hook.result.current.handleSaveConfig('local-reranker', {
+        model: 'BAAI/bge-reranker-v2-m3',
+      })
+    })
+
+    expect(saved).toBe(false)
+    expect(mocks.updateSettings).not.toHaveBeenCalled()
+    expect(hook.result.current.saveMessage?.text).toBe('重排序服务请在“检索与生成”中配置。')
+    hook.unmount()
+  })
+
+  it('模型配置保存失败时保留现有设置草稿', async () => {
+    mocks.updateSettings.mockRejectedValueOnce(new Error('服务暂时不可用'))
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 18 }))
+    let saved = true
+    await act(async () => {
+      saved = await hook.result.current.handleSaveConfig('openai', {
+        apiKey: 'secret',
+        apiBase: 'https://api.example.test/v1',
+        model: 'gpt-5.4-mini',
+      })
+    })
+
+    expect(saved).toBe(false)
+    expect(hook.result.current.hasChanges).toBe(true)
+    expect(hook.result.current.ragMerged.retrieval_top_k).toBe(18)
+    expect(hook.result.current.saveMessage?.type).toBe('error')
     hook.unmount()
   })
 
