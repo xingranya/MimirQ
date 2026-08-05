@@ -103,14 +103,14 @@ DataClassifier: {
       title: '分类归档',
     },
     actions: {
-      autoClassify: 'AI 分类',
-      analyzing: '分析中...',
+      autoClassify: '自动分类',
+      analyzing: '正在分类',
     },
     auto: {
       empty: '请先选择或输入文档内容',
-      success: '后端已返回 {count} 个分类标签',
-      noTags: '后端未返回可用分类标签',
-      failed: '后端自动分类失败',
+      success: '已推荐 {count} 个分类标签',
+      noTags: '没有找到可用的分类标签',
+      failed: '自动分类失败',
     },
     sections: {
       category: '文档分类',
@@ -167,14 +167,15 @@ DataClassifier: {
       '临时',
     ],
     tags: {
-      inputPlaceholder: '输入新标签...',
-      aiSuggested: 'AI 推荐标签',
-      showMore: '显示更多...',
+      inputPlaceholder: '输入新标签',
+      aiSuggested: '自动推荐标签',
+      showMore: '显示更多',
+      showLess: '收起标签',
     },
     summary: {
       title: '归档信息',
-      category: '分类:',
-      tags: '标签:',
+      category: '分类：',
+      tags: '标签：',
     },
     a11y: {
       removeTagWithValue: '移除标签 {tag}',
