@@ -33,22 +33,28 @@ export type JiraProjectRunPayloadInput = {
   sourceAclFallbackMode: JiraSourceAclFallbackMode
 }
 
-function parseAccessMembers(raw: string): string[] {
-  const parts = (raw || '')
-    .split(/[\n,;]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const out: string[] = []
+function dedupeStrings(values: string[], max: number): string[] {
+  const output: string[] = []
   const seen = new Set<string>()
 
-  for (const p of parts) {
-    if (seen.has(p)) continue
-    seen.add(p)
-    out.push(p)
-    if (out.length >= 200) break
+  for (const raw of values) {
+    const value = raw.trim()
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    output.push(value)
+    if (output.length >= max) break
   }
 
-  return out
+  return output
+}
+
+function parseAccessMembers(raw: string): string[] {
+  return dedupeStrings((raw || '').split(/[\n,;]+/g), 200)
+}
+
+function clampInteger(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(max, Math.max(min, Math.trunc(value)))
 }
 
 export function buildJiraProjectRunPayload(
@@ -66,7 +72,8 @@ export function buildJiraProjectRunPayload(
       : {
           mode: input.accessMode,
           partial_member_list: input.accessMode === 'partial_members' ? parseAccessMembers(input.accessMembers) : null,
-          partial_group_list: input.accessMode === 'partial_members' ? input.accessGroupIds : null,
+          partial_group_list:
+            input.accessMode === 'partial_members' ? dedupeStrings(input.accessGroupIds, 200) : null,
         }
 
   const config: JiraProjectConnectorConfig = {
@@ -75,10 +82,10 @@ export function buildJiraProjectRunPayload(
     jql: trimmedJql || undefined,
     auth: input.auth,
     sync_mode: input.syncMode,
-    max_issues: Number.isFinite(input.maxIssues) ? Math.trunc(input.maxIssues) : 50,
-    page_size: Number.isFinite(input.pageSize) ? Math.trunc(input.pageSize) : 25,
+    max_issues: clampInteger(input.maxIssues, 1, 500, 50),
+    page_size: clampInteger(input.pageSize, 1, 100, 25),
     include_comments: Boolean(input.includeComments),
-    max_comments_per_issue: Number.isFinite(input.maxCommentsPerIssue) ? Math.trunc(input.maxCommentsPerIssue) : 20,
+    max_comments_per_issue: clampInteger(input.maxCommentsPerIssue, 0, 200, 20),
     user_agent: trimmedUserAgent || undefined,
     parser_backend: input.parserBackend,
     chunk_strategy: input.chunkStrategy,
