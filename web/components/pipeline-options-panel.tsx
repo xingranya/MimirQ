@@ -74,7 +74,7 @@ const PIPELINE_INDEX_PRESETS: Record<
     patch: {},
   },
   economical: {
-    label: 'Economical (省成本)',
+    label: '节省成本',
     description: '更少处理/存储，适合大规模导入',
     patch: {
       governance_enabled: false,
@@ -93,7 +93,7 @@ const PIPELINE_INDEX_PRESETS: Record<
     },
   },
   high_quality: {
-    label: 'High-quality (高质量)',
+    label: '高质量',
     description: '更细切块+去重+上下文前缀，召回更稳',
     patch: {
       governance_enabled: true,
@@ -118,14 +118,14 @@ const PIPELINE_OPTION_LABELS: Partial<Record<keyof DocumentPipelineOptions, stri
   persist_parsed_content: '持久化解析结果',
   parse_fallback_enabled: '解析回退',
   near_dedup_enabled: '跨文档近重复去重',
-  embedding_context_prefix_enabled: 'Embedding 上下文前缀',
-  chunk_vector_enabled: '向量索引 (Vector)',
-  bm25_index_enabled: '全文索引 (BM25)',
-  kg_enabled: 'KG 抽取',
+  embedding_context_prefix_enabled: '向量上下文前缀',
+  chunk_vector_enabled: '语义向量索引',
+  bm25_index_enabled: '关键词索引',
+  kg_enabled: '知识图谱抽取',
   event_vector_enabled: '事件索引',
   entity_vector_enabled: '实体索引',
-  chunk_size: 'chunk_size',
-  chunk_overlap: 'chunk_overlap',
+  chunk_size: '切块大小',
+  chunk_overlap: '切块重叠',
   chunk_merge_small_min_chars: '短块合并阈值',
 }
 
@@ -252,18 +252,18 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
           items: [
             {
               key: 'chunk_vector_enabled',
-              label: '向量索引 (Vector)',
+              label: '语义向量索引',
               hint: '语义检索核心能力',
             },
             {
               key: 'bm25_index_enabled',
-              label: '全文索引 (BM25)',
+              label: '关键词索引',
               hint: '关键词精准匹配',
             },
           ],
         },
         {
-          title: 'Embedding',
+          title: '向量表示',
           icon: Sparkles,
           color: 'text-success',
           bgColor: 'bg-success/10',
@@ -271,7 +271,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
             {
               key: 'embedding_context_prefix_enabled',
               label: '结构化上下文前缀',
-              hint: '在向量 embedding 前追加 header_path/outline 等轻量上下文（不改变正文与定位）',
+              hint: '把文档层级信息加入向量前缀，提升上下文召回',
               dependsOn: 'chunk_vector_enabled',
             },
           ],
@@ -284,7 +284,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
           items: [
             {
               key: 'kg_enabled',
-              label: 'KG 抽取',
+              label: '知识图谱抽取',
               hint: '提取实体与关系',
             },
             {
@@ -310,13 +310,13 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
   const governanceToggles: ToggleOptionItem[] = [
     {
         key: 'governance_extract_frontmatter',
-        label: '提取 Frontmatter',
-        hint: '读取 Markdown YAML frontmatter 作为元数据',
+        label: '提取文档头信息',
+        hint: '读取 Markdown 文档头信息作为元数据',
     },
     {
         key: 'governance_strip_frontmatter',
-        label: '剥离 Frontmatter',
-        hint: '提取后从正文中删除 frontmatter',
+        label: '剥离文档头信息',
+        hint: '提取后从正文中删除文档头信息',
         dependsOn: 'governance_extract_frontmatter',
     },
     {
@@ -402,7 +402,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     {
         key: 'governance_quarantine_on_drop',
         label: '隔离而非失败',
-        hint: '触发质量过滤时标记 quarantined，便于人工复核',
+        hint: '触发质量过滤时标记为待复核，便于人工处理',
     },
 ]
 
@@ -521,7 +521,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     {
         key: 'parse_fallback_enabled',
         label: '解析回退',
-        hint: '解析质量差时尝试其他后端（PDF）',
+        hint: '解析质量差时尝试其他解析方式（PDF）',
     },
     {
         key: 'persist_parsed_content',
@@ -531,7 +531,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     {
         key: 'near_dedup_enabled',
         label: '跨文档近重复去重',
-        hint: 'SimHash 去除跨文档重复 chunks',
+        hint: '通过相似度指纹去除跨文档重复文本块',
     },
 ]
 
@@ -539,7 +539,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     {
         key: 'chunk_merge_small_min_chars',
         label: '短块合并阈值',
-        hint: '将极短 chunk 与相邻 chunk 合并（0 关闭），可减少过碎片化与噪声',
+        hint: '将极短文本块与相邻文本块合并（0 表示关闭），减少碎片和噪声',
         min: 0,
         max: 10000,
         step: 10,
@@ -574,7 +574,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     {
         key: 'near_dedup_hamming_threshold',
         label: '近重复阈值',
-        hint: 'SimHash 汉明距离阈值',
+        hint: '相似度指纹的距离阈值',
         min: 0,
         max: 64,
         step: 1,
@@ -639,7 +639,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
   const applyIndexPreset = (preset: PipelineIndexPreset) => {
     if (preset === 'custom') return
 
-    // Choosing a preset implies enabling the pipeline (for the current UI surface).
+    // 选择预设时同步开启当前页面上的处理管线。
     if (!enabled) setEnabled(true)
 
     const patch = PIPELINE_INDEX_PRESETS[preset].patch
@@ -656,18 +656,18 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
     className
   )
   const toggleCardClass = cn(
-    'flex items-center justify-between rounded-[0.95rem] border border-primary/12 bg-primary/[0.035] shadow-[inset_0_1px_0_hsl(var(--card)/0.42)]',
+    'flex items-center justify-between rounded-lg border border-border/70 bg-muted/10',
     compact ? 'px-2.5 py-1.5' : 'px-3 py-2'
   )
   const indexPresetCardClass = cn(
-    'rounded-[0.95rem] border border-info/12 bg-info/[0.035] shadow-[inset_0_1px_0_hsl(var(--card)/0.42)]',
+    'rounded-lg border border-border/70 bg-muted/10',
     compact ? 'px-2.5 py-1.5' : 'px-3 py-2'
   )
   const jsonToolbarClass = cn(
-    compact ? "flex min-h-9 items-center justify-between gap-2 rounded-[0.9rem] border border-border/24 bg-muted/[0.11] px-2 py-1.5" : "flex min-h-8 items-center justify-end gap-1.5 rounded-[0.9rem] border border-border/28 bg-card/50 px-2 py-1"
+    compact ? "flex min-h-9 items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/10 px-2 py-1.5" : "flex min-h-8 items-center justify-end gap-1.5 rounded-lg border border-border/70 bg-muted/10 px-2 py-1"
   )
   const jsonButtonClass =
-    'h-6 rounded-full border-border/34 bg-background/32 px-2 text-[10.5px] font-medium text-muted-foreground/76 shadow-none hover:border-border/48 hover:bg-background/58 hover:text-foreground'
+    'h-7 rounded-md border-border/70 bg-background px-2.5 text-[11px] font-medium text-muted-foreground shadow-none hover:border-primary/30 hover:bg-muted/50 hover:text-foreground'
   const numberFieldLabelClass =
     'flex items-center justify-between gap-2 text-[11px] font-medium leading-4 text-muted-foreground'
   const numberFieldLabelTextClass =
@@ -699,7 +699,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
             <div className="min-w-0">
               <div className={cn("font-semibold tracking-[-0.01em] text-foreground/85", titleClasses)}>索引模式（成本/质量）</div>
               <p className={cn("mt-0.5 text-muted-foreground/80", descClasses)}>
-                {compact ? 'Economical / High-quality presets' : '先预览改动再应用；你仍可继续逐项微调'}
+                {compact ? '快速选择处理模式' : '先预览改动再应用，也可以继续逐项微调'}
               </p>
             </div>
             <Select
@@ -717,13 +717,13 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                 setIndexPresetDraft(next)
               }}
             >
-              <SelectTrigger className={cn("h-7 rounded-full border-border/40 bg-background/44 px-3 text-[11px] text-foreground/80 shadow-none", compact ? "w-44" : "w-52")}>
+              <SelectTrigger className={cn("h-8 rounded-md border-border/70 bg-background px-3 text-[11px] text-foreground shadow-none", compact ? "w-44" : "w-52")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="custom">自定义</SelectItem>
-                <SelectItem value="economical">Economical (省成本)</SelectItem>
-                <SelectItem value="high_quality">High-quality (高质量)</SelectItem>
+                <SelectItem value="economical">节省成本</SelectItem>
+                <SelectItem value="high_quality">高质量</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -804,7 +804,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
               variant="ghost"
               size="sm"
               className={cn(
-                'rounded-full text-muted-foreground hover:bg-background/58 hover:text-foreground',
+                'rounded-md text-muted-foreground hover:bg-background/58 hover:text-foreground',
                 compact ? 'h-6 px-2 text-[10.5px]' : 'h-7 px-2.5 text-[11px]'
               )}
               onClick={() => {
@@ -865,11 +865,11 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
             <div
               key={group.title}
               className={cn(
-                "overflow-hidden rounded-xl border border-border/50 bg-card/90 transition-colors",
+                "overflow-hidden rounded-lg border border-border/70 bg-background transition-colors",
                 !enabled && "opacity-60 grayscale-[0.5] pointer-events-none"
               )}
             >
-              <div className={cn("flex items-center gap-2 border-b border-border/50 bg-muted/20", compact ? "px-2.5 py-1.5" : "px-3 py-2")}>
+              <div className={cn("flex items-center gap-2 border-b border-border/70 bg-muted/20", compact ? "px-2.5 py-1.5" : "px-3 py-2")}>
                 <div className={cn("p-1 rounded-md", group.bgColor)}>
                   <Icon className={cn("h-3.5 w-3.5", group.color)} />
                 </div>
@@ -1052,7 +1052,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                               disabled={governanceDisabled}
                             >
                               <SelectTrigger className={cn("h-8 text-xs bg-card", compact && "h-7")}>
-                                <SelectValue placeholder="Provider" />
+                              <SelectValue placeholder="关键词方法" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="auto">auto</SelectItem>
@@ -1071,7 +1071,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                               disabled={governanceDisabled}
                               onChange={(e) => handleNumberChange('governance_keywords_top_k', e.currentTarget.valueAsNumber)}
                               className={cn("h-8 text-xs bg-card", compact && "h-7")}
-                              placeholder="Top K"
+                              placeholder="关键词数量"
                             />
                           </div>
                           <Input
@@ -1091,7 +1091,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                       {/* HTML XPath */}
                       <div className="space-y-1.5">
                         <div className="flex justify-between">
-                           <div className={cn("text-xs font-medium text-muted-foreground", compact && "text-[11px]")}>HTML 提取 (XPath)</div>
+                           <div className={cn("text-xs font-medium text-muted-foreground", compact && "text-[11px]")}>网页内容范围（XPath）</div>
                         </div>
                         <Input
                           value={options.governance_html_xpath || ''}
@@ -1133,7 +1133,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                         })}
                       </div>
 
-                      <div className="pt-2 border-t border-border/60 space-y-2">
+                      <div className="pt-2 border-t border-border/70 space-y-2">
                         <div className={cn("text-xs font-semibold text-foreground/70", compact && "text-[11px]")}>
                           解析与去重
                         </div>
@@ -1213,7 +1213,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                             </div>
                           ) : (
                             <div className={cn("text-[11px] text-muted-foreground leading-relaxed", compact && "text-[9px]")}>
-                              仅允许小型 JSON 对象（primitive values），后端会做同样的安全校验；显式参数将覆盖数据集/默认值
+                              仅支持简单对象；显式参数会覆盖数据集和默认设置。
                             </div>
                           )}
                         </div>
@@ -1231,7 +1231,7 @@ export function PipelineOptionsPanel(props: Readonly<PipelineOptionsPanelProps>)
                   )}
                 >
                   <Sparkles className="size-3 text-muted-foreground/60" />
-                  需先开启 KG 抽取才能配置索引
+                  需先开启知识图谱抽取，才能配置相关索引
                 </div>
               )}
             </div>
