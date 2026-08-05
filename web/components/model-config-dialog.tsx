@@ -131,7 +131,7 @@ export function ModelConfigDialog({
         return
       }
       if (!config.apiKey && !apiKeyOptional) {
-        setTestResult({ success: false, message: '请先填写 API Key' })
+        setTestResult({ success: false, message: '请先填写访问密钥' })
         return
       }
       if (!config.model) {
@@ -159,28 +159,28 @@ export function ModelConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden gap-0 rounded-2xl border-0 shadow-strong">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto p-0 gap-0 rounded-lg border border-border shadow-lg sm:max-w-[550px]">
         {/* 头部 */}
-        <div className="bg-muted/40 border-b border-border p-6 flex items-start gap-4">
-          <div className="h-11 w-11 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm flex-shrink-0">
+        <div className="flex items-start gap-3 border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
             <ProviderIcon providerId={provider.id} className="size-8 object-contain" />
           </div>
           <div>
-            <DialogTitle className="text-xl font-semibold text-foreground mb-1">
+            <DialogTitle className="mb-1 text-base font-semibold text-foreground sm:text-lg">
               配置 {provider.name}
             </DialogTitle>
-            <p className="text-sm text-muted-foreground leading-tight">
+            <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
               {provider.description}
             </p>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* API Key */}
+        <div className="space-y-5 px-4 py-4 sm:px-5">
+          {/* 访问密钥 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor={apiKeyId} className="text-sm font-medium text-foreground">
-                API Key {!apiKeyOptional && <span className="text-destructive ml-1">*</span>}
+                访问密钥 {!apiKeyOptional && <span className="ml-1 text-destructive">*</span>}
               </Label>
               <a
                 href={getProviderDocsUrl(provider.id)}
@@ -188,7 +188,7 @@ export function ModelConfigDialog({
                 rel="noopener noreferrer"
                 className="text-xs font-medium text-primary hover:underline"
               >
-                获取 Key <span aria-hidden>→</span>
+                获取密钥 <span aria-hidden>→</span>
               </a>
             </div>
             <div className="relative">
@@ -197,14 +197,14 @@ export function ModelConfigDialog({
                 type={showApiKey ? 'text' : 'password'}
                 value={config.apiKey}
                 onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                placeholder={apiKeyOptional ? '本地免鉴权服务可留空' : `输入 ${provider.name} API Key`}
+                placeholder={apiKeyOptional ? '本地服务可留空' : `输入 ${provider.name} 访问密钥`}
                 className="pr-10 font-mono"
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                aria-label={showApiKey ? '隐藏 API Key' : '显示 API Key'}
-                title={showApiKey ? '隐藏 API Key' : '显示 API Key'}
+                aria-label={showApiKey ? '隐藏访问密钥' : '显示访问密钥'}
+                title={showApiKey ? '隐藏访问密钥' : '显示访问密钥'}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors motion-reduce:transition-none focus-ring"
               >
                 {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -212,10 +212,10 @@ export function ModelConfigDialog({
             </div>
           </div>
 
-          {/* API Base URL */}
+          {/* 服务地址 */}
           <div className="space-y-2">
             <Label htmlFor={apiBaseId} className="text-sm font-medium text-foreground">
-              API Base URL
+              服务地址
             </Label>
             <Input
               id={apiBaseId}
@@ -227,7 +227,7 @@ export function ModelConfigDialog({
             />
           </div>
 
-          {/* Model */}
+          {/* 模型 */}
           <div className="space-y-2">
             <Label htmlFor={modelId} className="text-sm font-medium text-foreground">
               模型
@@ -236,7 +236,7 @@ export function ModelConfigDialog({
               id={modelId}
               value={config.model || ''}
               onChange={(e) => setConfig({ ...config, model: e.target.value })}
-              className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-10"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-none ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               {provider.models
                 .filter((m) => {
@@ -265,10 +265,10 @@ export function ModelConfigDialog({
             </button>
             
             {showAdvanced && (
-              <div className="mt-4 grid grid-cols-2 gap-4 motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-200">
+              <div className="mt-4 grid grid-cols-1 gap-3 motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-200 sm:grid-cols-2 sm:gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor={temperatureId} className="text-xs font-medium text-muted-foreground">
-                    Temperature
+                    随机度
                   </Label>
                   <Input
                     id={temperatureId}
@@ -283,7 +283,7 @@ export function ModelConfigDialog({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={maxTokensId} className="text-xs font-medium text-muted-foreground">
-                    Max Tokens
+                    最多输出字数
                   </Label>
                   <Input
                     id={maxTokensId}
@@ -317,13 +317,13 @@ export function ModelConfigDialog({
           )}
         </div>
 
-        <DialogFooter className="p-6 pt-2 bg-card">
-          <div className="flex gap-3 w-full">
+        <DialogFooter className="border-t border-border bg-background p-4 pt-3 sm:px-5">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:gap-3">
             <Button
               variant="outline"
               onClick={handleTest}
               disabled={!canSubmit || isTesting}
-              className="flex-1 rounded-xl h-11"
+              className="h-10 flex-1 rounded-md"
             >
               {isTesting ? (
                 <span className="animate-pulse motion-reduce:animate-none">测试中...</span>
@@ -337,7 +337,7 @@ export function ModelConfigDialog({
             <Button 
               onClick={handleSave} 
               disabled={!canSubmit}
-              className="flex-1 rounded-xl h-11"
+              className="h-10 flex-1 rounded-md"
             >
               <Save className="size-4 mr-2" />
               保存配置
