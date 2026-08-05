@@ -27,4 +27,14 @@ describe('图谱缩略图响应式与视觉契约', () => {
     expect(minimapSource).not.toContain('backdrop-blur')
     expect(minimapSource).not.toContain('shadow-sm')
   })
+
+  it('页面不可见时停止缩略图动画帧', () => {
+    expect(minimapSource).toContain("document.visibilityState !== 'hidden'")
+    expect(minimapSource).toContain(
+      "document.addEventListener('visibilitychange', handleVisibilityChange)"
+    )
+    expect(minimapSource).toContain(
+      "document.removeEventListener('visibilitychange', handleVisibilityChange)"
+    )
+  })
 })

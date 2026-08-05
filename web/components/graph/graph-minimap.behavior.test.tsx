@@ -19,6 +19,10 @@ describe('图谱缩略图交互', () => {
       vi.fn(() => 1)
     )
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -113,5 +117,48 @@ describe('图谱缩略图交互', () => {
     act(() => canvas?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' })))
 
     expect(centerAt).toHaveBeenCalledWith(50, 30, 400)
+  })
+
+  it('页面隐藏时暂停重绘，恢复可见后继续', () => {
+    const graphRef = {
+      current: {
+        getGraphBbox: () => ({ x: [0, 100], y: [0, 100] }),
+        centerAt: vi.fn(),
+        zoom: () => 1,
+      },
+    }
+
+    act(() => {
+      root.render(
+        <GraphMinimap
+          graphRef={graphRef}
+          data={{ nodes: [{ x: 0, y: 0 }], links: [] }}
+          graphWidth={800}
+          graphHeight={600}
+        />
+      )
+    })
+
+    const requestFrame = vi.mocked(requestAnimationFrame)
+    const cancelFrame = vi.mocked(cancelAnimationFrame)
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(cancelFrame).toHaveBeenCalledWith(1)
+
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(requestFrame).toHaveBeenCalledTimes(2)
   })
 })

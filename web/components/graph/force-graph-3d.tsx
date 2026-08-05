@@ -183,9 +183,9 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-background/70 px-6">
       <GraphLoadingIndicator
-        className="rounded-2xl border border-border/60 bg-background/88 px-6 py-5 shadow-soft"
+        className="rounded-md border border-border bg-background px-6 py-5"
         message="正在加载 3D 引擎..."
-        srMessage="Loading 3D graph engine"
+        srMessage="正在加载 3D 图谱引擎"
       />
     </div>
   ),

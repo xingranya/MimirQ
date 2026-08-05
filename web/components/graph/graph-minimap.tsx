@@ -149,8 +149,10 @@ export function GraphMinimap({
   useEffect(() => {
     let animationFrame = 0
     let lastDrawAt = 0
+    let isActive = document.visibilityState !== 'hidden'
 
     const tick = (timestamp: number) => {
+      if (!isActive) return
       if (timestamp - lastDrawAt > 140) {
         lastDrawAt = timestamp
         draw()
@@ -158,8 +160,31 @@ export function GraphMinimap({
       animationFrame = requestAnimationFrame(tick)
     }
 
-    animationFrame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animationFrame)
+    const schedule = () => {
+      if (!isActive || animationFrame) return
+      animationFrame = requestAnimationFrame((timestamp) => {
+        animationFrame = 0
+        tick(timestamp)
+      })
+    }
+
+    const handleVisibilityChange = () => {
+      isActive = document.visibilityState !== 'hidden'
+      if (!isActive) {
+        if (animationFrame) cancelAnimationFrame(animationFrame)
+        animationFrame = 0
+        return
+      }
+      draw()
+      schedule()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    schedule()
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (animationFrame) cancelAnimationFrame(animationFrame)
+    }
   }, [draw])
 
   const centerGraphAtCanvasPoint = useCallback(
