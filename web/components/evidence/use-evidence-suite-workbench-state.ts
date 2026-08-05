@@ -47,6 +47,9 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
   const datasetRequestRef = useRef(0)
   const suitesRequestRef = useRef(0)
   const itemsRequestRef = useRef(0)
+  const dashboardRequestRef = useRef(0)
+  const hardcaseRequestRef = useRef(0)
+  const retrieveRequestRef = useRef(0)
 
   const [dataset, setDataset] = useState<Dataset | null>(null)
   const [datasetLoading, setDatasetLoading] = useState(false)
@@ -64,6 +67,10 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
     return suite && asDatasetId(suite.dataset_id) === datasetId ? suite : null
   }, [datasetId, selectedSuiteId, suites])
   const activeSelectedSuiteId = selectedSuite?.id ? String(selectedSuite.id) : ''
+  const activeSelectedSuiteIdRef = useRef(activeSelectedSuiteId)
+  useLayoutEffect(() => {
+    activeSelectedSuiteIdRef.current = activeSelectedSuiteId
+  }, [activeSelectedSuiteId])
   const datasetTransitioning = Boolean(
     datasetId && (suitesLoading || suitesDatasetId !== datasetId)
   )
@@ -270,50 +277,82 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
 
   const loadDashboard = useCallback(async () => {
     if (!activeSelectedSuiteId || datasetTransitioning) {
+      dashboardRequestRef.current += 1
+      setDashboardLoading(false)
       setDashboard(null)
       setDashboardError(null)
       return
     }
     const requestDatasetId = datasetId
+    const requestSuiteId = activeSelectedSuiteId
+    const requestId = ++dashboardRequestRef.current
     setDashboardLoading(true)
     setDashboardError(null)
     try {
-      const res = await evidenceApi.getSuiteDashboard(activeSelectedSuiteId, {
+      const res = await evidenceApi.getSuiteDashboard(requestSuiteId, {
         include_archived_items: dashboardIncludeArchived,
       })
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== dashboardRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       setDashboard(res)
     } catch (error: unknown) {
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== dashboardRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       setDashboardError(formatApiError(error, '加载 Dashboard 失败'))
     } finally {
-      if (datasetIdRef.current === requestDatasetId) setDashboardLoading(false)
+      if (
+        requestId === dashboardRequestRef.current &&
+        datasetIdRef.current === requestDatasetId &&
+        activeSelectedSuiteIdRef.current === requestSuiteId
+      ) setDashboardLoading(false)
     }
   }, [activeSelectedSuiteId, dashboardIncludeArchived, datasetId, datasetTransitioning])
 
   const loadHardcases = useCallback(async () => {
     if (!activeSelectedSuiteId || datasetTransitioning) {
+      hardcaseRequestRef.current += 1
+      setHardcaseLoading(false)
       setHardcaseRes(null)
       setHardcaseError(null)
       return
     }
     const requestDatasetId = datasetId
+    const requestSuiteId = activeSelectedSuiteId
+    const requestId = ++hardcaseRequestRef.current
     setHardcaseLoading(true)
     setHardcaseError(null)
     try {
-      const res = await evidenceApi.getSuiteHardcaseCandidates(activeSelectedSuiteId, {
+      const res = await evidenceApi.getSuiteHardcaseCandidates(requestSuiteId, {
         max_rating: hardcaseMaxRating,
         include_existing: hardcaseIncludeExisting,
         max_candidates: hardcaseMaxCandidates,
       })
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== hardcaseRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       setHardcaseRes(res)
     } catch (error: unknown) {
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== hardcaseRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       setHardcaseError(formatApiError(error, '加载 Hardcase candidates 失败'))
       setHardcaseRes(null)
     } finally {
-      if (datasetIdRef.current === requestDatasetId) setHardcaseLoading(false)
+      if (
+        requestId === hardcaseRequestRef.current &&
+        datasetIdRef.current === requestDatasetId &&
+        activeSelectedSuiteIdRef.current === requestSuiteId
+      ) setHardcaseLoading(false)
     }
   }, [activeSelectedSuiteId, datasetId, datasetTransitioning, hardcaseIncludeExisting, hardcaseMaxCandidates, hardcaseMaxRating])
 
@@ -373,6 +412,9 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
     datasetRequestRef.current += 1
     suitesRequestRef.current += 1
     itemsRequestRef.current += 1
+    dashboardRequestRef.current += 1
+    hardcaseRequestRef.current += 1
+    retrieveRequestRef.current += 1
     setDataset(null)
     setDatasetLoading(false)
     setSuites([])
@@ -407,6 +449,24 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
     setCreatingItem(false)
     setImportingQAFaq(false)
   }, [datasetId])
+
+  useEffect(() => {
+    if (dashboardOpen) return
+    dashboardRequestRef.current += 1
+    setDashboardLoading(false)
+  }, [dashboardOpen])
+
+  useEffect(() => {
+    if (hardcaseOpen) return
+    hardcaseRequestRef.current += 1
+    setHardcaseLoading(false)
+  }, [hardcaseOpen])
+
+  useEffect(() => {
+    if (createItemOpen) return
+    retrieveRequestRef.current += 1
+    setRetrieving(false)
+  }, [createItemOpen])
 
   useEffect(() => {
     detachPromise(loadDataset())
@@ -486,6 +546,8 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
   const runRetrieve = useCallback(async () => {
     if (!datasetId || datasetTransitioning || !activeSelectedSuiteId) return
     const requestDatasetId = datasetId
+    const requestSuiteId = activeSelectedSuiteId
+    const requestId = ++retrieveRequestRef.current
     const query = newQuery.trim()
     if (!query) return
 
@@ -512,17 +574,29 @@ export function useEvidenceSuiteWorkbenchState(datasetIdRaw: string, options?: {
           answer_mode: 'llm',
         },
       })
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== retrieveRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       const normalized = normalizeRetrieveResult(res)
       setRetrieveRes(normalized)
       if (res?.has_evidence) toast.success('找到证据')
       else if (res?.abstain_triggered) toast.warning(`已触发 abstain：${res?.abstain_reason || 'unknown'}`)
       else toast.message('未找到证据')
     } catch (error: unknown) {
-      if (datasetIdRef.current !== requestDatasetId) return
+      if (
+        requestId !== retrieveRequestRef.current ||
+        datasetIdRef.current !== requestDatasetId ||
+        activeSelectedSuiteIdRef.current !== requestSuiteId
+      ) return
       setRetrieveError(formatApiError(error, '检索失败'))
     } finally {
-      if (datasetIdRef.current === requestDatasetId) setRetrieving(false)
+      if (
+        requestId === retrieveRequestRef.current &&
+        datasetIdRef.current === requestDatasetId &&
+        activeSelectedSuiteIdRef.current === requestSuiteId
+      ) setRetrieving(false)
     }
   }, [activeSelectedSuiteId, datasetId, datasetTransitioning, newQuery, profile])
 
