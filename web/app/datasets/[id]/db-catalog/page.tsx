@@ -10,16 +10,28 @@ import { AppFrame } from '@/components/app-frame'
 import { DatasetDetailShell } from '@/components/datasets/dataset-detail-shell'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Panel } from '@/components/ui/panel'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useRouter } from '@/i18n/navigation'
-import { formatApiError } from '@/lib/api-errors'
 import { connectorApi, datasetApi } from '@/lib/api'
 import { reportClientError } from '@/lib/client-logging'
 import { toTrimmedPrimitiveString } from '@/lib/primitive-text'
@@ -73,7 +85,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function stringItems(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 function columnChangeItems(value: unknown): SchemaColumnChange[] {
@@ -132,7 +146,9 @@ export default function DatasetDbCatalogPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const [syncOpen, setSyncOpen] = useState(false)
-  const [syncConnectorId, setSyncConnectorId] = useState<'sqlserver_catalog' | 'mysql_catalog'>('sqlserver_catalog')
+  const [syncConnectorId, setSyncConnectorId] = useState<'sqlserver_catalog' | 'mysql_catalog'>(
+    'sqlserver_catalog'
+  )
   const [syncHost, setSyncHost] = useState('')
   const [syncPort, setSyncPort] = useState<number>(1433)
   const [syncDatabase, setSyncDatabase] = useState('')
@@ -163,10 +179,7 @@ export default function DatasetDbCatalogPage() {
     enabled: Boolean(datasetId),
   })
   const catalogTablesQuery = useQuery({
-    queryKey: queryKeys.datasets.dbCatalogTables(
-      datasetId || '',
-      catalogListParams
-    ),
+    queryKey: queryKeys.datasets.dbCatalogTables(datasetId || '', catalogListParams),
     queryFn: () => {
       if (!datasetId) throw new Error('缺少数据集 ID')
       return datasetApi.listDbCatalogTables(datasetId, catalogListParams)
@@ -190,21 +203,27 @@ export default function DatasetDbCatalogPage() {
     () => catalogTablesQuery.data?.items || [],
     [catalogTablesQuery.data?.items]
   )
+  const effectiveSelectedId = useMemo(() => {
+    if (selectedId && items.some((table) => table.id === selectedId)) return selectedId
+    return items[0]?.id ?? null
+  }, [items, selectedId])
+  const selectedTableSummary = useMemo(
+    () => items.find((table) => table.id === effectiveSelectedId) ?? null,
+    [effectiveSelectedId, items]
+  )
   const latestRun = useMemo<ConnectorRunOut | null>(() => {
     const runs = latestRunQuery.data?.items || []
     const catalogRun = runs.find((run) =>
-      ['mysql_catalog', 'sqlserver_catalog'].includes(
-        String(run.connector_id || '').toLowerCase()
-      )
+      ['mysql_catalog', 'sqlserver_catalog'].includes(String(run.connector_id || '').toLowerCase())
     )
     return catalogRun || null
   }, [latestRunQuery.data?.items])
-  const isLoading = datasetQuery.isFetching || catalogTablesQuery.isFetching
-  const loadError = datasetQuery.error ?? catalogTablesQuery.error
-  const loadErrorUpdatedAt = Math.max(
-    datasetQuery.errorUpdatedAt,
-    catalogTablesQuery.errorUpdatedAt
-  )
+  const datasetUnavailable = datasetQuery.isError && datasetQuery.data === undefined
+  const datasetRefreshFailed = datasetQuery.isError && datasetQuery.data !== undefined
+  const catalogUnavailable = catalogTablesQuery.isError && catalogTablesQuery.data === undefined
+  const catalogRefreshFailed = catalogTablesQuery.isError && catalogTablesQuery.data !== undefined
+  const latestRunUnavailable = latestRunQuery.isError && latestRunQuery.data === undefined
+  const latestRunRefreshFailed = latestRunQuery.isError && latestRunQuery.data !== undefined
   const { refetch: refetchDataset } = datasetQuery
   const { refetch: refetchCatalogTables } = catalogTablesQuery
   const { refetch: refetchLatestRun } = latestRunQuery
@@ -213,45 +232,46 @@ export default function DatasetDbCatalogPage() {
     refetchCatalogTables()
   }, [refetchCatalogTables, refetchDataset])
   const entitlementHash = useMemo(() => {
-    const maybeHash = (latestRun?.stats as { result?: { entitlement_hash?: unknown } } | null | undefined)
-      ?.result?.entitlement_hash
+    const maybeHash = (
+      latestRun?.stats as { result?: { entitlement_hash?: unknown } } | null | undefined
+    )?.result?.entitlement_hash
     return typeof maybeHash === 'string' ? maybeHash : undefined
   }, [latestRun])
   const detailQuery = useQuery({
-    queryKey: queryKeys.datasets.dbCatalogTableDetail(
-      datasetId || '',
-      selectedId || ''
-    ),
+    queryKey: queryKeys.datasets.dbCatalogTableDetail(datasetId || '', effectiveSelectedId || ''),
     queryFn: () => {
-      if (!datasetId || !selectedId) throw new Error('缺少表 ID')
-      return datasetApi.getDbCatalogTable(datasetId, selectedId)
+      if (!datasetId || !effectiveSelectedId) throw new Error('缺少表 ID')
+      return datasetApi.getDbCatalogTable(datasetId, effectiveSelectedId)
     },
-    enabled: Boolean(datasetId && selectedId),
+    enabled: Boolean(datasetId && effectiveSelectedId),
   })
   const latestProfileQuery = useQuery({
     queryKey: queryKeys.datasets.dbCatalogProfiles(datasetId || '', {
-      table_id: selectedId || '',
+      table_id: effectiveSelectedId || '',
       entitlement_hash: entitlementHash,
       skip: 0,
       limit: 1,
     }),
     queryFn: () => {
-      if (!datasetId || !selectedId) throw new Error('缺少表 ID')
+      if (!datasetId || !effectiveSelectedId) throw new Error('缺少表 ID')
       return datasetApi.listDbCatalogProfiles(datasetId, {
-        table_id: selectedId,
+        table_id: effectiveSelectedId,
         entitlement_hash: entitlementHash,
         skip: 0,
         limit: 1,
       })
     },
-    enabled: Boolean(datasetId && selectedId),
+    enabled: Boolean(datasetId && effectiveSelectedId),
   })
-  const selected = selectedId ? detailQuery.data ?? null : null
-  const latestProfile: DbProfileSnapshot | null =
-    selectedId ? latestProfileQuery.data?.items?.[0] || null : null
-  const detailLoading =
-    Boolean(selectedId) &&
-    (detailQuery.isFetching || latestProfileQuery.isFetching)
+  const selected = effectiveSelectedId ? (detailQuery.data ?? null) : null
+  const selectedForHeader = selected ?? selectedTableSummary
+  const latestProfile: DbProfileSnapshot | null = effectiveSelectedId
+    ? latestProfileQuery.data?.items?.[0] || null
+    : null
+  const detailUnavailable = detailQuery.isError && detailQuery.data === undefined
+  const detailRefreshFailed = detailQuery.isError && detailQuery.data !== undefined
+  const profileUnavailable = latestProfileQuery.isError && latestProfileQuery.data === undefined
+  const profileRefreshFailed = latestProfileQuery.isError && latestProfileQuery.data !== undefined
 
   useEffect(() => {
     setSyncPort(syncConnectorId === 'sqlserver_catalog' ? 1433 : 3306)
@@ -269,9 +289,16 @@ export default function DatasetDbCatalogPage() {
     }
 
     const defaultPort = syncConnectorId === 'sqlserver_catalog' ? 1433 : 3306
-    const normalizedPort = Number.isFinite(syncPort)
-      ? Math.trunc(syncPort)
-      : defaultPort
+    const normalizedPort = Number.isFinite(syncPort) ? Math.trunc(syncPort) : defaultPort
+    if (normalizedPort < 1 || normalizedPort > 65535) {
+      setSyncError('端口必须在 1 到 65535 之间')
+      return
+    }
+    const normalizedMaxTables = Number.isFinite(syncMaxTables) ? Math.trunc(syncMaxTables) : 200
+    if (normalizedMaxTables < 1 || normalizedMaxTables > 2000) {
+      setSyncError('最多同步表数必须在 1 到 2000 之间')
+      return
+    }
 
     const cfg: DbCatalogSyncConfig = {
       host,
@@ -279,7 +306,7 @@ export default function DatasetDbCatalogPage() {
       database,
       username,
       password,
-      max_tables: Number.isFinite(syncMaxTables) ? Math.trunc(syncMaxTables) : 200,
+      max_tables: normalizedMaxTables,
       profile_enabled: Boolean(syncProfileEnabled),
       include_tables: parseNameList(syncIncludeTables, 500),
     }
@@ -299,8 +326,7 @@ export default function DatasetDbCatalogPage() {
         latestRunQueryKey,
         (current) => {
           const items = current?.items || []
-          const nextItems = [run, ...items.filter((item) => item.id !== run.id)]
-            .slice(0, 10)
+          const nextItems = [run, ...items.filter((item) => item.id !== run.id)].slice(0, 10)
           return {
             total: Math.max(current?.total || 0, nextItems.length),
             items: nextItems,
@@ -317,7 +343,7 @@ export default function DatasetDbCatalogPage() {
       }, 1500)
     } catch (e: unknown) {
       reportClientError('Failed to create DB catalog run', e)
-      setSyncError(formatApiError(e, '创建同步任务失败'))
+      setSyncError('创建同步任务失败，请检查连接信息和服务状态后重试')
     } finally {
       setSyncSubmitting(false)
     }
@@ -340,26 +366,38 @@ export default function DatasetDbCatalogPage() {
   ])
 
   useEffect(() => {
-    if (!loadError) return
-    toast.error(formatApiError(loadError, '加载数据库目录失败'))
-  }, [loadError, loadErrorUpdatedAt])
+    if (datasetQuery.error) {
+      reportClientError('Failed to load dataset for DB catalog', datasetQuery.error)
+    }
+  }, [datasetQuery.error])
 
   useEffect(() => {
-    if (!detailQuery.error) return
-    reportClientError('Failed to load DB catalog table detail', detailQuery.error)
-    toast.error(formatApiError(detailQuery.error, '加载表结构失败'))
-  }, [detailQuery.error, detailQuery.errorUpdatedAt])
+    if (catalogTablesQuery.error) {
+      reportClientError('Failed to load DB catalog tables', catalogTablesQuery.error)
+    }
+  }, [catalogTablesQuery.error])
 
   useEffect(() => {
-    setSelectedId((prev) => {
-      if (prev && items.some((t) => t.id === prev)) return prev
-      return items[0]?.id || null
-    })
-  }, [items])
+    if (latestRunQuery.error) {
+      reportClientError('Failed to load DB catalog runs', latestRunQuery.error)
+    }
+  }, [latestRunQuery.error])
 
-  const selectedSummary = useMemo(() => {
-    if (!selected) return null
-    const name = formatQualifiedName(selected)
+  useEffect(() => {
+    if (detailQuery.error) {
+      reportClientError('Failed to load DB catalog table detail', detailQuery.error)
+    }
+  }, [detailQuery.error])
+
+  useEffect(() => {
+    if (latestProfileQuery.error) {
+      reportClientError('Failed to load DB catalog profile', latestProfileQuery.error)
+    }
+  }, [latestProfileQuery.error])
+
+  const selectedHeaderSummary = useMemo(() => {
+    if (!selectedForHeader) return null
+    const name = formatQualifiedName(selectedForHeader)
     const rowCount = (() => {
       const v = latestProfile?.profile?.row_count_estimate
       if (v === null || v === undefined) return null
@@ -373,24 +411,25 @@ export default function DatasetDbCatalogPage() {
           {name}
         </Badge>
         <Badge variant="soft" className="rounded-md font-mono">
-          {ENGINE_LABELS[selected.engine as keyof typeof ENGINE_LABELS] || selected.engine}
+          {ENGINE_LABELS[selectedForHeader.engine as keyof typeof ENGINE_LABELS] ||
+            selectedForHeader.engine}
         </Badge>
         <Badge variant="soft" className="rounded-md font-mono">
-          {selected.table_type}
+          {selectedForHeader.table_type}
         </Badge>
         {rowCount === null ? null : (
           <Badge variant="soft" className="rounded-md tabular-nums">
             约 {rowCount.toLocaleString()} 行
           </Badge>
         )}
-        {selected.columns?.length ? (
+        {selected?.columns?.length ? (
           <Badge variant="soft" className="rounded-md tabular-nums">
             {selected.columns.length} 列
           </Badge>
         ) : null}
       </div>
     )
-  }, [latestProfile, selected])
+  }, [latestProfile, selected, selectedForHeader])
   const catalogTotal = catalogTablesQuery.data?.total ?? items.length
   const latestRunSummary = useMemo(() => {
     if (!latestRun) {
@@ -422,13 +461,12 @@ export default function DatasetDbCatalogPage() {
     const diff = isRecord(schemaDoc.schema_diff) ? schemaDoc.schema_diff : {}
     const ageSecRaw = schemaDoc.catalog_age_sec
     const ageSec = typeof ageSecRaw === 'number' && Number.isFinite(ageSecRaw) ? ageSecRaw : null
-    const freshness =
-      (() => {
-        if (ageSec === null) return null
-        if (ageSec < 90) return `${Math.round(ageSec)} 秒前`
-        if (ageSec < 3600) return `${Math.round(ageSec / 60)} 分钟前`
-        return `${Math.round(ageSec / 3600)} 小时前`
-      })()
+    const freshness = (() => {
+      if (ageSec === null) return null
+      if (ageSec < 90) return `${Math.round(ageSec)} 秒前`
+      if (ageSec < 3600) return `${Math.round(ageSec / 60)} 分钟前`
+      return `${Math.round(ageSec / 3600)} 小时前`
+    })()
     const tables = Number(result.tables ?? schemaDoc.tables ?? 0)
     const columns = Number(result.columns_upserted ?? schemaDoc.columns ?? 0)
     const profiles = Number(result.profiles_written ?? schemaDoc.tables_with_profiles ?? 0)
@@ -490,7 +528,9 @@ export default function DatasetDbCatalogPage() {
                   disabled={!datasetId}
                   onSelect={() => {
                     if (datasetId) {
-                      router.push(`/knowledge?tab=settings&dataset=${encodeURIComponent(datasetId)}`)
+                      router.push(
+                        `/knowledge?tab=settings&dataset=${encodeURIComponent(datasetId)}`
+                      )
                     }
                   }}
                 >
@@ -514,224 +554,378 @@ export default function DatasetDbCatalogPage() {
           </>
         }
       >
-        <div className="h-full min-h-0 overflow-y-auto xl:overflow-hidden">
-          <div className="grid min-h-full grid-cols-1 gap-3 xl:h-full xl:min-h-0 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto xl:overflow-hidden">
+          {datasetUnavailable || datasetRefreshFailed ? (
+            <QueryErrorState
+              title={datasetUnavailable ? '无法加载数据集信息' : '刷新数据集信息失败'}
+              description={
+                datasetUnavailable
+                  ? '数据库目录仍可单独加载；数据集名称暂时无法获取。'
+                  : '当前仍显示上次成功加载的数据集信息。'
+              }
+              onRetry={() => datasetQuery.refetch()}
+              retrying={datasetQuery.isFetching}
+            />
+          ) : null}
+
+          <div className="grid min-h-full flex-1 grid-cols-1 gap-3 xl:h-full xl:min-h-0 xl:grid-cols-[360px_minmax(0,1fr)]">
             <Panel className="flex min-h-[460px] flex-col overflow-hidden rounded-md border-border bg-card p-0 shadow-none xl:min-h-0">
-            <div className="shrink-0 border-b border-border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-base font-semibold text-foreground">数据库表</div>
-                  <div className="mt-1 text-sm leading-5 text-muted-foreground">
-                    最多展示 {DB_CATALOG_LIST_LIMIT} 张表，可按名称、结构或数据库类型筛选。
+              <div className="shrink-0 border-b border-border p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-base font-semibold text-foreground">数据库表</div>
+                    <div className="mt-1 text-sm leading-5 text-muted-foreground">
+                      最多展示 {DB_CATALOG_LIST_LIMIT} 张表，可按名称、结构或数据库类型筛选。
+                    </div>
                   </div>
+                  <Badge variant="outline" className="shrink-0 rounded-md font-mono text-xs">
+                    {items.length}/{catalogTotal}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="shrink-0 rounded-md font-mono text-xs">
-                  {items.length}/{catalogTotal}
-                </Badge>
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background px-3 shadow-none">
+                  <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    aria-label="搜索数据库表"
+                    placeholder="搜索数据库、结构或表名"
+                    className="focus-ring h-9 border-0 bg-transparent px-0 text-sm shadow-none"
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {ENGINE_OPTIONS.map((k) => (
+                    <Button
+                      key={k}
+                      type="button"
+                      variant={engine === k ? 'secondary' : 'outline'}
+                      size="sm"
+                      className={cn(
+                        'h-8 rounded-md px-2.5 text-xs',
+                        engine === k
+                          ? 'border-primary/30 bg-primary/10 text-primary'
+                          : 'bg-background'
+                      )}
+                      onClick={() => setEngine(k)}
+                    >
+                      {ENGINE_LABELS[k]}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background px-3 shadow-none">
-                <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label="搜索数据库表"
-                  placeholder="搜索数据库、结构或表名"
-                  className="focus-ring h-9 border-0 bg-transparent px-0 text-sm shadow-none"
-                />
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {ENGINE_OPTIONS.map((k) => (
-                  <Button
-                    key={k}
-                    type="button"
-                    variant={engine === k ? 'secondary' : 'outline'}
-                    size="sm"
-                    className={cn('h-8 rounded-md px-2.5 text-xs', engine === k ? 'border-primary/30 bg-primary/10 text-primary' : 'bg-background')}
-                    onClick={() => setEngine(k)}
-                  >
-                    {ENGINE_LABELS[k]}
-                  </Button>
-                ))}
-              </div>
-            </div>
 
-            <div className="flex-1 p-2 xl:min-h-0 xl:overflow-y-auto">
-              {(() => {
-                if (isLoading) {
-                  return (
-                    <div className="space-y-2">
-                      <Skeleton className="h-12 w-full rounded-md" />
-                      <Skeleton className="h-12 w-full rounded-md" />
-                      <Skeleton className="h-12 w-full rounded-md" />
-                      <Skeleton className="h-12 w-full rounded-md" />
-                    </div>
-                  )
-                }
-                if (items.length) {
-                  return (
-                    <div className="space-y-1.5">
-                      {items.map((t) => {
-                        const active = t.id === selectedId
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            className={cn(
-                              'w-full rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-                              active
-                                ? 'bg-primary/10 text-foreground'
-                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                            )}
-                            aria-pressed={active}
-                            onClick={() => setSelectedId(t.id)}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="truncate font-mono text-sm tabular-nums text-foreground">{formatQualifiedName(t)}</div>
-                                <div className="mt-1 truncate text-xs text-muted-foreground">{t.comment || '暂无备注'}</div>
-                              </div>
-                              <Badge variant="outline" className="shrink-0 rounded-md font-mono text-xs">
-                                {ENGINE_LABELS[t.engine as keyof typeof ENGINE_LABELS] || t.engine}
-                              </Badge>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                }
-                return (
-                  <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
-                    <div className="text-sm font-semibold text-foreground">暂无数据库目录</div>
-                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                      先运行 SQL Server 或 MySQL 目录同步。该流程只同步结构与安全统计，不读取原始行。
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-
-            <div className="shrink-0 border-t border-border p-3">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <Badge variant="outline" className="rounded-md text-xs">{latestRunSummary.status}</Badge>
-                <Badge variant="outline" className="rounded-md font-mono text-xs">{latestRunSummary.connector}</Badge>
-                <Badge variant="soft" className="rounded-md font-mono text-xs">任务 {latestRunSummary.runId}</Badge>
-                <Badge variant="soft" className="rounded-md text-xs">{latestRunSummary.tables} 张表</Badge>
-                <Badge variant="soft" className="rounded-md text-xs">{latestRunSummary.columns} 列</Badge>
-                <Badge variant="soft" className="rounded-md text-xs">{latestRunSummary.profiles} 份画像</Badge>
-                {latestRunSummary.freshness ? (
-                  <Badge variant="soft" className="rounded-md text-xs">{latestRunSummary.freshness}</Badge>
-                ) : null}
-              </div>
-              {latestRunSummary.diffTotal > 0 ? (
-                <details className="mt-2 rounded-md border border-border px-3 py-2">
-                  <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
-                    结构变化：新增表 {latestRunSummary.ta} / 删除表 {latestRunSummary.tr} / 新增列 {latestRunSummary.ca} / 删除列 {latestRunSummary.cr} / 变更列 {latestRunSummary.cc}
-                  </summary>
-                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto text-xs">
-                    {latestRunSummary.taItems.length ? (
-                      <div>
-                        <div className="font-semibold text-foreground">新增表</div>
-                        <div className="mt-1 break-words font-mono text-muted-foreground">{latestRunSummary.taItems.join(', ')}</div>
+              <div className="flex-1 p-2 xl:min-h-0 xl:overflow-y-auto">
+                {(() => {
+                  if (catalogUnavailable) {
+                    return (
+                      <QueryErrorState
+                        title="无法加载数据库目录"
+                        description="暂时无法获取数据库表，请重新加载。"
+                        onRetry={() => catalogTablesQuery.refetch()}
+                        retrying={catalogTablesQuery.isFetching}
+                      />
+                    )
+                  }
+                  if (catalogTablesQuery.isLoading) {
+                    return (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 w-full rounded-md" />
+                        <Skeleton className="h-12 w-full rounded-md" />
+                        <Skeleton className="h-12 w-full rounded-md" />
+                        <Skeleton className="h-12 w-full rounded-md" />
                       </div>
-                    ) : null}
-                    {latestRunSummary.trItems.length ? (
-                      <div>
-                        <div className="font-semibold text-foreground">删除表</div>
-                        <div className="mt-1 break-words font-mono text-muted-foreground">{latestRunSummary.trItems.join(', ')}</div>
-                      </div>
-                    ) : null}
-                    {latestRunSummary.caItems.length ? (
-                      <div>
-                        <div className="font-semibold text-foreground">新增列</div>
-                        <div className="mt-1 break-words font-mono text-muted-foreground">{latestRunSummary.caItems.join(', ')}</div>
-                      </div>
-                    ) : null}
-                    {latestRunSummary.crItems.length ? (
-                      <div>
-                        <div className="font-semibold text-foreground">删除列</div>
-                        <div className="mt-1 break-words font-mono text-muted-foreground">{latestRunSummary.crItems.join(', ')}</div>
-                      </div>
-                    ) : null}
-                    {latestRunSummary.ccItems.length ? (
-                      <div>
-                        <div className="font-semibold text-foreground">变更列</div>
-                        <div className="mt-1 space-y-1 font-mono text-muted-foreground">
-                          {latestRunSummary.ccItems.slice(0, 20).map((it) => {
-                            const key = `${toTrimmedPrimitiveString(it?.table)}.${toTrimmedPrimitiveString(it?.column)}`
+                    )
+                  }
+                  if (items.length) {
+                    return (
+                      <div className="space-y-2">
+                        {catalogRefreshFailed ? (
+                          <QueryErrorState
+                            title="刷新数据库目录失败"
+                            description="当前仍显示上次成功加载的数据库表。"
+                            onRetry={() => catalogTablesQuery.refetch()}
+                            retrying={catalogTablesQuery.isFetching}
+                          />
+                        ) : null}
+                        <div className="space-y-1.5">
+                          {items.map((t) => {
+                            const active = t.id === effectiveSelectedId
                             return (
-                              <div key={key} className="break-words">
-                                {key} ({toTrimmedPrimitiveString(it?.old?.data_type)} → {toTrimmedPrimitiveString(it?.new?.data_type)})
-                              </div>
+                              <button
+                                key={t.id}
+                                type="button"
+                                className={cn(
+                                  'w-full rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+                                  active
+                                    ? 'bg-primary/10 text-foreground'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                )}
+                                aria-pressed={active}
+                                onClick={() => setSelectedId(t.id)}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate font-mono text-sm tabular-nums text-foreground">
+                                      {formatQualifiedName(t)}
+                                    </div>
+                                    <div className="mt-1 truncate text-xs text-muted-foreground">
+                                      {t.comment || '暂无备注'}
+                                    </div>
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className="shrink-0 rounded-md font-mono text-xs"
+                                  >
+                                    {ENGINE_LABELS[t.engine as keyof typeof ENGINE_LABELS] ||
+                                      t.engine}
+                                  </Badge>
+                                </div>
+                              </button>
                             )
                           })}
                         </div>
                       </div>
-                    ) : null}
-                  </div>
-                </details>
-              ) : null}
-            </div>
-            </Panel>
-
-            <Panel className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-md border-border bg-card p-0 shadow-none xl:min-h-0">
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
-              <div className="min-w-0 space-y-1.5">
-                <div className="text-base font-semibold text-foreground">表结构</div>
-                {selectedSummary || <div className="text-xs text-muted-foreground">请选择一张表查看结构。</div>}
-              </div>
-            </div>
-
-            <div className="flex-1 p-3 xl:min-h-0 xl:overflow-y-auto">
-              {(() => {
-                if (detailLoading) {
+                    )
+                  }
+                  if (catalogRefreshFailed) {
+                    return (
+                      <QueryErrorState
+                        title="刷新数据库目录失败"
+                        description="当前没有可显示的旧目录，请重新加载。"
+                        onRetry={() => catalogTablesQuery.refetch()}
+                        retrying={catalogTablesQuery.isFetching}
+                      />
+                    )
+                  }
                   return (
-                    <div className="space-y-2">
-                      <Skeleton className="h-8 w-44 rounded-md" />
-                      <Skeleton className="h-11 w-full rounded-md" />
-                      <Skeleton className="h-11 w-full rounded-md" />
-                      <Skeleton className="h-11 w-full rounded-md" />
-                    </div>
-                  )
-                }
-                if (selected) {
-                  return (
-                    <div className="overflow-x-auto rounded-md border border-border">
-                      <div className="min-w-[560px]">
-                        <div className="grid grid-cols-12 gap-0 bg-muted/40 text-xs font-semibold text-muted-foreground">
-                          <div className="col-span-5 px-3 py-2">字段名</div>
-                          <div className="col-span-4 px-3 py-2">数据类型</div>
-                          <div className="col-span-3 px-3 py-2">允许为空</div>
-                        </div>
-                        {selected.columns?.length ? (
-                          <div className="divide-y divide-border/60 dark:divide-border/60">
-                            {selected.columns.map((column) => (
-                              <div key={column.id} className="grid grid-cols-12 gap-0 text-xs hover:bg-info/5">
-                                <div className="col-span-5 truncate px-3 py-2.5 font-mono text-foreground">{column.name}</div>
-                                <div className="col-span-4 truncate px-3 py-2.5 font-mono text-muted-foreground">{column.data_type || '—'}</div>
-                                <div className="col-span-3 px-3 py-2.5 font-mono text-muted-foreground">
-                                  {(() => {
-                                    if (column.nullable === null || column.nullable === undefined) return '—'
-                                    return column.nullable ? '是' : '否'
-                                  })()}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="p-5 text-sm text-muted-foreground">暂无列信息，可能尚未完成同步。</div>
-                        )}
+                    <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
+                      <div className="text-sm font-semibold text-foreground">暂无数据库目录</div>
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                        先运行 SQL Server 或 MySQL
+                        目录同步。该流程只同步结构与安全统计，不读取原始行。
                       </div>
                     </div>
                   )
-                }
-                return (
-                  <div className="flex h-full min-h-[260px] items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-                    请选择一张表查看结构。
+                })()}
+              </div>
+
+              <div className="shrink-0 border-t border-border p-3">
+                {latestRunUnavailable || latestRunRefreshFailed ? (
+                  <QueryErrorState
+                    title={latestRunUnavailable ? '同步状态加载失败' : '刷新同步状态失败'}
+                    description={
+                      latestRunUnavailable
+                        ? '暂时无法获取最近的目录同步任务。'
+                        : '当前仍显示上次成功加载的同步状态。'
+                    }
+                    onRetry={() => latestRunQuery.refetch()}
+                    retrying={latestRunQuery.isFetching}
+                    className="mb-3"
+                  />
+                ) : latestRunQuery.isLoading ? (
+                  <div className="mb-3 space-y-2" aria-label="正在加载同步状态">
+                    <Skeleton className="h-6 w-full rounded-md" />
+                    <Skeleton className="h-6 w-2/3 rounded-md" />
                   </div>
-                )
-              })()}
-            </div>
+                ) : null}
+                {!latestRunUnavailable && !latestRunQuery.isLoading ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <Badge variant="outline" className="rounded-md text-xs">
+                        {latestRunSummary.status}
+                      </Badge>
+                      <Badge variant="outline" className="rounded-md font-mono text-xs">
+                        {latestRunSummary.connector}
+                      </Badge>
+                      <Badge variant="soft" className="rounded-md font-mono text-xs">
+                        任务 {latestRunSummary.runId}
+                      </Badge>
+                      <Badge variant="soft" className="rounded-md text-xs">
+                        {latestRunSummary.tables} 张表
+                      </Badge>
+                      <Badge variant="soft" className="rounded-md text-xs">
+                        {latestRunSummary.columns} 列
+                      </Badge>
+                      <Badge variant="soft" className="rounded-md text-xs">
+                        {latestRunSummary.profiles} 份画像
+                      </Badge>
+                      {latestRunSummary.freshness ? (
+                        <Badge variant="soft" className="rounded-md text-xs">
+                          {latestRunSummary.freshness}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {latestRunSummary.diffTotal > 0 ? (
+                      <details className="mt-2 rounded-md border border-border px-3 py-2">
+                        <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
+                          结构变化：新增表 {latestRunSummary.ta} / 删除表 {latestRunSummary.tr} /
+                          新增列 {latestRunSummary.ca} / 删除列 {latestRunSummary.cr} / 变更列{' '}
+                          {latestRunSummary.cc}
+                        </summary>
+                        <div className="mt-2 max-h-40 space-y-2 overflow-y-auto text-xs">
+                          {latestRunSummary.taItems.length ? (
+                            <div>
+                              <div className="font-semibold text-foreground">新增表</div>
+                              <div className="mt-1 break-words font-mono text-muted-foreground">
+                                {latestRunSummary.taItems.join(', ')}
+                              </div>
+                            </div>
+                          ) : null}
+                          {latestRunSummary.trItems.length ? (
+                            <div>
+                              <div className="font-semibold text-foreground">删除表</div>
+                              <div className="mt-1 break-words font-mono text-muted-foreground">
+                                {latestRunSummary.trItems.join(', ')}
+                              </div>
+                            </div>
+                          ) : null}
+                          {latestRunSummary.caItems.length ? (
+                            <div>
+                              <div className="font-semibold text-foreground">新增列</div>
+                              <div className="mt-1 break-words font-mono text-muted-foreground">
+                                {latestRunSummary.caItems.join(', ')}
+                              </div>
+                            </div>
+                          ) : null}
+                          {latestRunSummary.crItems.length ? (
+                            <div>
+                              <div className="font-semibold text-foreground">删除列</div>
+                              <div className="mt-1 break-words font-mono text-muted-foreground">
+                                {latestRunSummary.crItems.join(', ')}
+                              </div>
+                            </div>
+                          ) : null}
+                          {latestRunSummary.ccItems.length ? (
+                            <div>
+                              <div className="font-semibold text-foreground">变更列</div>
+                              <div className="mt-1 space-y-1 font-mono text-muted-foreground">
+                                {latestRunSummary.ccItems.slice(0, 20).map((it) => {
+                                  const key = `${toTrimmedPrimitiveString(it?.table)}.${toTrimmedPrimitiveString(it?.column)}`
+                                  return (
+                                    <div key={key} className="break-words">
+                                      {key} ({toTrimmedPrimitiveString(it?.old?.data_type)} →{' '}
+                                      {toTrimmedPrimitiveString(it?.new?.data_type)})
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </details>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </Panel>
+
+            <Panel className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-md border-border bg-card p-0 shadow-none xl:min-h-0">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="text-base font-semibold text-foreground">表结构</div>
+                  {selectedHeaderSummary || (
+                    <div className="text-xs text-muted-foreground">请选择一张表查看结构。</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 p-3 xl:min-h-0 xl:overflow-y-auto">
+                {(() => {
+                  if (!effectiveSelectedId) {
+                    return (
+                      <div className="flex h-full min-h-[260px] items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                        请选择一张表查看结构。
+                      </div>
+                    )
+                  }
+                  if (detailUnavailable) {
+                    return (
+                      <QueryErrorState
+                        title="表结构加载失败"
+                        description="表格已选中，但字段结构暂时无法获取。"
+                        onRetry={() => detailQuery.refetch()}
+                        retrying={detailQuery.isFetching}
+                      />
+                    )
+                  }
+                  if (detailQuery.isLoading) {
+                    return (
+                      <div className="space-y-2">
+                        <Skeleton className="h-8 w-44 rounded-md" />
+                        <Skeleton className="h-11 w-full rounded-md" />
+                        <Skeleton className="h-11 w-full rounded-md" />
+                        <Skeleton className="h-11 w-full rounded-md" />
+                      </div>
+                    )
+                  }
+                  if (selected) {
+                    return (
+                      <div className="space-y-3">
+                        {detailRefreshFailed ? (
+                          <QueryErrorState
+                            title="刷新表结构失败"
+                            description="当前仍显示上次成功加载的字段结构。"
+                            onRetry={() => detailQuery.refetch()}
+                            retrying={detailQuery.isFetching}
+                          />
+                        ) : null}
+                        {profileUnavailable || profileRefreshFailed ? (
+                          <QueryErrorState
+                            title={profileUnavailable ? '安全画像加载失败' : '刷新安全画像失败'}
+                            description={
+                              profileUnavailable
+                                ? '字段结构不受影响；当前无法获取这张表的安全画像。'
+                                : '当前仍显示上次成功加载的安全画像。'
+                            }
+                            onRetry={() => latestProfileQuery.refetch()}
+                            retrying={latestProfileQuery.isFetching}
+                          />
+                        ) : null}
+                        <div className="overflow-x-auto rounded-md border border-border">
+                          <div className="min-w-[560px]">
+                            <div className="grid grid-cols-12 gap-0 bg-muted/40 text-xs font-semibold text-muted-foreground">
+                              <div className="col-span-5 px-3 py-2">字段名</div>
+                              <div className="col-span-4 px-3 py-2">数据类型</div>
+                              <div className="col-span-3 px-3 py-2">允许为空</div>
+                            </div>
+                            {selected.columns?.length ? (
+                              <div className="divide-y divide-border/60 dark:divide-border/60">
+                                {selected.columns.map((column) => (
+                                  <div
+                                    key={column.id}
+                                    className="grid grid-cols-12 gap-0 text-xs hover:bg-info/5"
+                                  >
+                                    <div className="col-span-5 truncate px-3 py-2.5 font-mono text-foreground">
+                                      {column.name}
+                                    </div>
+                                    <div className="col-span-4 truncate px-3 py-2.5 font-mono text-muted-foreground">
+                                      {column.data_type || '—'}
+                                    </div>
+                                    <div className="col-span-3 px-3 py-2.5 font-mono text-muted-foreground">
+                                      {(() => {
+                                        if (
+                                          column.nullable === null ||
+                                          column.nullable === undefined
+                                        )
+                                          return '—'
+                                        return column.nullable ? '是' : '否'
+                                      })()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="p-5 text-sm text-muted-foreground">
+                                暂无列信息，可能尚未完成同步。
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+              </div>
             </Panel>
           </div>
         </div>
@@ -782,12 +976,20 @@ export default function DatasetDbCatalogPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="catalog-host">主机地址</Label>
-                  <Input id="catalog-host" value={syncHost} onChange={(e) => setSyncHost(e.target.value)} placeholder="db.example.com" />
+                  <Input
+                    id="catalog-host"
+                    value={syncHost}
+                    onChange={(e) => setSyncHost(e.target.value)}
+                    placeholder="db.example.com"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="catalog-port">端口</Label>
                   <Input
                     id="catalog-port"
+                    type="number"
+                    min={1}
+                    max={65535}
                     value={String(syncPort)}
                     onChange={(e) => setSyncPort(Number.parseInt(e.target.value || '0', 10) || 0)}
                     inputMode="numeric"
@@ -799,11 +1001,21 @@ export default function DatasetDbCatalogPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="catalog-database">数据库名</Label>
-                  <Input id="catalog-database" value={syncDatabase} onChange={(e) => setSyncDatabase(e.target.value)} placeholder="demo" />
+                  <Input
+                    id="catalog-database"
+                    value={syncDatabase}
+                    onChange={(e) => setSyncDatabase(e.target.value)}
+                    placeholder="demo"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="catalog-username">用户名</Label>
-                  <Input id="catalog-username" value={syncUsername} onChange={(e) => setSyncUsername(e.target.value)} placeholder="svc_reader" />
+                  <Input
+                    id="catalog-username"
+                    value={syncUsername}
+                    onChange={(e) => setSyncUsername(e.target.value)}
+                    placeholder="svc_reader"
+                  />
                 </div>
               </div>
 
@@ -838,7 +1050,11 @@ export default function DatasetDbCatalogPage() {
                   id="catalog-tables"
                   value={syncIncludeTables}
                   onChange={(e) => setSyncIncludeTables(e.target.value)}
-                  placeholder={syncConnectorId === 'sqlserver_catalog' ? 'dbo.users\ndbo.orders' : 'users\norders'}
+                  placeholder={
+                    syncConnectorId === 'sqlserver_catalog'
+                      ? 'dbo.users\ndbo.orders'
+                      : 'users\norders'
+                  }
                   rows={3}
                 />
               </div>
@@ -848,8 +1064,13 @@ export default function DatasetDbCatalogPage() {
                   <Label htmlFor="catalog-max-tables">最多同步表数</Label>
                   <Input
                     id="catalog-max-tables"
+                    type="number"
+                    min={1}
+                    max={2000}
                     value={String(syncMaxTables)}
-                    onChange={(e) => setSyncMaxTables(Number.parseInt(e.target.value || '0', 10) || 0)}
+                    onChange={(e) =>
+                      setSyncMaxTables(Number.parseInt(e.target.value || '0', 10) || 0)
+                    }
                     inputMode="numeric"
                     placeholder="200"
                   />
@@ -861,15 +1082,27 @@ export default function DatasetDbCatalogPage() {
                       记录预估行数等聚合统计
                     </div>
                   </div>
-                  <Switch checked={syncProfileEnabled} onCheckedChange={setSyncProfileEnabled} aria-label="启用安全画像" />
+                  <Switch
+                    checked={syncProfileEnabled}
+                    onCheckedChange={setSyncProfileEnabled}
+                    aria-label="启用安全画像"
+                  />
                 </div>
               </div>
 
-              {syncError ? <div role="alert" className="text-pretty text-sm text-destructive">{syncError}</div> : null}
+              {syncError ? (
+                <div role="alert" className="text-pretty text-sm text-destructive">
+                  {syncError}
+                </div>
+              ) : null}
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSyncOpen(false)} disabled={syncSubmitting}>
+              <Button
+                variant="outline"
+                onClick={() => setSyncOpen(false)}
+                disabled={syncSubmitting}
+              >
                 取消
               </Button>
               <Button onClick={submitSync} disabled={syncSubmitting}>

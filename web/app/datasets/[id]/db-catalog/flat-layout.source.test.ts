@@ -21,6 +21,7 @@ describe('数据集数据库目录页扁平化契约', () => {
     expect(pageSource).toContain('datasetApi.listDbCatalogProfiles')
     expect(pageSource).toContain('connectorApi.createRun')
     expect(pageSource).toContain('结构变化')
+    expect(pageSource).toContain('<QueryErrorState')
   })
 
   it('移动端使用自然滚动并为结构表提供局部横向滚动', () => {
@@ -36,6 +37,9 @@ describe('数据集数据库目录页扁平化契约', () => {
     expect(pageSource).toContain('最多同步表数')
     expect(pageSource).toContain("setSyncPassword('')")
     expect(pageSource).toContain('aria-label="启用安全画像"')
+    expect(pageSource).toContain('max={65535}')
+    expect(pageSource).toContain('max={2000}')
+    expect(pageSource).not.toContain('formatApiError')
   })
 
   it('移除旧装饰表面和用户可见内部状态', () => {
