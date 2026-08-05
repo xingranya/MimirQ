@@ -20,44 +20,14 @@ import { usePipelineOptions } from '@/contexts/pipeline-options-context'
 import { formatApiError } from '@/lib/api-errors'
 import { connectorApi } from '@/lib/api'
 import { detachPromise } from '@/lib/utils'
-
-
-function parseUrlBatchUrls(raw: string): string[] {
-  const parts = (raw || '')
-    .split(/[\n,;]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const out: string[] = []
-  const seen = new Set<string>()
-
-  for (const p of parts) {
-    if (!/^https?:\/\//i.test(p)) continue
-    if (seen.has(p)) continue
-    seen.add(p)
-    out.push(p)
-    if (out.length >= 50) break
-  }
-
-  return out
-}
-
-function parseAccessMembers(raw: string): string[] {
-  const parts = (raw || '')
-    .split(/[\n,;]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const out: string[] = []
-  const seen = new Set<string>()
-
-  for (const p of parts) {
-    if (seen.has(p)) continue
-    seen.add(p)
-    out.push(p)
-    if (out.length >= 200) break
-  }
-
-  return out
-}
+import {
+  URL_BATCH_MAX_ACCESS_MEMBERS,
+  URL_BATCH_MAX_FILENAME_LENGTH,
+  URL_BATCH_MAX_URLS,
+  analyzeAccessMembers,
+  analyzeUrlBatch,
+  buildUrlBatchRunPayload,
+} from './knowledge-url-batch-dialog.payload'
 
 type KnowledgeUrlBatchDialogProps = {
   open: boolean
@@ -68,9 +38,10 @@ type KnowledgeUrlBatchDialogProps = {
   selectedDatasetId?: string
   datasetDefaultValue: string
 
-  loadDocuments: () => void | Promise<void>
+  loadDocuments: (params?: { dataset_id?: string }) => void | Promise<void>
   loadConnectorRuns: (params?: { datasetId?: string }) => void | Promise<void>
   onRunCreated?: (run: ConnectorRunOut) => void
+  onDatasetResolved?: (datasetId: string) => void
 }
 
 export function KnowledgeUrlBatchDialog({
@@ -83,6 +54,7 @@ export function KnowledgeUrlBatchDialog({
   loadDocuments,
   loadConnectorRuns,
   onRunCreated,
+  onDatasetResolved,
 }: Readonly<KnowledgeUrlBatchDialogProps>) {
   const { parserBackend, setParserBackend } = useParserBackendPreference()
   const { chunkStrategy, setChunkStrategy } = useChunkStrategyPreference()
@@ -101,37 +73,55 @@ export function KnowledgeUrlBatchDialog({
     setDatasetId(selectedDatasetId || datasetDefaultValue)
   }, [datasetDefaultValue, open, selectedDatasetId])
 
-  const parsedUrls = useMemo(() => parseUrlBatchUrls(urls), [urls])
+  const urlAnalysis = useMemo(() => analyzeUrlBatch(urls), [urls])
+  const accessMemberAnalysis = useMemo(() => analyzeAccessMembers(accessMembers), [accessMembers])
+  const filenameTooLong = filename.trim().length > URL_BATCH_MAX_FILENAME_LENGTH
+  const urlInputInvalid =
+    urlAnalysis.invalidCount > 0 ||
+    urlAnalysis.duplicateCount > 0 ||
+    urlAnalysis.overflowCount > 0 ||
+    urlAnalysis.tooLongCount > 0
+  const accessInputInvalid =
+    accessMode === 'partial_members' &&
+    (accessMemberAnalysis.overflowCount > 0 ||
+      accessMemberAnalysis.tooLongCount > 0 ||
+      accessGroupIds.length > URL_BATCH_MAX_ACCESS_MEMBERS)
+  const hasBlockingError = urlInputInvalid || filenameTooLong || accessInputInvalid
 
   const handleSubmit = useCallback(async () => {
-    if (!parsedUrls.length) {
-      toast.error('请输入至少 1 个 http(s) URL（每行一个）')
+    if (!urlAnalysis.urls.length) {
+      toast.error('请输入至少一个有效网址，地址需以 http:// 或 https:// 开头')
+      return
+    }
+    if (urlInputInvalid) {
+      toast.error('请修正格式不正确、重复、过长或超出数量上限的网址')
+      return
+    }
+    if (filenameTooLong) {
+      toast.error(`文档名称不能超过 ${URL_BATCH_MAX_FILENAME_LENGTH} 个字符`)
+      return
+    }
+    if (accessInputInvalid) {
+      toast.error('请修正成员或成员组的数量和长度')
       return
     }
 
     setSubmitting(true)
     try {
-      const access =
-        accessMode === 'inherit'
-          ? null
-          : {
-              mode: accessMode,
-              partial_member_list: accessMode === 'partial_members' ? parseAccessMembers(accessMembers) : null,
-              partial_group_list: accessMode === 'partial_members' ? accessGroupIds : null,
-            }
-
-      const run = await connectorApi.createRun({
-        connector_id: 'url_batch',
-        dataset_id: datasetId === datasetDefaultValue ? undefined : datasetId,
-        config: {
-          urls: parsedUrls,
-          filename: filename.trim() ? filename.trim() : undefined,
-          parser_backend: parserBackend,
-          chunk_strategy: chunkStrategy,
+      const run = await connectorApi.createRun(
+        buildUrlBatchRunPayload({
+          datasetId,
+          datasetDefaultValue,
+          urls: urlAnalysis.urls,
+          filename,
+          parserBackend,
+          chunkStrategy,
           pipeline: pipelineOverridesEnabled ? pipelineOptions : undefined,
-          access,
-        },
-      })
+          accessMode,
+          accessMembers: accessMemberAnalysis.members,
+          accessGroupIds,
+        })
+      )
 
       toast.success(`已创建批量导入任务：${run.id.slice(0, 8)}`, {
         action: onRunCreated
@@ -147,30 +137,35 @@ export function KnowledgeUrlBatchDialog({
       setAccessMode('inherit')
       setAccessMembers('')
       setAccessGroupIds([])
-      detachPromise(loadConnectorRuns({ datasetId: selectedDatasetId }))
-      detachPromise(loadDocuments())
+      const resolvedDatasetId = String(run.dataset_id || '').trim()
+      if (resolvedDatasetId) onDatasetResolved?.(resolvedDatasetId)
+      detachPromise(loadConnectorRuns({ datasetId: resolvedDatasetId || undefined }))
+      detachPromise(loadDocuments({ dataset_id: resolvedDatasetId || undefined }))
     } catch (err: unknown) {
       toast.error(formatApiError(err, '创建 URL 批量导入失败'))
     } finally {
       setSubmitting(false)
     }
   }, [
-    accessMembers,
+    accessMemberAnalysis.members,
     accessGroupIds,
     accessMode,
+    accessInputInvalid,
     chunkStrategy,
     datasetDefaultValue,
     datasetId,
     filename,
+    filenameTooLong,
     loadConnectorRuns,
     loadDocuments,
     onOpenChange,
-    parsedUrls,
+    onDatasetResolved,
     parserBackend,
     pipelineOptions,
     pipelineOverridesEnabled,
-    selectedDatasetId,
     onRunCreated,
+    urlAnalysis.urls,
+    urlInputInvalid,
   ])
 
   return (
@@ -183,20 +178,38 @@ export function KnowledgeUrlBatchDialog({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <div className="text-sm font-medium text-foreground/80">URLs（每行一个，最多 50）</div>
+            <div className="text-sm font-medium text-foreground/80">网址（每行一个，最多 {URL_BATCH_MAX_URLS} 个）</div>
             <Textarea
               value={urls}
               onChange={(e) => setUrls(e.target.value)}
               placeholder={'https://example.com/doc1.pdf\nhttps://example.com/doc2.html'}
               className="font-mono min-h-[140px]"
+              aria-describedby="knowledge-url-batch-status"
+              aria-invalid={urlInputInvalid}
             />
-            <div className="text-xs text-muted-foreground">已识别 {parsedUrls.length} 个 URL（仅统计 http/https）。</div>
+            <div
+              id="knowledge-url-batch-status"
+              className={urlInputInvalid ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}
+              aria-live="polite"
+            >
+              {urlAnalysis.urls.length} 个有效网址
+              {urlAnalysis.invalidCount ? `，${urlAnalysis.invalidCount} 个格式不正确` : ''}
+              {urlAnalysis.duplicateCount ? `，${urlAnalysis.duplicateCount} 个重复` : ''}
+              {urlAnalysis.tooLongCount ? `，${urlAnalysis.tooLongCount} 个超过 2000 字符` : ''}
+              {urlAnalysis.overflowCount ? `，${urlAnalysis.overflowCount} 个超出上限` : ''}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="text-sm font-medium text-foreground/80">文件名（可选）</div>
-              <Input value={filename} onChange={(e) => setFilename(e.target.value)} placeholder="例如：产品手册.pdf" />
+              <Input
+                value={filename}
+                onChange={(event) => setFilename(event.target.value)}
+                placeholder="例如：产品手册.pdf"
+                maxLength={URL_BATCH_MAX_FILENAME_LENGTH}
+                aria-invalid={filenameTooLong}
+              />
               <div className="text-xs text-muted-foreground">用于显示名/扩展名推断（对所有 URL 生效）。</div>
             </div>
             <div className="space-y-2">
@@ -238,6 +251,7 @@ export function KnowledgeUrlBatchDialog({
                   <GroupChipsInput
                     value={accessGroupIds}
                     onChange={setAccessGroupIds}
+                    maxItems={URL_BATCH_MAX_ACCESS_MEMBERS}
                     placeholder="选择组（组内成员将自动获得访问权限）"
                   />
                   <div className="text-xs text-muted-foreground">最多 200 个；仅支持当前租户已存在的组。</div>
@@ -250,8 +264,19 @@ export function KnowledgeUrlBatchDialog({
                     onChange={(e) => setAccessMembers(e.target.value)}
                     placeholder={'alice\nbob\ncharlie'}
                     className="font-mono min-h-[110px]"
+                    aria-describedby="knowledge-url-batch-members-status"
+                    aria-invalid={accessInputInvalid}
                   />
-                  <div className="text-xs text-muted-foreground">最多 200 个；仅支持当前租户已存在的成员。</div>
+                  <div
+                    id="knowledge-url-batch-members-status"
+                    className={accessInputInvalid ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}
+                    aria-live="polite"
+                  >
+                    {accessMemberAnalysis.members.length} 个成员账号
+                    {accessMemberAnalysis.duplicateCount ? `，${accessMemberAnalysis.duplicateCount} 个重复` : ''}
+                    {accessMemberAnalysis.tooLongCount ? `，${accessMemberAnalysis.tooLongCount} 个超过 255 字符` : ''}
+                    {accessMemberAnalysis.overflowCount ? `，${accessMemberAnalysis.overflowCount} 个超出上限` : ''}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -274,7 +299,7 @@ export function KnowledgeUrlBatchDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
+            <Button onClick={handleSubmit} disabled={submitting || hasBlockingError} className="gap-2">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" /> : null}
               开始导入
             </Button>

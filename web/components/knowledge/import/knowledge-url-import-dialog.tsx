@@ -1,6 +1,6 @@
 'use client'
 
-import type { Dataset } from '@/types'
+import type { Dataset, Document } from '@/types'
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,6 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useChunkStrategyPreference } from '@/contexts/chunk-strategy-context'
 import { useParserBackendPreference } from '@/contexts/parser-backend-context'
 import { formatApiError } from '@/lib/api-errors'
+import { detachPromise } from '@/lib/utils'
+import {
+  URL_IMPORT_MAX_FILENAME_LENGTH,
+  URL_IMPORT_MAX_URL_LENGTH,
+  validateUrlImportAddress,
+  validateUrlImportFilename,
+} from './knowledge-url-import-dialog.validation'
 
 type KnowledgeUrlImportDialogProps = {
   open: boolean
@@ -25,9 +32,9 @@ type KnowledgeUrlImportDialogProps = {
   selectedDatasetId?: string
   datasetDefaultValue: string
 
-  uploadDocumentFromUrl: (params: { url: string; filename?: string; dataset_id?: string }) => Promise<unknown>
-
-  onAfterImport?: () => void | Promise<void>
+  uploadDocumentFromUrl: (params: { url: string; filename?: string; dataset_id?: string }) => Promise<Document>
+  loadDocuments: (params?: { dataset_id?: string }) => void | Promise<void>
+  onDatasetResolved?: (datasetId: string) => void
 }
 
 export function KnowledgeUrlImportDialog({
@@ -38,7 +45,8 @@ export function KnowledgeUrlImportDialog({
   selectedDatasetId,
   datasetDefaultValue,
   uploadDocumentFromUrl,
-  onAfterImport,
+  loadDocuments,
+  onDatasetResolved,
 }: Readonly<KnowledgeUrlImportDialogProps>) {
   const { parserBackend, setParserBackend } = useParserBackendPreference()
   const { chunkStrategy, setChunkStrategy } = useChunkStrategyPreference()
@@ -46,6 +54,7 @@ export function KnowledgeUrlImportDialog({
   const [url, setUrl] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
   const [filename, setFilename] = useState('')
+  const [filenameError, setFilenameError] = useState<string | null>(null)
   const [datasetId, setDatasetId] = useState<string>(datasetDefaultValue)
   const [submitting, setSubmitting] = useState(false)
 
@@ -53,47 +62,40 @@ export function KnowledgeUrlImportDialog({
     if (!open) return
     setDatasetId(selectedDatasetId || datasetDefaultValue)
     setUrlError(null)
+    setFilenameError(null)
   }, [open, selectedDatasetId, datasetDefaultValue])
 
   const handleImport = useCallback(async () => {
-    const nextUrl = url.trim()
-    if (!nextUrl) {
-      setUrlError('请输入 URL')
-      return
-    }
-
-    let normalizedUrl: string
-    try {
-      // Keep this permissive for valid absolute URLs and let the backend enforce policy.
-      // This is primarily an inline UX guard so users don't submit empty/garbled text.
-      normalizedUrl = new URL(nextUrl).toString()
-    } catch {
-      setUrlError('请输入完整 URL（例如 https://example.com/doc.pdf）')
-      return
-    }
+    const urlValidation = validateUrlImportAddress(url)
+    const nextFilenameError = validateUrlImportFilename(filename)
+    setUrlError(urlValidation.error)
+    setFilenameError(nextFilenameError)
+    if (!urlValidation.normalizedUrl || nextFilenameError) return
 
     setSubmitting(true)
     try {
-      await uploadDocumentFromUrl({
-        url: normalizedUrl,
+      const document = await uploadDocumentFromUrl({
+        url: urlValidation.normalizedUrl,
         filename: filename.trim() ? filename.trim() : undefined,
         dataset_id: datasetId === datasetDefaultValue ? undefined : datasetId,
       })
 
-      toast.success('已提交 URL 导入任务（后台拉取并入库）')
+      const resolvedDatasetId = String(document.dataset_id || '').trim()
+      if (resolvedDatasetId) onDatasetResolved?.(resolvedDatasetId)
+      detachPromise(loadDocuments({ dataset_id: resolvedDatasetId || undefined }))
+
+      toast.success('文档已提交导入')
       onOpenChange(false)
       setUrl('')
       setUrlError(null)
       setFilename('')
-      Promise.resolve(onAfterImport?.()).catch(() => {
-        // Best-effort refresh.
-      })
+      setFilenameError(null)
     } catch (err: unknown) {
       toast.error(formatApiError(err, 'URL 导入失败'))
     } finally {
       setSubmitting(false)
     }
-  }, [datasetDefaultValue, datasetId, filename, onAfterImport, onOpenChange, uploadDocumentFromUrl, url])
+  }, [datasetDefaultValue, datasetId, filename, loadDocuments, onDatasetResolved, onOpenChange, uploadDocumentFromUrl, url])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,6 +119,7 @@ export function KnowledgeUrlImportDialog({
                 }}
                 placeholder="https://example.com/doc.pdf / https://example.com/page.html"
                 className="font-mono"
+                maxLength={URL_IMPORT_MAX_URL_LENGTH}
                 aria-invalid={Boolean(urlError)}
                 aria-describedby={urlError ? 'knowledge-url-import-url-error' : undefined}
               />
@@ -128,7 +131,22 @@ export function KnowledgeUrlImportDialog({
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium text-foreground/80">文件名（可选）</div>
-              <Input value={filename} onChange={(e) => setFilename(e.target.value)} placeholder="例如：产品手册.pdf" />
+              <Input
+                value={filename}
+                onChange={(event) => {
+                  setFilename(event.target.value)
+                  if (filenameError) setFilenameError(null)
+                }}
+                placeholder="例如：产品手册.pdf"
+                maxLength={URL_IMPORT_MAX_FILENAME_LENGTH}
+                aria-invalid={Boolean(filenameError)}
+                aria-describedby={filenameError ? 'knowledge-url-import-filename-error' : undefined}
+              />
+              {filenameError ? (
+                <div id="knowledge-url-import-filename-error" className="text-xs text-destructive text-pretty">
+                  {filenameError}
+                </div>
+              ) : null}
             </div>
           </div>
 

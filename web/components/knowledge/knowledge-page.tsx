@@ -279,6 +279,16 @@ export default function KnowledgePage() {
     )
   }, [documents, selectedDatasetId])
 
+  const handleImportedDatasetResolved = useCallback((datasetId: string) => {
+    const resolvedDatasetId = datasetId.trim()
+    if (!resolvedDatasetId) return
+    setDatasetScope(resolvedDatasetId)
+    setFolderPath(null)
+    setDocumentsPage(1)
+    setActiveTab('documents')
+    detachPromise(refreshDatasets())
+  }, [refreshDatasets])
+
   const filteredDocuments = useMemo(() => {
     const term = docFilter.trim().toLowerCase()
     const next = scopedDocuments.filter((doc) => {
@@ -1059,6 +1069,7 @@ export default function KnowledgePage() {
                     uploadDocumentFromUrl={uploadDocumentFromUrl}
                     loadDocuments={loadDocuments}
                     loadConnectorRuns={loadConnectorRuns}
+                    onDatasetResolved={handleImportedDatasetResolved}
                     onConnectorRunCreated={(run) => { setShowTaskCenter(true); setPeekingDocId(null); setActiveTab('documents'); }}
                   />
 

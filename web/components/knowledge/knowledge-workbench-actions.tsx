@@ -1,6 +1,6 @@
 'use client'
 
-import type { ConnectorRunOut, Dataset } from '@/types'
+import type { ConnectorRunOut, Dataset, Document } from '@/types'
 import type { ChangeEvent } from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -35,10 +35,11 @@ type KnowledgeWorkbenchActionsProps = {
   selectedDatasetId?: string
   datasetDefaultValue: string
   handleFileUpload: (event: ChangeEvent<HTMLInputElement>) => void
-  uploadDocumentFromUrl: (params: { url: string; filename?: string; dataset_id?: string }) => Promise<unknown>
-  loadDocuments: () => void | Promise<void>
+  uploadDocumentFromUrl: (params: { url: string; filename?: string; dataset_id?: string }) => Promise<Document>
+  loadDocuments: (params?: { dataset_id?: string }) => void | Promise<void>
   loadConnectorRuns: (params?: { datasetId?: string }) => void | Promise<void>
   onConnectorRunCreated?: (run: ConnectorRunOut) => void
+  onDatasetResolved?: (datasetId: string) => void
   className?: string
 }
 
@@ -54,6 +55,7 @@ export function KnowledgeWorkbenchActions({
   loadDocuments,
   loadConnectorRuns,
   onConnectorRunCreated,
+  onDatasetResolved,
   className,
 }: Readonly<KnowledgeWorkbenchActionsProps>) {
   const t = useTranslations('KnowledgeWorkbenchActions')
@@ -166,7 +168,8 @@ export function KnowledgeWorkbenchActions({
         selectedDatasetId={selectedDatasetId}
         datasetDefaultValue={datasetDefaultValue}
         uploadDocumentFromUrl={uploadDocumentFromUrl}
-        onAfterImport={loadDocuments}
+        loadDocuments={loadDocuments}
+        onDatasetResolved={onDatasetResolved}
       />
 
       <KnowledgeUrlBatchDialog
@@ -179,6 +182,7 @@ export function KnowledgeWorkbenchActions({
         loadDocuments={loadDocuments}
         loadConnectorRuns={loadConnectorRuns}
         onRunCreated={onConnectorRunCreated}
+        onDatasetResolved={onDatasetResolved}
       />
 
       <KnowledgeWebCrawlDialog
