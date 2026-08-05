@@ -14,6 +14,7 @@ import type {
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
+import { QueryErrorState } from '@/components/ui/query-error-state'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
 import { cn, detachPromise } from '@/lib/utils'
 import { queryKeys } from '@/lib/query-keys'
@@ -77,6 +78,7 @@ import {
   metricToneClass,
 } from '@/components/ragviz/similarity/utils'
 import {
+  AlertTriangle,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -176,12 +178,23 @@ export function RagvizSimilarityWorkbench() {
     () => collectionsQuery.data?.collections || [],
     [collectionsQuery.data?.collections]
   )
+  const hasCollectionsSnapshot = collectionsQuery.data !== undefined
   const collectionsLoading = collectionsQuery.isFetching
-  const collectionsError = collectionsQuery.error
+  const collectionsErrorMessage = collectionsQuery.error
     ? getErrorMessage(collectionsQuery.error, '加载相似度数据源失败')
     : ''
+  const collectionsInitialLoading =
+    !hasCollectionsSnapshot && !collectionsQuery.error
+  const collectionsInitialError =
+    !hasCollectionsSnapshot && Boolean(collectionsQuery.error)
+  const collectionsRefreshing =
+    hasCollectionsSnapshot && collectionsQuery.isFetching
+  const collectionsRefreshError =
+    hasCollectionsSnapshot && Boolean(collectionsQuery.error)
+  const collectionsEmpty = hasCollectionsSnapshot && collections.length === 0
+  const collectionsReady = hasCollectionsSnapshot && collections.length > 0
   const refreshCollections = () => {
-    collectionsQuery.refetch()
+    detachPromise(collectionsQuery.refetch())
   }
 
   const availableCollectionOptions = useMemo(() => {
@@ -195,6 +208,35 @@ export function RagvizSimilarityWorkbench() {
   const collectionOptionById = useMemo(() => {
     return new Map(availableCollectionOptions.map((option) => [option.value, option]))
   }, [availableCollectionOptions])
+  const normalizedXSelections = xSelections.map((selection) => selection.trim())
+  const normalizedYSelections = ySelections.map((selection) => selection.trim())
+  const selectedCollectionIds = [
+    ...normalizedXSelections,
+    ...normalizedYSelections,
+  ].filter(Boolean)
+  const hasCompleteSelection =
+    normalizedXSelections.every(Boolean) && normalizedYSelections.every(Boolean)
+  const hasUnknownSelection = selectedCollectionIds.some(
+    (id) => !collectionOptionById.has(id)
+  )
+  const hasEmptySelection = selectedCollectionIds.some((id) => {
+    const option = collectionOptionById.get(id)
+    return option ? isEmptyCollectionOption(option) : false
+  })
+  const canCalculate =
+    collectionsReady &&
+    hasCompleteSelection &&
+    !hasUnknownSelection &&
+    !hasEmptySelection &&
+    !isCalculating
+  const calculateUnavailableReason = (() => {
+    if (!collectionsReady || isCalculating) return ''
+    if (!normalizedXSelections.every(Boolean)) return '请先选择所有横轴数据源。'
+    if (!normalizedYSelections.every(Boolean)) return '请先选择所有纵轴数据源。'
+    if (hasUnknownSelection) return '所选数据源已不可用，请重新选择。'
+    if (hasEmptySelection) return '所选数据源暂无可分析内容。'
+    return ''
+  })()
 
   const resolveCollectionLabel = (id: string) => {
     const found = collections.find((c) => c.id === id)
@@ -202,8 +244,23 @@ export function RagvizSimilarityWorkbench() {
   }
 
   const calculateSimilarity = async () => {
-    const xs = xSelections.map((x) => x.trim()).filter(Boolean)
-    const ys = ySelections.map((y) => y.trim()).filter(Boolean)
+    if (!collectionsReady) {
+      toast.error('数据源尚未准备好，请重新加载后再试')
+      return
+    }
+
+    if (!hasCompleteSelection) {
+      toast.error('请完成横轴和纵轴数据源选择')
+      return
+    }
+
+    if (hasUnknownSelection) {
+      toast.error('所选数据源已不可用，请重新选择')
+      return
+    }
+
+    const xs = normalizedXSelections
+    const ys = normalizedYSelections
 
     if (xs.length === 0) {
       toast.error('请至少选择一个横轴数据源')
@@ -1295,72 +1352,174 @@ export function RagvizSimilarityWorkbench() {
                       </div>
                     </div>
 
-                    {collectionsError ? (
-                      <div className="m-4 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                        {collectionsError}
+                    {collectionsInitialLoading ? (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        className="m-3 flex items-start gap-3 rounded-md bg-muted/35 p-3"
+                      >
+                        <RefreshCw
+                          className="mt-0.5 size-4 shrink-0 animate-spin text-primary motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            正在加载数据源
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            加载完成后即可配置相似度矩阵。
+                          </p>
+                        </div>
                       </div>
                     ) : null}
 
-                    <div>
-                      <AxisConfigCard
-                        eyebrow="横轴"
-                        title="横轴数据源"
-                        badge="横向对比"
-                        badgeClassName="border-primary/20 bg-primary/10 text-primary"
-                      >
-                        <CollectionSelectorBlock
-                          label="横轴数据源"
-                          showLabel={false}
-                          selections={xSelections}
-                          onChange={setXSelections}
-                          options={availableCollectionOptions}
-                        />
-                        <NumberField
-                          label="最大项目数"
-                          value={xMaxItems}
-                          onChange={setXMaxItems}
-                          min={10}
-                          max={500}
-                        />
-                      </AxisConfigCard>
+                    {collectionsInitialError ? (
+                      <QueryErrorState
+                        className="m-3"
+                        title="数据源加载失败"
+                        description={`${collectionsErrorMessage} 请重新加载后再试。`}
+                        onRetry={refreshCollections}
+                        retrying={collectionsLoading}
+                      />
+                    ) : null}
 
-                      <AxisConfigCard
-                        eyebrow="纵轴"
-                        title="纵轴数据源"
-                        badge="纵向对比"
-                        badgeClassName="border-success/20 bg-success/10 text-success"
+                    {collectionsRefreshError ? (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        className="m-3 flex min-w-0 flex-col gap-3 rounded-md border border-warning/25 bg-warning/5 p-3 sm:flex-row sm:items-center"
                       >
-                        <CollectionSelectorBlock
-                          label="纵轴数据源"
-                          showLabel={false}
-                          selections={ySelections}
-                          onChange={setYSelections}
-                          options={availableCollectionOptions}
+                        <AlertTriangle
+                          className="size-4 shrink-0 text-warning"
+                          aria-hidden="true"
                         />
-                        <NumberField
-                          label="最大项目数"
-                          value={yMaxItems}
-                          onChange={setYMaxItems}
-                          min={10}
-                          max={500}
-                        />
-                      </AxisConfigCard>
-                    </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            数据源刷新失败
+                          </p>
+                          <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+                            {collectionsErrorMessage} 当前仍显示上次成功加载的数据源。
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 shrink-0 rounded-md"
+                          onClick={refreshCollections}
+                          disabled={collectionsLoading}
+                        >
+                          <RefreshCw className="size-3.5" aria-hidden="true" />
+                          重新加载
+                        </Button>
+                      </div>
+                    ) : null}
 
-                    <div className="px-3.5 pb-3.5 pt-2">
-                      <Button
-                        className="h-9 w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={calculateSimilarity}
-                        disabled={isCalculating}
+                    {collectionsRefreshing && !collectionsRefreshError ? (
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className="border-b border-border px-3.5 py-2 text-xs text-muted-foreground"
                       >
-                        {isCalculating ? null : (
-                          <Play className="mr-2 size-3.5 fill-current" />
-                        )}
-                        {isCalculating && calcProgress
-                          ? `计算中... (${calcProgress.done}/${calcProgress.total})`
-                          : '计算相似度'}
-                      </Button>
-                    </div>
+                        正在更新数据源，当前配置仍可继续使用。
+                      </p>
+                    ) : null}
+
+                    {collectionsEmpty ? (
+                      <div className="flex flex-col items-center px-5 py-8 text-center">
+                        <div className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                          <Database className="size-4" aria-hidden="true" />
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-foreground">
+                          暂无可分析的数据源
+                        </p>
+                        <p className="mt-1 max-w-[30ch] text-xs leading-5 text-muted-foreground">
+                          请先在知识库中上传并完成入库，再返回此处刷新。
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {collectionsReady ? (
+                      <>
+                        <div>
+                          <AxisConfigCard
+                            eyebrow="横轴"
+                            title="横轴数据源"
+                            badge="横向对比"
+                            badgeClassName="border-primary/20 bg-primary/10 text-primary"
+                          >
+                            <CollectionSelectorBlock
+                              label="横轴数据源"
+                              showLabel={false}
+                              selections={xSelections}
+                              onChange={setXSelections}
+                              options={availableCollectionOptions}
+                              disabled={isCalculating}
+                            />
+                            <NumberField
+                              label="横轴最大项目数"
+                              value={xMaxItems}
+                              onChange={setXMaxItems}
+                              min={10}
+                              max={500}
+                              disabled={isCalculating}
+                            />
+                          </AxisConfigCard>
+
+                          <AxisConfigCard
+                            eyebrow="纵轴"
+                            title="纵轴数据源"
+                            badge="纵向对比"
+                            badgeClassName="border-success/20 bg-success/10 text-success"
+                          >
+                            <CollectionSelectorBlock
+                              label="纵轴数据源"
+                              showLabel={false}
+                              selections={ySelections}
+                              onChange={setYSelections}
+                              options={availableCollectionOptions}
+                              disabled={isCalculating}
+                            />
+                            <NumberField
+                              label="纵轴最大项目数"
+                              value={yMaxItems}
+                              onChange={setYMaxItems}
+                              min={10}
+                              max={500}
+                              disabled={isCalculating}
+                            />
+                          </AxisConfigCard>
+                        </div>
+
+                        <div className="px-3.5 pb-3.5 pt-2">
+                          <Button
+                            className="h-9 w-full rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                            onClick={calculateSimilarity}
+                            disabled={!canCalculate}
+                            aria-describedby={
+                              calculateUnavailableReason
+                                ? 'similarity-calculate-hint'
+                                : undefined
+                            }
+                          >
+                            {isCalculating ? null : (
+                              <Play className="mr-2 size-3.5 fill-current" />
+                            )}
+                            {isCalculating && calcProgress
+                              ? `计算中... (${calcProgress.done}/${calcProgress.total})`
+                              : '计算相似度'}
+                          </Button>
+                          {calculateUnavailableReason ? (
+                            <p
+                              id="similarity-calculate-hint"
+                              className="mt-2 text-xs leading-5 text-muted-foreground"
+                            >
+                              {calculateUnavailableReason}
+                            </p>
+                          ) : null}
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 </Panel>
               ) : (

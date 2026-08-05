@@ -14,9 +14,9 @@ export type SelectOption = {
 }
 
 const similaritySelectClass =
-  'h-9 w-full appearance-none rounded-md border border-border bg-background px-3 pr-9 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20'
+  'h-9 w-full appearance-none rounded-md border border-border bg-background px-3 pr-9 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60'
 export const similarityInputClass =
-  'h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20'
+  'h-9 w-full rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60'
 const similarityIconControlClass =
   'size-9 rounded-md border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-primary'
 export const similarityNativeSelectClass =
@@ -49,12 +49,8 @@ export function AxisConfigCard({
     <section className="border-b border-border/28 px-3.5 py-3.5 last:border-b-0">
       <div className="mb-2.5 flex items-start justify-between gap-2.5">
         <div className="min-w-0">
-          <div className="text-xs font-medium text-primary">
-            {eyebrow}
-          </div>
-          <div className="mt-0.5 text-[13px] font-semibold leading-4 text-foreground">
-            {title}
-          </div>
+          <div className="text-xs font-medium text-primary">{eyebrow}</div>
+          <div className="mt-0.5 text-[13px] font-semibold leading-4 text-foreground">{title}</div>
         </div>
         <span
           className={cn(
@@ -76,12 +72,14 @@ export function CollectionSelectorBlock({
   selections,
   onChange,
   options,
+  disabled = false,
 }: Readonly<{
   label: string
   showLabel?: boolean
   selections: string[]
   onChange: (next: string[]) => void
   options: SelectOption[]
+  disabled?: boolean
 }>) {
   const keyedSelections = useMemo(() => {
     const seen = new Map<string, number>()
@@ -95,18 +93,16 @@ export function CollectionSelectorBlock({
 
   return (
     <div className="space-y-1.5">
-      {showLabel ? (
-        <div className="text-xs font-medium text-foreground">
-          {label}
-        </div>
-      ) : null}
+      {showLabel ? <div className="text-xs font-medium text-foreground">{label}</div> : null}
       <div className="space-y-1.5">
         {keyedSelections.map(({ value, key }, idx) => (
           <div key={key} className="flex items-center gap-1.5">
             <div className="relative flex-1">
               <select
+                aria-label={`${label} ${idx + 1}`}
                 className={similaritySelectClass}
                 value={value}
+                disabled={disabled}
                 onChange={(e) => {
                   const next = [...selections]
                   next[idx] = e.target.value
@@ -115,16 +111,15 @@ export function CollectionSelectorBlock({
               >
                 <option value="">请选择</option>
                 {options.map((opt) => (
-                  <option
-                    key={opt.value}
-                    value={opt.value}
-                    disabled={isEmptyCollectionOption(opt)}
-                  >
+                  <option key={opt.value} value={opt.value} disabled={isEmptyCollectionOption(opt)}>
                     {collectionOptionLabel(opt)}
                   </option>
                 ))}
               </select>
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground/70">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground/70"
+              >
                 <ChevronDown className="size-4" />
               </span>
             </div>
@@ -134,9 +129,10 @@ export function CollectionSelectorBlock({
                 type="button"
                 variant="outline"
                 size="icon"
-                title="添加"
+                title={`添加${label}`}
                 aria-label={`为${label}添加一个数据源选择器`}
                 className={similarityIconControlClass}
+                disabled={disabled}
                 onClick={() => onChange([...selections, ''])}
               >
                 <Plus className="size-4" />
@@ -146,9 +142,10 @@ export function CollectionSelectorBlock({
                 type="button"
                 variant="outline"
                 size="icon"
-                title="删除"
+                title={`删除${label}`}
                 aria-label={`删除第 ${idx + 1} 个${label}选择器`}
                 className={similarityIconControlClass}
+                disabled={disabled}
                 onClick={() => onChange(selections.filter((_, i) => i !== idx))}
               >
                 <Minus className="size-4" />
@@ -167,19 +164,19 @@ export function NumberField({
   onChange,
   min,
   max,
+  disabled = false,
 }: Readonly<{
   label: string
   value: number
   onChange: (next: number) => void
   min: number
   max: number
+  disabled?: boolean
 }>) {
   return (
     <div className="space-y-1.5 block">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-muted-foreground">
-          {label}
-        </div>
+        <div className="text-xs font-medium text-muted-foreground">{label}</div>
         <div className="text-xs font-medium text-muted-foreground">
           {min}-{max}
         </div>
@@ -191,6 +188,7 @@ export function NumberField({
         min={min}
         max={max}
         value={value}
+        disabled={disabled}
         onChange={(e) => {
           const parsed = Number(e.target.value)
           if (!Number.isFinite(parsed)) return
