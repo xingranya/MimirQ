@@ -1,12 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react'
 
 import { computeGraphMinimapTransform, type GraphMinimapPoint } from '@/lib/graph-minimap-transform'
 import { cn } from '@/lib/utils'
 
 type GraphMinimapProps = {
-  readonly graphRef: Readonly<{ current?: GraphMinimapHandle | null }>
+  readonly graphRef: Readonly<{ current?: GraphCanvasHandle | null }>
   readonly data: {
     nodes: GraphMinimapNode[]
     links: unknown[]
@@ -29,10 +37,14 @@ type GraphBbox = {
   readonly y?: readonly unknown[]
 }
 
-type GraphMinimapHandle = {
+type GraphCanvasHandle = {
   readonly getGraphBbox?: () => GraphBbox | null | undefined
   readonly centerAt?: (x?: number, y?: number, ms?: number) => unknown
   readonly zoom?: () => unknown
+}
+
+export type GraphMinimapRef = {
+  readonly scheduleDraw: () => void
 }
 
 function safeNumber(value: unknown, fallback: number): number {
@@ -44,19 +56,24 @@ function clampCanvasCoordinate(value: number, limit: number): number {
   return Math.min(limit, Math.max(0, value))
 }
 
-export function GraphMinimap({
-  graphRef,
-  data,
-  graphWidth,
-  graphHeight,
-  isDark = false,
-  className,
-  width = 140,
-  height = 100,
-}: GraphMinimapProps) {
+export const GraphMinimap = forwardRef<GraphMinimapRef, GraphMinimapProps>(function GraphMinimap(
+  {
+    graphRef,
+    data,
+    graphWidth,
+    graphHeight,
+    isDark = false,
+    className,
+    width = 140,
+    height = 100,
+  },
+  ref
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const isVisibleRef = useRef(true)
 
-  const nodePositions = useMemo(() => {
+  const getNodePositions = useCallback(() => {
     const positions: GraphMinimapPoint[] = []
     for (const node of data.nodes || []) {
       const x = safeNumber(node?.x, Number.NaN)
@@ -67,7 +84,7 @@ export function GraphMinimap({
     return positions
   }, [data.nodes])
 
-  const getTransform = useCallback(() => {
+  const getTransform = useCallback((nodePositions = getNodePositions()) => {
     const canvas = canvasRef.current
     const graph = graphRef.current
     if (!canvas || !graph) return null
@@ -85,7 +102,7 @@ export function GraphMinimap({
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
     })
-  }, [graphRef, nodePositions])
+  }, [getNodePositions, graphRef])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -95,7 +112,8 @@ export function GraphMinimap({
     const context = canvas.getContext('2d')
     if (!context) return
 
-    const transform = getTransform()
+    const nodePositions = getNodePositions()
+    const transform = getTransform(nodePositions)
     context.clearRect(0, 0, canvas.width, canvas.height)
     context.fillStyle = isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)'
     context.fillRect(0, 0, canvas.width, canvas.height)
@@ -144,48 +162,42 @@ export function GraphMinimap({
     context.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.95)' : 'rgba(2, 132, 199, 0.95)'
     context.lineWidth = 1
     context.strokeRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top))
-  }, [getTransform, graphHeight, graphRef, graphWidth, isDark, nodePositions])
+  }, [getNodePositions, getTransform, graphHeight, graphRef, graphWidth, isDark])
+
+  const scheduleDraw = useCallback(() => {
+    if (!isVisibleRef.current || animationFrameRef.current !== null) return
+    animationFrameRef.current = requestAnimationFrame(() => {
+      animationFrameRef.current = null
+      draw()
+    })
+  }, [draw])
+
+  useImperativeHandle(ref, () => ({ scheduleDraw }), [scheduleDraw])
 
   useEffect(() => {
-    let animationFrame = 0
-    let lastDrawAt = 0
-    let isActive = document.visibilityState !== 'hidden'
-
-    const tick = (timestamp: number) => {
-      if (!isActive) return
-      if (timestamp - lastDrawAt > 140) {
-        lastDrawAt = timestamp
-        draw()
-      }
-      animationFrame = requestAnimationFrame(tick)
-    }
-
-    const schedule = () => {
-      if (!isActive || animationFrame) return
-      animationFrame = requestAnimationFrame((timestamp) => {
-        animationFrame = 0
-        tick(timestamp)
-      })
-    }
-
     const handleVisibilityChange = () => {
-      isActive = document.visibilityState !== 'hidden'
-      if (!isActive) {
-        if (animationFrame) cancelAnimationFrame(animationFrame)
-        animationFrame = 0
+      isVisibleRef.current = document.visibilityState !== 'hidden'
+      if (!isVisibleRef.current) {
+        if (animationFrameRef.current !== null) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+        animationFrameRef.current = null
         return
       }
-      draw()
-      schedule()
+      scheduleDraw()
     }
 
+    isVisibleRef.current = document.visibilityState !== 'hidden'
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    schedule()
+    scheduleDraw()
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      if (animationFrame) cancelAnimationFrame(animationFrame)
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      animationFrameRef.current = null
     }
-  }, [draw])
+  }, [scheduleDraw])
 
   const centerGraphAtCanvasPoint = useCallback(
     (canvasPoint: GraphMinimapPoint) => {
@@ -237,4 +249,4 @@ export function GraphMinimap({
       />
     </div>
   )
-}
+})

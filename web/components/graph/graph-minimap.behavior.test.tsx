@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
 import { act } from 'react'
+import { createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GraphMinimap } from './graph-minimap'
+import { GraphMinimap, type GraphMinimapRef } from './graph-minimap'
 
 describe('图谱缩略图交互', () => {
   let container: HTMLDivElement
@@ -159,6 +160,52 @@ describe('图谱缩略图交互', () => {
       })
       document.dispatchEvent(new Event('visibilitychange'))
     })
+    expect(requestFrame).toHaveBeenCalledTimes(2)
+  })
+
+  it('按事件合并重绘请求且绘制后不再自行轮询', () => {
+    const callbacks: FrameRequestCallback[] = []
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        callbacks.push(callback)
+        return callbacks.length
+      })
+    )
+    const minimapRef = createRef<GraphMinimapRef>()
+
+    act(() => {
+      root.render(
+        <GraphMinimap
+          ref={minimapRef}
+          graphRef={{
+            current: {
+              getGraphBbox: () => ({ x: [0, 100], y: [0, 100] }),
+              centerAt: vi.fn(),
+              zoom: () => 1,
+            },
+          }}
+          data={{ nodes: [{ x: 0, y: 0 }], links: [] }}
+          graphWidth={800}
+          graphHeight={600}
+        />
+      )
+    })
+
+    const requestFrame = vi.mocked(requestAnimationFrame)
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+
+    act(() => callbacks.shift()?.(16))
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      minimapRef.current?.scheduleDraw()
+      minimapRef.current?.scheduleDraw()
+      minimapRef.current?.scheduleDraw()
+    })
+    expect(requestFrame).toHaveBeenCalledTimes(2)
+
+    act(() => callbacks.shift()?.(32))
     expect(requestFrame).toHaveBeenCalledTimes(2)
   })
 })

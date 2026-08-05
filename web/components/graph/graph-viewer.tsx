@@ -14,7 +14,7 @@ import { reportClientError } from '@/lib/client-logging'
 import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 import { cn } from '@/lib/utils'
 import { buildTypeColorMap, EVENT_COLOR, NODE_COLOR_PALETTE } from './graph-colors'
-import { GraphMinimap } from './graph-minimap'
+import { GraphMinimap, type GraphMinimapRef } from './graph-minimap'
 import { Loader2 } from 'lucide-react'
 
 export const EDGE_KIND_COLORS: Record<string, string> = {
@@ -1006,6 +1006,7 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined)
+  const minimapRef = useRef<GraphMinimapRef>(null)
   const { width, height } = useResizeObserver(containerRef)
   const [mounted, setMounted] = useState(false)
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null)
@@ -1180,6 +1181,23 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
 
     scheduleViewportLodUpdate(next)
   }, [height, isLargeGraph, sanitizedData.links, sanitizedData.nodes, scheduleViewportLodUpdate, viewportPinnedNodeIds, width])
+
+  const scheduleMinimapDraw = useCallback(() => {
+    minimapRef.current?.scheduleDraw()
+  }, [])
+
+  const handleGraphZoomEnd = useCallback(
+    (transform?: { k?: number }) => {
+      updateViewportLod(transform)
+      scheduleMinimapDraw()
+    },
+    [scheduleMinimapDraw, updateViewportLod]
+  )
+
+  const handleGraphEngineStop = useCallback(() => {
+    updateViewportLod()
+    scheduleMinimapDraw()
+  }, [scheduleMinimapDraw, updateViewportLod])
 
   useEffect(() => {
     setMounted(true)
@@ -1507,8 +1525,10 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
               linkVisibility={isLinkVisibleForViewport}
               cooldownTicks={cooldownTicks}
               cooldownTime={cooldownTime}
-              onZoomEnd={updateViewportLod}
-              onEngineStop={updateViewportLod}
+              onZoom={scheduleMinimapDraw}
+              onZoomEnd={handleGraphZoomEnd}
+              onEngineTick={scheduleMinimapDraw}
+              onEngineStop={handleGraphEngineStop}
               onNodeClick={handleNodeClick}
               onNodeRightClick={(node: GraphNodeDatum, event: MouseEvent) => {
                 onNodeRightClick?.(node, event)
@@ -1533,6 +1553,7 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
               onNodeDragEnd={(node: GraphNodeDatum) => {
                 node.fx = node.x;
                 node.fy = node.y;
+                scheduleMinimapDraw()
               }}
               
               // Custom Node Painting
@@ -1591,6 +1612,7 @@ export const GraphViewer = forwardRef<GraphViewerRef, GraphViewerProps>(({
                 {showMinimap && !isLargeGraph && sanitizedData.nodes.length > 0 ? (
                   <div className="pointer-events-auto mt-auto ml-auto hidden md:block">
                     <GraphMinimap
+                      ref={minimapRef}
                       graphRef={fgRef}
                       data={sanitizedData}
                       graphWidth={width}

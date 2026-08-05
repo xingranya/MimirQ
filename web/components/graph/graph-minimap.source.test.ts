@@ -37,4 +37,13 @@ describe('图谱缩略图响应式与视觉契约', () => {
       "document.removeEventListener('visibilitychange', handleVisibilityChange)"
     )
   })
+
+  it('由图引擎和视口事件调度单帧重绘', () => {
+    expect(minimapSource).toContain('useImperativeHandle(ref, () => ({ scheduleDraw })')
+    expect(minimapSource).not.toContain('requestAnimationFrame(tick)')
+    expect(viewerSource).toContain('onEngineTick={scheduleMinimapDraw}')
+    expect(viewerSource).toContain('onEngineStop={handleGraphEngineStop}')
+    expect(viewerSource).toContain('onZoom={scheduleMinimapDraw}')
+    expect(viewerSource).toContain('onZoomEnd={handleGraphZoomEnd}')
+  })
 })
