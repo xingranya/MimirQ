@@ -137,7 +137,7 @@ async def preflight_model_provider_fast() -> tuple[bool, str | None]:
 
     try:
         base_url = api_base.rstrip("/")
-        timeout = httpx.Timeout(1.5, connect=1.0, read=1.5, write=1.0, pool=0.5)
+        timeout = httpx.Timeout(5.0, connect=2.0, read=5.0, write=2.0, pool=1.0)
         async with httpx.AsyncClient(trust_env=httpx_trust_env(), timeout=timeout) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",

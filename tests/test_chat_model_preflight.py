@@ -119,3 +119,38 @@ async def test_local_provider_preflight_accepts_empty_api_key(monkeypatch: pytes
 
     assert await chat_execution_runtime.preflight_model_provider_fast() == (True, None)
     assert captured_headers["Authorization"] == "Bearer local-endpoint-no-auth"
+
+
+@pytest.mark.asyncio
+async def test_provider_preflight_allows_normal_response_latency(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class SuccessfulResponse:
+        status_code = 200
+        text = ""
+
+    class SuccessfulAsyncClient:
+        def __init__(self, *args, timeout, **kwargs) -> None:  # noqa: ANN002, ANN003, ARG002
+            captured["timeout"] = timeout
+
+        async def __aenter__(self):  # noqa: ANN204
+            return self
+
+        async def __aexit__(self, *args) -> None:  # noqa: ANN002
+            return None
+
+        async def post(self, *_args, **_kwargs) -> SuccessfulResponse:  # noqa: ANN002, ANN003
+            return SuccessfulResponse()
+
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "LLM_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(settings, "LLM_API_BASE", "https://provider.example/v1", raising=False)
+    monkeypatch.setattr(settings, "LLM_MODEL", "test-model", raising=False)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_AVAILABLE_UNTIL", 0.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_UNAVAILABLE_UNTIL", 0.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_CIRCUIT_KEY", "")
+    monkeypatch.setattr(chat_execution_runtime.httpx, "AsyncClient", SuccessfulAsyncClient)
+
+    assert await chat_execution_runtime.preflight_model_provider_fast() == (True, None)
+    timeout = captured["timeout"]
+    assert timeout.read >= 5.0
