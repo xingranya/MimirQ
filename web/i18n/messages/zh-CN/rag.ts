@@ -1,9 +1,11 @@
 const ragMessages = {
-SimilarityDiagnosticsGraph: {
+  SimilarityDiagnosticsGraph: {
     loadingMessage: '正在重建向量邻域...',
-    loadingSrMessage: 'Loading embedding diagnostics graph',
+    loadingSrMessage: '正在加载相似度诊断图',
     loadingHint: '基于当前相似度矩阵派生诊断，不额外请求后端坐标。',
-    noGraphData: '当前筛选结果没有足够的高相似连线，暂时无法生成 3D 投影预览。',
+    noGraphData: '当前筛选结果没有可展示的节点，请调整数据范围后重试。',
+    noLinksTitle: '当前阈值下未形成关联',
+    noLinksDescription: '节点仍会保留在图中。可以降低相似度阈值，查看更多节点之间的关联。',
     graphTooLargeTitle: '当前诊断图过大，已暂停 3D 渲染。',
     graphTooLargeHint: '请缩小筛选范围或提高阈值后再试。',
     graphTooLargeMetrics:
@@ -22,7 +24,7 @@ SimilarityDiagnosticsGraph: {
     nodeTooltip: '[{axis}] {label}{outlierSuffix}\n均值 {mean}% / 峰值 {peak}%',
     nodeTooltipOutlierSuffix: ' · 异常点',
   },
-RagTrace: {
+  RagTrace: {
     dialog: {
       title: 'RAG 追踪',
       loadingMessage: '正在加载 RAG 追踪记录...',
@@ -89,7 +91,8 @@ RagTrace: {
         },
         reasons: {
           examRequired: '能支撑“身份证、准考证”等携带要求，但不是普通话考试专属证据。',
-          putonghuaRelated: '能说明普通话/教育事项相关材料，但更偏教师资格认定，不能直接证明考试当天要求。',
+          putonghuaRelated:
+            '能说明普通话/教育事项相关材料，但更偏教师资格认定，不能直接证明考试当天要求。',
           default: '用于核对回答引用的来源；需要结合正文判断是否真正命中问题。',
         },
         open: '打开证据切片',
@@ -183,7 +186,7 @@ RagTrace: {
       },
     },
   },
-EvidenceWorkbench: {
+  EvidenceWorkbench: {
     controls: {
       datasetScope: '知识范围',
       datasetPlaceholder: '选择知识库',
@@ -236,7 +239,7 @@ EvidenceWorkbench: {
         noCitations: '没有检索到可用引用。',
       },
     },
-  }
+  },
 } as const
 
 export default ragMessages
