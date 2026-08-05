@@ -69,6 +69,43 @@ function mergeConfig<T extends object>(current: T, patch: Partial<T>): T {
   }
 }
 
+function settingValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false
+    return left.every((value, index) => settingValuesEqual(value, right[index]))
+  }
+
+  const leftRecord = left as Record<string, unknown>
+  const rightRecord = right as Record<string, unknown>
+  const leftKeys = Object.keys(leftRecord)
+  const rightKeys = Object.keys(rightRecord)
+  if (leftKeys.length !== rightKeys.length) return false
+  return leftKeys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+      settingValuesEqual(leftRecord[key], rightRecord[key])
+  )
+}
+
+function retainEditsChangedSinceSnapshot(
+  current: EditedSystemSettings,
+  submitted: EditedSystemSettings
+): EditedSystemSettings {
+  const retained: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(current)) {
+    const submittedValue = (submitted as Record<string, unknown>)[key]
+    if (
+      !Object.prototype.hasOwnProperty.call(submitted, key) ||
+      !settingValuesEqual(value, submittedValue)
+    ) {
+      retained[key] = value
+    }
+  }
+  return retained as EditedSystemSettings
+}
+
 function mergeWithDefaults<T extends object>(
   defaults: T,
   current: Partial<T> | null | undefined,
@@ -428,6 +465,7 @@ export function useSettingsPageState() {
   const [backendMetaLoading, setBackendMetaLoading] = useState(true)
   const [backendMetaError, setBackendMetaError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const saveOperationRef = useRef(false)
   const [saveMessage, setSaveMessage] = useState<SaveMessage | null>(null)
   const saveMessageTimeoutRef = useRef<number | null>(null)
   const [lastUpdatedKeys, setLastUpdatedKeys] = useState<string[]>([])
@@ -653,7 +691,7 @@ export function useSettingsPageState() {
   }
 
   const saveSettings = async () => {
-    if (Object.keys(editedSettings).length === 0) return
+    if (saveOperationRef.current || Object.keys(editedSettings).length === 0) return
 
     if (!settingsWritable) {
       setSaveMessage({ type: 'error', text: '当前账号只能查看系统设置。' })
@@ -661,6 +699,7 @@ export function useSettingsPageState() {
     }
 
     const { feature_flags: editedFeatureFlags, ...otherEditedSettings } = editedSettings
+    const submittedEdits = editedSettings
     const pendingSettings: Partial<SystemSettings> = {
       ...otherEditedSettings,
       ...(editedFeatureFlags
@@ -683,6 +722,7 @@ export function useSettingsPageState() {
       return
     }
 
+    saveOperationRef.current = true
     setSaving(true)
     setSaveMessage(null)
     setLastUpdatedKeys([])
@@ -692,9 +732,17 @@ export function useSettingsPageState() {
     }
     try {
       const result = await settingsApi.update(pendingSettings)
+      setSettings((current) =>
+        current ? ({ ...current, ...pendingSettings } as SystemSettings) : current
+      )
+      setEditedSettings((current) => retainEditsChangedSinceSnapshot(current, submittedEdits))
       setSaveMessage(createSettingsSaveSuccessMessage())
       setLastUpdatedKeys(result.updated_keys || [])
-      await Promise.all([loadSettings(), loadSystemStatus(), loadBackendMeta()])
+      await Promise.all([
+        loadSettings({ preserveEdits: true }),
+        loadSystemStatus(),
+        loadBackendMeta(),
+      ])
       refreshCapabilities().catch(() => null)
       saveMessageTimeoutRef.current = globalThis.window.setTimeout(() => {
         setSaveMessage(null)
@@ -703,6 +751,7 @@ export function useSettingsPageState() {
     } catch (error) {
       setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
     } finally {
+      saveOperationRef.current = false
       setSaving(false)
     }
   }
@@ -903,6 +952,7 @@ export function useSettingsPageState() {
   }
 
   const handleSaveConfig = async (providerId: string, config: ProviderConfig) => {
+    if (saveOperationRef.current) return false
     if (!settingsWritable) {
       setSaveMessage({ type: 'error', text: '当前账号只能查看系统设置。' })
       return false
@@ -921,6 +971,7 @@ export function useSettingsPageState() {
       return false
     }
 
+    saveOperationRef.current = true
     setSaving(true)
     setSaveMessage(null)
     try {
@@ -946,6 +997,7 @@ export function useSettingsPageState() {
             }
 
       await settingsApi.update(payload)
+      setSettings((current) => (current ? ({ ...current, ...payload } as SystemSettings) : current))
       setSaveMessage(createSettingsSaveSuccessMessage())
       await Promise.all([
         loadSettings({ preserveEdits: true }),
@@ -957,6 +1009,7 @@ export function useSettingsPageState() {
       setSaveMessage({ type: 'error', text: formatApiError(error, '保存失败') })
       return false
     } finally {
+      saveOperationRef.current = false
       setSaving(false)
     }
   }

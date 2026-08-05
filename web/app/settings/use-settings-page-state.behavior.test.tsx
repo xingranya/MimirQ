@@ -232,6 +232,38 @@ describe('设置页保存校验', () => {
     hook.unmount()
   })
 
+  it('统一保存期间产生的新修改不会被完成回调清除', async () => {
+    let resolveUpdate: ((value: { updated_keys: string[] }) => void) | undefined
+    mocks.updateSettings.mockImplementationOnce(
+      () =>
+        new Promise<{ updated_keys: string[] }>((resolve) => {
+          resolveUpdate = resolve
+        })
+    )
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 8 }))
+    let savePromise: Promise<void> | undefined
+    act(() => {
+      savePromise = hook.result.current.saveSettings()
+      void hook.result.current.saveSettings()
+    })
+    await waitForAssertion(() => expect(hook.result.current.saving).toBe(true))
+    expect(mocks.updateSettings).toHaveBeenCalledOnce()
+
+    act(() => hook.result.current.updateRag({ retrieval_top_k: 16 }))
+    await act(async () => {
+      resolveUpdate?.({ updated_keys: ['rag'] })
+      await savePromise
+    })
+
+    expect(hook.result.current.ragMerged.retrieval_top_k).toBe(16)
+    expect(hook.result.current.hasChanges).toBe(true)
+    expect(hook.result.current.dirtySectionCount).toBe(1)
+    hook.unmount()
+  })
+
   it('缩小分块时同步收紧重叠值并使用有效默认策略', async () => {
     const hook = renderHook(() => useSettingsPageState())
     await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
