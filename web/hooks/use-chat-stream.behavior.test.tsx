@@ -233,6 +233,39 @@ describe('useChatStream accepted-stream recovery', () => {
     hook.unmount()
   })
 
+  it('does not replay a request after the accepted stream reports an error', async () => {
+    const onError = vi.fn()
+
+    chatApiMock.streamChat.mockImplementation(
+      async (
+        _request: unknown,
+        onJson: (json: string) => void,
+        options?: {
+          onOpen?: (meta: { requestId: string; conversationId?: string }) => void
+        }
+      ) => {
+        options?.onOpen?.({ requestId: 'req-error', conversationId: 'conv-error' })
+        onJson(JSON.stringify({ type: 'error', data: { message: '模型服务暂不可用' } }))
+        return { requestId: 'req-error', conversationId: 'conv-error' }
+      }
+    )
+
+    const hook = renderChatStreamHook(onError)
+
+    act(() => {
+      void hook.result.current.sendMessage('hello')
+    })
+
+    await waitForAssertion(() => {
+      expect(onError).toHaveBeenCalledWith('模型服务暂不可用')
+      expect(hook.result.current.isLoading).toBe(false)
+    })
+
+    expect(chatApiMock.chat).not.toHaveBeenCalled()
+    expect(recoveryMock.recoverStreamedAssistantMessage).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
   it('ignores a second send before the loading state rerenders', async () => {
     chatApiMock.streamChat.mockImplementation(async (_request: unknown, _onJson: unknown, options?: { signal?: AbortSignal }) => {
       return await new Promise<never>((_resolve, reject) => {

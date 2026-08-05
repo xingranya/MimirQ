@@ -306,6 +306,7 @@ export function useChatStream({
           }
         } catch (streamErr) {
           const streamWasAborted = (streamErr as { name?: string })?.name === 'AbortError'
+          if (streamError) throw streamError
           if (streamWasAborted && (!streamAccepted || userStopped)) throw streamErr
 
           if (sawDone) {
