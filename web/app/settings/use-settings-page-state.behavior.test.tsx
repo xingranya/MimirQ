@@ -160,6 +160,22 @@ describe('设置页保存校验', () => {
     hook.unmount()
   })
 
+  it('解析服务缺少连接参数时保留启用草稿且不发送保存请求', async () => {
+    const hook = renderHook(() => useSettingsPageState())
+    await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))
+
+    act(() => hook.result.current.toggleFeature('etl4llm_enabled'))
+    await act(async () => hook.result.current.saveSettings())
+
+    expect(mocks.updateSettings).not.toHaveBeenCalled()
+    expect(hook.result.current.saveMessage).toEqual({
+      type: 'error',
+      text: '解析服务：ETL4LLM 已启用，请填写服务地址。',
+    })
+    expect(hook.result.current.hasChanges).toBe(true)
+    hook.unmount()
+  })
+
   it('模型配置保存后保留其他设置草稿，且不提交无效字段', async () => {
     const hook = renderHook(() => useSettingsPageState())
     await waitForAssertion(() => expect(hook.result.current.loading).toBe(false))

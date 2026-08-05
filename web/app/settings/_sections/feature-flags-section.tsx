@@ -113,24 +113,8 @@ const FEATURE_FLAG_GROUPS: ReadonlyArray<{
   },
   {
     id: 'local-parsers',
-    label: '内置与本地解析',
-    keys: [
-      'deepdoc_enabled',
-      'docling_enabled',
-      'markitdown_enabled',
-      'magicpdf_enabled',
-    ],
-  },
-  {
-    id: 'connected-parsers',
-    label: '接入服务',
-    keys: [
-      'mineru_enabled',
-      'etl4llm_enabled',
-      'marker_enabled',
-      'paddle_vl_enabled',
-      'textin_enabled',
-    ],
+    label: '内置解析',
+    keys: ['deepdoc_enabled', 'docling_enabled', 'markitdown_enabled'],
   },
 ]
 
@@ -142,9 +126,7 @@ type FeatureFlagsSectionProps = {
   disabled?: boolean
 }
 
-function parserStatusText(
-  status: NonNullable<SystemStatus['parsers']>[string]
-): string {
+function parserStatusText(status: NonNullable<SystemStatus['parsers']>[string]): string {
   if (status.available) return '运行环境可用'
   return status.enabled ? '运行环境不可用' : '运行状态未启用'
 }
@@ -159,7 +141,7 @@ export function FeatureFlagsSection({
   return (
     <section aria-label="功能开关" className="space-y-5">
       <p className="text-sm leading-5 text-muted-foreground">
-        控制知识处理与解析能力。接入式解析服务需先完成连接配置。
+        控制知识组织和内置解析能力。需要连接参数的服务请在高级解析中启用和配置。
       </p>
 
       <div className="space-y-5">
@@ -176,9 +158,7 @@ export function FeatureFlagsSection({
                 const feature = FEATURE_FLAG_DETAILS[featureKey]
                 const Icon = feature.icon
                 const isEnabled = getFeatureValue(featureKey)
-                const isEdited = Boolean(
-                  editedFeatureFlags && featureKey in editedFeatureFlags
-                )
+                const isEdited = Boolean(editedFeatureFlags && featureKey in editedFeatureFlags)
                 const status = feature.parserStatusKey
                   ? parserStatuses?.[feature.parserStatusKey]
                   : undefined

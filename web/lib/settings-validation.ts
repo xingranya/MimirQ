@@ -1,17 +1,17 @@
 import type {
   DifyExternalKnowledgeConfig,
+  FeatureFlags,
   MinIOConfig,
   RAGConfig,
   SystemSettings,
 } from '@/lib/api'
 
 export type SettingsValidationIssue = {
-  section: 'Dify 外部知识库' | '对象存储' | '检索与生成'
+  section: 'Dify 外部知识库' | '对象存储' | '检索与生成' | '解析服务'
   message: string
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function issue(
   section: SettingsValidationIssue['section'],
@@ -39,9 +39,7 @@ function datasetIdsFromBinding(value: unknown): string[] | null {
 
   if (!value || typeof value !== 'object') return null
   const binding = value as Record<string, unknown>
-  return datasetIdsFromBinding(
-    binding.dataset_ids ?? binding.datasets ?? binding.dataset_id
-  )
+  return datasetIdsFromBinding(binding.dataset_ids ?? binding.datasets ?? binding.dataset_id)
 }
 
 function hasValidDatasetBinding(value: unknown): boolean {
@@ -100,10 +98,7 @@ export function validateDifyExternalKnowledgeConfig(
     return issue('Dify 外部知识库', '请先选择数据集并生成至少一条知识绑定。')
   }
   if (
-    bindings.some(
-      ([knowledgeId, value]) =>
-        !knowledgeId.trim() || !hasValidDatasetBinding(value)
-    )
+    bindings.some(([knowledgeId, value]) => !knowledgeId.trim() || !hasValidDatasetBinding(value))
   ) {
     return issue(
       'Dify 外部知识库',
@@ -185,8 +180,110 @@ export function validateRagConfig(config: RAGConfig): SettingsValidationIssue | 
   return null
 }
 
+type ConfiguredParserKey =
+  | 'mineru_enabled'
+  | 'etl4llm_enabled'
+  | 'marker_enabled'
+  | 'paddle_vl_enabled'
+  | 'textin_enabled'
+  | 'magicpdf_enabled'
+
+const CONFIGURED_PARSER_KEYS: readonly ConfiguredParserKey[] = [
+  'mineru_enabled',
+  'etl4llm_enabled',
+  'marker_enabled',
+  'paddle_vl_enabled',
+  'textin_enabled',
+  'magicpdf_enabled',
+]
+
+function parserEnabled(
+  key: ConfiguredParserKey,
+  changes: Partial<SystemSettings>,
+  currentSettings?: SystemSettings | null
+): boolean {
+  const changedFlags = changes.feature_flags as Partial<FeatureFlags> | undefined
+  return changedFlags?.[key] ?? currentSettings?.feature_flags?.[key] ?? false
+}
+
+/** 校验已启用解析服务的必要连接参数。 */
+export function validateParserServicesConfig(
+  changes: Partial<SystemSettings>,
+  currentSettings?: SystemSettings | null,
+  changedFeatureFlags: Partial<FeatureFlags> = changes.feature_flags || {}
+): SettingsValidationIssue | null {
+  const parserSettingsChanged =
+    CONFIGURED_PARSER_KEYS.some((key) => key in changedFeatureFlags) ||
+    ['mineru', 'etl4llm', 'marker', 'paddle_vl', 'textin', 'magicpdf'].some((key) => key in changes)
+  if (!parserSettingsChanged) return null
+
+  const mineru = changes.mineru ?? currentSettings?.mineru
+  if (parserEnabled('mineru_enabled', changes, currentSettings)) {
+    if (
+      !mineru ||
+      (!configuredSecret(mineru.local_server_url) && !configuredSecret(mineru.api_token))
+    ) {
+      return issue('解析服务', 'MinerU 已启用，请填写本地服务地址或在线 API 令牌。')
+    }
+    if (
+      mineru.backend === 'vlm-http-client' &&
+      configuredSecret(mineru.local_server_url) &&
+      !configuredSecret(mineru.vl_server)
+    ) {
+      return issue('解析服务', 'MinerU 使用 VLM HTTP 模式时，请填写模型服务地址。')
+    }
+  }
+
+  const etl4llm = changes.etl4llm ?? currentSettings?.etl4llm
+  if (
+    parserEnabled('etl4llm_enabled', changes, currentSettings) &&
+    !configuredSecret(etl4llm?.api_url || '')
+  ) {
+    return issue('解析服务', 'ETL4LLM 已启用，请填写服务地址。')
+  }
+
+  const marker = changes.marker ?? currentSettings?.marker
+  if (
+    parserEnabled('marker_enabled', changes, currentSettings) &&
+    !configuredSecret(marker?.api_url || '')
+  ) {
+    return issue('解析服务', 'Marker 已启用，请填写服务地址。')
+  }
+
+  const paddleVl = changes.paddle_vl ?? currentSettings?.paddle_vl
+  if (
+    parserEnabled('paddle_vl_enabled', changes, currentSettings) &&
+    !configuredSecret(paddleVl?.api_url || '')
+  ) {
+    return issue('解析服务', 'PaddleOCR-VL 已启用，请填写服务地址。')
+  }
+
+  const textIn = changes.textin ?? currentSettings?.textin
+  if (parserEnabled('textin_enabled', changes, currentSettings)) {
+    if (!configuredSecret(textIn?.api_url || '')) {
+      return issue('解析服务', 'TextIn 已启用，请填写 API 地址。')
+    }
+    if (!configuredSecret(textIn?.app_id || '') || !configuredSecret(textIn?.secret_code || '')) {
+      return issue('解析服务', 'TextIn 已启用，请同时填写 APP ID 和 Secret Code。')
+    }
+  }
+
+  const magicPdf = changes.magicpdf ?? currentSettings?.magicpdf
+  if (
+    parserEnabled('magicpdf_enabled', changes, currentSettings) &&
+    !configuredSecret(magicPdf?.api_url || '') &&
+    !configuredSecret(magicPdf?.cli || '')
+  ) {
+    return issue('解析服务', 'MagicPDF 已启用，请填写服务地址或本地命令。')
+  }
+
+  return null
+}
+
 export function validateSettingsChanges(
-  settings: Partial<SystemSettings>
+  settings: Partial<SystemSettings>,
+  currentSettings?: SystemSettings | null,
+  changedFeatureFlags?: Partial<FeatureFlags>
 ): SettingsValidationIssue | null {
   if (settings.rag) {
     const ragIssue = validateRagConfig(settings.rag)
@@ -194,9 +291,7 @@ export function validateSettingsChanges(
   }
 
   if (settings.dify_external_knowledge) {
-    const difyIssue = validateDifyExternalKnowledgeConfig(
-      settings.dify_external_knowledge
-    )
+    const difyIssue = validateDifyExternalKnowledgeConfig(settings.dify_external_knowledge)
     if (difyIssue) return difyIssue
   }
 
@@ -204,6 +299,9 @@ export function validateSettingsChanges(
     const minioIssue = validateMinIOConfig(settings.minio)
     if (minioIssue) return minioIssue
   }
+
+  const parserIssue = validateParserServicesConfig(settings, currentSettings, changedFeatureFlags)
+  if (parserIssue) return parserIssue
 
   return null
 }

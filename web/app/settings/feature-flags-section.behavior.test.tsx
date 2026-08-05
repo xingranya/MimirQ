@@ -24,8 +24,9 @@ const DEFAULT_FLAGS: FeatureFlags = {
 let root: Root | null = null
 
 beforeEach(() => {
-  ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-    .IS_REACT_ACT_ENVIRONMENT = true
+  ;(
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true
 })
 
 afterEach(() => {
@@ -53,7 +54,7 @@ function renderSection({
         getFeatureValue={(key) => editedFeatureFlags?.[key] ?? DEFAULT_FLAGS[key]}
         toggleFeature={toggleFeature}
         parserStatuses={{
-          mineru: { enabled: true, available: false, message: '连接失败' },
+          deepdoc: { enabled: true, available: false, message: '运行环境缺失' },
         }}
         disabled={disabled}
       />
@@ -63,15 +64,17 @@ function renderSection({
 }
 
 describe('功能开关分组', () => {
-  it('按三组显示全部十一项且每项只出现一次', () => {
+  it('只显示知识组织和内置解析，接入服务回到高级解析配置', () => {
     const { container } = renderSection()
 
     expect(container.textContent).toContain('知识组织')
-    expect(container.textContent).toContain('内置与本地解析')
-    expect(container.textContent).toContain('接入服务')
+    expect(container.textContent).toContain('内置解析')
+    expect(container.textContent).not.toContain('接入服务')
     const buttons = container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')
-    expect(buttons).toHaveLength(11)
-    expect(new Set([...buttons].map((button) => button.getAttribute('aria-labelledby'))).size).toBe(11)
+    expect(buttons).toHaveLength(5)
+    expect(new Set([...buttons].map((button) => button.getAttribute('aria-labelledby'))).size).toBe(
+      5
+    )
   })
 
   it('点击整行提交对应字段并显示未保存状态', () => {
@@ -103,9 +106,9 @@ describe('功能开关分组', () => {
   it('仅在后端提供状态时显示解析器运行结果', () => {
     const { container } = renderSection()
 
-    expect(container.querySelector('#feature-mineru_enabled-status')?.textContent).toBe(
+    expect(container.querySelector('#feature-deepdoc_enabled-status')?.textContent).toBe(
       '运行环境不可用'
     )
-    expect(container.querySelector('#feature-textin_enabled-status')).toBeNull()
+    expect(container.querySelector('#feature-mineru_enabled-status')).toBeNull()
   })
 })

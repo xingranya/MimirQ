@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DifyExternalKnowledgeConfig, MinIOConfig, RAGConfig } from '@/lib/api'
+import type {
+  DifyExternalKnowledgeConfig,
+  FeatureFlags,
+  MinIOConfig,
+  RAGConfig,
+  SystemSettings,
+} from '@/lib/api'
 import {
   validateDifyExternalKnowledgeConfig,
   validateMinIOConfig,
+  validateParserServicesConfig,
   validateRagConfig,
   validateSettingsChanges,
 } from './settings-validation'
@@ -43,6 +50,20 @@ const validRag: RAGConfig = {
   reranker_top_n: 20,
   show_image_in_answer: true,
   image_append_max: 3,
+}
+
+const disabledFeatureFlags: FeatureFlags = {
+  kg_enabled: false,
+  deepdoc_enabled: false,
+  docling_enabled: false,
+  etl4llm_enabled: false,
+  marker_enabled: false,
+  paddle_vl_enabled: false,
+  textin_enabled: false,
+  markitdown_enabled: false,
+  llama_index_enabled: false,
+  mineru_enabled: false,
+  magicpdf_enabled: false,
 }
 
 describe('设置保存校验', () => {
@@ -149,5 +170,59 @@ describe('设置保存校验', () => {
     const result = validateRagConfig({ ...validRag, ...patch })
     expect(result?.section).toBe('检索与生成')
     expect(result?.message).toContain(message)
+  })
+
+  it.each([
+    ['mineru_enabled', 'mineru', { local_server_url: '', api_token: '' }, 'MinerU'],
+    ['etl4llm_enabled', 'etl4llm', { api_url: '' }, 'ETL4LLM'],
+    ['marker_enabled', 'marker', { api_url: '' }, 'Marker'],
+    ['paddle_vl_enabled', 'paddle_vl', { api_url: '' }, 'PaddleOCR-VL'],
+    ['textin_enabled', 'textin', { api_url: '', app_id: '', secret_code: '' }, 'TextIn'],
+    ['magicpdf_enabled', 'magicpdf', { api_url: '', cli: '' }, 'MagicPDF'],
+  ] as const)('拦截缺少连接参数的解析服务 %s', (flag, configKey, config, serviceName) => {
+    const result = validateParserServicesConfig({
+      feature_flags: { ...disabledFeatureFlags, [flag]: true },
+      [configKey]: config,
+    })
+
+    expect(result?.section).toBe('解析服务')
+    expect(result?.message).toContain(serviceName)
+  })
+
+  it('启用解析服务时接受当前配置快照中的连接参数', () => {
+    const currentSettings = {
+      feature_flags: { etl4llm_enabled: false },
+      etl4llm: { api_url: 'http://etl4llm:10001/predict' },
+    } as SystemSettings
+
+    expect(
+      validateParserServicesConfig(
+        { feature_flags: { ...disabledFeatureFlags, etl4llm_enabled: true } },
+        currentSettings
+      )
+    ).toBeNull()
+  })
+
+  it('只修改非解析功能时不检查已有解析服务配置', () => {
+    const currentSettings = {
+      feature_flags: {
+        ...disabledFeatureFlags,
+        etl4llm_enabled: true,
+      },
+      etl4llm: { api_url: '' },
+    } as SystemSettings
+
+    expect(
+      validateParserServicesConfig(
+        {
+          feature_flags: {
+            ...currentSettings.feature_flags,
+            kg_enabled: true,
+          },
+        },
+        currentSettings,
+        { kg_enabled: true }
+      )
+    ).toBeNull()
   })
 })

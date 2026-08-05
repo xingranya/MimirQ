@@ -714,7 +714,7 @@ export function useSettingsPageState() {
         : {}),
     }
 
-    const validationIssue = validateSettingsChanges(pendingSettings)
+    const validationIssue = validateSettingsChanges(pendingSettings, settings, editedFeatureFlags)
     if (validationIssue) {
       setSaveMessage({
         type: 'error',
