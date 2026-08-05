@@ -909,6 +909,8 @@ def _build_jira_project_run_settings(cfg: dict[str, Any]) -> dict[str, Any]:
     access_settings = _jira_project_access_settings(cfg)
     user_agent = cfg.get("user_agent") if isinstance(cfg.get("user_agent"), str) else None
     auth_headers, headers = _jira_project_headers(cfg, user_agent=user_agent)
+    raw_max_comments = cfg.get("max_comments_per_issue")
+    max_comments_per_issue = 20 if raw_max_comments is None else int(raw_max_comments)
 
     return {
         "base_url": base_url,
@@ -919,7 +921,7 @@ def _build_jira_project_run_settings(cfg: dict[str, Any]) -> dict[str, Any]:
         "max_issues": max(1, min(int(cfg.get("max_issues") or 50), 500)),
         "page_size": max(1, min(int(cfg.get("page_size") or 25), 100)),
         "include_comments": bool(cfg.get("include_comments", True)),
-        "max_comments_per_issue": max(0, min(int(cfg.get("max_comments_per_issue") or 20), 200)),
+        "max_comments_per_issue": max(0, min(max_comments_per_issue, 200)),
         "custom_fields": custom_fields,
         "include_attachments": bool(include_attachments),
         "max_attachments_per_issue": int(max_attachments_per_issue),
