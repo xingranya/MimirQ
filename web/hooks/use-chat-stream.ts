@@ -28,6 +28,8 @@ type MutableRef<T> = {
   current: T
 }
 
+const CURRENT_RESPONSE_FRAME_CHARS = 120
+
 type UseChatStreamOptions = {
   conversationId?: string
   setConversationId: (conversationId: string | undefined) => void
@@ -82,9 +84,11 @@ export function useChatStream({
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeConversationIdRef = useRef<string | undefined>(conversationId)
   const fullResponseRef = useRef('')
+  const visibleResponseRef = useRef('')
   const currentStepsRef = useRef<string[]>([])
   const currentCitationsRef = useRef<Citation[]>([])
   const rafIdRef = useRef<number | null>(null)
+  const responseRenderWaitersRef = useRef<Array<() => void>>([])
   const streamRequestIdRef = useRef<string | null>(null)
   const stopActiveRequestRef = useRef<(() => void) | null>(null)
   const streamDiagnosticsRef = useRef<StreamDiagnostics | null>(null)
@@ -97,16 +101,24 @@ export function useChatStream({
     }
   }, [])
 
+  const resolveResponseRenderWaiters = useCallback(() => {
+    const waiters = responseRenderWaitersRef.current
+    responseRenderWaitersRef.current = []
+    for (const resolve of waiters) resolve()
+  }, [])
+
   const resetTransientState = useCallback(() => {
     clearRaf()
+    resolveResponseRenderWaiters()
     setCurrentResponse('')
     setCurrentCitations([])
     setCurrentSteps([])
     streamRequestIdRef.current = null
     fullResponseRef.current = ''
+    visibleResponseRef.current = ''
     currentStepsRef.current = []
     currentCitationsRef.current = []
-  }, [clearRaf])
+  }, [clearRaf, resolveResponseRenderWaiters])
 
   useEffect(() => {
     activeConversationIdRef.current = conversationId
@@ -134,16 +146,39 @@ export function useChatStream({
 
   const scheduleCurrentResponseUpdate = useCallback(() => {
     if (rafIdRef.current != null) return
-    rafIdRef.current = globalThis.window.requestAnimationFrame(() => {
-      rafIdRef.current = null
-      setCurrentResponse(fullResponseRef.current)
-    })
-  }, [])
 
-  const flushCurrentResponseUpdate = useCallback(() => {
-    clearRaf()
-    setCurrentResponse(fullResponseRef.current)
-  }, [clearRaf])
+    const renderNextFrame = () => {
+      rafIdRef.current = globalThis.window.requestAnimationFrame(() => {
+        rafIdRef.current = null
+        const targetResponse = fullResponseRef.current
+        const nextLength = Math.min(
+          targetResponse.length,
+          visibleResponseRef.current.length + CURRENT_RESPONSE_FRAME_CHARS
+        )
+        if (nextLength > visibleResponseRef.current.length) {
+          const nextResponse = targetResponse.slice(0, nextLength)
+          visibleResponseRef.current = nextResponse
+          setCurrentResponse(nextResponse)
+        }
+
+        if (visibleResponseRef.current.length < fullResponseRef.current.length) {
+          renderNextFrame()
+        } else {
+          resolveResponseRenderWaiters()
+        }
+      })
+    }
+
+    renderNextFrame()
+  }, [resolveResponseRenderWaiters])
+
+  const waitForCurrentResponseUpdate = useCallback(async () => {
+    if (visibleResponseRef.current.length >= fullResponseRef.current.length && rafIdRef.current == null) return
+    scheduleCurrentResponseUpdate()
+    await new Promise<void>((resolve) => {
+      responseRenderWaitersRef.current.push(resolve)
+    })
+  }, [scheduleCurrentResponseUpdate])
 
   const appendStep = useCallback((message: string | null) => {
     if (!message) return
@@ -224,8 +259,31 @@ export function useChatStream({
         let sawDone = false
         let streamAccepted = false
         let streamError: Error | null = null
+        let doneEvent: { data: Record<string, unknown>; requestId?: string } | null = null
+        let doneCommitted = false
         const streamDiagnostics = createStreamDiagnostics()
         streamDiagnosticsRef.current = streamDiagnostics
+
+        const commitDoneMessage = async () => {
+          if (!doneEvent || doneCommitted) return
+          doneCommitted = true
+          await waitForCurrentResponseUpdate()
+
+          const { data: doneData, requestId } = doneEvent
+          updateConversation(getConversationId(doneData.conversation_id))
+          const assistantMessage = buildDoneAssistantMessage({
+            assistantMessageId: getAssistantMessageId(doneData.assistant_message_id || doneData.message_id),
+            content: fullResponseRef.current,
+            citations,
+            steps: getStepList(currentStepsRef.current),
+            doneData,
+            structuredOutput,
+            requestId,
+          })
+
+          setMessages((prev) => [...prev, assistantMessage])
+          resetTransientState()
+        }
 
         try {
           await chatApi.streamChat(
@@ -259,24 +317,10 @@ export function useChatStream({
               if (event.type === 'done') {
                 if (timeoutId !== undefined) globalThis.window.clearTimeout(timeoutId)
                 sawDone = true
-                flushCurrentResponseUpdate()
-
-                const doneData = isRecord(event.data) ? event.data : {}
-
-                updateConversation(getConversationId(doneData.conversation_id))
-
-                const assistantMessage = buildDoneAssistantMessage({
-                  assistantMessageId: getAssistantMessageId(doneData.assistant_message_id || doneData.message_id),
-                  content: fullResponseRef.current,
-                  citations,
-                  steps: getStepList(currentStepsRef.current),
-                  doneData,
-                  structuredOutput,
+                doneEvent = {
+                  data: isRecord(event.data) ? event.data : {},
                   requestId: event.request_id,
-                })
-
-                setMessages((prev) => [...prev, assistantMessage])
-                resetTransientState()
+                }
                 return
               }
 
@@ -304,6 +348,7 @@ export function useChatStream({
           if (!sawFirstEvent || !sawDone) {
             throw new Error('SSE stream ended unexpectedly')
           }
+          await commitDoneMessage()
         } catch (streamErr) {
           const streamWasAborted = (streamErr as { name?: string })?.name === 'AbortError'
           if (streamError) throw streamError
@@ -311,6 +356,7 @@ export function useChatStream({
 
           if (sawDone) {
             reportClientWarning('SSE closed after done', streamErr)
+            await commitDoneMessage()
           } else if (streamAccepted && !streamError) {
             const recoveredMessage = await recoverStreamedAssistantMessage({
               conversationId: String(activeConversationIdRef.current || ''),
@@ -349,7 +395,6 @@ export function useChatStream({
           }
         }
 
-        flushCurrentResponseUpdate()
       } catch (err) {
         const maybeError = err as { name?: string; code?: string; message?: string }
         const isAbort =
@@ -405,7 +450,6 @@ export function useChatStream({
       documentIds,
       enableLongTermMemory,
       enableSummaryMemory,
-      flushCurrentResponseUpdate,
       isLoading,
       messagesRef,
       onError,
@@ -417,6 +461,7 @@ export function useChatStream({
       structuredOutput,
       structuredPreset,
       updateConversation,
+      waitForCurrentResponseUpdate,
     ]
   )
 

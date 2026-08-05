@@ -383,4 +383,73 @@ describe('useChatStream accepted-stream recovery', () => {
     })
     hook.unmount()
   })
+
+  it('网络合并大块 token 时仍按帧呈现正文', async () => {
+    const frames: Array<{ id: number; callback: FrameRequestCallback }> = []
+    let nextFrameId = 0
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      nextFrameId += 1
+      frames.push({ id: nextFrameId, callback })
+      return nextFrameId
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+      const index = frames.findIndex((frame) => frame.id === id)
+      if (index >= 0) frames.splice(index, 1)
+    })
+
+    let emitEvent: ((json: string) => void) | undefined
+    let finishStream: (() => void) | undefined
+    chatApiMock.streamChat.mockImplementation(async (_request: unknown, onJson: (json: string) => void, options?: { onOpen?: (meta: { requestId: string; conversationId?: string }) => void }) => {
+      options?.onOpen?.({ requestId: 'req-merged', conversationId: 'conv-merged' })
+      emitEvent = onJson
+      await new Promise<void>((resolve) => {
+        finishStream = resolve
+      })
+      return { requestId: 'req-merged', conversationId: 'conv-merged' }
+    })
+
+    const hook = renderChatStreamHook()
+    act(() => {
+      void hook.result.current.sendMessage('hello')
+    })
+    await waitForAssertion(() => expect(emitEvent).toBeTypeOf('function'))
+
+    const answer = '流'.repeat(360)
+    act(() => {
+      emitEvent?.(JSON.stringify({ type: 'token', data: { content: answer } }))
+      emitEvent?.(JSON.stringify({
+        type: 'done',
+        data: {
+          assistant_message_id: 'assistant-merged',
+          conversation_id: 'conv-merged',
+        },
+      }))
+      finishStream?.()
+    })
+
+    act(() => {
+      frames.shift()?.callback(0)
+    })
+    expect(hook.result.current.currentResponse).toBe(answer.slice(0, 120))
+    expect(hook.result.current.messages.filter((message) => message.role === 'assistant')).toHaveLength(0)
+
+    act(() => {
+      frames.shift()?.callback(16)
+    })
+    expect(hook.result.current.currentResponse).toBe(answer.slice(0, 240))
+    expect(hook.result.current.messages.filter((message) => message.role === 'assistant')).toHaveLength(0)
+
+    await act(async () => {
+      frames.shift()?.callback(32)
+      await Promise.resolve()
+    })
+    await waitForAssertion(() => {
+      expect(hook.result.current.messages.at(-1)).toMatchObject({
+        id: 'assistant-merged',
+        content: answer,
+      })
+      expect(hook.result.current.isLoading).toBe(false)
+    })
+    hook.unmount()
+  })
 })
