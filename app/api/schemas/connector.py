@@ -24,6 +24,8 @@ class ConnectorInfo(BaseModel):
     id: ConnectorId
     name: str
     description: str = ""
+    available: bool = True
+    unavailable_reason: str | None = None
     supports_incremental: bool = False
     supports_resume: bool = False
     supports_full_reconcile: bool = False

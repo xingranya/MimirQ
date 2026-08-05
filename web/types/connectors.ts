@@ -1,18 +1,12 @@
 import type { DocumentAccessMode, JsonObject } from './common'
-import type { DocumentPipelineOptions } from './backend'
+import type { ConnectorInfo as BackendConnectorInfo, DocumentPipelineOptions } from './backend'
 import type { DocumentAccessUpdateRequest } from './documents'
 
 // Backend may add connector ids over time; keep this open-ended.
 export type ConnectorId = string
 export type ConnectorRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
-export interface ConnectorInfo {
-  id: ConnectorId
-  name: string
-  description?: string
-  supports_incremental?: boolean
-  supports_resume?: boolean
-}
+export type ConnectorInfo = BackendConnectorInfo
 
 export interface UrlBatchConnectorConfig {
   [key: string]: unknown

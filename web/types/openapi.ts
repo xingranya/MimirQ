@@ -5671,7 +5671,7 @@ export interface paths {
         };
         /**
          * List Connectors
-         * @description List available connectors from the shared registry.
+         * @description 返回连接器目录及不含敏感配置的可用状态。
          */
         get: operations["list_connectors_api_v1_connectors_get"];
         put?: never;
@@ -9839,6 +9839,13 @@ export interface components {
              * @default
              */
             description: string;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
             /**
              * Supports Incremental
              * @default false
