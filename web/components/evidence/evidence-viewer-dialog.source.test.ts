@@ -24,4 +24,11 @@ describe('证据查看弹窗视觉契约', () => {
     expect(source).not.toContain('Evidence Snippet')
     expect(source).not.toContain('Provenance')
   })
+
+  it('详情和图片链接复制失败时提供统一反馈', () => {
+    expect(source).toContain("copyToClipboard(JSON.stringify(citation, null, 2), 'details')")
+    expect(source).toContain("copyToClipboard(resolvedImgUrl, 'image-link')")
+    expect(source).toContain("toast.error('复制失败，请检查浏览器剪贴板权限')")
+    expect(source).toContain("reportClientWarning('Evidence clipboard copy failed'")
+  })
 })

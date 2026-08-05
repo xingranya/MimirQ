@@ -9,6 +9,8 @@ import type { Citation } from '@/types'
 const mocks = vi.hoisted(() => ({
   openDocument: vi.fn(),
   onOpenChange: vi.fn(),
+  reportClientWarning: vi.fn(),
+  toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }))
 
@@ -21,8 +23,19 @@ vi.mock('@/components/auth-image', () => ({
   useResolvedAuthAssetUrl: (src?: string | null) => src ?? null,
 }))
 
+vi.mock('@/lib/citation-images', () => ({
+  resolveSafeCitationImageUrl: (src?: string | null) => src ?? null,
+}))
+
 vi.mock('sonner', () => ({
-  toast: { success: mocks.toastSuccess },
+  toast: {
+    error: mocks.toastError,
+    success: mocks.toastSuccess,
+  },
+}))
+
+vi.mock('@/lib/client-logging', () => ({
+  reportClientWarning: mocks.reportClientWarning,
 }))
 
 import { EvidenceViewerDialog } from './evidence-viewer-dialog'
@@ -38,12 +51,19 @@ const citation = {
   hit_type: 'text',
 } as Citation
 
-function DialogHarness() {
+const imageCitation = {
+  ...citation,
+  hit_type: 'image',
+  has_image: true,
+  img_url: '/api/v1/documents/image/image-1',
+} as Citation
+
+function DialogHarness({ evidence = citation }: Readonly<{ evidence?: Citation }>) {
   const [open, setOpen] = useState(true)
   return (
     <EvidenceViewerDialog
       open={open}
-      citation={open ? citation : null}
+      citation={open ? evidence : null}
       onOpenChange={(nextOpen) => {
         mocks.onOpenChange(nextOpen)
         setOpen(nextOpen)
@@ -55,12 +75,14 @@ function DialogHarness() {
 describe('证据查看弹窗', () => {
   let container: HTMLDivElement
   let root: Root
+  let originalClipboard: Clipboard | undefined
 
   beforeEach(() => {
     ;(
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true
     vi.clearAllMocks()
+    originalClipboard = navigator.clipboard
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -68,6 +90,10 @@ describe('证据查看弹窗', () => {
 
   afterEach(() => {
     act(() => root.unmount())
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: originalClipboard,
+    })
     document.body.innerHTML = ''
   })
 
@@ -102,4 +128,54 @@ describe('证据查看弹窗', () => {
     expect(document.body.querySelector('#evidence-content-title')?.textContent).toBe('证据内容')
     expect(document.body.querySelector('#evidence-metadata-title')?.textContent).toBe('溯源信息')
   })
+
+  it('浏览器不提供剪贴板接口时明确提示详情复制失败', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    })
+    act(() => root.render(<DialogHarness />))
+
+    await act(async () => {
+      findButton('复制详情')?.click()
+    })
+
+    expect(mocks.toastError).toHaveBeenCalledWith('复制失败，请检查浏览器剪贴板权限')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(mocks.reportClientWarning).toHaveBeenCalledWith(
+      'Evidence clipboard copy failed',
+      expect.any(Error),
+      { tags: { target: 'details' } }
+    )
+  })
+
+  it('剪贴板拒绝写入时明确提示图片链接复制失败', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('permission denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    act(() => root.render(<DialogHarness evidence={imageCitation} />))
+
+    await act(async () => {
+      findButton('复制图片链接')?.click()
+    })
+
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/documents/image/image-1')
+    )
+    expect(mocks.toastError).toHaveBeenCalledWith('复制失败，请检查浏览器剪贴板权限')
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(mocks.reportClientWarning).toHaveBeenCalledWith(
+      'Evidence clipboard copy failed',
+      expect.any(Error),
+      { tags: { target: 'image-link' } }
+    )
+  })
+
+  function findButton(label: string) {
+    return Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === label
+    )
+  }
 })

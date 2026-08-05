@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { resolveSafeCitationImageUrl } from '@/lib/citation-images'
+import { reportClientWarning } from '@/lib/client-logging'
 import { getDocumentPreviewAnchorFromCitation } from '@/lib/document-preview-anchor'
 import { toPrimitiveString } from '@/lib/primitive-text'
 import type { DocumentViewSourceContext } from '@/store/document-view'
@@ -97,15 +98,26 @@ function EvidenceKindIcon({ kind }: Readonly<{ kind: EvidenceKind }>) {
   return <FileText className="size-3.5" aria-hidden="true" />
 }
 
-async function copyToClipboard(text: string) {
+type ClipboardCopyTarget = 'details' | 'image-link'
+
+async function copyToClipboard(text: string, target: ClipboardCopyTarget) {
   const raw = String(text || '')
-  if (!raw) return false
+  if (!raw) {
+    toast.error('没有可复制的内容')
+    return false
+  }
 
   try {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return false
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      throw new Error('Clipboard API unavailable')
+    }
     await navigator.clipboard.writeText(raw)
     return true
-  } catch {
+  } catch (error) {
+    reportClientWarning('Evidence clipboard copy failed', error, {
+      tags: { target },
+    })
+    toast.error('复制失败，请检查浏览器剪贴板权限')
     return false
   }
 }
@@ -167,7 +179,7 @@ export function EvidenceViewerDialog({
 
   const handleCopyDetails = React.useCallback(async () => {
     if (!citation) return
-    const copied = await copyToClipboard(JSON.stringify(citation, null, 2))
+    const copied = await copyToClipboard(JSON.stringify(citation, null, 2), 'details')
     if (copied) toast.success('已复制证据信息')
   }, [citation])
 
@@ -314,7 +326,7 @@ export function EvidenceViewerDialog({
                       size="sm"
                       className="w-full gap-2 sm:w-auto"
                       onClick={async () => {
-                        const copied = await copyToClipboard(resolvedImgUrl)
+                        const copied = await copyToClipboard(resolvedImgUrl, 'image-link')
                         if (copied) toast.success('已复制图片链接')
                       }}
                     >
