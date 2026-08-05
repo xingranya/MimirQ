@@ -27,7 +27,8 @@ import type { Conversation, Dataset, Document } from "@/types"
 import { chatApi, datasetApi, documentApi } from "@/lib/api"
 import { globalEventBus } from "@/lib/event-bus"
 import { queryKeys } from '@/lib/query-keys'
-import { usePathname, useRouter } from "@/i18n/navigation"
+import { usePathname } from "@/i18n/navigation"
+import { useGuardedNavigation } from '@/components/providers/navigation-guard-provider'
 import { useCommandMenuState } from "@/store/command-menu"
 import { useDocumentView } from "@/store/document-view"
 import { useTenantAccess } from '@/hooks/use-tenant-access'
@@ -190,7 +191,7 @@ export function CommandMenu() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("")
   const [pendingChordPrefix, setPendingChordPrefix] = React.useState<string | null>(null)
   const chordTimerRef = React.useRef<number | null>(null)
-  const router = useRouter()
+  const guardedNavigation = useGuardedNavigation()
   const pathname = usePathname()
   const { setTheme } = useTheme()
   const t = useTranslations('CommandMenu')
@@ -273,9 +274,8 @@ export function CommandMenu() {
 
   const resumeLastDocumentContext = React.useCallback(() => {
     if (!hasResumeTarget) return
-    reopenLastDocument()
-    router.push("/")
-  }, [hasResumeTarget, reopenLastDocument, router])
+    guardedNavigation.push("/", reopenLastDocument)
+  }, [guardedNavigation, hasResumeTarget, reopenLastDocument])
 
   const clearPendingChord = React.useCallback(() => {
     setPendingChordPrefix(null)
@@ -348,11 +348,11 @@ export function CommandMenu() {
   const keyChordCommands = React.useMemo<KeyChordCommand[]>(
     () =>
       ([
-        { id: "documents", key: "g d", visibilityKey: undefined, run: () => router.push("/knowledge") },
-        { id: "chat", key: "g c", visibilityKey: undefined, run: () => router.push("/") },
-        { id: "graph", key: "g g", visibilityKey: 'knowledgeGraph', run: () => router.push("/graph") },
-        { id: "observability", key: "g o", visibilityKey: undefined, run: () => router.push("/observability") },
-        { id: "slice", key: "f s", visibilityKey: undefined, run: () => router.push("/chunk-preview") },
+        { id: "documents", key: "g d", visibilityKey: undefined, run: () => guardedNavigation.push("/knowledge") },
+        { id: "chat", key: "g c", visibilityKey: undefined, run: () => guardedNavigation.push("/") },
+        { id: "graph", key: "g g", visibilityKey: 'knowledgeGraph', run: () => guardedNavigation.push("/graph") },
+        { id: "observability", key: "g o", visibilityKey: undefined, run: () => guardedNavigation.push("/observability") },
+        { id: "slice", key: "f s", visibilityKey: undefined, run: () => guardedNavigation.push("/chunk-preview") },
         { id: "resume", key: "g v", visibilityKey: undefined, run: resumeLastDocumentContext },
       ] as const).filter((command) => canShowNavigationModule(command.visibilityKey)).map(({ id, key, visibilityKey, run }) => ({
         id,
@@ -365,7 +365,7 @@ export function CommandMenu() {
             : t(`keyChords.${id}.description`),
         run,
       })),
-    [canShowNavigationModule, hasResumeTarget, resumeLastDocumentContext, router, t]
+    [canShowNavigationModule, guardedNavigation, hasResumeTarget, resumeLastDocumentContext, t]
   )
 
   const chordPrefixes = React.useMemo(
@@ -458,7 +458,7 @@ export function CommandMenu() {
               prompt: currentViewPrompt.prompt,
               autorun: "1",
             })
-            router.push(`/?${params.toString()}`)
+            guardedNavigation.push(`/?${params.toString()}`)
             return
           }
 
@@ -467,17 +467,17 @@ export function CommandMenu() {
               globalEventBus.emit('ingestion:download-report', undefined)
               return
             }
-            router.push("/knowledge/ingestion")
+            guardedNavigation.push("/knowledge/ingestion")
             return
           }
 
           if (id === "upload") {
-            router.push("/knowledge")
+            guardedNavigation.push("/knowledge")
             return
           }
 
           if (id === "stats") {
-            router.push("/usage")
+            guardedNavigation.push("/usage")
             return
           }
 
@@ -486,7 +486,7 @@ export function CommandMenu() {
               globalEventBus.emit('ingestion:retry-all-failed', undefined)
               return
             }
-            router.push("/knowledge/ingestion")
+            guardedNavigation.push("/knowledge/ingestion")
             return
           }
 
@@ -495,7 +495,7 @@ export function CommandMenu() {
               globalEventBus.emit('ingestion:cancel-all-active', undefined)
               return
             }
-            router.push("/knowledge/ingestion")
+            guardedNavigation.push("/knowledge/ingestion")
             return
           }
 
@@ -504,56 +504,56 @@ export function CommandMenu() {
               globalEventBus.emit('ingestion:open-precheck', undefined)
               return
             }
-            router.push("/datasets")
+            guardedNavigation.push("/datasets")
             return
           }
 
           if (id === "datasets") {
-            router.push("/datasets")
+            guardedNavigation.push("/datasets")
             return
           }
 
           if (id === "history") {
-            router.push("/history")
+            guardedNavigation.push("/history")
             return
           }
 
           if (id === "graph") {
-            router.push("/graph")
+            guardedNavigation.push("/graph")
             return
           }
 
           if (id === "diagnostics") {
-            router.push("/diagnostics")
+            guardedNavigation.push("/diagnostics")
             return
           }
 
           if (id === "settings") {
-            router.push("/settings")
+            guardedNavigation.push("/settings")
             return
           }
 
           if (id === "parsing") {
-            router.push("/parsing")
+            guardedNavigation.push("/parsing")
             return
           }
 
           if (id === "reports") {
-            router.push("/reports")
+            guardedNavigation.push("/reports")
             return
           }
 
           if (id === "observability") {
-            router.push("/observability")
+            guardedNavigation.push("/observability")
             return
           }
 
           if (id === "governance") {
-            router.push("/data-governance")
+            guardedNavigation.push("/data-governance")
           }
         },
       })),
-    [currentViewPrompt.description, currentViewPrompt.prompt, hasResumeTarget, pathname, resumeLastDocumentContext, router, t]
+    [currentViewPrompt.description, currentViewPrompt.prompt, guardedNavigation, hasResumeTarget, pathname, resumeLastDocumentContext, t]
   )
 
   const viewerShortcutDocs = React.useMemo<ShortcutDocItem[]>(
@@ -588,13 +588,13 @@ export function CommandMenu() {
   const moduleWorkbenchItems = React.useMemo<ModuleWorkbenchItem[]>(
     () =>
       ([
-        { id: "knowledge", icon: Database, visibilityKey: undefined, run: () => router.push("/knowledge") },
-        { id: "graph", icon: Workflow, visibilityKey: 'knowledgeGraph', run: () => router.push("/graph") },
-        { id: "slices", icon: FileText, visibilityKey: undefined, run: () => router.push("/chunk-preview") },
-        { id: "parsing", icon: FileText, visibilityKey: undefined, run: () => router.push("/parsing") },
-        { id: "reports", icon: FileText, visibilityKey: 'reports', run: () => router.push("/reports") },
-        { id: "observability", icon: Activity, visibilityKey: undefined, run: () => router.push("/observability") },
-        { id: "governance", icon: Database, visibilityKey: undefined, run: () => router.push("/data-governance") },
+        { id: "knowledge", icon: Database, visibilityKey: undefined, run: () => guardedNavigation.push("/knowledge") },
+        { id: "graph", icon: Workflow, visibilityKey: 'knowledgeGraph', run: () => guardedNavigation.push("/graph") },
+        { id: "slices", icon: FileText, visibilityKey: undefined, run: () => guardedNavigation.push("/chunk-preview") },
+        { id: "parsing", icon: FileText, visibilityKey: undefined, run: () => guardedNavigation.push("/parsing") },
+        { id: "reports", icon: FileText, visibilityKey: 'reports', run: () => guardedNavigation.push("/reports") },
+        { id: "observability", icon: Activity, visibilityKey: undefined, run: () => guardedNavigation.push("/observability") },
+        { id: "governance", icon: Database, visibilityKey: undefined, run: () => guardedNavigation.push("/data-governance") },
       ] as const)
         .filter((item) => canShowNavigationModule(item.visibilityKey))
         .map(({ id, icon, visibilityKey, run }) => ({
@@ -606,7 +606,7 @@ export function CommandMenu() {
         icon,
         run,
       })),
-    [canShowNavigationModule, router, t]
+    [canShowNavigationModule, guardedNavigation, t]
   )
 
   const moduleWorkbenchResults = React.useMemo(() => {
@@ -621,22 +621,22 @@ export function CommandMenu() {
 
   const navigationItems = React.useMemo(
     () => [
-      { icon: Home, label: t("navigation.home"), run: () => router.push("/") },
-      { icon: MessageSquare, label: t("navigation.newConversation"), run: () => router.push("/") },
-      { icon: Database, label: t("navigation.knowledge"), run: () => router.push("/knowledge") },
-      { icon: FileText, label: t("navigation.parsing"), run: () => router.push("/parsing") },
-      { icon: History, label: t("navigation.history"), run: () => router.push("/history") },
-      { icon: Settings, label: t("navigation.settings"), run: () => router.push("/settings") },
+      { icon: Home, label: t("navigation.home"), run: () => guardedNavigation.push("/") },
+      { icon: MessageSquare, label: t("navigation.newConversation"), run: () => guardedNavigation.push("/") },
+      { icon: Database, label: t("navigation.knowledge"), run: () => guardedNavigation.push("/knowledge") },
+      { icon: FileText, label: t("navigation.parsing"), run: () => guardedNavigation.push("/parsing") },
+      { icon: History, label: t("navigation.history"), run: () => guardedNavigation.push("/history") },
+      { icon: Settings, label: t("navigation.settings"), run: () => guardedNavigation.push("/settings") },
     ],
-    [router, t]
+    [guardedNavigation, t]
   )
 
   const actionItems = React.useMemo(
     () => [
-      { icon: Upload, label: t("actions.uploadDocument"), run: () => router.push("/knowledge") },
-      { icon: Settings, label: t("actions.ragSettings"), run: () => router.push("/?rag=1") },
+      { icon: Upload, label: t("actions.uploadDocument"), run: () => guardedNavigation.push("/knowledge") },
+      { icon: Settings, label: t("actions.ragSettings"), run: () => guardedNavigation.push("/?rag=1") },
     ],
-    [router, t]
+    [guardedNavigation, t]
   )
 
   const themeItems = React.useMemo(
@@ -833,7 +833,7 @@ export function CommandMenu() {
                           prompt: trimmedQuery,
                           autorun: "1",
                         })
-                        router.push(`/?${params.toString()}`)
+                        guardedNavigation.push(`/?${params.toString()}`)
                       })
                     }
                   >
@@ -890,8 +890,7 @@ export function CommandMenu() {
                     value={doc.filename}
                     onSelect={() =>
                       runCommand(() => {
-                        openDocument(doc.id)
-                        router.push("/")
+                        guardedNavigation.push("/", () => openDocument(doc.id))
                       })
                     }
                   >
@@ -920,7 +919,9 @@ export function CommandMenu() {
                   <CommandItem
                     key={dataset.id}
                     value={`${dataset.name} ${dataset.description || ""}`}
-                    onSelect={() => runCommand(() => router.push(`/datasets/${dataset.id}/profile`))}
+                    onSelect={() =>
+                      runCommand(() => guardedNavigation.push(`/datasets/${dataset.id}/profile`))
+                    }
                   >
                     <Database className="mr-2 size-4" />
                     <div className="flex min-w-0 flex-1 flex-col">
@@ -952,7 +953,9 @@ export function CommandMenu() {
                   <CommandItem
                     key={conversation.id}
                     value={`${conversation.title || ""} ${conversation.last_message || ""}`}
-                    onSelect={() => runCommand(() => router.push(`/history?id=${conversation.id}`))}
+                    onSelect={() =>
+                      runCommand(() => guardedNavigation.push(`/history?id=${conversation.id}`))
+                    }
                   >
                     <MessageSquare className="mr-2 size-4" />
                     <div className="flex min-w-0 flex-1 flex-col">

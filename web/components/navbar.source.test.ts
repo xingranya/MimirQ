@@ -17,6 +17,15 @@ describe('navbar source', () => {
     expect(src).toContain('prefetch={false}')
   })
 
+  it('routes button actions through the shared unsaved-change guard', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
+
+    expect(src).toContain('useGuardedNavigation()')
+    expect(src).toContain('guardedNavigation.push')
+    expect(src).toContain('guardedNavigation.run(logout)')
+    expect(src).not.toContain('router.push')
+  })
+
   it('uses locale-aware navigation helpers and has locale wrappers for navbar routes', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'navbar.tsx'), 'utf8')
     const webRoot = path.resolve(__dirname, '..')

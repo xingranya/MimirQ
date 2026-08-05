@@ -38,9 +38,8 @@ describe('成员组页面源码契约', () => {
   it('仅允许保存实际修改并保护未保存内容', () => {
     expect(detailSource).toContain('const groupHasChanges = useMemo')
     expect(detailSource).toContain('return groupHasChanges')
-    expect(detailSource).toContain('useUnsavedNavigationGuard')
-    expect(detailSource).toContain('<UnsavedChangesDialog')
-    expect(detailSource).toContain("navigationGuard.requestNavigation('/settings/groups')")
+    expect(detailSource).toContain('useUnsavedChanges(groupHasChanges)')
+    expect(detailSource).toContain("guardedNavigation.push('/settings/groups')")
   })
 
   it('成员组详情加载失败时禁止编辑和保存', () => {

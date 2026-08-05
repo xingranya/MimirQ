@@ -18,4 +18,12 @@ describe('command menu remote search', () => {
     expect(source).toContain('queryKeys.chat.conversations(conversationSearchParams)')
     expect(source).toContain('chatApi.listConversations(conversationSearchParams)')
   })
+
+  it('all route commands use the shared unsaved-change guard', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, 'command-menu.tsx'), 'utf8')
+
+    expect(source).toContain('useGuardedNavigation()')
+    expect(source).toContain('guardedNavigation.push')
+    expect(source).not.toContain('router.push')
+  })
 })

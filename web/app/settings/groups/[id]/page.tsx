@@ -24,7 +24,6 @@ import { formatApiError } from '@/lib/api-errors'
 import { TENANT_PERMISSIONS, tenantAccessAllows } from '@/lib/tenant-permissions'
 import { groupApi } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
-import { useRouter } from '@/i18n/navigation'
 import type { TenantGroupMemberListResponse, TenantGroupMemberOut, TenantGroupOut } from '@/types/backend'
 import {
   AlertDialog,
@@ -37,8 +36,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
-import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
+import {
+  useGuardedNavigation,
+  useUnsavedChanges,
+} from '@/components/providers/navigation-guard-provider'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import {
   MAX_GROUP_MEMBERS_PER_REQUEST,
@@ -72,7 +73,7 @@ export default function SettingsGroupDetailPage() {
 }
 
 function SettingsGroupDetailPageContent() {
-  const router = useRouter()
+  const guardedNavigation = useGuardedNavigation()
   const queryClient = useQueryClient()
   const tenantAccessQuery = useTenantAccess()
   const canManageGroups = tenantAccessAllows(
@@ -287,11 +288,7 @@ function SettingsGroupDetailPageContent() {
   const title = group?.name || '成员组详情'
   const savingGroup = saveGroupMutation.isPending
   const adding = addMembersMutation.isPending
-  const navigate = useCallback((href: string) => router.push(href), [router])
-  const navigationGuard = useUnsavedNavigationGuard({
-    enabled: groupHasChanges,
-    onNavigate: navigate,
-  })
+  useUnsavedChanges(groupHasChanges)
 
   return (
     <>
@@ -323,7 +320,7 @@ function SettingsGroupDetailPageContent() {
             variant="ghost"
             size="sm"
             className="h-9 gap-2 rounded-md px-2 text-muted-foreground"
-            onClick={() => navigationGuard.requestNavigation('/settings/groups')}
+            onClick={() => guardedNavigation.push('/settings/groups')}
           >
             <ArrowLeft className="size-4" />
             返回成员组
@@ -636,15 +633,6 @@ function SettingsGroupDetailPageContent() {
             </div>
           </section>
         </div>
-        <UnsavedChangesDialog
-          open={navigationGuard.navigationPending}
-          onOpenChange={(open) => {
-            if (!open) navigationGuard.cancelNavigation()
-          }}
-          onDiscard={navigationGuard.confirmNavigation}
-          title="放弃成员组修改？"
-          description="成员组名称或外部目录标识尚未保存。继续后，这些修改将丢失。"
-        />
       </PageScaffold>
     </>
   )

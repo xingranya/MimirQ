@@ -53,6 +53,7 @@ import { useBackendReady } from '@/hooks/use-backend-ready'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { useCommandMenuState } from '@/store/command-menu'
+import { useGuardedNavigation } from '@/components/providers/navigation-guard-provider'
 import { TENANT_PERMISSIONS, tenantAccessAllows, type TenantPermission } from '@/lib/tenant-permissions'
 import { canShowAdminControlledNavigationModule, type AdminControlledNavigationModule } from '@/lib/navigation-visibility'
 import { UI_LAYER_CLASS } from '@/lib/ui-layers'
@@ -244,6 +245,7 @@ export function Navbar({
   const isMobile = externalIsMobile ?? detectedIsMobile
   const pathname = usePathname()
   const router = useRouter()
+  const guardedNavigation = useGuardedNavigation()
   const { user, isAuthenticated, isDevMode, logout } = useAuth()
   const t = useTranslations('Navbar')
   const { data: backendMeta } = useBackendMetaDetails()
@@ -569,7 +571,7 @@ export function Navbar({
                   <Button
                     variant="default"
                     size="icon"
-                    onClick={() => router.push('/')}
+                    onClick={() => guardedNavigation.push('/')}
                     aria-label={t('actions.newConversation')}
                   >
                     <Plus className="size-4" />
@@ -673,7 +675,7 @@ export function Navbar({
             variant="default"
             className="h-10 w-full justify-start gap-2 px-3 font-semibold"
             onClick={() => {
-              router.push('/')
+              guardedNavigation.push('/')
               closeSidebarOnMobile()
             }}
           >
@@ -785,9 +787,9 @@ export function Navbar({
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1 text-left transition-colors hover:bg-sidebar-accent focus-ring"
               onClick={() => {
                 if (isAuthenticated) {
-                  router.push(canOpenSettings ? '/settings' : '/')
+                  guardedNavigation.push(canOpenSettings ? '/settings' : '/')
                 } else {
-                  router.push('/auth')
+                  guardedNavigation.push('/auth')
                 }
                 closeSidebarOnMobile()
               }}
@@ -816,10 +818,10 @@ export function Navbar({
                 className="size-8 hover:bg-sidebar-accent hover:text-destructive"
                 onClick={() => {
                   if (isAuthenticated) {
-                    logout()
+                    guardedNavigation.run(logout)
                     return
                   }
-                  router.push('/auth')
+                  guardedNavigation.push('/auth')
                 }}
                 title={isAuthenticated ? t('auth.logout') : t('auth.login')}
                 aria-label={isAuthenticated ? t('auth.logout') : t('auth.login')}

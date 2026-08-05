@@ -62,7 +62,7 @@ describe('设置页信息架构', () => {
     expect(settingsPageSource).toContain('data-testid="settings-save-bar"')
     expect(settingsPageSource).toContain('state.dirtySectionCount')
     expect(settingsPageSource).toContain('所有设置已保存')
-    expect(settingsPageSource).toContain('放弃未保存的修改？')
+    expect(settingsPageSource).toContain('useUnsavedChanges(state.hasChanges)')
   })
 
   it('按后端写能力进入只读模式', () => {

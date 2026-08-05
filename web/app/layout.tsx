@@ -11,6 +11,7 @@ import { SonnerToaster } from "@/components/sonner-toaster"
 import { CommandMenu } from "@/components/command-menu"
 import { FluidCursor } from "@/components/ui/fluid-cursor"
 import { QueryProvider } from "@/components/providers/query-provider"
+import { NavigationGuardProvider } from '@/components/providers/navigation-guard-provider'
 import { ServiceWorkerRegistrar } from "@/components/providers/service-worker-registrar"
 import { WebVitalsReporter } from "@/components/providers/web-vitals-reporter"
 import { RouteScrollReset } from "@/components/route-scroll-reset"
@@ -85,14 +86,16 @@ export default async function RootLayout({
             nonce={cspNonce}
           >
             <QueryProvider>
-              <ServiceWorkerRegistrar />
-              <WebVitalsReporter />
-              <SonnerToaster />
-              <ThemeAppearanceProvider />
-              <CommandMenu />
-              <RouteScrollReset />
-              {enableFluidCursor ? <FluidCursor /> : null}
-              <AuthGuard>{children}</AuthGuard>
+              <NavigationGuardProvider>
+                <ServiceWorkerRegistrar />
+                <WebVitalsReporter />
+                <SonnerToaster />
+                <ThemeAppearanceProvider />
+                <CommandMenu />
+                <RouteScrollReset />
+                {enableFluidCursor ? <FluidCursor /> : null}
+                <AuthGuard>{children}</AuthGuard>
+              </NavigationGuardProvider>
             </QueryProvider>
           </ThemeProvider>
         </NextIntlClientProvider>

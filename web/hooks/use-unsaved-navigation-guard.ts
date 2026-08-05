@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import {
+  useGuardedNavigation,
+  useUnsavedChanges,
+} from '@/components/providers/navigation-guard-provider'
+
 type UnsavedNavigationGuardOptions = {
   enabled: boolean
   onNavigate: (href: string) => void
@@ -42,10 +47,12 @@ export function useUnsavedNavigationGuard({
   enabled,
   onNavigate,
 }: Readonly<UnsavedNavigationGuardOptions>) {
+  const guardedNavigation = useGuardedNavigation()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
+  useUnsavedChanges(enabled)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || guardedNavigation.isAvailable) return
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
@@ -66,18 +73,22 @@ export function useUnsavedNavigationGuard({
       globalThis.window.removeEventListener('beforeunload', handleBeforeUnload)
       globalThis.document.removeEventListener('click', handleDocumentClick, true)
     }
-  }, [enabled])
+  }, [enabled, guardedNavigation.isAvailable])
 
   const cancelNavigation = useCallback(() => setPendingHref(null), [])
   const requestNavigation = useCallback(
     (href: string) => {
+      if (guardedNavigation.isAvailable) {
+        guardedNavigation.run(() => onNavigate(href))
+        return
+      }
       if (enabled) {
         setPendingHref(href)
         return
       }
       onNavigate(href)
     },
-    [enabled, onNavigate]
+    [enabled, guardedNavigation, onNavigate]
   )
   const confirmNavigation = useCallback(() => {
     if (!pendingHref) return
@@ -89,7 +100,7 @@ export function useUnsavedNavigationGuard({
   return {
     cancelNavigation,
     confirmNavigation,
-    navigationPending: enabled && pendingHref !== null,
+    navigationPending: !guardedNavigation.isAvailable && enabled && pendingHref !== null,
     pendingHref,
     requestNavigation,
   }

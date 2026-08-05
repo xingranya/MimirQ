@@ -5,21 +5,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { TenantPermissionGate } from '@/components/auth/tenant-permission-gate'
 import { ModelConfigDialog } from '@/components/model-config-dialog'
 import { Button } from '@/components/ui/button'
 import { PageScaffold } from '@/components/ui/page-scaffold'
 import { QueryErrorState } from '@/components/ui/query-error-state'
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog'
 import {
   Select,
   SelectContent,
@@ -51,8 +42,7 @@ import { CheckCircle2, ChevronDown, RefreshCw, Save, Search, XCircle } from 'luc
 import { cn } from '@/lib/utils'
 import { TENANT_PERMISSIONS } from '@/lib/tenant-permissions'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
-import { useUnsavedNavigationGuard } from '@/hooks/use-unsaved-navigation-guard'
-import { useRouter } from '@/i18n/navigation'
+import { useUnsavedChanges } from '@/components/providers/navigation-guard-provider'
 import { tenantAccessIsAdmin } from '@/lib/navigation-visibility'
 import { settingsTextTokens } from '@/components/ui/system-page-tokens'
 
@@ -113,33 +103,6 @@ function SettingsSaveFeedback({
         </div>
       </div>
     </div>
-  )
-}
-
-function UnsavedSettingsDialog({
-  open,
-  onOpenChange,
-  onDiscard,
-}: Readonly<{
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onDiscard: () => void
-}>) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>放弃未保存的修改？</AlertDialogTitle>
-          <AlertDialogDescription>
-            当前设置尚未保存。继续后，这些修改将丢失。
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>继续编辑</AlertDialogCancel>
-          <AlertDialogAction onClick={onDiscard}>放弃修改</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   )
 }
 
@@ -302,17 +265,12 @@ export default function SettingsPage() {
 
 function SettingsPageContent() {
   const state = useSettingsPageState()
-  const router = useRouter()
   const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
   const access = useTenantAccess()
   const isAdmin = tenantAccessIsAdmin(access.data)
   const { parserBackend, setParserBackend } = useParserBackendPreference()
   const { chunkStrategy, setChunkStrategy } = useChunkStrategyPreference()
-  const navigate = useCallback((href: string) => router.push(href), [router])
-  const navigationGuard = useUnsavedNavigationGuard({
-    enabled: state.hasChanges,
-    onNavigate: navigate,
-  })
+  useUnsavedChanges(state.hasChanges)
   const refreshSettings = useCallback(() => {
     if (state.hasChanges) {
       setRefreshConfirmOpen(true)
@@ -411,14 +369,7 @@ function SettingsPageContent() {
         onClose={() => state.setDialogOpen(false)}
         onSave={state.handleSaveConfig}
       />
-      <UnsavedSettingsDialog
-        open={navigationGuard.navigationPending}
-        onOpenChange={(open) => {
-          if (!open) navigationGuard.cancelNavigation()
-        }}
-        onDiscard={navigationGuard.confirmNavigation}
-      />
-      <UnsavedSettingsDialog
+      <UnsavedChangesDialog
         open={refreshConfirmOpen}
         onOpenChange={setRefreshConfirmOpen}
         onDiscard={() => {
