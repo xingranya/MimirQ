@@ -599,7 +599,7 @@ export function useSettingsPageState() {
         modelFile: ltrUploadModelFile,
         manifestFile: ltrUploadManifestFile,
       })
-      setLtrMessage({ type: 'success', text: '已注册 LTR 模型' })
+      setLtrMessage({ type: 'success', text: '已注册重排序模型' })
       setLtrUploadModelFile(null)
       setLtrUploadManifestFile(null)
       setLtrUploadResetKey((key) => key + 1)
@@ -618,7 +618,7 @@ export function useSettingsPageState() {
     setLtrMessage(null)
     try {
       await ltrApi.activateModel(mid)
-      setLtrMessage({ type: 'success', text: `已激活模型: ${shortId(mid, 12)}` })
+      setLtrMessage({ type: 'success', text: `已激活模型：${shortId(mid, 12)}` })
       await loadLtrModels()
     } catch (error) {
       setLtrMessage({ type: 'error', text: formatApiError(error, '激活失败') })
@@ -1008,6 +1008,8 @@ export function useSettingsPageState() {
     ltrLoading,
     ltrMessage,
     ltrModels,
+    ltrUploadManifestFileName: ltrUploadManifestFile?.name || '',
+    ltrUploadModelFileName: ltrUploadModelFile?.name || '',
     ltrUploadReady: Boolean(ltrUploadModelFile && ltrUploadManifestFile),
     ltrUploadResetKey,
     ltrUploading,

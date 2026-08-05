@@ -726,6 +726,8 @@ function SettingsContent({
                       ltrError={state.ltrError}
                       ltrMessage={state.ltrMessage}
                       ltrUploading={state.ltrUploading}
+                      ltrUploadManifestFileName={state.ltrUploadManifestFileName}
+                      ltrUploadModelFileName={state.ltrUploadModelFileName}
                       ltrUploadReady={state.ltrUploadReady}
                       ltrUploadResetKey={state.ltrUploadResetKey}
                       ltrLoading={state.ltrLoading}
