@@ -14,7 +14,11 @@ describe('网址导入弹窗与菜单视觉契约', () => {
     for (const source of [singleSource, batchSource]) {
       expect(source).toContain('grid-rows-[auto,1fr,auto]')
       expect(source).toContain('min-h-0 overflow-y-auto')
-      expect(source).toContain('flex flex-col-reverse')
+      expect(source).toContain('flex flex-col gap-2')
+      expect(source).toContain('sm:flex-row-reverse')
+      expect(source).toContain('required')
+      expect(source).toContain('onOpenChange={onOpenChange}')
+      expect(source).not.toContain('if (!nextOpen && submitting) return')
       expect(source).not.toMatch(/URL_INGEST_ENABLED|URL 批量导入（Connector）|rounded-(?:xl|2xl|3xl)|backdrop-blur|shadow-(?:sm|lg|xl|soft|strong)/)
     }
   })

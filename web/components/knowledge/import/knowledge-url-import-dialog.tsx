@@ -70,14 +70,6 @@ export function KnowledgeUrlImportDialog({
     setFilenameError(null)
   }, [open, selectedDatasetId, datasetDefaultValue])
 
-  const handleDialogOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen && submitting) return
-      onOpenChange(nextOpen)
-    },
-    [onOpenChange, submitting]
-  )
-
   const handleImport = useCallback(async () => {
     const urlValidation = validateUrlImportAddress(url)
     const nextFilenameError = validateUrlImportFilename(filename)
@@ -111,7 +103,7 @@ export function KnowledgeUrlImportDialog({
   }, [datasetDefaultValue, datasetId, filename, loadDocuments, onDatasetResolved, onOpenChange, uploadDocumentFromUrl, url])
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[min(92dvh,680px)] max-h-[calc(100dvh-1rem)] grid-rows-[auto,1fr,auto] gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-border px-4 py-4 pr-14 text-left sm:px-6">
           <DialogTitle>导入网页文档</DialogTitle>
@@ -136,7 +128,7 @@ export function KnowledgeUrlImportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="knowledge-url-import-url">文档网址</Label>
+                <Label htmlFor="knowledge-url-import-url">文档网址（必填）</Label>
                 <Input
                   id="knowledge-url-import-url"
                   value={url}
@@ -149,6 +141,7 @@ export function KnowledgeUrlImportDialog({
                   maxLength={URL_IMPORT_MAX_URL_LENGTH}
                   aria-invalid={Boolean(urlError)}
                   aria-describedby={urlError ? 'knowledge-url-import-url-error' : undefined}
+                  required
                   autoFocus
                 />
                 {urlError ? (
@@ -234,16 +227,7 @@ export function KnowledgeUrlImportDialog({
           </div>
         </form>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border bg-background p-4 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleDialogOpenChange(false)}
-            disabled={submitting}
-            className="w-full sm:w-auto"
-          >
-            取消
-          </Button>
+        <div className="flex flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row-reverse sm:justify-start">
           <Button
             type="submit"
             form="knowledge-url-import-form"
@@ -252,6 +236,14 @@ export function KnowledgeUrlImportDialog({
           >
             {submitting ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
             {submitting ? '正在提交' : '导入文档'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
+            取消
           </Button>
         </div>
       </DialogContent>
