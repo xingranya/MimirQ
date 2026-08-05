@@ -3,10 +3,7 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-const source = readFileSync(
-  resolve(__dirname, 'test-case-manager.tsx'),
-  'utf8'
-)
+const source = readFileSync(resolve(__dirname, 'test-case-manager.tsx'), 'utf8')
 
 describe('基准评测样本管理界面', () => {
   it('保留创建、证据导入、运行和删除流程', () => {
@@ -54,9 +51,19 @@ describe('基准评测样本管理界面', () => {
 
   it('数据集切换后丢弃旧检索结果并阻止旧弹窗提交', () => {
     expect(source).toContain('datasetIdRef.current = datasetId')
-    expect(source).toContain("datasetIdRef.current || '').trim() !== requestedDatasetId")
-    expect(source).toContain('数据集已切换，请重新检索标准证据')
+    expect(source).toContain('evidenceOperationIdRef')
+    expect(source).toContain('isEvidenceOperationCurrent')
+    expect(source).toContain('resetEvidenceDraft()')
     expect(source).toContain('当前数据集已变化，请重新选择标准证据')
+  })
+
+  it('忙碌时同步关闭语义，并禁用仍会改变请求草稿的控件', () => {
+    expect(source).toContain('closeDisabled={evidenceLoading}')
+    expect(source).toContain('closeDisabled={evidenceCreating}')
+    expect(source).toContain('aria-busy={evidenceLoading}')
+    expect(source).toContain('aria-busy={evidenceCreating}')
+    expect(source).toContain('disabled={!chunkId || evidenceCreating}')
+    expect(source).toContain('onOpenChange={handleEvidenceDialogOpenChange}')
   })
 
   it('准确说明基准草稿取消人工确认后的状态', () => {

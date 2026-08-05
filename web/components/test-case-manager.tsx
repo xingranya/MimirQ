@@ -3,6 +3,7 @@
 'use client'
 
 import {
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -270,6 +271,7 @@ export function TestCaseManager({
   const queryClient = useQueryClient()
   const onCaseSelectedRef = useRef(onCaseSelected)
   const datasetIdRef = useRef(datasetId)
+  const evidenceOperationIdRef = useRef(0)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [goldenOnly, setGoldenOnly] = useState(false)
@@ -294,6 +296,32 @@ export function TestCaseManager({
     Set<string>
   >(new Set())
   const [evidenceCreating, setEvidenceCreating] = useState(false)
+
+  const beginEvidenceOperation = useCallback(() => {
+    evidenceOperationIdRef.current += 1
+    return evidenceOperationIdRef.current
+  }, [])
+
+  const clearEvidenceDraftState = useCallback(() => {
+    setEvidenceDialogOpen(false)
+    setEvidencePack(null)
+    setEvidenceQuestion('')
+    setEvidenceExpectedAnswer('')
+    setEvidenceSelectedChunkIds(new Set())
+    setEvidenceCreating(false)
+  }, [])
+
+  const resetEvidenceDraft = useCallback(() => {
+    beginEvidenceOperation()
+    clearEvidenceDraftState()
+  }, [beginEvidenceOperation, clearEvidenceDraftState])
+
+  const isEvidenceOperationCurrent = useCallback(
+    (operationId: number, requestedDatasetId: string) =>
+      evidenceOperationIdRef.current === operationId &&
+      String(datasetIdRef.current || '').trim() === requestedDatasetId,
+    []
+  )
 
   useEffect(() => {
     onCaseSelectedRef.current = onCaseSelected
@@ -408,13 +436,10 @@ export function TestCaseManager({
     setIsCreating(false)
     setNewQuestion('')
     setNewExpectedAnswer('')
-    setEvidenceDialogOpen(false)
-    setEvidencePack(null)
-    setEvidenceQuestion('')
-    setEvidenceExpectedAnswer('')
-    setEvidenceSelectedChunkIds(new Set())
+    setEvidenceLoading(false)
+    resetEvidenceDraft()
     onCaseSelectedRef.current?.(null)
-  }, [datasetId])
+  }, [datasetId, resetEvidenceDraft])
 
   useEffect(() => {
     if (!regressionCasesQuery.error) return
@@ -538,16 +563,15 @@ export function TestCaseManager({
       return
     }
 
+    const operationId = beginEvidenceOperation()
+    clearEvidenceDraftState()
     setEvidenceLoading(true)
     try {
       const res = await ragApi.retrieveEvidence({
         query: q,
         dataset_id: requestedDatasetId,
       })
-      if (String(datasetIdRef.current || '').trim() !== requestedDatasetId) {
-        toast.info('数据集已切换，请重新检索标准证据')
-        return
-      }
+      if (!isEvidenceOperationCurrent(operationId, requestedDatasetId)) return
       const citations = Array.isArray(res?.citations)
         ? (res.citations as unknown as Citation[])
         : []
@@ -581,10 +605,13 @@ export function TestCaseManager({
       setIsCreating(false)
       setEvidenceDialogOpen(true)
     } catch (error) {
+      if (!isEvidenceOperationCurrent(operationId, requestedDatasetId)) return
       console.error('检索预览失败:', error)
       toast.error(formatApiError(error, '检索预览失败'))
     } finally {
-      setEvidenceLoading(false)
+      if (isEvidenceOperationCurrent(operationId, requestedDatasetId)) {
+        setEvidenceLoading(false)
+      }
     }
   }
 
@@ -603,8 +630,15 @@ export function TestCaseManager({
       if (evidenceFileInputRef.current) evidenceFileInputRef.current.value = ''
       return
     }
+    const requestedDatasetId = String(datasetIdRef.current || '').trim()
+    if (!requestedDatasetId) {
+      toast.error('请先选择数据集')
+      return
+    }
+    const operationId = beginEvidenceOperation()
     try {
       const raw = await file.text()
+      if (!isEvidenceOperationCurrent(operationId, requestedDatasetId)) return
       const parsed = JSON.parse(raw)
       const citations = Array.isArray(parsed?.citations)
         ? (parsed.citations as Citation[])
@@ -614,9 +648,8 @@ export function TestCaseManager({
         return
       }
 
-      const activeDatasetId = String(datasetIdRef.current || '').trim()
       const resolution = resolveEvidencePackDataset(
-        activeDatasetId,
+        requestedDatasetId,
         typeof parsed?.dataset_id === 'string' ? parsed.dataset_id : ''
       )
       if (!resolution.ok && resolution.reason === 'missing_active_dataset') {
@@ -627,6 +660,7 @@ export function TestCaseManager({
         toast.error('证据包属于其他数据集，请切换到对应数据集后再导入')
         return
       }
+      if (!isEvidenceOperationCurrent(operationId, requestedDatasetId)) return
 
       const q = typeof parsed?.query === 'string' ? parsed.query : ''
       setEvidencePack({
@@ -659,6 +693,7 @@ export function TestCaseManager({
       )
       setEvidenceDialogOpen(true)
     } catch (err: any) {
+      if (!isEvidenceOperationCurrent(operationId, requestedDatasetId)) return
       console.error('证据包解析失败', err)
       toast.error('证据包解析失败，请确认文件为有效的 JSON 格式')
     } finally {
@@ -722,6 +757,7 @@ export function TestCaseManager({
       return
     }
 
+    const operationId = beginEvidenceOperation()
     setEvidenceCreating(true)
     try {
       const payload: RegressionCaseCreate = {
@@ -746,20 +782,37 @@ export function TestCaseManager({
         },
       }
       await createCaseMutation.mutateAsync(payload)
+      if (!isEvidenceOperationCurrent(operationId, ds)) return
       toast.success('已创建基准评测样本')
-      setEvidenceDialogOpen(false)
-      setEvidencePack(null)
-      setEvidenceSelectedChunkIds(new Set())
+      resetEvidenceDraft()
       setIsCreating(false)
       setNewQuestion('')
       setNewExpectedAnswer('')
     } catch (err: any) {
+      if (!isEvidenceOperationCurrent(operationId, ds)) return
       console.error('从证据包创建评测样本失败', err)
       toast.error(formatApiError(err, '创建评测样本失败'))
     } finally {
-      setEvidenceCreating(false)
+      if (isEvidenceOperationCurrent(operationId, ds)) {
+        setEvidenceCreating(false)
+      }
     }
   }
+
+  const handleEvidenceDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && evidenceCreating) return
+      if (open) {
+        setEvidenceDialogOpen(true)
+        return
+      }
+      resetEvidenceDraft()
+      setIsCreating(false)
+      setNewQuestion('')
+      setNewExpectedAnswer('')
+    },
+    [evidenceCreating, resetEvidenceDraft]
+  )
 
   // 选择用例
   const handleSelectCase = (caseItem: RegressionCase) => {
@@ -1158,7 +1211,11 @@ export function TestCaseManager({
           setIsCreating(open)
         }}
       >
-        <DialogContent className="max-h-[min(90dvh,720px)] max-w-2xl overflow-y-auto">
+        <DialogContent
+          className="max-h-[min(90dvh,720px)] max-w-2xl overflow-y-auto"
+          closeDisabled={evidenceLoading}
+          aria-busy={evidenceLoading}
+        >
           <DialogHeader>
             <DialogTitle>新增标准问答</DialogTitle>
             <DialogDescription>
@@ -1173,6 +1230,7 @@ export function TestCaseManager({
                 id="regression-case-question"
                 value={newQuestion}
                 onChange={(e) => setNewQuestion(e.target.value)}
+                disabled={evidenceLoading}
                 placeholder="输入用于评测检索与回答效果的问题"
                 className="min-h-24 resize-none rounded-md text-sm"
               />
@@ -1183,6 +1241,7 @@ export function TestCaseManager({
                 id="regression-case-answer"
                 value={newExpectedAnswer}
                 onChange={(e) => setNewExpectedAnswer(e.target.value)}
+                disabled={evidenceLoading}
                 placeholder="输入可用于结果比对的标准答案"
                 className="min-h-24 resize-none rounded-md text-sm"
               />
@@ -1229,12 +1288,13 @@ export function TestCaseManager({
 
       <Dialog
         open={evidenceDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && evidenceCreating) return
-          setEvidenceDialogOpen(open)
-        }}
+        onOpenChange={handleEvidenceDialogOpenChange}
       >
-        <DialogContent className="flex max-h-[min(90dvh,760px)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+        <DialogContent
+          className="flex max-h-[min(90dvh,760px)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
+          closeDisabled={evidenceCreating}
+          aria-busy={evidenceCreating}
+        >
           <DialogHeader className="shrink-0 border-b border-border px-6 py-4 text-left">
             <DialogTitle>选择标准证据</DialogTitle>
             <DialogDescription>
@@ -1260,6 +1320,7 @@ export function TestCaseManager({
                   id="evidence-case-question"
                   value={evidenceQuestion}
                   onChange={(e) => setEvidenceQuestion(e.target.value)}
+                  disabled={evidenceCreating}
                   placeholder="输入用于评测检索与回答效果的问题"
                   className="min-h-24 resize-none rounded-md text-sm"
                 />
@@ -1270,6 +1331,7 @@ export function TestCaseManager({
                   id="evidence-case-answer"
                   value={evidenceExpectedAnswer}
                   onChange={(e) => setEvidenceExpectedAnswer(e.target.value)}
+                  disabled={evidenceCreating}
                   placeholder="输入可用于结果比对的标准答案"
                   className="min-h-24 resize-none rounded-md text-sm"
                 />
@@ -1316,7 +1378,7 @@ export function TestCaseManager({
                       <Checkbox
                         id={checkboxId}
                         className="mt-1 shrink-0 rounded-sm"
-                        disabled={!chunkId}
+                        disabled={!chunkId || evidenceCreating}
                         checked={checked}
                         onCheckedChange={(nextChecked) => {
                           const next = new Set(evidenceSelectedChunkIds)
@@ -1363,7 +1425,7 @@ export function TestCaseManager({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setEvidenceDialogOpen(false)}
+              onClick={() => handleEvidenceDialogOpenChange(false)}
               disabled={evidenceCreating}
             >
               取消
