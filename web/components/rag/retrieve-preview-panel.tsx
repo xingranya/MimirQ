@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { Panel } from '@/components/ui/panel'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { ragApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { resolveSafeCitationImageUrl } from '@/lib/citation-images'
@@ -113,9 +114,18 @@ function toHitKey(hit: Pick<RetrievePreviewCitation, 'document_id' | 'chunk_id' 
 
 function previewChunkContent(value: string | undefined, maxLen = 360): string {
   const text = String(value || '').trim().replaceAll(/\s+/g, ' ')
-  if (!text) return '该命中未返回可预览的 chunk 内容。'
+  if (!text) return '该结果没有可预览的文本片段。'
   if (text.length <= maxLen) return text
   return `${text.slice(0, maxLen).trimEnd()}…`
+}
+
+function formatRetrievalRole(value: string): string {
+  const roleLabels: Record<string, string> = {
+    hierarchy_parent: '上级内容',
+    hierarchy_child: '下级内容',
+    hierarchy_sibling: '同级内容',
+  }
+  return roleLabels[value] || (value.startsWith('hierarchy_') ? '层级关联' : '')
 }
 
 function getMatchedTerms(hit: RetrievePreviewCitation): string[] {
@@ -137,91 +147,17 @@ const recommendedQuestions = [
   '异常处理流程的关键步骤是什么？',
 ] as const
 
-const seedRecentQueries: RecentQueryItem[] = [
-  { query: '如何配置权限策略？', timestampLabel: '刚刚' },
-  { query: '产品核心功能有哪些？', timestampLabel: '2 分钟前' },
-  { query: '数据同步失败原因排查', timestampLabel: '15 分钟前' },
-] as const
 const RETRIEVAL_ADVANCED_PANEL_ID = 'retrieval-advanced-params'
 const RETRIEVAL_HISTORY_PANEL_ID = 'retrieval-query-history'
 const RETRIEVAL_RANGE_INPUT_CLASS =
-  'relative z-10 h-5 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-5 [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-0 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-info/40 [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-[0_6px_14px_-8px_hsl(var(--info)/0.55)] dark:[&::-webkit-slider-thumb]:border-border dark:[&::-webkit-slider-thumb]:bg-card [&::-moz-range-track]:h-5 [&::-moz-range-track]:bg-transparent [&::-moz-range-progress]:h-5 [&::-moz-range-progress]:bg-transparent [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-info/40 [&::-moz-range-thumb]:bg-card'
-const RETRIEVAL_PANEL_SURFACE_CLASS =
-  'border-info/20 bg-card/[0.94] shadow-[0_14px_26px_-24px_hsl(var(--info)/0.18)] backdrop-blur-xl dark:border-border/70 dark:bg-background/62'
-const RETRIEVAL_CONTROL_SURFACE_CLASS =
-  'border-info/20 bg-card/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] dark:border-border/70 dark:bg-background/58'
+  'relative z-10 h-5 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-runnable-track]:h-5 [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-0 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary/50 [&::-webkit-slider-thumb]:bg-background dark:[&::-webkit-slider-thumb]:border-primary/70 [&::-moz-range-track]:h-5 [&::-moz-range-track]:bg-transparent [&::-moz-range-progress]:h-5 [&::-moz-range-progress]:bg-transparent [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-primary/50 [&::-moz-range-thumb]:bg-background'
+const RETRIEVAL_PANEL_SURFACE_CLASS = 'border-border bg-card shadow-none'
+const RETRIEVAL_CONTROL_SURFACE_CLASS = 'border-border bg-background shadow-none'
 
 function SemanticRetrievalMark() {
   return (
-    <div className="relative flex size-14 items-center justify-center rounded-[22px] border border-info/30 bg-[radial-gradient(circle_at_30%_18%,hsl(var(--card)/0.92),transparent_34%),linear-gradient(145deg,hsl(var(--info)/0.08)_0%,hsl(var(--info)/0.14)_58%,hsl(var(--info)/0.10)_100%)] text-primary shadow-[0_18px_32px_-24px_hsl(var(--info)/0.52)]">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-1 rounded-[18px] border border-border/70"
-      />
-      <svg
-        aria-label="语义检索图标"
-        role="img"
-        viewBox="0 0 40 40"
-        className="relative size-8"
-        fill="none"
-      >
-        <path
-          d="M11 14.5L19.5 10.5L29 16M11 14.5L18 24.5M29 16L23.5 27"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.42"
-        />
-        <circle
-          data-semantic-node="query"
-          cx="11"
-          cy="14.5"
-          r="4.5"
-          fill="white"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <circle
-          data-semantic-node="evidence"
-          cx="29"
-          cy="16"
-          r="4.5"
-          fill="white"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <circle
-          data-semantic-node="ranked-hit"
-          cx="18"
-          cy="24.5"
-          r="3.6"
-          fill="#DBEAFE"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <path
-          d="M22.8 26.8C24.2 24.4 27.3 23.5 29.7 24.9C32.2 26.3 33 29.4 31.6 31.8C30.2 34.2 27.1 35 24.7 33.7C22.3 32.3 21.4 29.2 22.8 26.8Z"
-          fill="white"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M31.1 31.2L35 35"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M8.8 14.5H13.2M27 16H31M16.3 24.5H19.7"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          opacity="0.68"
-        />
-      </svg>
+    <div className="flex size-12 items-center justify-center rounded-lg border border-primary/20 bg-primary/5 text-primary">
+      <Search aria-label="语义检索" role="img" className="size-6" />
     </div>
   )
 }
@@ -249,7 +185,7 @@ export function RetrievePreviewPanel({
   const [maxTokens, setMaxTokens] = useState('2000')
   const [alpha, setAlpha] = useState(0.6)
   const [enableWeightRerank, setEnableWeightRerank] = useState(true)
-  const [recentQueries, setRecentQueries] = useState<RecentQueryItem[]>([...seedRecentQueries])
+  const [recentQueries, setRecentQueries] = useState<RecentQueryItem[]>([])
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const searchInputRef = useRef<HTMLTextAreaElement | null>(null)
   const prefetchedHitTargetsRef = useRef<Set<string>>(new Set())
@@ -392,27 +328,23 @@ export function RetrievePreviewPanel({
   const renderComposer = (compact = false) => (
     <div
       className={cn(
-        'rounded-[22px] border',
+        'rounded-lg border',
         RETRIEVAL_PANEL_SURFACE_CLASS,
-        compact ? 'sticky top-0 z-20 rounded-[24px]' : ''
+        compact ? 'sticky top-0 z-20' : ''
       )}
     >
-      <div className={cn('flex flex-col gap-3.5', compact ? 'p-3.5' : 'p-4')}>
+      <div className={cn('flex flex-col gap-3', compact ? 'p-3' : 'p-4')}>
         {compact ? (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/68">
-                Retrieval Workbench
-              </div>
-              <div className="mt-1 text-[15px] font-semibold tracking-[-0.03em] text-foreground">
-                语义检索测试
-              </div>
+              <div className="text-sm font-semibold text-foreground">语义检索测试</div>
+              <div className="mt-1 text-xs text-muted-foreground">调整问题后可重新检索</div>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 rounded-[12px] border border-info/20 bg-card/90 px-3 text-[12px] font-medium hover:bg-info/5 dark:border-border/70 dark:bg-background/62"
+              className="h-8 rounded-md px-3 text-xs font-medium"
               onClick={handleReset}
             >
               <RotateCcw className="mr-2 size-3.5" />
@@ -422,20 +354,21 @@ export function RetrievePreviewPanel({
         ) : (
           <div className="flex flex-col items-center text-center">
             <SemanticRetrievalMark />
-            <div className="mt-2.5 text-[24px] font-semibold tracking-[-0.045em] text-foreground">
+            <div className="mt-3 text-xl font-semibold text-foreground">
               语义检索测试
             </div>
-            <p className="mt-1.5 max-w-2xl text-[12px] leading-5 text-muted-foreground/74">
-              输入复杂问题或长 Prompt，验证 RAG 的召回质量和测试指标。
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+              输入问题，检查数据集返回的文档片段和排序结果。
             </p>
           </div>
         )}
 
-        <div className={cn('rounded-[18px] border', RETRIEVAL_CONTROL_SURFACE_CLASS)}>
+        <div className={cn('rounded-lg border', RETRIEVAL_CONTROL_SURFACE_CLASS)}>
           <div className="flex gap-3 px-4 pt-4">
-            <Search className="mt-1 size-[18px] shrink-0 text-muted-foreground/42" />
+            <Search className="mt-1 size-[18px] shrink-0 text-muted-foreground" />
             <textarea
               ref={searchInputRef}
+              aria-label="检索问题"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               onKeyDown={(e) => {
@@ -446,28 +379,27 @@ export function RetrievePreviewPanel({
               }}
               placeholder="例如：请按第十二条说明例外条件，并指出适用范围与例外条款"
               className={cn(
-                'w-full resize-none border-0 bg-transparent p-0 text-[13px] leading-6 text-foreground outline-none placeholder:text-muted-foreground/35',
+                'w-full resize-none border-0 bg-transparent p-0 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground',
                 compact ? 'min-h-[56px]' : 'min-h-[72px]'
               )}
             />
           </div>
 
-          <div className="mt-2 flex flex-col gap-2.5 border-t border-info/20 px-4 py-3 lg:flex-row lg:items-center lg:justify-between dark:border-border/60">
-            <div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground/72">
-              <span className="inline-flex h-8 items-center rounded-full border border-info/20 bg-card/90 px-3 dark:border-border/70 dark:bg-background/62">
+          <div className="mt-2 flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center text-xs text-muted-foreground">
+              <span className="inline-flex h-8 max-w-full items-center rounded-md bg-muted/60 px-3">
                 <Database className="mr-2 size-3.5 text-primary" />
-                {selectedDatasetId ||
-                  (availableDatasetIds.length
-                    ? `全部数据集 · ${availableDatasetIds.length} 库`
-                    : '暂无可用数据集')}
+                {selectedDatasetId
+                  ? '当前数据集'
+                  : availableDatasetIds.length
+                    ? `全部数据集（${availableDatasetIds.length} 个）`
+                    : '暂无可用数据集'}
               </span>
-              <span className="font-mono text-[11px] opacity-70">Enter 发送</span>
-              <span className="font-mono text-[11px] opacity-70">Shift + Enter 换行</span>
             </div>
 
             <Button
               type="button"
-              className="h-9 rounded-[14px] bg-primary px-[18px] text-[13px] font-medium text-primary-foreground shadow-[0_14px_22px_-18px_hsl(var(--primary)/0.52)]"
+              className="h-9 rounded-md px-4 text-sm font-medium"
               disabled={!searchQuery.trim() || isSearching || !hasRetrievalScope}
               onClick={() => detachPromise(handleSearch())}
             >
@@ -481,16 +413,16 @@ export function RetrievePreviewPanel({
   )
 
   const renderInitialWorkbench = () => (
-    <div className="grid min-h-0 gap-3.5">
+    <div className="grid min-h-0 gap-4">
       {renderComposer(false)}
 
-      <div className="grid gap-3.5 xl:grid-cols-[1.1fr_0.88fr_1fr]">
-        <Panel padding="none" className={cn('rounded-[20px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
-          <div className="p-[18px]">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.88fr_1fr]">
+        <Panel padding="none" className={cn('rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+          <div className="p-4">
             <div className="flex items-center justify-between">
-              <div className="text-[15px] font-semibold tracking-[-0.03em] text-foreground">推荐测试问题</div>
+              <div className="text-sm font-semibold text-foreground">推荐问题</div>
             </div>
-            <div className="mt-3.5 space-y-2">
+            <div className="mt-3 divide-y divide-border">
               {recommendedQuestions.map((question) => (
                 <button
                   key={question}
@@ -499,27 +431,30 @@ export function RetrievePreviewPanel({
                     handleApplySuggestedQuery(question)
                     searchInputRef.current?.focus()
                   }}
-                  className="flex w-full items-center justify-between rounded-[14px] border border-info/20 bg-card/86 px-3 py-2.5 text-left transition-colors hover:border-primary/30 hover:bg-info/5 dark:border-border/70 dark:bg-background/58 dark:hover:bg-primary/[0.03]"
+                  className="flex w-full items-center justify-between gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
-                  <span className="pr-4 text-[12px] leading-5 text-foreground/86">{question}</span>
-                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/55" />
+                  <span className="text-sm leading-5 text-foreground">{question}</span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
             </div>
           </div>
         </Panel>
 
-        <Panel padding="none" className={cn('rounded-[20px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
-          <div className="p-[18px]">
-            <div className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.03em] text-foreground">
+        <Panel padding="none" className={cn('rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+          <div className="p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <SlidersHorizontal className="size-3.5 text-primary" />
               参数设置
             </div>
-            <div className="mt-3.5 space-y-3.5">
+            <div className="mt-3 space-y-4">
               <div className="space-y-2">
-                <div className="text-[12px] text-muted-foreground/74">Top K（返回结果数）</div>
+                <div className="text-xs text-muted-foreground">返回结果数</div>
                 <Select value={topK} onValueChange={setTopK}>
-                  <SelectTrigger className="h-9 rounded-[14px] border-info/20 bg-card/90 text-[12px] font-medium dark:border-border/70 dark:bg-background/62">
+                  <SelectTrigger
+                    aria-label="返回结果数"
+                    className="h-9 rounded-md border-border bg-background text-xs font-medium"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -533,19 +468,23 @@ export function RetrievePreviewPanel({
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-[12px] text-muted-foreground/74">相似度阈值</div>
-                  <div className="rounded-[12px] border border-info/20 bg-info/5 px-2 py-1 font-mono text-[12px] text-foreground dark:border-border/70 dark:bg-background/62">
+                  <div className="text-xs text-muted-foreground">相似度阈值</div>
+                  <output
+                    aria-label="当前相似度阈值"
+                    className="rounded-md bg-muted/60 px-2 py-1 text-xs tabular-nums text-foreground"
+                  >
                     {scoreThreshold.toFixed(2)}
-                  </div>
+                  </output>
                 </div>
                 <div className="relative h-5">
-                  <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 rounded-full bg-info/10 -translate-y-1/2 dark:bg-muted-foreground/20" />
+                  <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
                   <div
-                    className="pointer-events-none absolute left-0 top-1/2 h-1 rounded-full bg-info/80 -translate-y-1/2 dark:bg-info"
+                    className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-primary"
                     style={{ width: `${scoreThresholdPercent}%` }}
                   />
                   <input
                     type="range"
+                    aria-label="相似度阈值"
                     min="0"
                     max="1"
                     step="0.05"
@@ -559,9 +498,9 @@ export function RetrievePreviewPanel({
                   aria-expanded={advancedParamsOpen}
                   aria-controls={RETRIEVAL_ADVANCED_PANEL_ID}
                   onClick={() => setAdvancedParamsOpen((open) => !open)}
-                  className="inline-flex items-center text-[12px] font-medium text-primary transition-colors hover:text-primary"
+                  className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary"
                 >
-                  {advancedParamsOpen ? '收起高级参数' : '更多高级参数'}
+                  {advancedParamsOpen ? '收起高级设置' : '高级设置'}
                   <ChevronRight
                     className={cn(
                       'ml-1 size-3 text-primary/90 transition-transform',
@@ -572,35 +511,39 @@ export function RetrievePreviewPanel({
                 {advancedParamsOpen ? (
                   <div
                     id={RETRIEVAL_ADVANCED_PANEL_ID}
-                    className="space-y-3 rounded-[16px] border border-info/20 bg-card/86 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-border/70 dark:bg-background/55"
+                    className="space-y-4 border-t border-border pt-4"
                   >
                     <div className="space-y-1.5">
-                      <div className="text-[11px] text-muted-foreground/70">检索模式</div>
+                      <div className="text-xs text-muted-foreground">检索模式</div>
                       <Select value={retrievalMode} onValueChange={setRetrievalMode}>
-                        <SelectTrigger className="h-8 rounded-[12px] border-info/20 bg-card/90 text-[12px] font-medium dark:border-border/70 dark:bg-background/62">
+                        <SelectTrigger
+                          aria-label="检索模式"
+                          className="h-8 rounded-md border-border bg-background text-xs font-medium"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="hybrid">Hybrid 混合检索</SelectItem>
-                          <SelectItem value="vector">Vector 向量直达</SelectItem>
-                          <SelectItem value="keyword">Keyword 关键词</SelectItem>
-                          <SelectItem value="mmr">MMR 多样性</SelectItem>
+                          <SelectItem value="hybrid">混合检索</SelectItem>
+                          <SelectItem value="vector">向量检索</SelectItem>
+                          <SelectItem value="keyword">关键词检索</SelectItem>
+                          <SelectItem value="mmr">多样性检索</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
-                        <span>向量权重 Alpha</span>
-                        <span className="font-mono text-foreground">{alpha.toFixed(2)}</span>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>向量权重</span>
+                        <span className="tabular-nums text-foreground">{alpha.toFixed(2)}</span>
                       </div>
                       <div className="relative h-5">
-                        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 rounded-full bg-info/10 -translate-y-1/2 dark:bg-muted-foreground/20" />
+                        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
                         <div
-                          className="pointer-events-none absolute left-0 top-1/2 h-1 rounded-full bg-info/80 -translate-y-1/2 dark:bg-info"
+                          className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-primary"
                           style={{ width: `${alphaPercent}%` }}
                         />
                         <input
                           type="range"
+                          aria-label="向量权重"
                           min="0"
                           max="1"
                           step="0.05"
@@ -610,32 +553,34 @@ export function RetrievePreviewPanel({
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <div className="text-[11px] text-muted-foreground/70">上下文预算</div>
+                        <div className="text-xs text-muted-foreground">上下文长度</div>
                         <Select value={maxTokens} onValueChange={setMaxTokens}>
-                          <SelectTrigger className="h-8 rounded-[12px] border-info/20 bg-card/90 text-[12px] font-medium dark:border-border/70 dark:bg-background/62">
+                          <SelectTrigger
+                            aria-label="上下文长度"
+                            className="h-8 rounded-md border-border bg-background text-xs font-medium"
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1000">1000 tokens</SelectItem>
-                            <SelectItem value="2000">2000 tokens</SelectItem>
-                            <SelectItem value="4000">4000 tokens</SelectItem>
+                            <SelectItem value="1000">1,000 词元</SelectItem>
+                            <SelectItem value="2000">2,000 词元</SelectItem>
+                            <SelectItem value="4000">4,000 词元</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setEnableWeightRerank((enabled) => !enabled)}
-                        className={cn(
-                          'mt-5 h-8 rounded-[12px] border px-3 text-[11px] font-medium transition-colors',
-                          enableWeightRerank
-                            ? 'border-success/25 bg-success/10 text-success'
-                            : 'border-info/20 bg-card/88 text-muted-foreground dark:border-border/70 dark:bg-background/58'
-                        )}
-                      >
-                        权重重排 {enableWeightRerank ? '开启' : '关闭'}
-                      </button>
+                      <div className="mt-5 flex h-8 items-center justify-between gap-2">
+                        <label htmlFor="retrieval-weight-rerank" className="text-xs text-foreground">
+                          权重重排
+                        </label>
+                        <Switch
+                          id="retrieval-weight-rerank"
+                          aria-label="权重重排"
+                          checked={enableWeightRerank}
+                          onCheckedChange={setEnableWeightRerank}
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -644,20 +589,20 @@ export function RetrievePreviewPanel({
           </div>
         </Panel>
 
-        <Panel padding="none" className={cn('rounded-[20px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
-          <div className="p-[18px]">
+        <Panel padding="none" className={cn('rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+          <div className="p-4">
             <div className="flex items-center justify-between">
-              <div className="text-[15px] font-semibold tracking-[-0.03em] text-foreground">最近检索</div>
+              <div className="text-sm font-semibold text-foreground">最近检索</div>
               <button
                 type="button"
-                className="text-[12px] text-muted-foreground/66 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35"
+                className="text-xs text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={handleClearRecentQueries}
                 disabled={recentQueries.length === 0}
               >
                 清空
               </button>
             </div>
-            <div className="mt-3.5 space-y-2.5">
+            <div className="mt-3 space-y-3">
               {visibleRecentQueries.map((item) => (
                 <button
                   key={`${item.query}-${item.timestampLabel}`}
@@ -669,14 +614,14 @@ export function RetrievePreviewPanel({
                   className="flex w-full items-start justify-between gap-4 text-left"
                 >
                   <div className="min-w-0">
-                    <div className="line-clamp-2 text-[12px] leading-5 text-foreground/88">{item.query}</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground/62">{item.timestampLabel}</div>
+                    <div className="line-clamp-2 text-sm leading-5 text-foreground">{item.query}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{item.timestampLabel}</div>
                   </div>
-                  <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/45" />
+                  <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                 </button>
               ))}
               {visibleRecentQueries.length === 0 ? (
-                <div className="rounded-[14px] border border-dashed border-info/20 bg-card/70 px-3 py-3 text-[12px] text-muted-foreground/70 dark:border-border/70 dark:bg-background/50">
+                <div className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
                   暂无检索历史
                 </div>
               ) : null}
@@ -687,7 +632,7 @@ export function RetrievePreviewPanel({
                 aria-expanded={fullHistoryOpen}
                 aria-controls={RETRIEVAL_HISTORY_PANEL_ID}
                 onClick={() => setFullHistoryOpen((open) => !open)}
-                className="inline-flex items-center text-[12px] font-medium text-primary transition-colors hover:text-primary"
+                className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary"
               >
                 {fullHistoryOpen ? '收起全部历史' : '查看全部历史'}
                 <ChevronRight
@@ -701,9 +646,9 @@ export function RetrievePreviewPanel({
             {fullHistoryOpen ? (
               <div
                 id={RETRIEVAL_HISTORY_PANEL_ID}
-                className="mt-3 rounded-[16px] border border-info/20 bg-card/86 p-3 dark:border-border/70 dark:bg-background/55"
+                className="mt-3 border-t border-border pt-3"
               >
-                <div className="text-[11px] font-medium text-foreground">当前会话历史</div>
+                <div className="text-xs font-medium text-foreground">当前会话历史</div>
                 <div className="mt-2 space-y-2">
                   {recentQueries.length > 0 ? (
                     recentQueries.map((item) => (
@@ -714,14 +659,14 @@ export function RetrievePreviewPanel({
                           handleApplySuggestedQuery(item.query)
                           searchInputRef.current?.focus()
                         }}
-                        className="flex w-full items-center justify-between gap-3 rounded-[12px] border border-info/20 bg-card/88 px-3 py-2 text-left transition-colors hover:border-primary/30 hover:bg-info/5 dark:border-border/60 dark:bg-background/58 dark:hover:bg-primary/[0.03]"
+                        className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/50"
                       >
-                        <span className="line-clamp-1 text-[12px] text-foreground/86">{item.query}</span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground/60">{item.timestampLabel}</span>
+                        <span className="line-clamp-1 text-xs text-foreground">{item.query}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{item.timestampLabel}</span>
                       </button>
                     ))
                   ) : (
-                    <div className="rounded-[12px] border border-dashed border-border/70 px-3 py-2 text-[12px] text-muted-foreground/70">
+                    <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
                       暂无检索历史
                     </div>
                   )}
@@ -735,39 +680,34 @@ export function RetrievePreviewPanel({
   )
 
   const renderNoResults = () => (
-    <Panel padding="none" className={cn('rounded-[24px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+    <Panel padding="none" className={cn('rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
       <div className="p-6">
-        <div className="text-[20px] font-semibold tracking-[-0.03em] text-foreground">Top-K 排序为空</div>
-        <div className="mt-3 text-[14px] leading-6 text-muted-foreground/76">
+        <div className="text-xl font-semibold text-foreground">暂无检索结果</div>
+        <div className="mt-2 text-sm leading-6 text-muted-foreground">
           当前检索词为 <span className="font-medium text-foreground">{searchQueryForRetrieval || searchQuery.trim()}</span>，没有返回可用候选。
         </div>
 
-        <div className="mt-6">
-          <div className="text-[13px] font-medium text-foreground">建议动作</div>
+        <div className="mt-5">
+          <div className="text-sm font-medium text-foreground">可以这样调整</div>
           <div className="mt-3 flex flex-wrap gap-2">
             {noResultActionTips.map((label) => (
-              <button
+              <span
                 key={label}
-                type="button"
-                onClick={() => {
-                  handleApplySuggestedQuery(label)
-                  searchInputRef.current?.focus()
-                }}
-                className="rounded-full border border-info/20 bg-card/88 px-3 py-1.5 text-[12px] text-foreground/80 transition-colors hover:border-primary/30 hover:bg-info/5 dark:border-border/70 dark:bg-background/58 dark:hover:bg-primary/[0.04]"
+                className="rounded-md bg-muted/60 px-3 py-1.5 text-xs text-foreground"
               >
                 {label}
-              </button>
+              </span>
             ))}
           </div>
         </div>
 
-        <div className="mt-7">
-          <div className="text-[13px] font-medium text-foreground">排查方向</div>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-6">
+          <div className="text-sm font-medium text-foreground">排查方向</div>
+          <div className="mt-3 grid border-t border-border md:grid-cols-3 md:divide-x md:divide-border">
             {noResultDiagnosticTips.map((item) => (
-              <div key={item.title} className="rounded-[18px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-                <div className="text-[13px] font-medium text-foreground">{item.title}</div>
-                <div className="mt-2 text-[12px] leading-5 text-muted-foreground/72">{item.description}</div>
+              <div key={item.title} className="border-b border-border py-4 md:border-b-0 md:px-4 md:first:pl-0 md:last:pr-0">
+                <div className="text-sm font-medium text-foreground">{item.title}</div>
+                <div className="mt-2 text-xs leading-5 text-muted-foreground">{item.description}</div>
               </div>
             ))}
           </div>
@@ -790,62 +730,61 @@ export function RetrievePreviewPanel({
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <div className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">
+          <div className="text-base font-semibold text-foreground">
             {String(hit.document_name || hit.document_id || '未命名文档')}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Score {score}</Badge>
+            <Badge variant="outline">相关度 {score}</Badge>
             {familyHit ? (
-              <span className="rounded-full bg-warning/10 text-warning border border-warning/20 px-2.5 py-1 text-[11px] font-medium">
-                Family Hit
+              <span className="rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
+                同组命中
               </span>
             ) : null}
             {role.startsWith('hierarchy_') ? (
-              <span className="rounded-full border border-info/20 bg-card/88 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-border/70 dark:bg-background/58">
-                {role}
+              <span className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                {formatRetrievalRole(role)}
               </span>
             ) : null}
           </div>
         </div>
 
         {hasImage ? (
-          <div className="overflow-hidden rounded-[20px] border border-info/20 bg-card/88 dark:border-border/70 dark:bg-background/58">
+          <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
             {imageUrl ? (
               <AuthImage src={imageUrl} alt="命中图像缩略图" className="h-44 w-full object-cover" />
             ) : (
-              <div className="flex h-44 items-center justify-center text-[13px] text-muted-foreground/62">
-                图像命中（无可用缩略图）
+              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
+                该结果没有可用缩略图
               </div>
             )}
           </div>
         ) : null}
 
-        <div className="rounded-[20px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-          <div className="text-[12px] leading-6 text-foreground/86">{previewChunkContent(hit.chunk_content)}</div>
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-4">
+          <div className="text-sm leading-6 text-foreground">{previewChunkContent(hit.chunk_content)}</div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-[18px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/62">Chunk ID</div>
-            <div className="mt-2 break-all font-mono text-[12px] text-foreground/84">{chunkId || '—'}</div>
+        <dl className="divide-y divide-border border-y border-border text-xs">
+          <div className="grid gap-1 py-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3">
+            <dt className="text-muted-foreground">文本片段编号</dt>
+            <dd className="break-all font-mono text-foreground">{chunkId || '—'}</dd>
           </div>
-          <div className="rounded-[18px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/62">Clause</div>
-            <div className="mt-2 text-[12px] text-foreground/84">{clause || '—'}</div>
+          <div className="grid gap-1 py-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3">
+            <dt className="text-muted-foreground">条款编号</dt>
+            <dd className="text-foreground">{clause || '—'}</dd>
           </div>
-        </div>
-
-        <div className="rounded-[18px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/62">Path</div>
-          <div className="mt-2 break-all text-[12px] text-foreground/84">{pathStr || '—'}</div>
-        </div>
+          <div className="grid gap-1 py-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3">
+            <dt className="text-muted-foreground">文档路径</dt>
+            <dd className="break-all text-foreground">{pathStr || '—'}</dd>
+          </div>
+        </dl>
 
         {terms.length ? (
-          <div className="rounded-[18px] border border-info/20 bg-card/88 px-4 py-4 dark:border-border/70 dark:bg-background/58">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/62">Matched Terms</div>
+          <div>
+            <div className="text-xs font-medium text-foreground">匹配词</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {terms.map((term) => (
-                <span key={term} className="rounded-full border border-info/20 bg-info/5 px-2.5 py-1 text-[11px] text-foreground/82 dark:border-border/70 dark:bg-muted/30">
+                <span key={term} className="rounded-md bg-muted/60 px-2.5 py-1 text-xs text-foreground">
                   {term}
                 </span>
               ))}
@@ -856,7 +795,7 @@ export function RetrievePreviewPanel({
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            className="h-10 rounded-[14px] bg-primary px-4 text-[13px] font-medium text-primary-foreground"
+            className="h-10 rounded-md px-4 text-sm font-medium"
             onClick={() => handleOpenHitInDocumentViewer(hit)}
           >
             <ExternalLink className="mr-2 size-3.5" />
@@ -865,7 +804,7 @@ export function RetrievePreviewPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-10 rounded-[14px] px-4 text-[13px]"
+            className="h-10 rounded-md px-4 text-sm"
             onClick={() => {
               detachPromise(navigator.clipboard.writeText(previewChunkContent(hit.chunk_content)))
               toast.success('已复制命中内容')
@@ -884,8 +823,8 @@ export function RetrievePreviewPanel({
       {renderComposer(true)}
 
       {searchError ? (
-        <Panel padding="none" className="rounded-[22px] border border-destructive/20 bg-destructive/[0.04]">
-          <div className="p-5 text-[14px] text-destructive">{searchError}</div>
+        <Panel padding="none" className="rounded-lg border border-destructive/20 bg-destructive/[0.04] shadow-none">
+          <div className="p-5 text-sm text-destructive">{searchError}</div>
         </Panel>
       ) : null}
 
@@ -893,23 +832,23 @@ export function RetrievePreviewPanel({
 
       {searchResults.length > 0 ? (
         <div className="grid min-h-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <div className={cn('min-h-0 rounded-[24px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
-            <div className="border-b border-info/20 px-5 py-4 dark:border-border/60">
+          <div className={cn('min-h-0 rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+            <div className="border-b border-border px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/62">检索结果</div>
-                  <div className="mt-1 text-[16px] font-semibold text-foreground">
+                  <div className="text-xs text-muted-foreground">检索结果</div>
+                  <div className="mt-1 text-base font-semibold text-foreground">
                     共返回 {resultStats.total} 条候选
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-[12px] text-muted-foreground/72">
-                  <span className="rounded-full border border-info/20 bg-card/88 px-3 py-1 dark:border-border/70 dark:bg-background/58">Family {resultStats.familyHits}</span>
-                  <span className="rounded-full border border-info/20 bg-card/88 px-3 py-1 dark:border-border/70 dark:bg-background/58">Hierarchy {resultStats.hierarchyHits}</span>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-md bg-muted/60 px-3 py-1">同组 {resultStats.familyHits}</span>
+                  <span className="rounded-md bg-muted/60 px-3 py-1">层级 {resultStats.hierarchyHits}</span>
                 </div>
               </div>
             </div>
 
-            <div aria-label="检索结果排名列表" className="min-h-0 divide-y divide-info/20 dark:divide-border/60">
+            <div aria-label="检索结果排名列表" className="min-h-0 divide-y divide-border">
               {searchResults.map((hit, idx) => {
                 const key = toHitKey(hit)
                 const expandedHit = Boolean(expanded[key])
@@ -926,14 +865,14 @@ export function RetrievePreviewPanel({
                     key={key || String(idx)}
                     style={{ animationDelay: `${staggerDelayMs}ms` }}
                     className={cn(
-                      'animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none flex w-full items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-primary/[0.03]',
+                      'animate-in fade-in-0 slide-in-from-bottom-1 flex w-full flex-col items-stretch gap-3 px-4 py-4 text-left transition-colors duration-300 hover:bg-primary/[0.03] motion-reduce:animate-none sm:flex-row sm:items-start sm:gap-4 sm:px-5',
                       activeResult === hit && 'bg-primary/[0.04]'
                     )}
                   >
                     <button
                       type="button"
                       aria-pressed={activeResult === hit}
-                      className="flex min-w-0 flex-1 items-start gap-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      className="flex w-full min-w-0 flex-1 items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:gap-4"
                       onClick={() => setActiveHit(hit)}
                       onMouseEnter={() => {
                         const hitKey = toHitKey(hit)
@@ -948,35 +887,35 @@ export function RetrievePreviewPanel({
                         handlePrefetchHitDocument(hit)
                       }}
                     >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-[14px] border border-primary/20 bg-primary/8 text-primary">
-                        <span className="font-mono text-[12px] font-semibold">{idx + 1}</span>
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/5 text-primary">
+                        <span className="text-xs font-semibold tabular-nums">{idx + 1}</span>
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="truncate text-[15px] font-medium text-foreground">
+                          <div className="truncate text-sm font-medium text-foreground">
                             {String(hit.document_name || hit.document_id || '未命名文档')}
                           </div>
-                          <Badge variant="outline">Score {formatScore(getHitScore(hit))}</Badge>
+                          <Badge variant="outline">相关度 {formatScore(getHitScore(hit))}</Badge>
                           {familyHit ? (
-                            <span className="rounded-full bg-warning/10 text-warning border border-warning/20 px-2.5 py-1 text-[11px] font-medium">
-                              Family Hit
+                            <span className="rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
+                              同组命中
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-2 line-clamp-2 text-[13px] leading-6 text-muted-foreground/76">
+                        <div className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
                           {previewChunkContent(hit.chunk_content, 220)}
                         </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground/64">
-                          <span className="font-mono">{chunkId || '—'}</span>
-                          <span>{clause || '—'}</span>
-                          <span className="truncate">{pathStr || '—'}</span>
-                          {role.startsWith('hierarchy_') ? <span>{role}</span> : null}
+                        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span className="font-mono">片段 {chunkId || '—'}</span>
+                          <span>条款 {clause || '—'}</span>
+                          <span className="truncate">路径 {pathStr || '—'}</span>
+                          {role.startsWith('hierarchy_') ? <span>{formatRetrievalRole(role)}</span> : null}
                         </div>
                         {expandedHit && terms.length ? (
                           <div className="mt-3 flex flex-wrap gap-2">
                             {terms.map((term) => (
-                               <span key={term} className="rounded-full border border-info/20 bg-card/88 px-2.5 py-1 text-[11px] text-foreground/82 dark:border-border/70 dark:bg-background/58">
+                               <span key={term} className="rounded-md bg-muted/60 px-2.5 py-1 text-xs text-foreground">
                                 {term}
                               </span>
                             ))}
@@ -986,18 +925,18 @@ export function RetrievePreviewPanel({
 
                     </button>
 
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center justify-end gap-2 sm:justify-start">
                       <IconButton
                         label="在文档查看器中打开"
                         variant="ghost"
-                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/8"
+                        className="h-8 w-8 rounded-md text-muted-foreground hover:bg-primary/5 hover:text-primary"
                         onClick={() => handleOpenHitInDocumentViewer(hit)}
                       >
                         <ExternalLink className="size-4" />
                       </IconButton>
                       <button
                         type="button"
-                        className="text-[12px] text-muted-foreground/62"
+                        className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                         onClick={() => {
                           setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
                         }}
@@ -1011,10 +950,10 @@ export function RetrievePreviewPanel({
             </div>
           </div>
 
-          <div className={cn('min-h-0 rounded-[24px] border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
-            <div className="border-b border-info/20 px-5 py-4 dark:border-border/60">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/62">命中细节</div>
-              <div className="mt-1 text-[16px] font-semibold text-foreground">Active Hit</div>
+          <div className={cn('min-h-0 rounded-lg border', RETRIEVAL_PANEL_SURFACE_CLASS)}>
+            <div className="border-b border-border px-5 py-4">
+              <div className="text-xs text-muted-foreground">结果详情</div>
+              <div className="mt-1 text-base font-semibold text-foreground">当前命中</div>
             </div>
             <div className="p-5">
               {activeResult ? renderHitSummary(activeResult) : null}
@@ -1026,9 +965,8 @@ export function RetrievePreviewPanel({
   )
 
   return (
-    <div className={cn(className, 'relative flex h-full min-h-0 flex-col overflow-hidden bg-[#F8FBFF]/75 dark:bg-background/30')}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.09),transparent_42%),linear-gradient(180deg,hsl(var(--card)/0.48),transparent_40%)] dark:bg-[radial-gradient(circle_at_top,hsl(var(--info)/0.08),transparent_44%)]" />
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+    <div className={cn(className, 'flex h-full min-h-0 flex-col overflow-hidden bg-background')}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4">
         {!hasSearched && !isSearching ? renderInitialWorkbench() : renderResultsWorkbench()}
       </div>
     </div>
