@@ -13,6 +13,7 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.rag.core.logging import get_logger
+from app.services.task_queue_observability_service import count_active_task_workers
 
 logger = get_logger("tasks.queue")
 
@@ -191,6 +192,13 @@ async def enqueue_document_processing(
         return None
 
     queue_name = getattr(settings, "TASK_QUEUE_NAME", "mimirq")
+    try:
+        workers_active = await count_active_task_workers(redis=q, queue_name=queue_name)
+    except Exception as exc:  # noqa: BLE001
+        raise TaskEnqueueRejectedError("unable to verify an active document worker") from exc
+    if workers_active < 1:
+        raise TaskEnqueueRejectedError("no active document worker")
+
     # Arq job_id can dedupe (behavior depends on arq version); we still enforce
     # idempotency with Redis locks on the worker side.
     job = await q.enqueue_job(

@@ -177,6 +177,18 @@ async def observe_task_worker_heartbeat(*, redis: Any, queue_name: str, worker_i
         return
 
 
+async def count_active_task_workers(*, redis: Any, queue_name: str | None = None) -> int:
+    """清理过期心跳并返回指定队列当前可接单的 Worker 数量。"""
+    if redis is None:
+        raise RuntimeError("task queue redis unavailable")
+
+    q = str(queue_name or "").strip() or _queue_name()
+    cutoff = time.time() - float(_heartbeat_ttl_sec())
+    registry_key = _workers_registry_key(q)
+    await redis.zremrangebyscore(registry_key, "-inf", float(cutoff))
+    return max(0, int(await redis.zcard(registry_key)))
+
+
 async def observe_task_job_outcome(*, redis: Any, queue_name: str, outcome: dict[str, Any]) -> None:
     """
     Best-effort recent job outcome registry for admin observability snapshots.
@@ -249,15 +261,7 @@ async def _refresh_from_redis(*, redis: Any, queue_name: str) -> tuple[bool, int
     # Worker liveness: prune stale entries then count.
     workers_active: int | None = None
     try:
-        ttl = _heartbeat_ttl_sec()
-        now_ts = time.time()
-        cutoff = now_ts - float(ttl)
-        reg = _workers_registry_key(q)
-        # Remove workers that have not heartbeated within TTL.
-        await redis.zremrangebyscore(reg, "-inf", float(cutoff))
-        workers_active = int(await redis.zcard(reg))
-        if workers_active < 0:
-            workers_active = 0
+        workers_active = await count_active_task_workers(redis=redis, queue_name=q)
     except Exception:
         workers_active = None
 
@@ -444,6 +448,7 @@ async def stop_task_queue_observability_poller() -> None:
 __all__ = [
     "TASK_QUEUE_OBSERVABILITY_SCHEMA_V1",
     "TaskQueueObservabilitySnapshot",
+    "count_active_task_workers",
     "observe_task_job_outcome",
     "observe_task_worker_heartbeat",
     "refresh_task_queue_observability_snapshot",
