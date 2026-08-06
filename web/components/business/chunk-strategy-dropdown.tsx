@@ -192,6 +192,8 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
     menu = createPortal(
         <div
           ref={menuRef}
+          role="listbox"
+          aria-label="切片策略选项"
           className={cn(
             'fixed overflow-hidden rounded-md border border-border bg-card',
             UI_LAYER_CLASS.contextual
@@ -228,6 +230,8 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
                       <button
                         key={option.value}
                         type="button"
+                        role="option"
+                        aria-selected={isSelected}
                         disabled={isDisabled}
                         onClick={() => {
                           if (isDisabled) return
@@ -285,42 +289,34 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
       <button
         ref={triggerRef}
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         onClick={() => {
           if (!isOpen) updateMenuPlacement()
           setIsOpen(!isOpen)
         }}
         className={cn(
-          'flex min-h-16 w-full items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors duration-150 motion-reduce:transition-none',
+          'flex h-10 w-full items-center gap-2 rounded-md border px-2.5 transition-colors duration-150 motion-reduce:transition-none',
           'bg-card hover:bg-muted',
           isOpen
             ? 'border-primary/30 ring-2 ring-primary/10'
             : 'border-border hover:border-border'
         )}
       >
-        <div className={cn('grid size-8 shrink-0 place-items-center rounded-md', selectedColor.bg)}>
+        <div className={cn('grid size-7 shrink-0 place-items-center rounded-md', selectedColor.bg)}>
           <SelectedIcon className={cn('size-3.5', selectedColor.text)} />
         </div>
-        <div className="min-w-0 flex-1 text-left">
-          <div className="flex h-5 min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-              {selectedView.label}
-            </span>
-            <span
-              className={cn(
-                'shrink-0 rounded px-1.5 py-px text-xs font-medium leading-4',
-                selectedRecommendationStyle.chip
-              )}
-            >
-              {selectedRecommendationLabel}
-            </span>
-            {selectedView.badge && (
-              <span className="shrink-0 rounded bg-primary/10 px-1.5 py-px text-xs font-medium leading-4 text-primary">
-                {selectedView.badge}
-              </span>
-            )}
-          </div>
-          <p className="mt-0.5 truncate text-sm leading-5 text-muted-foreground">{selectedView.description}</p>
-        </div>
+        <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground">
+          {selectedView.label}
+        </span>
+        <span
+          className={cn(
+            'max-w-24 shrink-0 truncate rounded px-1.5 py-px text-xs font-medium leading-4',
+            selectedRecommendationStyle.chip
+          )}
+        >
+          {selectedRecommendationLabel}
+        </span>
         <ChevronDown
           className={cn(
             'h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform',
