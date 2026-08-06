@@ -42,6 +42,9 @@ x-backend-env: &backend_env
   REDIS_URL: ${REDIS_URL_DOCKER:-redis://mimirq-redis:6379/0}
   TASK_QUEUE_NAME: ${TASK_QUEUE_NAME_DOCKER:-mimirq}
   TASK_WORKER_MAX_JOBS: ${TASK_WORKER_MAX_JOBS_DOCKER:-4}
+  # 容器内服务必须直连。运行时代理只用于外部模型/API 请求。
+  NO_PROXY: ${NO_PROXY_DOCKER:-localhost,127.0.0.1,host.docker.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,mimirq-api,mimirq-web,mimirq-redis,mimirq-postgres,mimirq-minio,mimirq-milvus,mimirq-etcd,mimirq-magicpdf,mimirq-marker,mimirq-qianfanocr,mimirq-paddlevl,mimirq-mineru,mimirq-mineru-vlm,mimirq-olmocr,mimirq-etl4llm}
+  no_proxy: ${NO_PROXY_DOCKER:-localhost,127.0.0.1,host.docker.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,mimirq-api,mimirq-web,mimirq-redis,mimirq-postgres,mimirq-minio,mimirq-milvus,mimirq-etcd,mimirq-magicpdf,mimirq-marker,mimirq-qianfanocr,mimirq-paddlevl,mimirq-mineru,mimirq-mineru-vlm,mimirq-olmocr,mimirq-etl4llm}
   # Production Docker baseline: enable upload idempotency and Redis-backed retrieval admission.
   UPLOAD_DEDUP_ENABLED: ${UPLOAD_DEDUP_ENABLED_DOCKER:-true}
   RAG_RETRIEVAL_DISTRIBUTED_ADMISSION_ENABLED: ${RAG_RETRIEVAL_DISTRIBUTED_ADMISSION_ENABLED_DOCKER:-true}

@@ -24,7 +24,7 @@ from app.parsing.utils.cli import resolve_cli_command, run_resolved_cli
 from app.parsing.utils.markdown_response import extract_markdown_response_text
 from app.rag.core.logging import get_logger
 
-from .service_url_fallback import build_docker_service_url_candidates
+from .service_url_fallback import build_docker_service_url_candidates, is_direct_parser_service_url
 
 logger = get_logger("parsing.magicpdf")
 
@@ -128,6 +128,8 @@ class MagicPDFParser:
         self._api_url = (getattr(settings, "MAGIC_PDF_API_URL", "") or "").strip()
         self._request_timeout_sec = float(getattr(settings, "MAGIC_PDF_REQUEST_TIMEOUT_SEC", 600) or 600)
         self._session = requests.Session()
+        self._direct_session = requests.Session()
+        self._direct_session.trust_env = False
 
     @staticmethod
     def required_model_files() -> tuple[str, ...]:
@@ -182,7 +184,12 @@ class MagicPDFParser:
         last_error: Exception | None = None
         for index, url in enumerate(candidate_urls):
             try:
-                return self._session.post(url, files=files, data=data, timeout=self._request_timeout_sec)
+                session = (
+                    self._direct_session
+                    if is_direct_parser_service_url(url, service_hostnames=MAGIC_PDF_SERVICE_HOSTNAMES)
+                    else self._session
+                )
+                return session.post(url, files=files, data=data, timeout=self._request_timeout_sec)
             except requests.RequestException as exc:
                 last_error = exc
                 if index == len(candidate_urls) - 1:

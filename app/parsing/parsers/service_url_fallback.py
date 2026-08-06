@@ -5,6 +5,19 @@ DOCKER_LOCALHOST_FALLBACK = "127.0.0.1"
 LOCALHOST_NAMES = {"127.0.0.1", "localhost"}
 
 
+def is_direct_parser_service_url(raw_url: str, *, service_hostnames: set[str]) -> bool:
+    """判断解析侧车地址是否应绕过系统代理。"""
+    raw = (raw_url or "").strip()
+    if not raw:
+        return False
+    try:
+        hostname = (urlsplit(raw).hostname or "").strip().lower()
+    except Exception:
+        return False
+    normalized_services = {name.strip().lower() for name in service_hostnames if name.strip()}
+    return hostname in LOCALHOST_NAMES or hostname in normalized_services
+
+
 def build_docker_service_url_candidates(raw_url: str, *, service_hostnames: set[str]) -> list[str]:
     """
     Build candidate URLs for parser sidecars.
