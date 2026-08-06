@@ -2,7 +2,6 @@
 Tenant groups API (enterprise directory primitive).
 """
 
-
 import contextlib
 from typing import Annotated
 from uuid import UUID
@@ -26,6 +25,7 @@ from app.core.database import get_db
 from app.services.audit_log_service import audit_log_event
 from app.services.rbac_service import TenantPermissions, ensure_tenant_permission
 from app.services.tenant_group_service import TenantGroupService
+from app.services.tenant_member_directory_service import resolve_local_account_profiles
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
     400: {"description": "Bad Request"},
@@ -182,7 +182,9 @@ def delete_group(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{group_id}/members", response_model=TenantGroupMemberListResponse, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+@router.get(
+    "/{group_id}/members", response_model=TenantGroupMemberListResponse, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES
+)
 def list_group_members(
     group_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
@@ -200,11 +202,26 @@ def list_group_members(
         detail="No permission to view group members",
     )
     total, rows = TenantGroupService.list_members(db, tenant_id=tenant_id, group_id=group_id, skip=skip, limit=limit)
-    items = [TenantGroupMemberOut(user_id=str(r.user_id or ""), created_at=r.created_at) for r in rows]
+    profiles = resolve_local_account_profiles(db, (row.user_id for row in rows))
+    items = []
+    for row in rows:
+        account_id_value = str(row.user_id or "").strip()
+        profile = profiles.get(account_id_value)
+        items.append(
+            TenantGroupMemberOut(
+                user_id=account_id_value,
+                account_id=account_id_value,
+                username=profile.username if profile else None,
+                email=profile.email if profile else None,
+                created_at=row.created_at,
+            )
+        )
     return TenantGroupMemberListResponse(total=total, items=items)
 
 
-@router.post("/{group_id}/members", response_model=TenantGroupMembersUpdateResponse, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+@router.post(
+    "/{group_id}/members", response_model=TenantGroupMembersUpdateResponse, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES
+)
 def add_group_members(
     group_id: UUID,
     payload: TenantGroupMembersUpdateRequest,
@@ -238,7 +255,11 @@ def add_group_members(
     return TenantGroupMembersUpdateResponse(updated=int(added))
 
 
-@router.post("/{group_id}/members/remove", response_model=TenantGroupMembersUpdateResponse, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+@router.post(
+    "/{group_id}/members/remove",
+    response_model=TenantGroupMembersUpdateResponse,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
 def remove_group_members(
     group_id: UUID,
     payload: TenantGroupMembersUpdateRequest,
@@ -254,7 +275,9 @@ def remove_group_members(
         TenantPermissions.SETTINGS_WRITE,
         detail="No permission to manage group members",
     )
-    removed = TenantGroupService.remove_members(db, tenant_id=tenant_id, group_id=group_id, member_ids=payload.member_ids)
+    removed = TenantGroupService.remove_members(
+        db, tenant_id=tenant_id, group_id=group_id, member_ids=payload.member_ids
+    )
     audit_log_event(
         db,
         tenant_id=tenant_id,

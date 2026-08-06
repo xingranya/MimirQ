@@ -8,10 +8,7 @@ const samlSource = fs.readFileSync(
   'utf8'
 )
 const scimSource = fs.readFileSync(
-  path.resolve(
-    __dirname,
-    '../../../components/settings/scim-provisioning-panel.tsx'
-  ),
+  path.resolve(__dirname, '../../../components/settings/scim-provisioning-panel.tsx'),
   'utf8'
 )
 const oidcSource = fs.readFileSync(
@@ -45,7 +42,9 @@ describe('成员管理页面源码契约', () => {
   })
 
   it('区分成员和邀请的失败、加载与真实空状态', () => {
-    expect(source).toContain('const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot')
+    expect(source).toContain(
+      'const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot'
+    )
     expect(source).toContain('Boolean(invitationsLoadError) && !hasInvitationsSnapshot')
     expect(source).toContain('title="成员列表加载失败"')
     expect(source).toContain('title="邀请列表加载失败"')
@@ -62,6 +61,14 @@ describe('成员管理页面源码契约', () => {
     expect(source).toContain('mt-3 hidden overflow-hidden rounded-md border border-border xl:block')
     expect(source).toContain('<MemberRoleSelect')
     expect(source).toContain('<MemberActionButtons')
+  })
+
+  it('成员身份以用户名和邮箱为主，账号 ID 为辅助信息', () => {
+    expect(source).toContain('getMemberDisplay(member)')
+    expect(source).toContain('搜索用户名、邮箱或账号 ID')
+    expect(source).toContain('<dt className="text-muted-foreground">账号 ID</dt>')
+    expect(source).toContain("{row.member.email || '未提供邮箱'}")
+    expect(source).not.toContain('邮箱或成员标识')
   })
 
   it('仅在角色实际变更后允许保存', () => {
@@ -98,7 +105,9 @@ describe('成员管理页面源码契约', () => {
     expect(oidcSource).toContain('isOidcEnabled()')
     expect(oidcSource).toContain('登录入口已发布')
     expect(samlSource).toContain("setStatus('ready')")
-    expect(samlSource).toContain("setStatus(nextNotice.tone === 'warning' ? 'unconfigured' : 'error')")
+    expect(samlSource).toContain(
+      "setStatus(nextNotice.tone === 'warning' ? 'unconfigured' : 'error')"
+    )
     expect(scimSource).toContain("setStatus('connected')")
     expect(scimSource).toContain('invalidateConnection()')
     expect(scimSource).not.toContain("configured ? '可测试'")

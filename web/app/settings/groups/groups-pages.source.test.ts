@@ -3,10 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const listSource = fs.readFileSync(path.resolve(__dirname, 'page.tsx'), 'utf8')
-const detailSource = fs.readFileSync(
-  path.resolve(__dirname, '[id]/page.tsx'),
-  'utf8'
-)
+const detailSource = fs.readFileSync(path.resolve(__dirname, '[id]/page.tsx'), 'utf8')
 
 describe('成员组页面源码契约', () => {
   it('保留成员组及成员维护接口', () => {
@@ -32,7 +29,9 @@ describe('成员组页面源码契约', () => {
     expect(listSource).toContain('space-y-2 overflow-y-auto p-3 lg:hidden')
     expect(listSource).toContain('hidden min-h-0 flex-1 flex-col overflow-y-auto lg:flex')
     expect(detailSource).toContain('space-y-2 lg:hidden')
-    expect(detailSource).toContain('hidden overflow-hidden rounded-md border border-border lg:block')
+    expect(detailSource).toContain(
+      'hidden overflow-hidden rounded-md border border-border lg:block'
+    )
   })
 
   it('仅允许保存实际修改并保护未保存内容', () => {
@@ -44,7 +43,9 @@ describe('成员组页面源码契约', () => {
 
   it('成员组详情加载失败时禁止编辑和保存', () => {
     expect(detailSource).toContain('const groupLoadError = groupQuery.isError')
-    expect(detailSource).toContain('const canEditGroup = canManageGroups && Boolean(group) && !groupQuery.isError')
+    expect(detailSource).toContain(
+      'const canEditGroup = canManageGroups && Boolean(group) && !groupQuery.isError'
+    )
     expect(detailSource).toContain('if (!group || groupQuery.isError) return false')
     expect(detailSource).toContain('disabled={!canEditGroup || loadingGroup}')
     expect(detailSource).toContain('成员组详情尚未加载，无法保存。请重新加载后再试。')
@@ -53,7 +54,9 @@ describe('成员组页面源码契约', () => {
 
   it('区分查询失败、加载中、真实空数据和筛选无结果', () => {
     expect(listSource).toContain('const hasGroupsSnapshot = groupsQuery.data !== undefined')
-    expect(listSource).toContain('const groupsUnavailable = Boolean(groupsLoadError) && !hasGroupsSnapshot')
+    expect(listSource).toContain(
+      'const groupsUnavailable = Boolean(groupsLoadError) && !hasGroupsSnapshot'
+    )
     expect(listSource).toContain('title="成员组加载失败"')
     expect(listSource).toContain('正在加载成员组…')
     expect(listSource).toContain("hasGroups ? '没有匹配的成员组' : '暂无成员组'")
@@ -64,10 +67,13 @@ describe('成员组页面源码契约', () => {
     expect(detailSource).toContain('onRetry={() => membersQuery.refetch()}')
   })
 
-  it('批量添加成员时使用完整输入校验而不是静默截断', () => {
-    expect(detailSource).toContain('normalizeGroupMemberIds(addText)')
-    expect(detailSource).toContain('MAX_GROUP_MEMBERS_PER_REQUEST')
-    expect(detailSource).not.toContain('if (out.length >= 200) break')
+  it('添加成员时直接搜索并选择组织成员', () => {
+    expect(detailSource).toContain('rbacApi.listTenantMembers')
+    expect(detailSource).toContain('filteredAvailableMembers.map')
+    expect(detailSource).toContain('<Checkbox')
+    expect(detailSource).toContain('已选择 {selectedMemberIds.length} 人')
+    expect(detailSource).not.toContain('<Textarea')
+    expect(detailSource).not.toContain('normalizeGroupMemberIds')
   })
 
   it('使用扁平视觉和对外中文文案', () => {
@@ -83,5 +89,7 @@ describe('成员组页面源码契约', () => {
     expect(sources).not.toContain('fail-closed')
     expect(sources).toContain('成员组标识')
     expect(sources).toContain('外部目录标识')
+    expect(detailSource).toContain('搜索用户名、邮箱或账号 ID')
+    expect(detailSource).toContain('账号 ID：')
   })
 })

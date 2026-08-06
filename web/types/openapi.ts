@@ -23990,6 +23990,12 @@ export interface components {
         TenantGroupMemberOut: {
             /** User Id */
             user_id: string;
+            /** Account Id */
+            account_id: string;
+            /** Username */
+            username?: string | null;
+            /** Email */
+            email?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -24196,6 +24202,12 @@ export interface components {
             tenant_id: string;
             /** User Id */
             user_id?: string | null;
+            /** Account Id */
+            account_id?: string | null;
+            /** Username */
+            username?: string | null;
+            /** Email */
+            email?: string | null;
             /**
              * Role
              * @description owner|admin|auditor|editor|dataset_operator|viewer

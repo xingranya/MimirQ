@@ -6,11 +6,10 @@ Groups are tenant-scoped and are intended to support enterprise directory needs:
 - optional IdP-driven provisioning (OIDC group claims / SCIM)
 """
 
-
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.api.schemas.base import OrmTimestampModel
 
@@ -59,6 +58,9 @@ class TenantGroupUpdateRequest(BaseModel):
 
 class TenantGroupMemberOut(BaseModel):
     user_id: str
+    account_id: str
+    username: str | None = None
+    email: EmailStr | None = None
     created_at: datetime
 
 
@@ -90,4 +92,3 @@ class TenantGroupMembersUpdateRequest(BaseModel):
 
 class TenantGroupMembersUpdateResponse(BaseModel):
     updated: int
-

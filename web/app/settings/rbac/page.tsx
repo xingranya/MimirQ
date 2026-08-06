@@ -54,6 +54,12 @@ import { ScimProvisioningPanel } from '@/components/settings/scim-provisioning-p
 import { OidcOpsPanel } from '@/components/settings/oidc-ops-panel'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { Link } from '@/i18n/navigation'
+import {
+  getMemberAccountId,
+  getMemberDisplay,
+  getMemberInitials,
+  matchesMemberQuery,
+} from '@/lib/member-directory'
 
 const ROLE_OPTIONS = [
   {
@@ -87,12 +93,9 @@ const ROLE_OPTIONS = [
 const PAGE_SIZE_OPTIONS = [7, 10, 20, 50]
 const RBAC_MEMBERS_PARAMS = { limit: 500 } as const
 const RBAC_INVITATIONS_PARAMS = { status: 'pending', limit: 100 } as const
-const CARD_CLASS =
-  'rounded-md border border-border bg-card'
-const RBAC_FIELD_LABEL_CLASS =
-  'text-xs font-medium text-muted-foreground'
-const RBAC_INPUT_CLASS =
-  'h-9 rounded-md border-border bg-background text-sm'
+const CARD_CLASS = 'rounded-md border border-border bg-card'
+const RBAC_FIELD_LABEL_CLASS = 'text-xs font-medium text-muted-foreground'
+const RBAC_INPUT_CLASS = 'h-9 rounded-md border-border bg-background text-sm'
 const RBAC_SOFT_BUTTON_CLASS =
   'h-8 rounded-md border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted'
 const RBAC_MUTED_CHIP_CLASS =
@@ -109,22 +112,6 @@ const ROLE_DOT_TONES: Record<string, string> = {
 type RbacMembersSnapshot = {
   items: TenantMember[]
   total: number
-}
-
-function userDisplay(userId?: string | null) {
-  const value = String(userId || '').trim()
-  if (!value) return { primary: '未知成员', secondary: '缺少成员标识' }
-  const [name, domain] = value.includes('@')
-    ? value.split('@')
-    : [value, '成员标识']
-  return { primary: name || value, secondary: domain || value }
-}
-
-function initials(userId?: string | null) {
-  const value = String(userId || '').trim()
-  if (!value) return '?'
-  const head = value.includes('@') ? value.split('@')[0] : value
-  return head.slice(0, 1).toUpperCase()
 }
 
 function avatarTone(userId?: string | null) {
@@ -157,7 +144,7 @@ function removeMemberDescription({
     return `将把 ${displayName} 从当前组织移除，并撤销组和单独授予的访问权限。`
   }
   if (isSelf) return '不能移除当前用户。请切换到其他管理员账号后再操作。'
-  return '缺少成员标识，无法移除。'
+  return '缺少账号 ID，无法移除。'
 }
 
 function fmtDateTime(value?: string | null) {
@@ -220,10 +207,7 @@ function SettingsRbacPageContent() {
     },
   })
 
-  const members = useMemo(
-    () => membersQuery.data?.items || [],
-    [membersQuery.data?.items]
-  )
+  const members = useMemo(() => membersQuery.data?.items || [], [membersQuery.data?.items])
   const currentAccountId = String(tenantAccessQuery.data?.account_id || '').trim()
   const canManageMembers = tenantAccessAllows(
     tenantAccessQuery.data,
@@ -249,22 +233,19 @@ function SettingsRbacPageContent() {
     ? formatApiError(invitationsQuery.error, '邀请列表加载失败')
     : null
   const membersUnavailable = Boolean(membersLoadError) && !hasMembersSnapshot
-  const invitationsUnavailable =
-    Boolean(invitationsLoadError) && !hasInvitationsSnapshot
+  const invitationsUnavailable = Boolean(invitationsLoadError) && !hasInvitationsSnapshot
   const loadingMembers = membersQuery.isFetching
   const loadingInvitations = invitationsQuery.isFetching
   const refreshing = loadingMembers || (canManageMembers && loadingInvitations)
-  const hasMemberFilters =
-    Boolean(query.trim()) || roleFilter !== 'all' || statusFilter !== 'all'
+  const hasMemberFilters = Boolean(query.trim()) || roleFilter !== 'all' || statusFilter !== 'all'
 
   const filtered = useMemo(() => {
     const q = String(query || '')
       .trim()
       .toLowerCase()
     return (members || []).filter((m) => {
-      const uid = String(m.user_id || '').toLowerCase()
       const role = String(m.role || '').toLowerCase()
-      const matchesQuery = !q || uid.includes(q) || role.includes(q)
+      const matchesQuery = !q || matchesMemberQuery(m, q) || role.includes(q)
       const matchesRole = roleFilter === 'all' || role === roleFilter
       const matchesStatus =
         statusFilter === 'all' ||
@@ -288,20 +269,14 @@ function SettingsRbacPageContent() {
   )
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, pageCount)
-  const pagedMembers = filtered.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize
-  )
+  const pagedMembers = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
   const pagedMemberRows = pagedMembers.map((member, index) => {
-    const uid = String(member.user_id || '').trim()
+    const uid = getMemberAccountId(member)
     const currentRole = String(member.role || 'viewer')
-    const draft = uid
-      ? String(roleDraft[uid] || currentRole)
-      : currentRole
-    const display = userDisplay(uid)
-    const isSelf = Boolean(uid) && (
-      uid === currentAccountId || (!currentAccountId && member.is_current)
-    )
+    const draft = uid ? String(roleDraft[uid] || currentRole) : currentRole
+    const display = getMemberDisplay(member)
+    const isSelf =
+      Boolean(uid) && (uid === currentAccountId || (!currentAccountId && member.is_current))
     const canRemove = Boolean(uid) && !isSelf
     return {
       member,
@@ -324,13 +299,7 @@ function SettingsRbacPageContent() {
   })
 
   const saveRoleMutation = useMutation({
-    mutationFn: async ({
-      uid,
-      desired,
-    }: {
-      uid: string
-      desired: string
-    }) => {
+    mutationFn: async ({ uid, desired }: { uid: string; desired: string }) => {
       return rbacApi.patchTenantMemberRole(uid, { role: desired })
     },
     onMutate: ({ uid }) => {
@@ -342,7 +311,7 @@ function SettingsRbacPageContent() {
         (prev) => {
           const previousItems = Array.isArray(prev?.items) ? prev.items : []
           const nextItems = previousItems.map((member) =>
-            String(member.user_id || '') === uid ? updated : member
+            getMemberAccountId(member) === uid ? updated : member
           )
           return {
             items: nextItems.length ? nextItems : [updated],
@@ -355,10 +324,11 @@ function SettingsRbacPageContent() {
         delete next[uid]
         return next
       })
-      const roleLabel =
-        ROLE_OPTIONS.find((option) => option.key === desired)?.label ??
-        '未知角色'
-      toast.success(`已将 ${uid} 的角色更新为${roleLabel}`)
+      const roleLabel = ROLE_OPTIONS.find((option) => option.key === desired)?.label ?? '未知角色'
+      const memberName = getMemberDisplay(
+        members.find((member) => getMemberAccountId(member) === uid) || { user_id: uid }
+      ).primary
+      toast.success(`已将 ${memberName} 的角色更新为${roleLabel}`)
       queryClient.invalidateQueries({
         queryKey: queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
       })
@@ -376,8 +346,7 @@ function SettingsRbacPageContent() {
     const uid = String(userId || '').trim()
     if (!uid) return
     const currentRole =
-      members.find((member) => String(member.user_id || '') === uid)?.role ||
-      'viewer'
+      members.find((member) => getMemberAccountId(member) === uid)?.role || 'viewer'
     const desired = String(roleDraft[uid] || currentRole || 'viewer').trim()
     saveRoleMutation.mutate({ uid, desired: desired || 'viewer' })
   }
@@ -392,9 +361,7 @@ function SettingsRbacPageContent() {
         queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
         (prev) => {
           const previousItems = Array.isArray(prev?.items) ? prev.items : []
-          const nextItems = previousItems.filter(
-            (member) => String(member.user_id || '') !== uid
-          )
+          const nextItems = previousItems.filter((member) => getMemberAccountId(member) !== uid)
           return {
             items: nextItems,
             total: Math.max(0, Number(prev?.total ?? previousItems.length) - 1),
@@ -406,7 +373,10 @@ function SettingsRbacPageContent() {
         delete next[uid]
         return next
       })
-      toast.success(`已移除成员：${uid}`)
+      const memberName = getMemberDisplay(
+        members.find((member) => getMemberAccountId(member) === uid) || { user_id: uid }
+      ).primary
+      toast.success(`已移除成员：${memberName}`)
       queryClient.invalidateQueries({
         queryKey: queryKeys.rbac.members(RBAC_MEMBERS_PARAMS),
       })
@@ -431,7 +401,7 @@ function SettingsRbacPageContent() {
       rbacApi.createTenantInvitation({
         email: inviteEmail.trim(),
         role: inviteRole,
-    }),
+      }),
     onSuccess: (invitation) => {
       const token = encodeURIComponent(invitation.token)
       setInviteId(invitation.id)
@@ -449,8 +419,7 @@ function SettingsRbacPageContent() {
   })
 
   const revokeInvitationMutation = useMutation({
-    mutationFn: (invitationId: string) =>
-      rbacApi.revokeTenantInvitation(invitationId),
+    mutationFn: (invitationId: string) => rbacApi.revokeTenantInvitation(invitationId),
     onSuccess: (_result, invitationId) => {
       toast.success('邀请已撤销')
       queryClient.invalidateQueries({
@@ -596,11 +565,16 @@ function SettingsRbacPageContent() {
                             void copyInviteLink()
                           }}
                         >
-                          {inviteCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                          {inviteCopied ? (
+                            <Check className="size-4" />
+                          ) : (
+                            <Copy className="size-4" />
+                          )}
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        请通过公司内部的安全渠道发送给 {inviteEmail.trim()}。有效期至 {fmtDateTime(inviteExpiresAt)}。
+                        请通过公司内部的安全渠道发送给 {inviteEmail.trim()}。有效期至{' '}
+                        {fmtDateTime(inviteExpiresAt)}。
                       </p>
                     </div>
                   ) : (
@@ -691,10 +665,7 @@ function SettingsRbacPageContent() {
               }}
             >
               <RefreshCw
-                className={cn(
-                  'size-4',
-                  refreshing && 'animate-spin motion-reduce:animate-none'
-                )}
+                className={cn('size-4', refreshing && 'animate-spin motion-reduce:animate-none')}
               />
               刷新
             </Button>
@@ -709,9 +680,7 @@ function SettingsRbacPageContent() {
                   <Users className="size-4" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-foreground">
-                    成员管理
-                  </h2>
+                  <h2 className="text-base font-semibold text-foreground">成员管理</h2>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     搜索成员并调整角色。邀请入口位于页面右上角。
                   </p>
@@ -732,9 +701,7 @@ function SettingsRbacPageContent() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.1fr)_220px_220px_auto] xl:items-end">
                 <div className="space-y-1.5">
-                  <Label className={RBAC_FIELD_LABEL_CLASS}>
-                    搜索成员
-                  </Label>
+                  <Label className={RBAC_FIELD_LABEL_CLASS}>搜索成员</Label>
                   <Input
                     className={cn(RBAC_INPUT_CLASS, 'placeholder:text-muted-foreground')}
                     value={query}
@@ -742,13 +709,11 @@ function SettingsRbacPageContent() {
                       setQuery(e.target.value)
                       setPage(1)
                     }}
-                    placeholder="搜索邮箱或成员标识"
+                    placeholder="搜索用户名、邮箱或账号 ID"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className={RBAC_FIELD_LABEL_CLASS}>
-                    角色
-                  </Label>
+                  <Label className={RBAC_FIELD_LABEL_CLASS}>角色</Label>
                   <Select
                     value={roleFilter}
                     onValueChange={(value) => {
@@ -770,9 +735,7 @@ function SettingsRbacPageContent() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className={RBAC_FIELD_LABEL_CLASS}>
-                    状态
-                  </Label>
+                  <Label className={RBAC_FIELD_LABEL_CLASS}>状态</Label>
                   <Select
                     value={statusFilter}
                     onValueChange={(value) => {
@@ -791,10 +754,7 @@ function SettingsRbacPageContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={RBAC_MUTED_CHIP_CLASS}
-                >
+                <Badge variant="outline" className={RBAC_MUTED_CHIP_CLASS}>
                   显示 {filtered.length} / {totalMembers || members.length}
                 </Badge>
               </div>
@@ -802,10 +762,7 @@ function SettingsRbacPageContent() {
               <div className="mt-3 space-y-2 xl:hidden">
                 {pagedMemberRows.length ? (
                   pagedMemberRows.map((row) => (
-                    <article
-                      key={row.key}
-                      className="rounded-md border border-border bg-card p-3"
-                    >
+                    <article key={row.key} className="rounded-md border border-border bg-card p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div
@@ -814,7 +771,7 @@ function SettingsRbacPageContent() {
                               avatarTone(row.uid)
                             )}
                           >
-                            {initials(row.uid)}
+                            {getMemberInitials(row.member)}
                           </div>
                           <div className="min-w-0">
                             <div className="truncate text-sm font-semibold text-foreground">
@@ -830,17 +787,15 @@ function SettingsRbacPageContent() {
 
                       <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
                         <div className="min-w-0">
-                          <dt className="text-muted-foreground">成员标识</dt>
+                          <dt className="text-muted-foreground">账号 ID</dt>
                           <dd className="mt-1 truncate font-mono text-foreground">
-                            {row.uid || '缺少成员标识'}
+                            {row.uid || '缺少账号 ID'}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">最近更新</dt>
                           <dd className="mt-1 text-foreground">
-                            {fmtDateTime(
-                              row.member.updated_at || row.member.created_at
-                            )}
+                            {fmtDateTime(row.member.updated_at || row.member.created_at)}
                           </dd>
                         </div>
                       </dl>
@@ -907,7 +862,7 @@ function SettingsRbacPageContent() {
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground">
                         <th className="w-[31%] px-3 py-2.5">成员</th>
-                        <th className="w-[28%] px-3 py-2.5">邮箱或成员标识</th>
+                        <th className="w-[28%] px-3 py-2.5">邮箱</th>
                         <th className="w-[15%] px-3 py-2.5">角色</th>
                         <th className="w-[9%] px-3 py-2.5">状态</th>
                         <th className="w-[10%] px-3 py-2.5">最近更新</th>
@@ -930,10 +885,13 @@ function SettingsRbacPageContent() {
                                       avatarTone(row.uid)
                                     )}
                                   >
-                                    {initials(row.uid)}
+                                    {getMemberInitials(row.member)}
                                   </div>
                                   <div className="min-w-0">
-                                    <div className="truncate font-semibold text-foreground" title={row.display.primary}>
+                                    <div
+                                      className="truncate font-semibold text-foreground"
+                                      title={row.display.primary}
+                                    >
                                       {row.display.primary}
                                     </div>
                                     <div className="truncate text-xs text-muted-foreground">
@@ -945,9 +903,9 @@ function SettingsRbacPageContent() {
                               <td className="px-3 py-2">
                                 <div
                                   className="truncate font-mono text-xs text-muted-foreground"
-                                  title={row.uid || '缺少成员标识'}
+                                  title={String(row.member.email || '未提供邮箱')}
                                 >
-                                  {row.uid || '缺少成员标识'}
+                                  {row.member.email || '未提供邮箱'}
                                 </div>
                               </td>
                               <td className="px-3 py-2">
@@ -967,9 +925,7 @@ function SettingsRbacPageContent() {
                                 <MemberStatusBadge isSelf={row.isSelf} />
                               </td>
                               <td className="px-3 py-2 text-xs text-muted-foreground">
-                                {fmtDateTime(
-                                  row.member.updated_at || row.member.created_at
-                                )}
+                                {fmtDateTime(row.member.updated_at || row.member.created_at)}
                               </td>
                               <td className="px-3 py-2">
                                 <MemberActionButtons
@@ -1025,57 +981,53 @@ function SettingsRbacPageContent() {
               </div>
 
               <div className="mt-3 flex flex-col gap-3 border-t border-border px-1 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    共 {filtered.length} 条
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      value={String(pageSize)}
-                      onValueChange={(value) => {
-                        setPageSize(Number(value))
-                        setPage(1)
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-[116px] rounded-md border-border bg-card text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAGE_SIZE_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={String(option)}>
-                            {option} 条/页
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label="上一页"
-                      className="size-8 rounded-md border-border bg-card hover:bg-muted"
-                      disabled={safePage <= 1}
-                      onClick={() => setPage((value) => Math.max(1, value - 1))}
-                    >
-                      <ChevronLeft className="size-4" />
-                    </Button>
-                    <span className="min-w-8 text-center text-sm font-semibold text-foreground">
-                      {safePage}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label="下一页"
-                      className="size-8 rounded-md border-border bg-card hover:bg-muted"
-                      disabled={safePage >= pageCount}
-                      onClick={() =>
-                        setPage((value) => Math.min(pageCount, value + 1))
-                      }
-                    >
-                      <ChevronRight className="size-4" />
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      共 {pageCount} 页
-                    </span>
-                  </div>
+                <div className="text-xs font-medium text-muted-foreground">
+                  共 {filtered.length} 条
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value))
+                      setPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[116px] rounded-md border-border bg-card text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {option} 条/页
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="上一页"
+                    className="size-8 rounded-md border-border bg-card hover:bg-muted"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <span className="min-w-8 text-center text-sm font-semibold text-foreground">
+                    {safePage}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="下一页"
+                    className="size-8 rounded-md border-border bg-card hover:bg-muted"
+                    disabled={safePage >= pageCount}
+                    onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">共 {pageCount} 页</span>
+                </div>
               </div>
             </div>
           </section>
@@ -1119,7 +1071,8 @@ function SettingsRbacPageContent() {
                   {pendingInvitations.map((invitation) => {
                     const invitationId = String(invitation.id)
                     const roleLabel =
-                      ROLE_OPTIONS.find((role) => role.key === invitation.role)?.label || invitation.role
+                      ROLE_OPTIONS.find((role) => role.key === invitation.role)?.label ||
+                      invitation.role
                     const revoking =
                       revokeInvitationMutation.isPending &&
                       revokeInvitationMutation.variables === invitationId
@@ -1136,7 +1089,10 @@ function SettingsRbacPageContent() {
                             由 {invitation.invited_by} 创建
                           </p>
                         </div>
-                        <Badge variant="outline" className="w-fit rounded-md px-2 py-1 text-xs shadow-none">
+                        <Badge
+                          variant="outline"
+                          className="w-fit rounded-md px-2 py-1 text-xs shadow-none"
+                        >
                           {roleLabel}
                         </Badge>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1205,9 +1161,7 @@ function MemberRoleSelect({
         {ROLE_OPTIONS.map((role) => (
           <SelectItem key={role.key} value={role.key}>
             <span className="flex items-center gap-2">
-              <span
-                className={cn('size-2 rounded-sm', roleDotTone(role.key))}
-              />
+              <span className={cn('size-2 rounded-sm', roleDotTone(role.key))} />
               {role.label}
             </span>
           </SelectItem>
@@ -1265,9 +1219,7 @@ function MemberActionButtons({
         data-rbac-save-role-action="true"
         aria-label={`保存 ${displayName} 的角色`}
         className="h-8 rounded-md px-3 text-xs font-medium"
-        disabled={
-          !canManageMembers || !uid || !roleChanged || saving || removing
-        }
+        disabled={!canManageMembers || !uid || !roleChanged || saving || removing}
         onClick={() => onSave(uid)}
       >
         {saving ? '保存中' : roleChanged ? '保存' : '已保存'}
@@ -1319,24 +1271,15 @@ function StatCard({
 
   return (
     <div className="flex min-h-[72px] items-center gap-3 bg-card px-4 py-3">
-      <div
-        className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-md',
-          toneClass
-        )}
-      >
+      <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-md', toneClass)}>
         <Icon className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-muted-foreground">
-          {label}
-        </p>
+        <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
         <p className="mt-1 text-xl font-semibold leading-none text-foreground tabular-nums">
           {value}
         </p>
-        <p className="mt-1.5 truncate text-xs text-muted-foreground">
-          {detail}
-        </p>
+        <p className="mt-1.5 truncate text-xs text-muted-foreground">{detail}</p>
       </div>
     </div>
   )

@@ -7,7 +7,6 @@ Notes:
 - This router provides a small admin surface to view/update member roles.
 """
 
-
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -49,6 +48,7 @@ from app.services.tenant_invitation_service import (
     revoke_tenant_invitation,
     tenant_invitation_status,
 )
+from app.services.tenant_member_directory_service import resolve_local_account_profiles
 
 _DEFAULT_HTTP_EXCEPTION_RESPONSES = {
     400: {"description": "Bad Request"},
@@ -141,7 +141,21 @@ def list_tenant_members(
         .limit(limit)
         .all()
     )
-    return TenantMemberListResponse(total=total, items=[TenantMemberOut.model_validate(it) for it in items])
+    profiles = resolve_local_account_profiles(db, (item.user_id for item in items))
+    member_items: list[TenantMemberOut] = []
+    for item in items:
+        account_id_value = str(item.user_id or "").strip()
+        profile = profiles.get(account_id_value)
+        member_items.append(
+            TenantMemberOut.model_validate(item).model_copy(
+                update={
+                    "account_id": account_id_value or None,
+                    "username": profile.username if profile else None,
+                    "email": profile.email if profile else None,
+                }
+            )
+        )
+    return TenantMemberListResponse(total=total, items=member_items)
 
 
 @router.get(
