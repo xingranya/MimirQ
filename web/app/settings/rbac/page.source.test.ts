@@ -27,7 +27,7 @@ describe('成员管理页面源码契约', () => {
   it('提供受权限保护的邀请链接流程', () => {
     expect(source).toContain('TENANT_PERMISSIONS.SETTINGS_WRITE')
     expect(source).toContain('rbacApi.createTenantInvitation')
-    expect(source).toContain('/auth/invite#token=')
+    expect(source).toContain('/auth/invite?token=')
     expect(source).toContain('邀请公司成员')
     expect(source).toContain('globalThis.navigator.clipboard.writeText(inviteLink)')
   })

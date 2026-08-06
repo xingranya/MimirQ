@@ -86,8 +86,26 @@ describe('成员邀请接受页', () => {
     act(() => root.unmount())
   })
 
+  it('从查询参数读取邀请令牌', async () => {
+    globalThis.location.hash = ''
+    globalThis.history.replaceState(null, '', '/auth/invite?token=query-invitation')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    await act(async () => {
+      root.render(<TenantInvitationPage />)
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('form')).not.toBeNull()
+    expect(container.textContent).not.toContain('邀请链接无效')
+    act(() => root.unmount())
+  })
+
   it('缺少令牌时显示可恢复提示', async () => {
     globalThis.location.hash = ''
+    globalThis.history.replaceState(null, '', '/auth/invite')
     const container = document.createElement('div')
     document.body.appendChild(container)
     const root = createRoot(container)

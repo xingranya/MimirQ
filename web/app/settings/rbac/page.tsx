@@ -435,7 +435,7 @@ function SettingsRbacPageContent() {
     onSuccess: (invitation) => {
       const token = encodeURIComponent(invitation.token)
       setInviteId(invitation.id)
-      setInviteLink(`${globalThis.location.origin}/auth/invite#token=${token}`)
+      setInviteLink(`${globalThis.location.origin}/auth/invite?token=${token}`)
       setInviteExpiresAt(invitation.expires_at)
       setInviteCopied(false)
       toast.success('邀请链接已生成')

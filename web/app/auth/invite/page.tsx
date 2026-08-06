@@ -25,8 +25,10 @@ export default function TenantInvitationPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const params = new URLSearchParams(globalThis.location.hash.replace(/^#/, ''))
-    setToken(String(params.get('token') || '').trim())
+    const searchParams = new URLSearchParams(globalThis.location.search)
+    const hashParams = new URLSearchParams(globalThis.location.hash.replace(/^#/, ''))
+    const nextToken = searchParams.get('token') || hashParams.get('token') || ''
+    setToken(String(nextToken).trim())
     setIsReady(true)
   }, [])
 
@@ -35,7 +37,7 @@ export default function TenantInvitationPage() {
     setError('')
 
     if (!token) {
-      setError(`邀请链接无效，请发送邮件至 ${BRAND_CONFIG.contactEmail} 获取新链接。`)
+      setError('邀请链接缺少凭证，请联系管理员重新生成完整链接。')
       return
     }
     if (password !== confirmPassword) {
@@ -57,7 +59,7 @@ export default function TenantInvitationPage() {
       setError(
         toApiErrorInfo(
           caught,
-          `接受邀请失败，请发送邮件至 ${BRAND_CONFIG.contactEmail} 获取新链接。`
+          '接受邀请失败，请联系管理员重新生成链接后再试。'
         ).message
       )
     } finally {
@@ -91,14 +93,7 @@ export default function TenantInvitationPage() {
             <div role="alert" className="text-center">
               <h2 className="text-base font-semibold text-foreground">邀请链接无效</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                链接缺少邀请凭证，请发送邮件至{' '}
-                <a
-                  href={BRAND_CONFIG.contactHref}
-                  className="font-medium text-foreground underline underline-offset-4"
-                >
-                  {BRAND_CONFIG.contactEmail}
-                </a>
-                {' '}获取新链接。
+                这个地址没有包含邀请凭证。请使用管理员发送的完整链接，或联系管理员重新生成。
               </p>
               <Button asChild variant="outline" className="mt-5 rounded-md">
                 <Link href="/auth">返回登录</Link>
