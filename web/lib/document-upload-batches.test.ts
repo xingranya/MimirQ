@@ -97,4 +97,42 @@ describe('文档小批量上传', () => {
 
     expect(metadataKeys).toEqual([input.slice(0, 5).map((file) => file.name), [input[5].name]])
   })
+
+  it('预检模式按服务端计数汇总并保留所有扫描任务', async () => {
+    const input = files(7)
+    const scanRunIds = [
+      '00000000-0000-4000-8000-000000000101',
+      '00000000-0000-4000-8000-000000000102',
+    ]
+    let batchIndex = 0
+    const upload = vi.spyOn(documentApi, 'uploadBatch').mockImplementation(async (batch) => {
+      const scanRunId = scanRunIds[batchIndex]
+      batchIndex += 1
+      return {
+        total: batch.length,
+        successful_count: batch.length - (batchIndex === 1 ? 1 : 0),
+        failed_count: batchIndex === 1 ? 1 : 0,
+        successful: [],
+        failed: batchIndex === 1
+          ? [{ filename: batch[0].name, error: '文件格式不符合预检要求' }]
+          : [],
+        precheck_scan_run_id: scanRunId,
+        precheck_scan_run_ids: [scanRunId],
+      }
+    })
+
+    const response = await uploadDocumentFilesInBatches(input, { precheck_only: true })
+
+    expect(upload.mock.calls.map(([batch]) => batch.length)).toEqual([5, 2])
+    expect(response).toMatchObject({
+      total: 7,
+      successful_count: 6,
+      failed_count: 1,
+      successful: [],
+      failed: [{ filename: input[0].name, error: '文件格式不符合预检要求' }],
+      precheck_scan_run_id: scanRunIds[1],
+      precheck_scan_run_ids: scanRunIds,
+    })
+    expect(response.failed?.some((item) => item.error.includes('服务器未返回'))).toBe(false)
+  })
 })

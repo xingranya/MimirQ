@@ -1396,6 +1396,7 @@ class DocumentBatchUploadResponse(BaseModel):
     successful: list[DocumentBatchUploadSuccess] = Field(default_factory=list)
     failed: list[DocumentBatchUploadFailure] = Field(default_factory=list)
     precheck_scan_run_id: UUID | None = None
+    precheck_scan_run_ids: list[UUID] = Field(default_factory=list)
 
 
 # Resolve forward references (DocumentDetail.pipeline -> DocumentPipelineProvenance).

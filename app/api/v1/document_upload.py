@@ -1570,6 +1570,7 @@ async def upload_documents_batch(
                     for result in staged_failed
                 ],
                 "precheck_scan_run_id": str(scan_run.id) if scan_run is not None else None,
+                "precheck_scan_run_ids": [str(scan_run.id)] if scan_run is not None else [],
             }
 
         governance_profile_cache: dict[str, Any] = {}

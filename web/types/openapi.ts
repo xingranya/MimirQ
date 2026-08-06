@@ -13411,6 +13411,8 @@ export interface components {
             failed?: components["schemas"]["DocumentBatchUploadFailure"][];
             /** Precheck Scan Run Id */
             precheck_scan_run_id?: string | null;
+            /** Precheck Scan Run Ids */
+            precheck_scan_run_ids?: string[];
         };
         /**
          * DocumentBatchUploadSuccess
