@@ -118,7 +118,7 @@ const DEFAULT_DRAFT: DraftState = {
   datasetId: '',
   syncDataset: false,
   ingestMode: 'append',
-  executionMode: 'upload_only',
+  executionMode: 'full_index',
   parserBackend: 'auto',
   chunkStrategy: 'semantic',
   chunkSize: 600,
@@ -202,7 +202,6 @@ const EXECUTION_MODE_OPTIONS: Array<SelectOption<IngestExecutionMode>> = [
     value: 'upload_only',
     title: '仅登记',
     description: '仅登记到知识库（不解析），不启动解析队列。',
-    badge: '默认',
   },
   {
     value: 'parse_only',
@@ -214,7 +213,7 @@ const EXECUTION_MODE_OPTIONS: Array<SelectOption<IngestExecutionMode>> = [
     value: 'full_index',
     title: '解析 + 索引',
     description: '完整入库（解析 + 索引），直接写入检索索引。',
-    badge: '完整',
+    badge: '默认',
   },
 ]
 const DEDUP_OPTIONS: Array<SelectOption<string>> = [

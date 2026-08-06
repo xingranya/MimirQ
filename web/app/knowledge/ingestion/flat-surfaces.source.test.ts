@@ -58,6 +58,15 @@ describe('入库与数据治理扁平化视觉契约', () => {
     expect(operationSource).not.toContain('shadow-[')
   })
 
+  it('入库操作页默认完成解析和索引', () => {
+    expect(operationSource).toMatch(
+      /const DEFAULT_DRAFT:[\s\S]*?executionMode: 'full_index'/
+    )
+    expect(operationSource).toMatch(
+      /value: 'full_index',[\s\S]*?badge: '默认'/
+    )
+  })
+
   it('入库视图切换保持紧凑分段控件样式', () => {
     expect(viewSwitchSource).toContain('rounded-md border border-border bg-muted/40')
     expect(viewSwitchSource).toContain("? 'bg-background text-primary'")
