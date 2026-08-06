@@ -24,4 +24,11 @@ describe('前端偏好设置视觉契约', () => {
     expect(source).toContain('<PipelineOptionsPanel compact />')
     expect(source).toContain('查看前端偏好保存说明')
   })
+
+  it('为双列控件保留最小宽度，避免标题和说明被挤压', () => {
+    expect(source).toContain(
+      'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
+    )
+    expect(source.match(/className="min-w-0 space-y-2"/g)).toHaveLength(2)
+  })
 })

@@ -290,7 +290,7 @@ export function ChunkStrategyDropdown({ value, onChange, className }: Readonly<C
           setIsOpen(!isOpen)
         }}
         className={cn(
-          'flex h-10 w-full items-center gap-2.5 rounded-md border px-2.5 transition-colors duration-150 motion-reduce:transition-none',
+          'flex min-h-16 w-full items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors duration-150 motion-reduce:transition-none',
           'bg-card hover:bg-muted',
           isOpen
             ? 'border-primary/30 ring-2 ring-primary/10'

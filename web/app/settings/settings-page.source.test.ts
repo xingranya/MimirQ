@@ -69,6 +69,8 @@ describe('设置页信息架构', () => {
 
   it('使用固定保存栏展示未保存数量和保存状态', () => {
     expect(settingsPageSource).toContain('data-testid="settings-save-bar"')
+    expect(settingsPageSource).toContain('border-y border-border bg-background')
+    expect(settingsPageSource).toContain('settings-page-body pt-0.5')
     expect(settingsPageSource).toContain('state.dirtySectionCount')
     expect(settingsPageSource).toContain('所有设置已保存')
     expect(settingsPageSource).toContain('useUnsavedChanges(state.hasChanges)')

@@ -120,7 +120,7 @@ function SettingsSaveBar({
   return (
     <div
       data-testid="settings-save-bar"
-      className="sticky bottom-0 z-10 mt-6 flex min-h-14 flex-col gap-3 border-t border-border bg-background px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+      className="sticky bottom-0 z-10 isolate mt-6 flex min-h-14 flex-col gap-3 border-y border-border bg-background px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <div aria-live="polite">
         <p className="text-sm font-medium text-foreground">
@@ -260,7 +260,7 @@ function SettingsPageContent() {
         compact
         density="system-dense"
         topClassName="pb-2.5"
-        bodyClassName="pt-0.5"
+        bodyClassName="settings-page-body pt-0.5"
         top={
           <div className="space-y-2">
             {state.loadError && state.hasSettingsSnapshot ? (

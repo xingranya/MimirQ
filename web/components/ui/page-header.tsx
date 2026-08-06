@@ -99,7 +99,7 @@ export function PageHeader({
         className={cn(
           MANAGEMENT_HERO_PANEL_CLASS,
           compact && "min-h-[72px]",
-          "flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between",
+          "rounded-lg flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:justify-between",
           getPageHeaderPadding(compact)
         )}
       >

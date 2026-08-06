@@ -769,6 +769,11 @@
     mask-image: linear-gradient(to top, transparent, black 24px);
   }
 
+  /* 设置页底部保存栏需要保持完整的不透明背景，避免被滚动渐隐遮罩透出内容。 */
+  .settings-page-body {
+    mask-image: none;
+  }
+
   /* On touch devices (no hover), make group-hover actions always visible */
   @media (hover: none) {
     .group .group-hover\:opacity-100 {

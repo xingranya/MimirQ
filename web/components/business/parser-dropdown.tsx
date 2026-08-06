@@ -187,7 +187,9 @@ export function ParserDropdown({ value, onChange, className, filename, compact =
         }}
         className={cn(
           'flex w-full items-center border transition-colors duration-150 motion-reduce:transition-none',
-          compact ? 'h-9 gap-2 rounded-md px-2.5' : 'h-10 gap-2.5 rounded-md px-2.5',
+          compact
+            ? 'h-9 gap-2 rounded-md px-2.5'
+            : 'min-h-16 gap-2.5 rounded-md px-2.5 py-2',
           'bg-card hover:bg-muted',
           isOpen
             ? 'border-primary/30 ring-2 ring-primary/10'

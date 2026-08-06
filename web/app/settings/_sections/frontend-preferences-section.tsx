@@ -22,8 +22,8 @@ export function FrontendPreferencesSection({
 }: Readonly<FrontendPreferencesSectionProps>) {
   return (
     <section className="space-y-4 border-t border-border py-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-1.5">
               <Label className="text-sm font-medium text-foreground">解析方式</Label>
               <SettingsHelpTooltip
@@ -36,7 +36,7 @@ export function FrontendPreferencesSection({
             </div>
             <ParserDropdown value={parserBackend} onChange={setParserBackend} />
           </div>
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <Label className="text-sm font-medium text-foreground">切块策略</Label>
             <ChunkStrategyDropdown
               value={chunkStrategy}
