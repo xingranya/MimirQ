@@ -2647,6 +2647,32 @@ class DocumentProcessorService:
                 "parser_backend": resolved_backend,
                 "chunk_strategy": resolved_chunk_strategy,
             }
+        except ParsingError as e:
+            self._rollback_and_cleanup_indexes(db, db_document=db_document, tenant_id=tenant_id, document_id=document_id)
+            if bool(getattr(e, "retryable", False)):
+                logger.warning(
+                    "Retryable parsing failure: tenant=%s document=%s code=%s error=%s",
+                    tenant_id,
+                    document_id,
+                    str(getattr(e, "code", "unknown"))[:100],
+                    str(e)[:200],
+                )
+                raise
+
+            logger.exception("Non-retryable parsing failure for document %s: %s", document_id, e)
+            await self._update_status(
+                db,
+                tenant_id,
+                document_id,
+                "failed",
+                0,
+                "failed",
+                failed_stage="parsing",
+                error_code=str(getattr(e, "code", "parsing_failed") or "parsing_failed")[:100],
+                error_message=str(e),
+                doc_metadata=_with_stage_durations(dict(getattr(db_document, "doc_metadata", None) or {})),
+            )
+            raise
         except Exception as e:
             # Error handling.
             logger.exception("Error processing document %s: %s", document_id, e)

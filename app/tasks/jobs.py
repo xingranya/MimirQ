@@ -10,7 +10,7 @@ import asyncio
 import contextlib
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -24,6 +24,7 @@ from app.models.connector import ConnectorRun as DBConnectorRun
 from app.models.dataset_precheck_scan import DatasetPrecheckScanRun as DBDatasetPrecheckScanRun
 from app.models.dataset_profile_scan import DatasetProfileScanRun as DBDatasetProfileScanRun
 from app.models.document import Document as DBDocument
+from app.parsing.errors import ParsingError
 from app.parsing.processors.processor import document_processor
 from app.rag.core.logging import get_logger
 from app.services.audit_log_service import audit_log_event
@@ -154,6 +155,17 @@ def _document_job_max_tries() -> int:
     return max(1, int(getattr(settings, "TASK_DOCUMENT_JOB_MAX_TRIES", 80) or 80))
 
 
+def _document_parse_max_tries() -> int:
+    configured = max(1, int(getattr(settings, "TASK_DOCUMENT_PARSE_MAX_TRIES", 3) or 3))
+    return min(configured, _document_job_max_tries())
+
+
+def _document_parse_retry_defer_sec(ctx) -> int:  # noqa: ANN001
+    base = max(1, int(getattr(settings, "TASK_DOCUMENT_RETRY_DEFER_SEC", 30) or 30))
+    exponent = min(3, max(0, _current_job_try(ctx) - 1))
+    return min(300, base * (2**exponent))
+
+
 def _task_job_max_tries() -> int:
     return max(1, int(getattr(settings, "TASK_JOB_MAX_TRIES", 80) or 80))
 
@@ -223,6 +235,55 @@ async def _mark_document_failed_on_exhausted_retry(
         db.rollback()
         raise RuntimeError("failed to persist document task terminal state") from exc
     return True
+
+
+async def _mark_document_parsing_retry(
+    *,
+    db,
+    document: DBDocument,
+    tenant_id: UUID,
+    document_id: UUID,
+    error: ParsingError,
+    defer_sec: int,
+) -> None:
+    """记录解析临时故障和下一次自动重试时间。"""
+    attempts = max(0, int(getattr(document, "processing_attempts", 0) or 0)) + 1
+    retry_at = datetime.now(UTC) + timedelta(seconds=max(1, int(defer_sec)))
+    await document_processor._update_status(
+        db,
+        tenant_id,
+        document_id,
+        "processing",
+        0,
+        "retry_wait",
+        failed_stage="parsing",
+        error_code=str(getattr(error, "code", "parsing_failed") or "parsing_failed")[:100],
+        processing_attempts=attempts,
+        next_retry_at=retry_at,
+        error_message=f"解析服务暂时不可用，系统将在 {max(1, int(defer_sec))} 秒后自动重试",
+    )
+
+
+async def _mark_document_parsing_failed(
+    *,
+    db,
+    tenant_id: UUID,
+    document_id: UUID,
+    error: ParsingError,
+) -> None:
+    """在解析重试耗尽后写入稳定的终态。"""
+    await document_processor._update_status(
+        db,
+        tenant_id,
+        document_id,
+        "failed",
+        0,
+        "failed",
+        failed_stage="parsing",
+        error_code=str(getattr(error, "code", "parsing_failed") or "parsing_failed")[:100],
+        next_retry_at=None,
+        error_message="解析服务连续失败，自动重试已停止，请稍后重新处理",
+    )
 
 
 def _is_retry_error(exc: Exception) -> bool:
@@ -841,18 +902,50 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
         # preflight session here would cross SQLAlchemy's thread-safety boundary.
         db.close()
         try:
-            result = await _run_document_processing_without_blocking_event_loop(
-                file_path=file_path,
-                document_id=did,
-                tenant_id=tid,
-                parser_backend=parser_backend,
-                chunk_strategy=chunk_strategy,
-                db=None,
+            try:
+                result = await _run_document_processing_without_blocking_event_loop(
+                    file_path=file_path,
+                    document_id=did,
+                    tenant_id=tid,
+                    parser_backend=parser_backend,
+                    chunk_strategy=chunk_strategy,
+                    db=None,
+                )
+            finally:
+                if temp_path is not None:
+                    with contextlib.suppress(Exception):
+                        temp_path.unlink(missing_ok=True)
+        except ParsingError as exc:
+            reason = f"parsing_{str(getattr(exc, 'code', 'failed') or 'failed')[:100]}"
+            if bool(getattr(exc, "retryable", False)) and _current_job_try(ctx) < _document_parse_max_tries():
+                parse_retry_defer_sec = _document_parse_retry_defer_sec(ctx)
+                await _mark_document_parsing_retry(
+                    db=db,
+                    document=doc,
+                    tenant_id=tid,
+                    document_id=did,
+                    error=exc,
+                    defer_sec=parse_retry_defer_sec,
+                )
+                _raise_task_retry(defer_sec=parse_retry_defer_sec, cause=exc)
+            if bool(getattr(exc, "retryable", False)):
+                await _mark_document_parsing_failed(
+                    db=db,
+                    tenant_id=tid,
+                    document_id=did,
+                    error=exc,
+                )
+            return await _job_result(
+                ctx,
+                job_name="process_document_job",
+                ok=False,
+                started_at=t0,
+                reason=reason,
+                progress=_job_progress(stage="failed", done=0, total=1),
+                tenant_id=tenant_id,
+                document_id=document_id,
+                pipeline_hash=pipeline_hash,
             )
-        finally:
-            if temp_path is not None:
-                with contextlib.suppress(Exception):
-                    temp_path.unlink(missing_ok=True)
         result_status = str(result.get("status") or "").strip().lower() if isinstance(result, dict) else ""
         succeeded = result_status == "success"
         return await _job_result(

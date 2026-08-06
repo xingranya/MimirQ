@@ -262,6 +262,8 @@ class Settings(BaseSettings):
     # Document jobs can wait behind large PDF/OCR work; keep them queued instead of
     # exhausting the generic retry budget while a per-tenant semaphore is held.
     TASK_DOCUMENT_JOB_MAX_TRIES: int = 80
+    # 解析服务临时故障使用较小的独立上限，避免长期占用 Worker 或重复计费。
+    TASK_DOCUMENT_PARSE_MAX_TRIES: int = 3
     TASK_DOCUMENT_RETRY_DEFER_SEC: int = 30
     # Per-tenant concurrency limit to avoid one tenant exhausting workers (0 = unlimited).
     TASK_TENANT_MAX_CONCURRENCY_DOC: int = 2

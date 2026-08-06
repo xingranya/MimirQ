@@ -152,8 +152,8 @@ class ParsingStage:
                 except Exception as exc:
                     logger.debug(_PROCESSOR_CLEANUP_LOG_MESSAGE, exc)
                 raise
-            except ParsingError as exc:
-                raise RuntimeError(f"Integrated pipeline parsing failed: {str(exc)[:200]}") from exc
+            except ParsingError:
+                raise
 
             chunks = [
                 Document(
@@ -301,8 +301,8 @@ class ParsingStage:
                 except Exception as exc:
                     logger.debug(_PROCESSOR_CLEANUP_LOG_MESSAGE, exc)
                 raise
-            except ParsingError as exc:
-                raise RuntimeError(f"Parsing failed: {str(exc)[:200]}") from exc
+            except ParsingError:
+                raise
 
             documents = [
                 Document(
