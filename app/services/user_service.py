@@ -13,10 +13,23 @@ from app.core.config import settings
 from app.core.constants import UserRoles
 from app.core.security import hash_password, verify_password
 from app.models.tenant import Tenant, TenantMember
+from app.models.tenant_group import TenantGroup, TenantGroupMember
 from app.models.user import User
 
 
 class UserService:
+    @staticmethod
+    def get_default_tenant_id() -> UUID:
+        """返回部署配置中的默认租户标识。"""
+
+        raw_tenant = str(getattr(settings, "DEFAULT_TENANT_ID", "") or "").strip()
+        if not raw_tenant:
+            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is not configured")
+        try:
+            return UUID(raw_tenant)
+        except ValueError as exc:
+            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is invalid") from exc
+
     @staticmethod
     def get_by_email(db: Session, email: str) -> User | None:
         return db.query(User).filter(User.email == email).first()
@@ -152,14 +165,64 @@ class UserService:
         return user
 
     @staticmethod
+    def create_self_registered_user(
+        db: Session,
+        *,
+        email: str,
+        username: str,
+        password: str,
+        group_id: UUID,
+    ) -> tuple[User, UUID]:
+        """在同一事务中创建查看者账号，并加入其选择的成员组。"""
+
+        tenant_id = UserService.get_default_tenant_id()
+        tenant = (
+            db.query(Tenant)
+            .filter(Tenant.id == tenant_id, func.lower(Tenant.status) == "active")
+            .with_for_update()
+            .first()
+        )
+        if not tenant:
+            raise HTTPException(status_code=404, detail="自助注册对应的组织不存在或已停用")
+
+        group = (
+            db.query(TenantGroup)
+            .filter(TenantGroup.tenant_id == tenant_id, TenantGroup.id == group_id)
+            .with_for_update()
+            .first()
+        )
+        if not group:
+            raise HTTPException(status_code=400, detail="选择的成员组不存在，请刷新后重新选择")
+
+        user = UserService._create_user_record(
+            db,
+            email=email,
+            username=username,
+            password=password,
+        )
+        account_id = str(user.id)
+        db.add_all(
+            [
+                TenantMember(
+                    tenant_id=tenant_id,
+                    user_id=account_id,
+                    role=UserRoles.VIEWER,
+                    is_active=True,
+                    is_current=True,
+                ),
+                TenantGroupMember(
+                    tenant_id=tenant_id,
+                    group_id=group.id,
+                    user_id=account_id,
+                ),
+            ]
+        )
+        db.flush()
+        return user, tenant_id
+
+    @staticmethod
     def ensure_default_membership(db: Session, *, user_id: str) -> None:
-        raw_tenant = str(getattr(settings, "DEFAULT_TENANT_ID", "") or "").strip()
-        if not raw_tenant:
-            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is not configured")
-        try:
-            tenant_id = UUID(raw_tenant)
-        except ValueError as exc:
-            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is invalid") from exc
+        tenant_id = UserService.get_default_tenant_id()
 
         tenant = db.query(Tenant).filter(Tenant.id == tenant_id).with_for_update().first()
         if not tenant:
@@ -189,13 +252,7 @@ class UserService:
 
     @staticmethod
     def get_default_tenant_member_count(db: Session) -> int:
-        raw_tenant = str(getattr(settings, "DEFAULT_TENANT_ID", "") or "").strip()
-        if not raw_tenant:
-            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is not configured")
-        try:
-            tenant_id = UUID(raw_tenant)
-        except ValueError as exc:
-            raise HTTPException(status_code=500, detail="DEFAULT_TENANT_ID is invalid") from exc
+        tenant_id = UserService.get_default_tenant_id()
         return int(
             db.query(TenantMember)
             .filter(TenantMember.tenant_id == tenant_id)

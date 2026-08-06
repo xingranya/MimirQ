@@ -29,6 +29,8 @@ vi.mock('next/image', () => ({
     React.createElement('img', props),
 }))
 vi.mock('@/i18n/navigation', () => ({
+  Link: ({ href, children }: React.PropsWithChildren<{ href: string }>) =>
+    React.createElement('a', { href }, children),
   useRouter: () => routerMock,
 }))
 vi.mock('@/lib/api', () => ({
@@ -130,6 +132,21 @@ describe('auth page registration', () => {
       'a[href="mailto:xingranya@qq.com"]'
     )
     expect(contact?.textContent).toContain('xingranya@qq.com')
+
+    act(() => root.unmount())
+  })
+
+  it('提供独立的员工自助注册入口', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+
+    act(() => root.render(<AuthPage />))
+
+    const registrationLink = container.querySelector<HTMLAnchorElement>(
+      'a[href="/auth/register"]'
+    )
+    expect(registrationLink?.textContent).toContain('自助注册')
 
     act(() => root.unmount())
   })

@@ -839,6 +839,8 @@ class Settings(BaseSettings):
     INITIAL_REGISTRATION_TOKEN: str = ""
     # 管理员签发本地成员邀请链接的有效期，默认 7 天。
     MEMBER_INVITATION_TTL_SEC: int = 604800
+    # 员工自助注册开关。启用后，注册人可选择默认租户下已有的成员组。
+    SELF_REGISTRATION_ENABLED: bool = False
     # Optional unattended bootstrap for the very first local owner account.
     # Configure email + username + exactly one password source, then remove after first successful startup.
     INITIAL_ADMIN_EMAIL: str = ""

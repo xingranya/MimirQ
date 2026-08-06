@@ -83,6 +83,7 @@ export const queryKeys = {
   auth: {
     all: ['auth'] as const,
     profile: ['auth', 'profile'] as const,
+    selfRegistrationOptions: ['auth', 'self-registration-options'] as const,
   },
   rbac: {
     members: (params?: QueryParams) => ['rbac', 'members', params] as const,

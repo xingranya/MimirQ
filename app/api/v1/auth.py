@@ -17,6 +17,9 @@ from app.api.schemas.auth import (
     SamlBridgeConsumeRequest,
     SamlExchangeRequest,
     SamlExchangeResponse,
+    SelfRegistrationGroupOut,
+    SelfRegistrationOptions,
+    SelfRegistrationRequest,
     TenantInvitationAcceptRequest,
     TokenResponse,
     UserPublic,
@@ -25,6 +28,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.env import is_production_env
 from app.core.jwt_utils import create_access_token
+from app.models.tenant import Tenant
+from app.models.tenant_group import TenantGroup
 from app.services.audit_log_service import audit_log_event
 from app.services.saml_bridge_service import (
     consume_saml_bridge_session,
@@ -107,6 +112,89 @@ def register_user(
     )
 
 
+@router.get("/registration-options", response_model=SelfRegistrationOptions)
+def get_self_registration_options(
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+) -> SelfRegistrationOptions:
+    """返回员工自助注册状态及可选择的成员组。"""
+
+    response.headers["Cache-Control"] = "no-store"
+    if not bool(getattr(settings, "SELF_REGISTRATION_ENABLED", False)):
+        return SelfRegistrationOptions(enabled=False)
+
+    tenant_id = UserService.get_default_tenant_id()
+    tenant = db.query(Tenant.id).filter(Tenant.id == tenant_id, Tenant.status == "active").first()
+    if not tenant:
+        return SelfRegistrationOptions(enabled=False)
+
+    groups = (
+        db.query(TenantGroup)
+        .filter(TenantGroup.tenant_id == tenant_id)
+        .order_by(TenantGroup.name.asc())
+        .limit(500)
+        .all()
+    )
+    return SelfRegistrationOptions(
+        enabled=True,
+        groups=[SelfRegistrationGroupOut(id=group.id, name=group.name) for group in groups],
+    )
+
+
+@router.post("/self-register", status_code=201, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
+def self_register_user(
+    payload: SelfRegistrationRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> AuthResponse:
+    """创建员工查看者账号，并加入其选择的成员组。"""
+
+    if not bool(getattr(settings, "SELF_REGISTRATION_ENABLED", False)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="员工自助注册尚未开放")
+
+    try:
+        user, tenant_id = UserService.create_self_registered_user(
+            db,
+            email=payload.email,
+            username=payload.username,
+            password=payload.password,
+            group_id=payload.group_id,
+        )
+        audit_log_event(
+            db,
+            tenant_id=tenant_id,
+            actor_id=str(user.id),
+            action="auth.self_registration.create",
+            resource_type="tenant_member",
+            resource_id=str(user.id),
+            details={"group_id": str(payload.group_id), "role": "viewer"},
+        )
+        token_tenant_id = (
+            str(tenant_id) if str(getattr(settings, "JWT_TENANT_CLAIM", "") or "").strip() else None
+        )
+        token, expires_in = create_access_token(str(user.id), tenant_id=token_tenant_id)
+        db.commit()
+        db.refresh(user)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱或用户名已被使用") from exc
+    except HTTPException as exc:
+        db.rollback()
+        if exc.status_code == status.HTTP_400_BAD_REQUEST and exc.detail in {
+            "Email already registered",
+            "Username already registered",
+        }:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="邮箱或用户名已被使用") from exc
+        raise
+    except Exception:
+        db.rollback()
+        raise
+
+    return AuthResponse(
+        user=user,
+        token=TokenResponse(access_token=token, expires_in=expires_in),
+    )
+
+
 @router.post("/invitations/accept", status_code=201, responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
 def accept_tenant_invitation(
     payload: TenantInvitationAcceptRequest,
@@ -138,9 +226,7 @@ def accept_tenant_invitation(
                 "member_user_id": str(user.id),
             },
         )
-        token_tenant_id = (
-            str(tenant_id) if str(getattr(settings, "JWT_TENANT_CLAIM", "") or "").strip() else None
-        )
+        token_tenant_id = str(tenant_id) if str(getattr(settings, "JWT_TENANT_CLAIM", "") or "").strip() else None
         token, expires_in = create_access_token(str(user.id), tenant_id=token_tenant_id)
         db.commit()
         db.refresh(user)

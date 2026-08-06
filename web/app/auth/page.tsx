@@ -13,10 +13,11 @@ import {
 } from 'lucide-react'
 
 import { FullScreenFrame } from '@/components/full-screen-frame'
+import { AuthFormField } from '@/components/auth/auth-form-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { authApi } from '@/lib/api'
 import {
   formatRequestId,
@@ -289,7 +290,7 @@ export default function AuthPage() {
                   </a>
                   {' '}开通账号。
                 </p>
-                <AuthInputField
+                <AuthFormField
                   id="email"
                   label="邮箱地址"
                   type="email"
@@ -299,7 +300,7 @@ export default function AuthPage() {
                   value={email}
                   onChange={setEmail}
                 />
-                <AuthInputField
+                <AuthFormField
                   id="username"
                   label="用户名"
                   placeholder="设置用户名"
@@ -327,7 +328,7 @@ export default function AuthPage() {
                 </div>
               </div>
             ) : (
-              <AuthInputField
+              <AuthFormField
                 id="identifier"
                 label="账号"
                 placeholder="输入邮箱或用户名"
@@ -338,7 +339,7 @@ export default function AuthPage() {
               />
             )}
 
-            <AuthInputField
+            <AuthFormField
               id="password"
               label={mode === 'login' ? '密码' : '设置密码'}
               type="password"
@@ -350,7 +351,7 @@ export default function AuthPage() {
             />
 
             {mode === 'register' ? (
-              <AuthInputField
+              <AuthFormField
                 id="confirmPassword"
                 label="确认密码"
                 type="password"
@@ -407,6 +408,16 @@ export default function AuthPage() {
               {getAuthSubmitContent(isSubmitting, mode)}
             </Button>
           </form>
+
+          <div className="mt-5 border-t border-border pt-4 text-center text-sm text-muted-foreground">
+            公司员工首次使用？{' '}
+            <Link
+              href="/auth/register"
+              className="focus-ring rounded-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              自助注册
+            </Link>
+          </div>
         </section>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
@@ -420,49 +431,5 @@ export default function AuthPage() {
         </p>
       </div>
     </FullScreenFrame>
-  )
-}
-
-function AuthInputField({
-  id,
-  label,
-  type = 'text',
-  placeholder,
-  autoComplete,
-  icon: Icon,
-  value,
-  onChange,
-}: Readonly<{
-  id: string
-  label: string
-  type?: 'text' | 'email' | 'password'
-  placeholder: string
-  autoComplete: string
-  icon: typeof User
-  value: string
-  onChange: (value: string) => void
-}>) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm">
-        {label}
-      </Label>
-      <div className="relative">
-        <Icon
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          id={id}
-          type={type}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          className="h-10 rounded-md bg-background pl-10"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          required
-        />
-      </div>
-    </div>
   )
 }

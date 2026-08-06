@@ -7,6 +7,9 @@ export type RegisterPayload = RegisterRequest & {
   bootstrapToken?: string
 }
 
+export type SelfRegistrationOptions = OpenApiSchema<'SelfRegistrationOptions'>
+export type SelfRegistrationPayload = OpenApiSchema<'SelfRegistrationRequest'>
+
 export const authApi = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const { bootstrapToken, ...body } = payload
@@ -14,14 +17,27 @@ export const authApi = {
       path: '/api/v1/auth/register',
       method: 'post',
       body,
-      headers: bootstrapToken?.trim()
-        ? { 'X-Bootstrap-Token': bootstrapToken.trim() }
-        : undefined,
+      headers: bootstrapToken?.trim() ? { 'X-Bootstrap-Token': bootstrapToken.trim() } : undefined,
     })
   },
 
   async login(payload: LoginRequest): Promise<AuthResponse> {
     return openapiRequest({ path: '/api/v1/auth/login', method: 'post', body: payload })
+  },
+
+  async getSelfRegistrationOptions(): Promise<SelfRegistrationOptions> {
+    return openapiRequest({
+      path: '/api/v1/auth/registration-options',
+      method: 'get',
+    })
+  },
+
+  async selfRegister(payload: SelfRegistrationPayload): Promise<AuthResponse> {
+    return openapiRequest({
+      path: '/api/v1/auth/self-register',
+      method: 'post',
+      body: payload,
+    })
   },
 
   async acceptTenantInvitation(

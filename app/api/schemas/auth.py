@@ -25,6 +25,20 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8, max_length=72)
 
 
+class SelfRegistrationRequest(RegisterRequest):
+    group_id: UUID
+
+
+class SelfRegistrationGroupOut(BaseModel):
+    id: UUID
+    name: str
+
+
+class SelfRegistrationOptions(BaseModel):
+    enabled: bool = False
+    groups: list[SelfRegistrationGroupOut] = Field(default_factory=list)
+
+
 class TenantInvitationAcceptRequest(BaseModel):
     token: str = Field(min_length=32, max_length=4096)
     username: str = Field(min_length=3, max_length=64)

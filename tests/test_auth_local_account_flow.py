@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.core.security import hash_password
 from app.models.tenant import Tenant, TenantMember
+from app.models.tenant_group import TenantGroup, TenantGroupMember
 from app.models.tenant_invitation import TenantInvitation
 from app.models.user import User
 from app.services.user_service import UserService
@@ -28,7 +29,14 @@ def _build_auth_test_client():
     )
     Base.metadata.create_all(
         engine,
-        tables=[User.__table__, Tenant.__table__, TenantMember.__table__, TenantInvitation.__table__],
+        tables=[
+            User.__table__,
+            Tenant.__table__,
+            TenantMember.__table__,
+            TenantInvitation.__table__,
+            TenantGroup.__table__,
+            TenantGroupMember.__table__,
+        ],
     )
     test_session = sessionmaker(bind=engine)
 
@@ -59,6 +67,12 @@ def _configure_invitation_auth(monkeypatch, tenant_id) -> None:
     monkeypatch.setattr(settings, "DEFAULT_TENANT_ID", str(tenant_id), raising=False)
     monkeypatch.setattr(settings, "INITIAL_REGISTRATION_TOKEN", "", raising=False)
     monkeypatch.setattr(settings, "MEMBER_INVITATION_TTL_SEC", 604800, raising=False)
+    monkeypatch.setattr(settings, "SELF_REGISTRATION_ENABLED", False, raising=False)
+
+
+def _configure_self_registration(monkeypatch, tenant_id) -> None:
+    _configure_invitation_auth(monkeypatch, tenant_id)
+    monkeypatch.setattr(settings, "SELF_REGISTRATION_ENABLED", True, raising=False)
 
 
 def test_local_account_bootstrap_login_and_me(monkeypatch) -> None:
@@ -229,6 +243,134 @@ def test_owner_can_invite_member_and_invitee_can_create_account(monkeypatch) -> 
             )
             assert invitation_record.used_at is not None
             assert invitation_record.used_by_user_id == str(member_user.id)
+    finally:
+        engine.dispose()
+
+
+def test_employee_can_self_register_into_selected_group_as_viewer(monkeypatch) -> None:
+    tenant_id = uuid4()
+    _configure_self_registration(monkeypatch, tenant_id)
+    monkeypatch.setattr(auth_module, "audit_log_event", lambda *args, **kwargs: None, raising=True)
+    engine, test_session, app = _build_auth_test_client()
+
+    try:
+        with test_session() as db:
+            tenant = Tenant(id=tenant_id, name="company", status="active", plan="basic")
+            group = TenantGroup(tenant_id=tenant_id, name="内容运营")
+            db.add_all([tenant, group])
+            db.commit()
+            group_id = group.id
+
+        with TestClient(app) as client:
+            options = client.get("/auth/registration-options")
+            assert options.status_code == 200, options.text
+            assert options.headers["cache-control"] == "no-store"
+            assert options.json() == {
+                "enabled": True,
+                "groups": [{"id": str(group_id), "name": "内容运营"}],
+            }
+
+            registered = client.post(
+                "/auth/self-register",
+                json={
+                    "email": "employee@example.com",
+                    "username": "employee",
+                    "password": "employee-password",
+                    "group_id": str(group_id),
+                },
+            )
+            assert registered.status_code == 201, registered.text
+            assert registered.json()["user"]["email"] == "employee@example.com"
+
+        with test_session() as db:
+            user = db.query(User).filter(User.email == "employee@example.com").one()
+            member = db.query(TenantMember).filter(TenantMember.user_id == str(user.id)).one()
+            group_member = (
+                db.query(TenantGroupMember)
+                .filter(TenantGroupMember.group_id == group_id, TenantGroupMember.user_id == str(user.id))
+                .one()
+            )
+            assert member.tenant_id == tenant_id
+            assert member.role == "viewer"
+            assert member.is_current is True
+            assert group_member.tenant_id == tenant_id
+    finally:
+        engine.dispose()
+
+
+def test_self_registration_disabled_does_not_expose_groups_or_create_account(monkeypatch) -> None:
+    tenant_id = uuid4()
+    _configure_invitation_auth(monkeypatch, tenant_id)
+    engine, test_session, app = _build_auth_test_client()
+
+    try:
+        with test_session() as db:
+            tenant = Tenant(id=tenant_id, name="company", status="active", plan="basic")
+            group = TenantGroup(tenant_id=tenant_id, name="财务")
+            db.add_all([tenant, group])
+            db.commit()
+            group_id = group.id
+
+        with TestClient(app) as client:
+            options = client.get("/auth/registration-options")
+            assert options.status_code == 200
+            assert options.json() == {"enabled": False, "groups": []}
+
+            denied = client.post(
+                "/auth/self-register",
+                json={
+                    "email": "employee@example.com",
+                    "username": "employee",
+                    "password": "employee-password",
+                    "group_id": str(group_id),
+                },
+            )
+            assert denied.status_code == 403
+            assert denied.json()["detail"] == "员工自助注册尚未开放"
+
+        with test_session() as db:
+            assert db.query(User).count() == 0
+            assert db.query(TenantMember).count() == 0
+            assert db.query(TenantGroupMember).count() == 0
+    finally:
+        engine.dispose()
+
+
+def test_self_registration_rolls_back_when_audit_fails(monkeypatch) -> None:
+    tenant_id = uuid4()
+    _configure_self_registration(monkeypatch, tenant_id)
+    engine, test_session, app = _build_auth_test_client()
+
+    try:
+        with test_session() as db:
+            tenant = Tenant(id=tenant_id, name="company", status="active", plan="basic")
+            group = TenantGroup(tenant_id=tenant_id, name="数据运营")
+            db.add_all([tenant, group])
+            db.commit()
+            group_id = group.id
+
+        monkeypatch.setattr(
+            auth_module,
+            "audit_log_event",
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("audit unavailable")),
+            raising=True,
+        )
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                "/auth/self-register",
+                json={
+                    "email": "employee@example.com",
+                    "username": "employee",
+                    "password": "employee-password",
+                    "group_id": str(group_id),
+                },
+            )
+            assert response.status_code == 500
+
+        with test_session() as db:
+            assert db.query(User).count() == 0
+            assert db.query(TenantMember).count() == 0
+            assert db.query(TenantGroupMember).count() == 0
     finally:
         engine.dispose()
 
