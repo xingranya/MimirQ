@@ -250,6 +250,8 @@ class Settings(BaseSettings):
     TASK_WORKER_HEARTBEAT_TTL_SEC: int = 30
     # Task execution timeout (seconds).
     TASK_JOB_TIMEOUT_SEC: int = 60 * 30
+    # 为分块、向量化、索引和状态提交预留的文档任务时间。
+    TASK_DOCUMENT_POST_PARSE_RESERVE_SEC: int = 5 * 60
     # Redis semaphore lease TTL for tenant/dataset concurrency slots.
     # A short lease prevents dead workers from blocking capacity for too long;
     # active jobs keep ownership alive via owner-checked heartbeats.
@@ -712,8 +714,15 @@ class Settings(BaseSettings):
     MINERU_ENABLED: bool = False
     # 云端解析轮询必须短于文档 Worker 的单次任务时限。
     MINERU_CLOUD_POLL_TIMEOUT_SEC: int = 15 * 60
+    # 云端结果下载、解压和解析产物落盘的最小预留时间。
+    MINERU_CLOUD_RESULT_RESERVE_SEC: int = 6 * 60
     # 已上传云端任务的本地续跑记录保留时间。
     MINERU_CLOUD_RESUME_TTL_SEC: int = 24 * 60 * 60
+    # 上传结果不确定时，单次任务内部的对账轮询间隔。
+    MINERU_CLOUD_UPLOAD_RECONCILE_POLL_SEC: float = 5.0
+    # PUT 执行中状态覆盖完整上传时限；PUT 返回不确定后使用较短对账时限。
+    MINERU_CLOUD_UPLOAD_IN_FLIGHT_TTL_SEC: int = 15 * 60
+    MINERU_CLOUD_UPLOAD_UNKNOWN_TTL_SEC: int = 5 * 60
     # MinerU local ZIP mode (Markdown + images)
     MINERU_LOCAL_SERVER_URL: str = Field(
         default="",

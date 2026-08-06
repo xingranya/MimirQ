@@ -490,6 +490,7 @@ class DocumentProcessorService:
         tenant_id: UUID,
         parser_backend: str | None = None,
         chunk_strategy: str | None = None,
+        job_deadline_epoch: float | None = None,
         db: Session | None = None,
     ) -> dict[str, Any]:
         """
@@ -1143,6 +1144,7 @@ class DocumentProcessorService:
                         dataset_id=dataset_id,
                         parser_backend=parser_backend,
                         chunk_strategy=chunk_strategy,
+                        job_deadline_epoch=job_deadline_epoch,
                         html_xpath=(
                             pipeline_effective.governance_html_xpath
                             if file_path.suffix.lower() in {".html", ".htm"}
@@ -1254,6 +1256,7 @@ class DocumentProcessorService:
                                             dataset_id=dataset_id,
                                             parser_backend=candidate,
                                             chunk_strategy=chunk_strategy,
+                                            job_deadline_epoch=job_deadline_epoch,
                                             html_xpath=None,
                                         )
                                 except Exception as exc:  # noqa: BLE001

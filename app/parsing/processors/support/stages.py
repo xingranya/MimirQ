@@ -9,6 +9,7 @@ import asyncio
 import datetime as dt
 import hashlib
 import shutil
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -25,7 +26,7 @@ from app.parsing.enrich.formula_ocr import add_formula_latex_blocks
 from app.parsing.enrich.image_caption import add_image_captions
 from app.parsing.enrich.image_code import add_image_code_blocks
 from app.parsing.enrich.vlm_image_caption import add_vlm_image_captions
-from app.parsing.errors import ParsingError
+from app.parsing.errors import ParsingError, ParsingTimeoutError
 from app.parsing.processors.parse_quality_gate import apply_parse_quality_gate_metadata
 from app.parsing.processors.support.common import (
     _PROCESSOR_CLEANUP_LOG_MESSAGE,
@@ -102,7 +103,28 @@ class ParsingStage:
         parser_backend: str | None,
         chunk_strategy: str | None,
         html_xpath: str | None = None,
+        job_deadline_epoch: float | None = None,
     ) -> ParseResult:
+        configured_timeout = max(
+            1.0,
+            float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 30 * 60) or 0),
+        )
+        parse_deadline_epoch: float | None = None
+        if job_deadline_epoch is not None:
+            post_parse_reserve = max(
+                30.0,
+                float(getattr(settings, "TASK_DOCUMENT_POST_PARSE_RESERVE_SEC", 5 * 60) or 0),
+            )
+            parse_deadline_epoch = float(job_deadline_epoch) - post_parse_reserve
+
+        def remaining_parse_timeout() -> float:
+            if parse_deadline_epoch is None:
+                return configured_timeout
+            remaining = parse_deadline_epoch - time.time()
+            if remaining <= 1.0:
+                raise ParsingTimeoutError("document job time budget exhausted before parsing")
+            return min(configured_timeout, remaining)
+
         # IMPORTANT: resolve strategy first so defaults (e.g. DEFAULT_CHUNK_STRATEGY)
         # are honored consistently (including integrated_* strategies).
         resolved_chunk_strategy = chunker_factory.resolve_strategy(chunk_strategy)
@@ -138,7 +160,7 @@ class ParsingStage:
                         "artifact_root": str(artifact_root),
                     },
                     cancel_check=cancel_check_worker,
-                    timeout_sec=float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 60 * 30) or 60 * 30),
+                    timeout_sec=remaining_parse_timeout(),
                 )
             except SubprocessCancelled as exc:
                 try:
@@ -283,11 +305,13 @@ class ParsingStage:
                 }
                 if isinstance(html_xpath, str) and html_xpath.strip():
                     payload["html_xpath"] = html_xpath.strip()
+                if parse_deadline_epoch is not None:
+                    payload["job_deadline_epoch"] = parse_deadline_epoch
                 parsed = await run_parser_subprocess(
                     tenant_id=tenant_id,
                     payload=payload,
                     cancel_check=cancel_check_worker,
-                    timeout_sec=float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 60 * 30) or 60 * 30),
+                    timeout_sec=remaining_parse_timeout(),
                     max_attempts=(
                         1
                         if str(effective_parser_backend or "").strip().lower() == "mineru"

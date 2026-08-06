@@ -222,6 +222,7 @@ def _parse_documents(payload: dict[str, Any]) -> dict[str, Any]:
         document_id=str(document_id) if document_id else None,
         tenant_id=str(tenant_id),
         account_id=str(payload.get("account_id") or "").strip() or None,
+        job_deadline_epoch=payload.get("job_deadline_epoch"),
         pdf_quality=pdf_quality,
         html_xpath=(payload.get("html_xpath") if isinstance(payload.get("html_xpath"), str) else None),
     )

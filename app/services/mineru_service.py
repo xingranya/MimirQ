@@ -6,13 +6,16 @@ Supports two modes:
 Both modes support advanced PDF parsing (tables, images, formulas, etc.)
 """
 import asyncio
+import hashlib
 import io
 import json
+import os
 import re
 import tempfile
 import time
 import uuid
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -39,7 +42,8 @@ logger = get_logger("services.mineru")
 OCTET_STREAM = "application/octet-stream"
 UNKNOWN_ERROR = "Unknown error"
 MINERU_FALLBACK_LOG_MESSAGE = "Ignoring non-critical MinerU fallback failure: %s"
-MINERU_CLOUD_RESUME_SCHEMA_V1 = "mimirq.mineru_cloud_resume.v1"
+MINERU_CLOUD_RESUME_SCHEMA_V2 = "mimirq.mineru_cloud_resume.v2"
+MINERU_CLOUD_RESUME_PHASES = {"upload_in_flight", "upload_unknown", "uploaded"}
 
 
 class MinerUBatchFailedError(RuntimeError):
@@ -47,6 +51,36 @@ class MinerUBatchFailedError(RuntimeError):
 
     code = "mineru_batch_failed"
     retryable = False
+
+
+class MinerUUploadPendingError(RuntimeError):
+    """MinerU 云端上传结果暂时无法确认。"""
+
+    code = "mineru_upload_pending"
+    retryable = True
+
+
+class MinerUUploadRejectedError(RuntimeError):
+    """MinerU 云端文件上传被明确拒绝。"""
+
+    code = "mineru_upload_rejected"
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = int(status_code)
+        self.retryable = self.status_code not in {400, 413, 415, 422}
+        super().__init__(f"MinerU upload was rejected (HTTP {self.status_code})")
+
+
+@dataclass(frozen=True, slots=True)
+class MinerUUploadResult:
+    """MinerU 文件上传结果，不把明确拒绝与网络不确定混为一类。"""
+
+    outcome: str
+    status_code: int | None = None
+
+    @property
+    def accepted(self) -> bool:
+        return self.outcome == "accepted"
 
 
 def _normalize_local_backend(value: Any) -> str:
@@ -179,31 +213,87 @@ class MinerUService:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to remove MinerU cloud resume state: %s", str(exc)[:200])
 
+    @staticmethod
+    def _calculate_file_sha256(file_path: Path) -> str:
+        digest = hashlib.sha256()
+        with file_path.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    @staticmethod
+    def _cloud_upload_pending_ttl_sec(phase: str) -> float:
+        if phase == "upload_in_flight":
+            configured_ttl = max(
+                60.0,
+                float(getattr(settings, "MINERU_CLOUD_UPLOAD_IN_FLIGHT_TTL_SEC", 15 * 60) or 0),
+            )
+        else:
+            configured_ttl = max(
+                60.0,
+                float(getattr(settings, "MINERU_CLOUD_UPLOAD_UNKNOWN_TTL_SEC", 5 * 60) or 0),
+            )
+        worker_timeout = max(
+            60.0,
+            float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 30 * 60) or 0),
+        )
+        # 为下一次单次上传、解析轮询和结果落盘预留时间，避免对账占满 Worker 时限。
+        safe_upper_bound = max(60.0, worker_timeout - 7 * 60)
+        return min(configured_ttl, safe_upper_bound)
+
+    @staticmethod
+    def _is_transient_cloud_status_error(exc: Exception) -> bool:
+        message = str(exc or "").strip().lower()
+        status_match = re.search(r"http\s+(\d{3})", message)
+        if status_match and int(status_match.group(1)) >= 500:
+            return True
+        return any(
+            marker in message
+            for marker in ("timed out", "timeout", "network", "connection", "request failed")
+        )
+
     def _load_cloud_resume_state(
         self,
         path: Path | None,
         *,
         data_id: str,
-        filename: str,
+        file_sha256: str,
     ) -> dict[str, Any] | None:
         if path is None or not path.is_file():
             return None
         try:
             state = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(state, dict) or state.get("schema") != MINERU_CLOUD_RESUME_SCHEMA_V1:
+            if not isinstance(state, dict) or state.get("schema") != MINERU_CLOUD_RESUME_SCHEMA_V2:
                 raise ValueError("invalid resume state schema")
+            phase = str(state.get("phase") or "").strip()
+            if phase not in MINERU_CLOUD_RESUME_PHASES:
+                raise ValueError("invalid resume state phase")
             created_at = float(state.get("created_at") or 0.0)
-            ttl_sec = max(60, int(getattr(settings, "MINERU_CLOUD_RESUME_TTL_SEC", 24 * 60 * 60) or 0))
-            if created_at <= 0 or time.time() - created_at > ttl_sec:
+            if phase in {"upload_in_flight", "upload_unknown"}:
+                ttl_sec = self._cloud_upload_pending_ttl_sec(phase)
+            else:
+                ttl_sec = max(60, int(getattr(settings, "MINERU_CLOUD_RESUME_TTL_SEC", 24 * 60 * 60) or 0))
+            if created_at <= 0:
                 raise TimeoutError("resume state expired")
-            if str(state.get("data_id") or "") != data_id or str(state.get("filename") or "") != filename:
+            pending_expired = time.time() - created_at > ttl_sec
+            if pending_expired and phase == "uploaded":
+                raise TimeoutError("resume state expired")
+            if str(state.get("data_id") or "") != data_id:
                 raise ValueError("resume state does not match document")
+            stored_filename = str(state.get("filename") or "").strip()
+            if not stored_filename or len(stored_filename) > 512:
+                raise ValueError("invalid resume filename")
             if str(state.get("model_version") or "") != self.model_version:
                 raise ValueError("resume state model changed")
+            stored_sha256 = str(state.get("file_sha256") or "").strip().lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", stored_sha256):
+                raise ValueError("invalid resume file hash")
+            if stored_sha256 != file_sha256:
+                raise ValueError("resume state source file changed")
             batch_id = str(state.get("batch_id") or "").strip()
             if not re.fullmatch(r"[A-Za-z0-9._-]{1,256}", batch_id):
                 raise ValueError("invalid resume batch id")
-            return state
+            return {**state, "phase": phase, "expired": pending_expired}
         except Exception as exc:  # noqa: BLE001
             logger.info("Discarding unusable MinerU cloud resume state: %s", str(exc)[:160])
             self._delete_cloud_resume_state(path)
@@ -217,25 +307,183 @@ class MinerUService:
         data_id: str,
         filename: str,
         model_version: str,
+        phase: str,
+        file_sha256: str,
+        created_at: float | None = None,
     ) -> None:
         if path is None:
             return
+        normalized_phase = str(phase or "").strip()
+        if normalized_phase not in MINERU_CLOUD_RESUME_PHASES:
+            raise ValueError("invalid MinerU cloud resume phase")
+        normalized_sha256 = str(file_sha256 or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", normalized_sha256):
+            raise ValueError("invalid MinerU cloud resume file hash")
         payload = {
-            "schema": MINERU_CLOUD_RESUME_SCHEMA_V1,
+            "schema": MINERU_CLOUD_RESUME_SCHEMA_V2,
             "batch_id": str(batch_id),
             "data_id": str(data_id),
             "filename": str(filename),
             "model_version": str(model_version),
-            "created_at": time.time(),
+            "phase": normalized_phase,
+            "file_sha256": normalized_sha256,
+            "created_at": float(created_at if created_at is not None else time.time()),
         }
         path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
-            temp_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-            temp_path.chmod(0o600)
+            serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            file_descriptor = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(file_descriptor, "w", encoding="utf-8") as target:
+                target.write(serialized)
             temp_path.replace(path)
         finally:
             temp_path.unlink(missing_ok=True)
+
+    async def _reconcile_pending_cloud_upload(
+        self,
+        *,
+        resume_path: Path | None,
+        resume_state: dict[str, Any],
+        data_id: str,
+        filename: str,
+        file_sha256: str,
+        deadline_epoch: float | None = None,
+    ) -> bool:
+        """对账中断的上传；状态不明确时保留原批次，避免重复提交。"""
+        batch_id = str(resume_state["batch_id"])
+        poll_sec = max(
+            0.01,
+            float(getattr(settings, "MINERU_CLOUD_UPLOAD_RECONCILE_POLL_SEC", 5) or 0),
+        )
+        phase = str(resume_state.get("phase") or "upload_unknown")
+        expires_at = float(resume_state.get("created_at") or 0.0) + self._cloud_upload_pending_ttl_sec(phase)
+        operation_deadline = min(expires_at, float(deadline_epoch)) if deadline_epoch is not None else expires_at
+        if bool(resume_state.get("expired")):
+            remaining_budget = 30.0 if deadline_epoch is None else float(deadline_epoch) - time.time()
+            if remaining_budget <= 0:
+                raise MinerUUploadPendingError(
+                    f"MinerU batch {batch_id} reconciliation has no remaining document job time budget"
+                )
+            try:
+                batch = await asyncio.wait_for(
+                    self.aget_batch_results(batch_id),
+                    timeout=min(30.0, remaining_budget),
+                )
+            except LookupError:
+                await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+                return False
+            except TimeoutError as exc:
+                raise MinerUUploadPendingError(
+                    f"MinerU batch {batch_id} reconciliation timed out"
+                ) from exc
+            except RuntimeError as exc:
+                if not self._is_transient_cloud_status_error(exc):
+                    raise
+                await asyncio.to_thread(
+                    self._save_cloud_resume_state,
+                    resume_path,
+                    batch_id=batch_id,
+                    data_id=data_id,
+                    filename=filename,
+                    model_version=self.model_version,
+                    phase="upload_unknown",
+                    file_sha256=file_sha256,
+                    created_at=time.time(),
+                )
+                raise MinerUUploadPendingError(
+                    f"MinerU batch {batch_id} reconciliation is temporarily unavailable"
+                ) from exc
+
+            extract_result = batch.get("extract_result") or []
+            if not isinstance(extract_result, list):
+                extract_result = []
+            item = self._pick_extract_item(extract_result, data_id=data_id, filename=filename)
+            state = str((item or {}).get("state") or "").strip().lower()
+            if item is None or state in {"", "waiting-file"}:
+                await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+                return False
+            await asyncio.to_thread(
+                self._save_cloud_resume_state,
+                resume_path,
+                batch_id=batch_id,
+                data_id=data_id,
+                filename=filename,
+                model_version=self.model_version,
+                phase="uploaded",
+                file_sha256=file_sha256,
+                created_at=time.time(),
+            )
+            return True
+
+        saw_transient_error = False
+        while True:
+            remaining = operation_deadline - time.time()
+            if remaining <= 0:
+                if time.time() >= expires_at:
+                    if saw_transient_error:
+                        await asyncio.to_thread(
+                            self._save_cloud_resume_state,
+                            resume_path,
+                            batch_id=batch_id,
+                            data_id=data_id,
+                            filename=filename,
+                            model_version=self.model_version,
+                            phase="upload_unknown",
+                            file_sha256=file_sha256,
+                            created_at=time.time(),
+                        )
+                        raise MinerUUploadPendingError(
+                            f"MinerU batch {batch_id} reconciliation remained unavailable"
+                        )
+                    await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+                    return False
+                raise MinerUUploadPendingError(
+                    f"MinerU batch {batch_id} reconciliation exhausted the document job time budget"
+                )
+            try:
+                batch = await asyncio.wait_for(
+                    self.aget_batch_results(batch_id),
+                    timeout=max(0.01, remaining),
+                )
+            except LookupError:
+                await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+                return False
+            except TimeoutError:
+                continue
+            except RuntimeError as exc:
+                if not self._is_transient_cloud_status_error(exc):
+                    raise
+                saw_transient_error = True
+                remaining = operation_deadline - time.time()
+                if remaining > 0:
+                    await asyncio.sleep(min(poll_sec, remaining))
+                continue
+
+            extract_result = batch.get("extract_result") or []
+            if not isinstance(extract_result, list):
+                extract_result = []
+            item = self._pick_extract_item(extract_result, data_id=data_id, filename=filename)
+            state = str((item or {}).get("state") or "").strip().lower()
+            if item is not None and state not in {"", "waiting-file"}:
+                break
+            remaining = operation_deadline - time.time()
+            if remaining <= 0:
+                continue
+            await asyncio.sleep(min(poll_sec, remaining))
+
+        await asyncio.to_thread(
+            self._save_cloud_resume_state,
+            resume_path,
+            batch_id=batch_id,
+            data_id=data_id,
+            filename=filename,
+            model_version=self.model_version,
+            phase="uploaded",
+            file_sha256=file_sha256,
+            created_at=float(resume_state.get("created_at") or time.time()),
+        )
+        return True
 
     async def _arequest_json(
         self,
@@ -251,12 +499,13 @@ class MinerUService:
         NOTE: Reuse the global HTTPClientPool to avoid blocking the event loop.
         """
         pool = get_http_client_pool()
+        timeout_sec = max(0.01, float(kwargs.pop("timeout", 30.0) or 0))
         try:
             resp = await pool.request_with_retry(
                 method,
                 url,
                 headers=headers,
-                timeout=30.0,
+                timeout=timeout_sec,
                 use_external_client=True,
                 **kwargs,
             )
@@ -276,14 +525,27 @@ class MinerUService:
             except Exception as exc:
                 logger.debug(MINERU_FALLBACK_LOG_MESSAGE, exc)
 
-    async def aapply_upload_url(self, filename: str, data_id: str) -> dict[str, Any]:
+    async def aapply_upload_url(
+        self,
+        filename: str,
+        data_id: str,
+        *,
+        timeout_sec: float = 30.0,
+    ) -> dict[str, Any]:
         """Request a single file upload URL (async)."""
         self._ensure_online_enabled()
 
         url = f"{self.api_base}/file-urls/batch"
         data = {"files": [{"name": filename, "data_id": data_id}], "model_version": self.model_version}
 
-        result = await self._arequest_json("POST", url, headers=self._get_headers(), json=data)
+        result = await self._arequest_json(
+            "POST",
+            url,
+            headers=self._get_headers(),
+            json=data,
+            timeout=max(0.01, float(timeout_sec)),
+            max_retries=0,
+        )
         if result.get("code") == 0:
             batch_id = result["data"]["batch_id"]
             upload_url = result["data"]["file_urls"][0]
@@ -341,7 +603,13 @@ class MinerUService:
         """
         return _run_coroutine_sync(lambda: self.aapply_batch_upload_urls(files))
 
-    async def aupload_file(self, file_path: Path, upload_url: str) -> bool:
+    async def aupload_file(
+        self,
+        file_path: Path,
+        upload_url: str,
+        *,
+        timeout_sec: float = 300.0,
+    ) -> MinerUUploadResult:
         """
         Upload file to MinerU.
 
@@ -350,7 +618,7 @@ class MinerUService:
             upload_url: Issued upload URL.
 
         Returns:
-            Whether upload succeeded.
+            结构化上传结果，用于区分成功、明确拒绝与结果不确定。
         """
         pool = get_http_client_pool()
         try:
@@ -374,21 +642,34 @@ class MinerUService:
             resp = await pool.put(
                 upload_url,
                 content=_FileChunks(file_path),
-                timeout=300.0,
+                timeout=max(0.01, float(timeout_sec)),
+                max_retries=0,
                 use_external_client=True,
             )
-            ok = int(getattr(resp, "status_code", 0) or 0) == 200
+            status_code = int(getattr(resp, "status_code", 0) or 0)
             try:
                 await resp.aclose()
             except Exception as exc:
                 logger.debug(MINERU_FALLBACK_LOG_MESSAGE, exc)
-            return ok
+            if 200 <= status_code < 300:
+                return MinerUUploadResult("accepted", status_code)
+            if 300 <= status_code < 500:
+                return MinerUUploadResult("rejected", status_code)
+            return MinerUUploadResult("unknown", status_code or None)
+        except httpx.HTTPStatusError as exc:
+            status_code = int(getattr(exc.response, "status_code", 0) or 0)
+            if 400 <= status_code < 500:
+                logger.warning("MinerU upload was rejected with HTTP %s", status_code)
+                return MinerUUploadResult("rejected", status_code)
+            logger.warning("MinerU upload result is uncertain after HTTP %s", status_code or "unknown")
+            return MinerUUploadResult("unknown", status_code or None)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Upload file failed: %s", str(exc)[:200])
-            return False
+            return MinerUUploadResult("unknown")
 
     def upload_file(self, file_path: Path, upload_url: str) -> bool:
-        return bool(_run_coroutine_sync(lambda: self.aupload_file(file_path, upload_url)))
+        result = _run_coroutine_sync(lambda: self.aupload_file(file_path, upload_url))
+        return bool(result.accepted)
 
     async def aget_task_status(self, batch_id: str) -> dict[str, Any]:
         """
@@ -642,10 +923,15 @@ class MinerUService:
         """
         return str(_run_coroutine_sync(lambda: self.adownload_result(result_url)))
 
-    async def adownload_result_zip(self, zip_url: str) -> bytes:
+    async def adownload_result_zip(self, zip_url: str, *, timeout_sec: float = 300.0) -> bytes:
         """Download parse result ZIP bytes (async)."""
         pool = get_http_client_pool()
-        resp = await pool.get(zip_url, timeout=300.0, use_external_client=True)
+        resp = await pool.get(
+            zip_url,
+            timeout=max(0.01, float(timeout_sec)),
+            max_retries=0,
+            use_external_client=True,
+        )
         try:
             return bytes(resp.content)
         finally:
@@ -937,35 +1223,68 @@ class MinerUService:
         account_id: str | None = None,
         dataset_id: str | None = None,
         document_id: str | None = None,
+        job_deadline_epoch: float | None = None,
     ) -> list[Document]:
         """
         End-to-end parsing flow (upload → wait → download result), async version.
         """
         self._ensure_online_enabled()
 
+        local_deadline_epoch = time.time() + max(
+            1.0,
+            float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 30 * 60) or 0),
+        )
+        effective_deadline_epoch = local_deadline_epoch
+        if job_deadline_epoch is not None:
+            effective_deadline_epoch = min(local_deadline_epoch, float(job_deadline_epoch))
+        result_reserve_sec = max(
+            60.0,
+            float(getattr(settings, "MINERU_CLOUD_RESULT_RESERVE_SEC", 6 * 60) or 0),
+        )
         file_path = Path(file_path)
         data_id = data_id or str(file_path.stem)
+        file_sha256 = await asyncio.to_thread(self._calculate_file_sha256, file_path)
         resume_path = self._cloud_resume_state_path(tenant_id=tenant_id, document_id=document_id)
         resume_state = await asyncio.to_thread(
             self._load_cloud_resume_state,
             resume_path,
             data_id=data_id,
-            filename=file_path.name,
+            file_sha256=file_sha256,
         )
         if resume_state is not None:
             batch_id = str(resume_state["batch_id"])
-            logger.info("Resuming MinerU cloud task. Batch ID: %s", batch_id)
-        else:
+            submitted_filename = str(resume_state["filename"])
+            if resume_state["phase"] in {"upload_in_flight", "upload_unknown"}:
+                logger.info("Reconciling pending MinerU cloud upload. Batch ID: %s", batch_id)
+                upload_confirmed = await self._reconcile_pending_cloud_upload(
+                    resume_path=resume_path,
+                    resume_state=resume_state,
+                    data_id=data_id,
+                    filename=submitted_filename,
+                    file_sha256=file_sha256,
+                    deadline_epoch=effective_deadline_epoch - result_reserve_sec - 30.0,
+                )
+                if not upload_confirmed:
+                    resume_state = None
+            if resume_state is not None:
+                logger.info("Resuming MinerU cloud task. Batch ID: %s", batch_id)
+        if resume_state is None:
             logger.info("Applying upload URL for %s...", file_path.name)
-            upload_info = await self.aapply_upload_url(file_path.name, data_id)
+            apply_timeout = min(
+                30.0,
+                effective_deadline_epoch - time.time() - result_reserve_sec - 30.0,
+            )
+            if apply_timeout <= 0:
+                raise TimeoutError("MinerU upload request has no remaining document job time budget")
+            upload_info = await self.aapply_upload_url(
+                file_path.name,
+                data_id,
+                timeout_sec=apply_timeout,
+            )
             batch_id = str(upload_info["batch_id"])
             upload_url = str(upload_info["upload_url"])
-
-            logger.info("Uploading %s...", file_path.name)
-            success = await self.aupload_file(file_path, upload_url)
-            if not success:
-                raise RuntimeError(f"Failed to upload {file_path.name}")
-
+            submitted_filename = file_path.name
+            resume_created_at = time.time()
             await asyncio.to_thread(
                 self._save_cloud_resume_state,
                 resume_path,
@@ -973,16 +1292,73 @@ class MinerUService:
                 data_id=data_id,
                 filename=file_path.name,
                 model_version=self.model_version,
+                phase="upload_in_flight",
+                file_sha256=file_sha256,
+                created_at=resume_created_at,
+            )
+
+            logger.info("Uploading %s...", file_path.name)
+            upload_timeout = min(
+                300.0,
+                effective_deadline_epoch - time.time() - result_reserve_sec - 30.0,
+            )
+            if upload_timeout <= 0:
+                raise TimeoutError("MinerU cloud upload has no remaining document job time budget")
+            upload_result = await self.aupload_file(
+                file_path,
+                upload_url,
+                timeout_sec=upload_timeout,
+            )
+            if not upload_result.accepted:
+                if upload_result.outcome == "rejected":
+                    await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+                    raise MinerUUploadRejectedError(int(upload_result.status_code or 0))
+                if resume_path is not None:
+                    await asyncio.to_thread(
+                        self._save_cloud_resume_state,
+                        resume_path,
+                        batch_id=batch_id,
+                        data_id=data_id,
+                        filename=file_path.name,
+                        model_version=self.model_version,
+                        phase="upload_unknown",
+                        file_sha256=file_sha256,
+                        created_at=time.time(),
+                    )
+                    raise MinerUUploadPendingError(
+                        f"MinerU upload result for {file_path.name} is unknown; retry later"
+                    )
+                raise RuntimeError(f"Failed to upload {file_path.name}")
+
+            upload_finished_at = time.time()
+            await asyncio.to_thread(
+                self._save_cloud_resume_state,
+                resume_path,
+                batch_id=batch_id,
+                data_id=data_id,
+                filename=file_path.name,
+                model_version=self.model_version,
+                phase="uploaded",
+                file_sha256=file_sha256,
+                created_at=upload_finished_at,
             )
             logger.info("Upload complete. Batch ID: %s", batch_id)
 
         logger.info("Waiting for parsing completion...")
+        remaining_poll_budget = effective_deadline_epoch - time.time() - result_reserve_sec
+        if remaining_poll_budget <= 0:
+            raise TimeoutError("MinerU cloud parse exhausted the document worker time budget")
+        poll_timeout = min(
+            float(getattr(settings, "MINERU_CLOUD_POLL_TIMEOUT_SEC", 15 * 60) or 0),
+            remaining_poll_budget,
+        )
         try:
             item = await self.await_for_completion(
                 batch_id,
                 data_id=data_id,
-                filename=file_path.name,
+                filename=submitted_filename,
                 poll_interval=5,
+                timeout_sec=max(0.01, poll_timeout),
             )
         except (LookupError, MinerUBatchFailedError):
             await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
@@ -990,11 +1366,15 @@ class MinerUService:
 
         zip_url = (item or {}).get("full_zip_url") or (item or {}).get("zip_url")
         if not zip_url:
-            await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
-            raise RuntimeError("No result ZIP URL in response")
+            raise MinerUUploadPendingError(
+                f"MinerU batch {batch_id} completed without a downloadable result; retry later"
+            )
 
         logger.info("Downloading result ZIP...")
-        zip_bytes = await self.adownload_result_zip(str(zip_url))
+        download_timeout = min(300.0, effective_deadline_epoch - time.time() - 60.0)
+        if download_timeout <= 0:
+            raise TimeoutError("MinerU result download has no remaining document job time budget")
+        zip_bytes = await self.adownload_result_zip(str(zip_url), timeout_sec=download_timeout)
 
         images_meta: list[dict] = []
         if dataset_id and document_id and settings.MINIO_ENABLED:
@@ -1132,6 +1512,7 @@ class MinerUService:
         account_id: str | None = None,
         dataset_id: str | None = None,
         document_id: str | None = None,
+        job_deadline_epoch: float | None = None,
     ) -> list[Document]:
         """
         End-to-end parsing flow (upload → wait → download result).
@@ -1151,6 +1532,7 @@ class MinerUService:
                 account_id=account_id,
                 dataset_id=dataset_id,
                 document_id=document_id,
+                job_deadline_epoch=job_deadline_epoch,
             )
         )
 

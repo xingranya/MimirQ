@@ -621,6 +621,10 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
         requested_by: account_id (for audit/logging only)
     """
     t0 = time.perf_counter()
+    job_deadline_epoch = time.time() + max(
+        1.0,
+        float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 30 * 60) or 0),
+    )
     tid = UUID(tenant_id)
     did = UUID(document_id)
 
@@ -933,6 +937,7 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
                     tenant_id=tid,
                     parser_backend=parser_backend,
                     chunk_strategy=chunk_strategy,
+                    job_deadline_epoch=job_deadline_epoch,
                     db=None,
                 )
             finally:

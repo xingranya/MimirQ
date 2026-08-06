@@ -1,3 +1,4 @@
+import time
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -308,3 +309,59 @@ async def test_mineru_ingest_uses_single_subprocess_attempt(
 
     assert exc_info.value is error
     assert captured["max_attempts"] == 1
+
+
+@pytest.mark.asyncio
+async def test_parsing_stage_passes_remaining_job_deadline_to_mineru_subprocess(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.parsing.processors.support import stages
+
+    source = tmp_path / "document.pdf"
+    source.write_bytes(b"%PDF-1.4")
+    captured: dict[str, object] = {}
+
+    class _Service:
+        INTEGRATED_PIPELINE_STRATEGIES: set[str] = set()
+
+        def _build_cancel_check(self, **_kwargs):  # noqa: ANN003, ANN201
+            async def _not_cancelled() -> bool:
+                return False
+
+            return _not_cancelled
+
+    class _StageDB:
+        def commit(self) -> None:
+            return None
+
+        def refresh(self, _document) -> None:  # noqa: ANN001
+            return None
+
+    async def _capture_and_raise(**kwargs):  # noqa: ANN003, ANN202
+        captured.update(kwargs)
+        raise ParsingInternalError("stop after capture")
+
+    monkeypatch.setattr(stages.chunker_factory, "resolve_strategy", lambda _value: "langchain_recursive", raising=True)
+    monkeypatch.setattr(stages, "run_parser_subprocess", _capture_and_raise, raising=True)
+    monkeypatch.setattr(stages.settings, "TASK_DOCUMENT_POST_PARSE_RESERVE_SEC", 300, raising=False)
+    deadline = time.time() + 600
+
+    with pytest.raises(ParsingInternalError, match="stop after capture"):
+        await stages.ParsingStage(_Service()).run(
+            db=_StageDB(),
+            db_document=SimpleNamespace(doc_metadata={}),
+            file_path=source,
+            document_id=uuid.uuid4(),
+            tenant_id=uuid.uuid4(),
+            dataset_id=str(uuid.uuid4()),
+            parser_backend="mineru",
+            chunk_strategy="langchain_recursive",
+            job_deadline_epoch=deadline,
+        )
+
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    parse_deadline = float(payload["job_deadline_epoch"])
+    assert deadline - 301 <= parse_deadline <= deadline - 299
+    assert 0 < float(captured["timeout_sec"]) <= 301

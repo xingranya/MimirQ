@@ -603,6 +603,7 @@ class ParserFactory:
         account_id: str | None,
         pdf_quality: dict[str, Any] | None,
         html_xpath: str | None,
+        job_deadline_epoch: float | None = None,
     ) -> list[Document]:
         if backend in {
             "marker",
@@ -617,13 +618,18 @@ class ParserFactory:
             "etl4llm",
             "pandoc",
         }:
+            parser_kwargs: dict[str, Any] = {
+                "dataset_id": dataset_id,
+                "document_id": document_id,
+                "tenant_id": tenant_id,
+                "account_id": account_id,
+                "pdf_quality": pdf_quality,
+            }
+            if backend == "mineru" and job_deadline_epoch is not None:
+                parser_kwargs["job_deadline_epoch"] = job_deadline_epoch
             return parser.parse(
                 file_path,
-                dataset_id=dataset_id,
-                document_id=document_id,
-                tenant_id=tenant_id,
-                account_id=account_id,
-                pdf_quality=pdf_quality,
+                **parser_kwargs,
             )
         if backend == "html":
             return parser.parse(file_path, html_xpath=html_xpath)  # type: ignore[call-arg]
@@ -641,6 +647,7 @@ class ParserFactory:
         account_id: str | None,
         pdf_quality: dict[str, Any] | None,
         html_xpath: str | None,
+        job_deadline_epoch: float | None = None,
     ) -> list[Document]:
         parser = self._select_parser(file_ext=file_ext, backend=backend)
         return self._parse_with_selected_backend(
@@ -653,6 +660,7 @@ class ParserFactory:
             account_id=account_id,
             pdf_quality=pdf_quality,
             html_xpath=html_xpath,
+            job_deadline_epoch=job_deadline_epoch,
         )
 
     @staticmethod
@@ -721,6 +729,7 @@ class ParserFactory:
         account_id: str | None = None,
         pdf_quality: dict[str, Any] | None = None,
         html_xpath: str | None = None,
+        job_deadline_epoch: float | None = None,
         allow_fallback: bool = True,
     ) -> tuple[list[Document], str]:
         """
@@ -740,6 +749,7 @@ class ParserFactory:
                 account_id=account_id,
                 pdf_quality=pdf_quality,
                 html_xpath=html_xpath,
+                job_deadline_epoch=job_deadline_epoch,
             )
         except Exception as exc:
             if not bool(allow_fallback):
@@ -770,6 +780,7 @@ class ParserFactory:
         account_id: str | None = None,
         pdf_quality: dict[str, Any] | None = None,
         html_xpath: str | None = None,
+        job_deadline_epoch: float | None = None,
     ) -> tuple[list[Document], str, dict[str, Any]]:
         """
         Parse a file and return a small provenance payload (best-effort).
@@ -797,6 +808,7 @@ class ParserFactory:
                 account_id=account_id,
                 pdf_quality=pdf_quality,
                 html_xpath=html_xpath,
+                job_deadline_epoch=job_deadline_epoch,
             )
             attempts.append(self._successful_attempt(backend=backend, started_at=primary_t0, documents=documents))
         except Exception as exc:
