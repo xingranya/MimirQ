@@ -185,7 +185,7 @@ from app.rag.preprocessing.rules import build_governance_rules
 from app.services import document_access_service
 from app.services.dataset_precheck_ingestion_suggestion import apply_ingestion_policy_suggestion
 from app.services.dataset_precheck_scan_runner import run_dataset_precheck_scan
-from app.services.dataset_service import EDIT_ROLES, DatasetService
+from app.services.dataset_service import DatasetService
 from app.services.document_preview_legacy import legacy_preview_ref_belongs_to_document
 from app.services.document_preview_utils import (
     _compute_chunk_preview_quality,
@@ -880,8 +880,7 @@ def _resolve_writable_dataset(
         DatasetService.assert_dataset_writable(db, dataset, account_id)
         return dataset
 
-    # Ensure member exists and has edit role (assert_dataset_writable enforces it as well).
-    member = DatasetService.ensure_member(db, tenant_id, account_id)
+    DatasetService.ensure_member(db, tenant_id, account_id)
 
     datasets = db.query(Dataset).filter(Dataset.tenant_id == tenant_id).order_by(Dataset.created_at.asc()).all()
     for ds in datasets:
@@ -891,23 +890,16 @@ def _resolve_writable_dataset(
         except HTTPException:
             continue
 
-    # Validate user permission to create a dataset.
-    role = (getattr(member, 'role', None) or "").lower()
-    if role not in EDIT_ROLES:
-        raise HTTPException(
-            status_code=403,
-            detail="当前账号没有创建知识库的权限，请发送邮件至 xingranya@qq.com。",
-        )
-
-    # Auto-create a default dataset with restricted permission (ONLY_ME).
+    # 兼容存量普通成员：没有可写知识库时按账号补建个人知识库。
     return DatasetService.create_dataset(
         db=db,
         tenant_id=tenant_id,
-        name="Default Dataset",
-        description="Auto-created (no dataset_id specified)",
-        permission=DatasetPermissionEnum.ONLY_ME,  # Restrict permission to avoid privilege escalation.
+        name=f"个人知识库 {str(account_id)[:8]}",
+        description="仅你本人可查看和上传内容。",
+        permission=DatasetPermissionEnum.ONLY_ME,
         owner_id=account_id,
         partial_members=[],
+        dataset_metadata={"personal_workspace": True},
     )
 
 

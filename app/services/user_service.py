@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.constants import UserRoles
 from app.core.security import hash_password, verify_password
+from app.models.dataset import Dataset, DatasetPermissionEnum
 from app.models.tenant import Tenant, TenantMember
 from app.models.tenant_group import TenantGroup, TenantGroupMember
 from app.models.user import User
@@ -214,6 +215,14 @@ class UserService:
                     tenant_id=tenant_id,
                     group_id=group.id,
                     user_id=account_id,
+                ),
+                Dataset(
+                    tenant_id=tenant_id,
+                    name=f"{user.username} 的个人知识库",
+                    description="仅你本人可查看和上传内容。",
+                    permission=DatasetPermissionEnum.ONLY_ME,
+                    owner_id=account_id,
+                    dataset_metadata={"personal_workspace": True},
                 ),
             ]
         )

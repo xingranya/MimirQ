@@ -188,3 +188,106 @@ def test_update_dataset_rolls_back_dataset_fields_when_group_acl_update_fails(
     assert dataset.description == "before description"
     assert dataset.permission == DatasetPermissionEnum.ALL_TEAM_MEMBERS
     assert dataset.dataset_metadata == {}
+
+
+def test_viewer_can_create_and_write_owned_personal_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.models.dataset import DatasetPermissionEnum
+    from app.services.dataset_service import DatasetService
+
+    tenant_id = uuid.uuid4()
+    account_id = "viewer-1"
+    db = _AtomicSession(first_results=[None])
+    monkeypatch.setattr(
+        DatasetService,
+        "ensure_member",
+        lambda *_args, **_kwargs: SimpleNamespace(role="viewer"),
+        raising=True,
+    )
+
+    dataset = DatasetService.create_dataset(
+        db=db,
+        tenant_id=tenant_id,
+        name="viewer personal",
+        description=None,
+        permission=DatasetPermissionEnum.ONLY_ME,
+        owner_id=account_id,
+    )
+
+    DatasetService.assert_dataset_writable(db, dataset, account_id)
+    assert dataset.owner_id == account_id
+    assert dataset.permission == DatasetPermissionEnum.ONLY_ME
+    assert db.commit_calls == 1
+
+
+def test_viewer_cannot_create_or_write_team_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.models.dataset import DatasetPermissionEnum
+    from app.services.dataset_service import DatasetService
+
+    tenant_id = uuid.uuid4()
+    account_id = "viewer-1"
+    db = _AtomicSession()
+    monkeypatch.setattr(
+        DatasetService,
+        "ensure_member",
+        lambda *_args, **_kwargs: SimpleNamespace(role="viewer"),
+        raising=True,
+    )
+
+    with pytest.raises(HTTPException, match="只能创建仅自己可见") as create_error:
+        DatasetService.create_dataset(
+            db=db,
+            tenant_id=tenant_id,
+            name="team dataset",
+            description=None,
+            permission=DatasetPermissionEnum.ALL_TEAM_MEMBERS,
+            owner_id=account_id,
+        )
+
+    shared_dataset = SimpleNamespace(
+        tenant_id=tenant_id,
+        owner_id="admin-1",
+        permission=DatasetPermissionEnum.PARTIAL_MEMBERS,
+    )
+    with pytest.raises(HTTPException, match="No permission to manage dataset") as write_error:
+        DatasetService.assert_dataset_writable(db, shared_dataset, account_id)
+
+    assert create_error.value.status_code == 403
+    assert write_error.value.status_code == 403
+
+
+def test_viewer_cannot_change_personal_dataset_to_team_permission(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.models.dataset import DatasetPermissionEnum
+    from app.services.dataset_service import DatasetService
+
+    tenant_id = uuid.uuid4()
+    account_id = "viewer-1"
+    dataset = SimpleNamespace(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        owner_id=account_id,
+        name="personal",
+        description=None,
+        permission=DatasetPermissionEnum.ONLY_ME,
+        dataset_metadata={},
+    )
+    db = _AtomicSession(tracked_dataset=dataset)
+    monkeypatch.setattr(
+        DatasetService,
+        "ensure_member",
+        lambda *_args, **_kwargs: SimpleNamespace(role="viewer"),
+        raising=True,
+    )
+
+    with pytest.raises(HTTPException, match="不能改为团队权限") as exc_info:
+        DatasetService.update_dataset(
+            db=db,
+            dataset=dataset,
+            updater_id=account_id,
+            name=None,
+            description=None,
+            permission=DatasetPermissionEnum.ALL_TEAM_MEMBERS,
+            partial_members=None,
+            partial_groups=None,
+        )
+
+    assert exc_info.value.status_code == 403

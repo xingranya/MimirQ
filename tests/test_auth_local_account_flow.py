@@ -5,7 +5,9 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -14,11 +16,17 @@ import app.api.v1.rbac as rbac_module
 from app.core.config import settings
 from app.core.database import Base
 from app.core.security import hash_password
+from app.models.dataset import Dataset, DatasetPermissionEnum
 from app.models.tenant import Tenant, TenantMember
 from app.models.tenant_group import TenantGroup, TenantGroupMember
 from app.models.tenant_invitation import TenantInvitation
 from app.models.user import User
 from app.services.user_service import UserService
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_as_json(_type, _compiler, **_kwargs) -> str:  # noqa: ANN001
+    return "JSON"
 
 
 def _build_auth_test_client():
@@ -36,6 +44,7 @@ def _build_auth_test_client():
             TenantInvitation.__table__,
             TenantGroup.__table__,
             TenantGroupMember.__table__,
+            Dataset.__table__,
         ],
     )
     test_session = sessionmaker(bind=engine)
@@ -294,6 +303,11 @@ def test_employee_can_self_register_into_selected_group_as_viewer(monkeypatch) -
             assert member.role == "viewer"
             assert member.is_current is True
             assert group_member.tenant_id == tenant_id
+            personal_dataset = db.query(Dataset).filter(Dataset.owner_id == str(user.id)).one()
+            assert personal_dataset.tenant_id == tenant_id
+            assert personal_dataset.name == "employee 的个人知识库"
+            assert personal_dataset.permission == DatasetPermissionEnum.ONLY_ME
+            assert personal_dataset.dataset_metadata == {"personal_workspace": True}
     finally:
         engine.dispose()
 
@@ -332,6 +346,7 @@ def test_self_registration_disabled_does_not_expose_groups_or_create_account(mon
             assert db.query(User).count() == 0
             assert db.query(TenantMember).count() == 0
             assert db.query(TenantGroupMember).count() == 0
+            assert db.query(Dataset).count() == 0
     finally:
         engine.dispose()
 
@@ -371,6 +386,7 @@ def test_self_registration_rolls_back_when_audit_fails(monkeypatch) -> None:
             assert db.query(User).count() == 0
             assert db.query(TenantMember).count() == 0
             assert db.query(TenantGroupMember).count() == 0
+            assert db.query(Dataset).count() == 0
     finally:
         engine.dispose()
 

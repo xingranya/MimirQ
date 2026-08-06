@@ -38,7 +38,7 @@ def test_create_dataset_rejects_invalid_embedding_defaults_before_service_call(
 
     monkeypatch.setattr(datasets.settings, "VECTOR_BACKEND", "faiss", raising=False)
     monkeypatch.setattr(datasets.DatasetService, "ensure_member", lambda *_a, **_k: object(), raising=True)
-    monkeypatch.setattr(datasets.DatasetService, "_assert_edit_role", lambda *_a, **_k: None, raising=True)
+    monkeypatch.setattr(datasets.DatasetService, "_assert_dataset_create_role", lambda *_a, **_k: None, raising=True)
     monkeypatch.setattr(datasets.DatasetService, "create_dataset", _create_dataset, raising=True)
 
     with pytest.raises(HTTPException, match="VECTOR_BACKEND=milvus"):

@@ -22,6 +22,29 @@ EDIT_ROLES = UserRoles.EDIT_ROLES
 
 class DatasetService:
     @staticmethod
+    def is_personal_dataset_owner(dataset: Dataset, account_id: str) -> bool:
+        """判断账号是否拥有仅本人可见的个人知识库。"""
+
+        return (
+            str(getattr(dataset, "owner_id", None) or "") == str(account_id or "")
+            and getattr(dataset, "permission", None) == DatasetPermissionEnum.ONLY_ME
+        )
+
+    @staticmethod
+    def _assert_dataset_create_role(member: TenantMember, permission: DatasetPermissionEnum) -> None:
+        """允许高级角色创建团队知识库，普通成员只能创建个人知识库。"""
+
+        role = str(member.role or "").strip().lower()
+        if role in EDIT_ROLES:
+            return
+        if role == UserRoles.VIEWER and permission == DatasetPermissionEnum.ONLY_ME:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="当前账号只能创建仅自己可见的个人知识库",
+        )
+
+    @staticmethod
     def ensure_member(db: Session, tenant_id: UUID, account_id: str) -> TenantMember:
         member = (
             db.query(TenantMember)
@@ -83,7 +106,7 @@ class DatasetService:
         dataset_metadata: dict | None = None,
     ) -> Dataset:
         member = DatasetService.ensure_member(db, tenant_id, owner_id)
-        DatasetService._assert_edit_role(member)
+        DatasetService._assert_dataset_create_role(member, permission)
         try:
             if permission != DatasetPermissionEnum.PARTIAL_MEMBERS:
                 partial_members = []
@@ -135,7 +158,18 @@ class DatasetService:
         dataset_metadata: dict | None = None,
     ) -> Dataset:
         member = DatasetService.ensure_member(db, dataset.tenant_id, updater_id)
-        DatasetService._assert_edit_role(member)
+        manages_personal_dataset = DatasetService.is_personal_dataset_owner(dataset, updater_id)
+        if not manages_personal_dataset:
+            DatasetService._assert_edit_role(member)
+        elif (
+            permission not in {None, DatasetPermissionEnum.ONLY_ME}
+            or partial_members is not None
+            or partial_groups is not None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="个人知识库不能改为团队权限",
+            )
         try:
             if name is not None and name != dataset.name:
                 exists = (
@@ -259,6 +293,8 @@ class DatasetService:
     @staticmethod
     def assert_dataset_writable(db: Session, dataset: Dataset, account_id: str):
         member = DatasetService.ensure_member(db, dataset.tenant_id, account_id)
+        if DatasetService.is_personal_dataset_owner(dataset, account_id):
+            return
         DatasetService._assert_edit_role(member)
         if dataset.owner_id == account_id:
             return

@@ -1045,7 +1045,7 @@ def create_dataset(
     db: Annotated[Session, Depends(get_db)]
 ):
     member = DatasetService.ensure_member(db, tenant_id, account_id)
-    DatasetService._assert_edit_role(member)
+    DatasetService._assert_dataset_create_role(member, payload.permission)
     meta: dict[str, Any] = {}
     metadata_changed = _apply_create_dataset_metadata_defaults(meta, payload)
     dataset = DatasetService.create_dataset(
