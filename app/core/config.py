@@ -710,6 +710,10 @@ class Settings(BaseSettings):
     MINERU_MODEL_VERSION: str = "vlm"
     MINERU_BACKEND: str = "pipeline"
     MINERU_ENABLED: bool = False
+    # 云端解析轮询必须短于文档 Worker 的单次任务时限。
+    MINERU_CLOUD_POLL_TIMEOUT_SEC: int = 15 * 60
+    # 已上传云端任务的本地续跑记录保留时间。
+    MINERU_CLOUD_RESUME_TTL_SEC: int = 24 * 60 * 60
     # MinerU local ZIP mode (Markdown + images)
     MINERU_LOCAL_SERVER_URL: str = Field(
         default="",

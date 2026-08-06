@@ -7,6 +7,7 @@ Both modes support advanced PDF parsing (tables, images, formulas, etc.)
 """
 import asyncio
 import io
+import json
 import re
 import tempfile
 import time
@@ -38,6 +39,11 @@ logger = get_logger("services.mineru")
 OCTET_STREAM = "application/octet-stream"
 UNKNOWN_ERROR = "Unknown error"
 MINERU_FALLBACK_LOG_MESSAGE = "Ignoring non-critical MinerU fallback failure: %s"
+MINERU_CLOUD_RESUME_SCHEMA_V1 = "mimirq.mineru_cloud_resume.v1"
+
+
+class MinerUBatchFailedError(RuntimeError):
+    """MinerU 云端批次已进入失败终态。"""
 
 
 def _normalize_local_backend(value: Any) -> str:
@@ -151,6 +157,83 @@ class MinerUService:
             "Accept": "*/*"
         }
 
+    @staticmethod
+    def _cloud_resume_state_path(*, tenant_id: str | None, document_id: str | None) -> Path | None:
+        """返回共享上传卷中的云端任务续跑状态路径。"""
+        tenant = str(tenant_id or "").strip()
+        document = str(document_id or "").strip()
+        safe_pattern = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+        if not safe_pattern.fullmatch(tenant) or not safe_pattern.fullmatch(document):
+            return None
+        return Path(settings.UPLOAD_DIR) / tenant / ".mimirq_parse" / "mineru_cloud" / f"{document}.json"
+
+    @staticmethod
+    def _delete_cloud_resume_state(path: Path | None) -> None:
+        if path is None:
+            return
+        try:
+            path.unlink(missing_ok=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to remove MinerU cloud resume state: %s", str(exc)[:200])
+
+    def _load_cloud_resume_state(
+        self,
+        path: Path | None,
+        *,
+        data_id: str,
+        filename: str,
+    ) -> dict[str, Any] | None:
+        if path is None or not path.is_file():
+            return None
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(state, dict) or state.get("schema") != MINERU_CLOUD_RESUME_SCHEMA_V1:
+                raise ValueError("invalid resume state schema")
+            created_at = float(state.get("created_at") or 0.0)
+            ttl_sec = max(60, int(getattr(settings, "MINERU_CLOUD_RESUME_TTL_SEC", 24 * 60 * 60) or 0))
+            if created_at <= 0 or time.time() - created_at > ttl_sec:
+                raise TimeoutError("resume state expired")
+            if str(state.get("data_id") or "") != data_id or str(state.get("filename") or "") != filename:
+                raise ValueError("resume state does not match document")
+            if str(state.get("model_version") or "") != self.model_version:
+                raise ValueError("resume state model changed")
+            batch_id = str(state.get("batch_id") or "").strip()
+            if not re.fullmatch(r"[A-Za-z0-9._-]{1,256}", batch_id):
+                raise ValueError("invalid resume batch id")
+            return state
+        except Exception as exc:  # noqa: BLE001
+            logger.info("Discarding unusable MinerU cloud resume state: %s", str(exc)[:160])
+            self._delete_cloud_resume_state(path)
+            return None
+
+    @staticmethod
+    def _save_cloud_resume_state(
+        path: Path | None,
+        *,
+        batch_id: str,
+        data_id: str,
+        filename: str,
+        model_version: str,
+    ) -> None:
+        if path is None:
+            return
+        payload = {
+            "schema": MINERU_CLOUD_RESUME_SCHEMA_V1,
+            "batch_id": str(batch_id),
+            "data_id": str(data_id),
+            "filename": str(filename),
+            "model_version": str(model_version),
+            "created_at": time.time(),
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temp_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            temp_path.chmod(0o600)
+            temp_path.replace(path)
+        finally:
+            temp_path.unlink(missing_ok=True)
+
     async def _arequest_json(
         self,
         method: str,
@@ -166,7 +249,14 @@ class MinerUService:
         """
         pool = get_http_client_pool()
         try:
-            resp = await pool.request_with_retry(method, url, headers=headers, timeout=30.0, **kwargs)
+            resp = await pool.request_with_retry(
+                method,
+                url,
+                headers=headers,
+                timeout=30.0,
+                use_external_client=True,
+                **kwargs,
+            )
         except httpx.HTTPStatusError as exc:
             status = int(getattr(exc.response, "status_code", 0) or 0)
             if status in {401, 403}:
@@ -278,7 +368,12 @@ class MinerUService:
 
                     return gen()
 
-            resp = await pool.put(upload_url, content=_FileChunks(file_path), timeout=300.0)
+            resp = await pool.put(
+                upload_url,
+                content=_FileChunks(file_path),
+                timeout=300.0,
+                use_external_client=True,
+            )
             ok = int(getattr(resp, "status_code", 0) or 0) == 200
             try:
                 await resp.aclose()
@@ -433,6 +528,7 @@ class MinerUService:
         max_interval: int = 30,
         backoff_factor: float = 1.5,
         jitter: float = 0.2,
+        timeout_sec: float | None = None,
     ) -> dict[str, Any]:
         """
         Wait for parsing completion for a single file in a batch.
@@ -447,9 +543,23 @@ class MinerUService:
             The matched extract_result item.
         """
         current_interval = max(1, int(poll_interval))
+        configured_timeout = float(
+            timeout_sec
+            if timeout_sec is not None
+            else getattr(settings, "MINERU_CLOUD_POLL_TIMEOUT_SEC", 15 * 60)
+        )
+        worker_timeout = max(1.0, float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 30 * 60) or 30 * 60))
+        timeout_budget = min(max(0.01, configured_timeout), max(0.01, worker_timeout - 30.0))
+        deadline = time.monotonic() + timeout_budget
 
         while True:
-            batch = await self.aget_batch_results(batch_id)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"MinerU task {batch_id} did not finish within {timeout_budget:g} seconds")
+            try:
+                batch = await asyncio.wait_for(self.aget_batch_results(batch_id), timeout=remaining)
+            except TimeoutError as exc:
+                raise TimeoutError(f"MinerU task {batch_id} did not finish within {timeout_budget:g} seconds") from exc
             extract_result = batch.get("extract_result") or []
             if not isinstance(extract_result, list):
                 extract_result = []
@@ -463,7 +573,7 @@ class MinerUService:
                 return item or {}
             if state == "failed":
                 err = (item or {}).get("err_msg") or UNKNOWN_ERROR
-                raise RuntimeError(f"Task {batch_id} failed: {err}")
+                raise MinerUBatchFailedError(f"Task {batch_id} failed: {err}")
 
             # Exponential backoff with jitter (best-effort)
             sleep_for = float(current_interval)
@@ -471,7 +581,10 @@ class MinerUService:
                 # add +/- jitter
                 delta = sleep_for * float(jitter)
                 sleep_for = max(0.5, sleep_for - delta)  # lower bound
-            await asyncio.sleep(sleep_for)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"MinerU task {batch_id} did not finish within {timeout_budget:g} seconds")
+            await asyncio.sleep(min(sleep_for, remaining))
             current_interval = min(int(max_interval), int(current_interval * float(backoff_factor)))
 
     def wait_for_completion(
@@ -491,8 +604,9 @@ class MinerUService:
                         data_id=data_id,
                         filename=filename,
                         poll_interval=poll_interval,
+                        timeout_sec=float(timeout),
                     ),
-                    timeout=timeout,
+                    timeout=float(timeout) + 1.0,
                 )
             except TimeoutError as exc:
                 raise TimeoutError(f"Task {batch_id} timeout after {timeout} seconds") from exc
@@ -504,7 +618,7 @@ class MinerUService:
     async def adownload_result(self, result_url: str) -> str:
         """Download parse result (Markdown, async)."""
         pool = get_http_client_pool()
-        resp = await pool.get(result_url, timeout=60.0)
+        resp = await pool.get(result_url, timeout=60.0, use_external_client=True)
         try:
             return resp.text
         finally:
@@ -528,7 +642,7 @@ class MinerUService:
     async def adownload_result_zip(self, zip_url: str) -> bytes:
         """Download parse result ZIP bytes (async)."""
         pool = get_http_client_pool()
-        resp = await pool.get(zip_url, timeout=300.0)
+        resp = await pool.get(zip_url, timeout=300.0, use_external_client=True)
         try:
             return bytes(resp.content)
         finally:
@@ -828,28 +942,52 @@ class MinerUService:
 
         file_path = Path(file_path)
         data_id = data_id or str(file_path.stem)
-        logger.info("Applying upload URL for %s...", file_path.name)
-        upload_info = await self.aapply_upload_url(file_path.name, data_id)
-
-        batch_id = upload_info["batch_id"]
-        upload_url = upload_info["upload_url"]
-
-        logger.info("Uploading %s...", file_path.name)
-        success = await self.aupload_file(file_path, upload_url)
-        if not success:
-            raise RuntimeError(f"Failed to upload {file_path.name}")
-
-        logger.info("Upload complete. Batch ID: %s", batch_id)
-        logger.info("Waiting for parsing completion...")
-        item = await self.await_for_completion(
-            batch_id,
+        resume_path = self._cloud_resume_state_path(tenant_id=tenant_id, document_id=document_id)
+        resume_state = await asyncio.to_thread(
+            self._load_cloud_resume_state,
+            resume_path,
             data_id=data_id,
             filename=file_path.name,
-            poll_interval=5,
         )
+        if resume_state is not None:
+            batch_id = str(resume_state["batch_id"])
+            logger.info("Resuming MinerU cloud task. Batch ID: %s", batch_id)
+        else:
+            logger.info("Applying upload URL for %s...", file_path.name)
+            upload_info = await self.aapply_upload_url(file_path.name, data_id)
+            batch_id = str(upload_info["batch_id"])
+            upload_url = str(upload_info["upload_url"])
+
+            logger.info("Uploading %s...", file_path.name)
+            success = await self.aupload_file(file_path, upload_url)
+            if not success:
+                raise RuntimeError(f"Failed to upload {file_path.name}")
+
+            await asyncio.to_thread(
+                self._save_cloud_resume_state,
+                resume_path,
+                batch_id=batch_id,
+                data_id=data_id,
+                filename=file_path.name,
+                model_version=self.model_version,
+            )
+            logger.info("Upload complete. Batch ID: %s", batch_id)
+
+        logger.info("Waiting for parsing completion...")
+        try:
+            item = await self.await_for_completion(
+                batch_id,
+                data_id=data_id,
+                filename=file_path.name,
+                poll_interval=5,
+            )
+        except (LookupError, MinerUBatchFailedError):
+            await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
+            raise
 
         zip_url = (item or {}).get("full_zip_url") or (item or {}).get("zip_url")
         if not zip_url:
+            await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
             raise RuntimeError("No result ZIP URL in response")
 
         logger.info("Downloading result ZIP...")
@@ -894,6 +1032,7 @@ class MinerUService:
         if images_meta:
             metadata["images"] = images_meta
             metadata["image_count"] = len(images_meta)
+        await asyncio.to_thread(self._delete_cloud_resume_state, resume_path)
         logger.info("Parse complete. Content length: %s chars", len(markdown_content))
         return [Document(page_content=markdown_content, metadata=metadata)]
 
