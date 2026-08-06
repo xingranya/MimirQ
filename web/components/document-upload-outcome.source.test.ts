@@ -41,6 +41,7 @@ describe('文档上传入口结果契约', () => {
   })
 
   it('拖放上传只在实际成功后触发完成回调', () => {
+    expect(dropZoneSource).toContain('uploadDocumentFilesInBatches(')
     expect(dropZoneSource).toContain('if (outcome.succeeded > 0) onUploadComplete()')
     expect(dropZoneSource).toContain('return outcome.succeeded > 0')
     expect(dropZoneSource).toContain('if (!succeeded) return')
@@ -53,6 +54,7 @@ describe('文档上传入口结果契约', () => {
   })
 
   it('入库页保留部分成功状态和失败明细', () => {
+    expect(operationPageSource).toContain('uploadDocumentFilesInBatches(')
     expect(operationPageSource).toContain("? 'partial'")
     expect(operationPageSource).toContain("if (status === 'partial') return '部分完成'")
     expect(operationPageSource).toContain('<UploadResultNotice response={uploadResponse} />')

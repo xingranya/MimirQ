@@ -50,6 +50,7 @@ import {
   createDocumentUploadOutcome,
   formatDocumentUploadOutcome,
 } from '@/lib/document-upload-outcome'
+import { uploadDocumentFilesInBatches } from '@/lib/document-upload-batches'
 import { cn, detachPromise, formatDate, formatFileSize } from '@/lib/utils'
 import type {
   ConnectorRunOut,
@@ -1056,7 +1057,7 @@ export default function KnowledgeIngestionOperationPage() {
             ])
           ),
         }
-        const response = await documentApi.uploadBatch(files, uploadOptions)
+        const response = await uploadDocumentFilesInBatches(files, uploadOptions)
         const outcome = createDocumentUploadOutcome(response)
         const message = formatDocumentUploadOutcome(outcome, {
           successVerb: mode === 'upload_only' ? '已登记' : '已提交入库',

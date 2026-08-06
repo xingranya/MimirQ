@@ -110,7 +110,9 @@ export const documentApi = {
     }
     appendPipelineOptionsToFormData(formData, options.pipeline)
 
-    const { data } = await apiClient.post('/documents/upload', formData)
+    const { data } = await apiClient.post('/documents/upload', formData, {
+      timeout: API_LONG_TIMEOUT_MS,
+    })
     return data
   },
 
@@ -175,7 +177,9 @@ export const documentApi = {
     }
     appendPipelineOptionsToFormData(formData, options.pipeline)
 
-    const { data } = await apiClient.post('/documents/upload-batch', formData)
+    const { data } = await apiClient.post('/documents/upload-batch', formData, {
+      timeout: API_LONG_TIMEOUT_MS,
+    })
     return data
   },
 

@@ -19,13 +19,14 @@ import {
 import { Label } from '@/components/ui/label'
 import { QueryErrorState } from '@/components/ui/query-error-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { datasetApi, documentApi } from '@/lib/api'
+import { datasetApi } from '@/lib/api'
 import { formatApiError } from '@/lib/api-errors'
 import { readClientStorage, writeClientStorage } from '@/lib/client-storage'
 import {
   createDocumentUploadOutcome,
   formatDocumentUploadOutcome,
 } from '@/lib/document-upload-outcome'
+import { uploadDocumentFilesInBatches } from '@/lib/document-upload-batches'
 import { UI_LAYER_CLASS } from '@/lib/ui-layers'
 import { cn } from '@/lib/utils'
 import type { Dataset } from '@/types'
@@ -104,7 +105,7 @@ export const DropZone = React.forwardRef<DropZoneHandle, {
     if (!files.length) return false
     const precheckOnly = options?.precheckOnly ?? uploadModeRef.current
     try {
-      const response = await documentApi.uploadBatch(files, {
+      const response = await uploadDocumentFilesInBatches(files, {
         dataset_id: datasetId || selectedDatasetId || undefined,
         parser_backend: parserBackend,
         chunk_strategy: 'langchain_recursive',

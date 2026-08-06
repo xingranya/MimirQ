@@ -1,6 +1,7 @@
 'use client'
 
 import { documentApi } from '@/lib/api/documents'
+import { uploadDocumentFilesInBatches } from '@/lib/document-upload-batches'
 import type {
   Document,
   DocumentBatchUploadFailure,
@@ -168,15 +169,9 @@ export async function uploadBatchRound(
   failed: DocumentBatchUploadFailure[]
   nextRemaining: File[]
 }> {
-  const successful: DocumentBatchUploadSuccess[] = []
-  const failed: DocumentBatchUploadFailure[] = []
-
-  for (let i = 0; i < files.length; i += 50) {
-    const batch = files.slice(i, i + 50)
-    const response = await documentApi.uploadBatch(batch, options)
-    successful.push(...(response.successful || []))
-    failed.push(...(response.failed || []))
-  }
+  const response = await uploadDocumentFilesInBatches(files, options)
+  const successful: DocumentBatchUploadSuccess[] = response.successful || []
+  const failed: DocumentBatchUploadFailure[] = response.failed || []
 
   return {
     successful,
