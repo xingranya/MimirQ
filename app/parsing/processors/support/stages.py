@@ -288,6 +288,11 @@ class ParsingStage:
                     payload=payload,
                     cancel_check=cancel_check_worker,
                     timeout_sec=float(getattr(settings, "TASK_JOB_TIMEOUT_SEC", 60 * 30) or 60 * 30),
+                    max_attempts=(
+                        1
+                        if str(effective_parser_backend or "").strip().lower() == "mineru"
+                        else 2
+                    ),
                 )
             except SubprocessCancelled as exc:
                 try:
