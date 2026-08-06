@@ -118,6 +118,9 @@ class _QueryStub:
     def filter(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
         return self
 
+    def with_for_update(self):  # noqa: ANN201
+        return self
+
     def first(self):  # noqa: ANN201
         return self._value
 

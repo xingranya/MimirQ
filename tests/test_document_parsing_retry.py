@@ -20,6 +20,9 @@ class _Query:
     def filter(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN201
         return self
 
+    def with_for_update(self):  # noqa: ANN201
+        return self
+
     def first(self):  # noqa: ANN201
         return self.document
 
@@ -30,6 +33,9 @@ class _DB:
 
     def query(self, _model):  # noqa: ANN001, ANN201
         return _Query(self.document)
+
+    def commit(self) -> None:
+        return None
 
     def close(self) -> None:
         return None
@@ -107,7 +113,7 @@ async def test_document_job_records_retry_state_for_temporary_parsing_failure(
 
     with pytest.raises(_RetryError) as exc_info:
         await jobs.process_document_job(
-            {"job_try": 1, "redis": object()},
+            {"job_try": 3, "redis": object()},
             str(document.tenant_id),
             str(document.id),
             "member-1",
@@ -150,6 +156,7 @@ async def test_document_job_stops_after_bounded_parsing_retries(
     assert document.failed_stage == "parsing"
     assert document.next_retry_at is None
     assert document.error_message == "解析服务连续失败，自动重试已停止，请稍后重新处理"
+    assert document.processing_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -188,7 +195,7 @@ async def test_document_job_does_not_retry_mineru_terminal_failure(
 
     assert result["ok"] is False
     assert result["reason"] == "parsing_mineru_batch_failed"
-    assert document.processing_attempts == 0
+    assert document.processing_attempts == 1
 
 
 @pytest.mark.asyncio

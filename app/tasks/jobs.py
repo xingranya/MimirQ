@@ -160,9 +160,9 @@ def _document_parse_max_tries() -> int:
     return min(configured, _document_job_max_tries())
 
 
-def _document_parse_retry_defer_sec(ctx) -> int:  # noqa: ANN001
+def _document_parse_retry_defer_sec(parse_attempt: int) -> int:
     base = max(1, int(getattr(settings, "TASK_DOCUMENT_RETRY_DEFER_SEC", 30) or 30))
-    exponent = min(3, max(0, _current_job_try(ctx) - 1))
+    exponent = min(3, max(0, int(parse_attempt or 1) - 1))
     return min(300, base * (2**exponent))
 
 
@@ -240,14 +240,13 @@ async def _mark_document_failed_on_exhausted_retry(
 async def _mark_document_parsing_retry(
     *,
     db,
-    document: DBDocument,
     tenant_id: UUID,
     document_id: UUID,
     error: ParsingError,
     defer_sec: int,
+    parse_attempt: int,
 ) -> None:
     """记录解析临时故障和下一次自动重试时间。"""
-    attempts = max(0, int(getattr(document, "processing_attempts", 0) or 0)) + 1
     retry_at = datetime.now(UTC) + timedelta(seconds=max(1, int(defer_sec)))
     await document_processor._update_status(
         db,
@@ -258,7 +257,7 @@ async def _mark_document_parsing_retry(
         "retry_wait",
         failed_stage="parsing",
         error_code=str(getattr(error, "code", "parsing_failed") or "parsing_failed")[:100],
-        processing_attempts=attempts,
+        processing_attempts=max(1, int(parse_attempt)),
         next_retry_at=retry_at,
         error_message=f"解析服务暂时不可用，系统将在 {max(1, int(defer_sec))} 秒后自动重试",
     )
@@ -270,6 +269,7 @@ async def _mark_document_parsing_failed(
     tenant_id: UUID,
     document_id: UUID,
     error: ParsingError,
+    parse_attempt: int,
 ) -> None:
     """在解析重试耗尽后写入稳定的终态。"""
     await document_processor._update_status(
@@ -281,9 +281,27 @@ async def _mark_document_parsing_failed(
         "failed",
         failed_stage="parsing",
         error_code=str(getattr(error, "code", "parsing_failed") or "parsing_failed")[:100],
+        processing_attempts=max(1, int(parse_attempt)),
         next_retry_at=None,
         error_message="解析服务连续失败，自动重试已停止，请稍后重新处理",
     )
+
+
+def _begin_document_parsing_attempt(*, db, tenant_id: UUID, document_id: UUID) -> int:  # noqa: ANN001
+    """在持有任务锁后，以数据库行锁记录一次真实解析尝试。"""
+
+    document = (
+        db.query(DBDocument)
+        .filter(DBDocument.id == document_id, DBDocument.tenant_id == tenant_id)
+        .with_for_update()
+        .first()
+    )
+    if document is None:
+        raise RuntimeError("document_not_found_before_parsing")
+    parse_attempt = max(0, int(getattr(document, "processing_attempts", 0) or 0)) + 1
+    document.processing_attempts = parse_attempt
+    db.commit()
+    return parse_attempt
 
 
 def _is_retry_error(exc: Exception) -> bool:
@@ -898,6 +916,12 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
             requested_by,
         )
 
+        parse_attempt = _begin_document_parsing_attempt(
+            db=db,
+            tenant_id=tid,
+            document_id=did,
+        )
+
         # The processor owns its session on the worker thread. Keeping the
         # preflight session here would cross SQLAlchemy's thread-safety boundary.
         db.close()
@@ -917,15 +941,15 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
                         temp_path.unlink(missing_ok=True)
         except ParsingError as exc:
             reason = f"parsing_{str(getattr(exc, 'code', 'failed') or 'failed')[:100]}"
-            if bool(getattr(exc, "retryable", False)) and _current_job_try(ctx) < _document_parse_max_tries():
-                parse_retry_defer_sec = _document_parse_retry_defer_sec(ctx)
+            if bool(getattr(exc, "retryable", False)) and parse_attempt < _document_parse_max_tries():
+                parse_retry_defer_sec = _document_parse_retry_defer_sec(parse_attempt)
                 await _mark_document_parsing_retry(
                     db=db,
-                    document=doc,
                     tenant_id=tid,
                     document_id=did,
                     error=exc,
                     defer_sec=parse_retry_defer_sec,
+                    parse_attempt=parse_attempt,
                 )
                 _raise_task_retry(defer_sec=parse_retry_defer_sec, cause=exc)
             if bool(getattr(exc, "retryable", False)):
@@ -934,6 +958,7 @@ async def process_document_job(ctx, tenant_id: str, document_id: str, requested_
                     tenant_id=tid,
                     document_id=did,
                     error=exc,
+                    parse_attempt=parse_attempt,
                 )
             return await _job_result(
                 ctx,
