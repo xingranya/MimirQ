@@ -20,6 +20,7 @@ from app.api.schemas.document import (
     DocumentBatchUserMetadataPatchResponse,
     DocumentPipelinePatchRequest,
 )
+from app.core.constants import UserRoles
 from app.core.database import get_db
 from app.models.dataset import Dataset
 from app.models.document import Document as DBDocument
@@ -301,7 +302,7 @@ def batch_move_documents(
         documents_module.DatasetService.assert_dataset_writable(db, target_ds, account_id)
     else:
         role = (getattr(member, "role", None) or "").lower()
-        if role not in documents_module.EDIT_ROLES:
+        if role not in UserRoles.EDIT_ROLES:
             raise HTTPException(status_code=403, detail="No permission to move documents to unassigned scope")
 
     moved = 0
