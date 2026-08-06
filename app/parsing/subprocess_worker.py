@@ -328,6 +328,23 @@ def _sleep(payload: dict[str, Any]) -> dict[str, Any]:
     return {"slept_sec": duration}
 
 
+def _serialize_worker_error(exc: Exception) -> dict[str, Any]:
+    """保留跨进程重试判断所需的稳定错误字段。"""
+
+    error: dict[str, Any] = {
+        "message": str(exc)[:500] or exc.__class__.__name__,
+        "type": exc.__class__.__name__,
+        "traceback": traceback.format_exc(limit=50),
+    }
+    code = str(getattr(exc, "code", "") or "").strip()
+    retryable = getattr(exc, "retryable", None)
+    if code:
+        error["code"] = code[:100]
+    if isinstance(retryable, bool):
+        error["retryable"] = retryable
+    return error
+
+
 def main() -> int:
     setup_logging()
     import sys
@@ -361,11 +378,7 @@ def main() -> int:
         _write_result(result_path, ok=True, data=data)
         return 0
     except Exception as exc:  # noqa: BLE001
-        err = {
-            "message": str(exc)[:500] or exc.__class__.__name__,
-            "type": exc.__class__.__name__,
-            "traceback": traceback.format_exc(limit=50),
-        }
+        err = _serialize_worker_error(exc)
         try:
             _write_result(result_path, ok=False, error=err)
         except Exception as write_exc:

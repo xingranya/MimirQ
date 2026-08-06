@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.parsing.errors import ParsingInternalError
+from app.parsing.errors import ParsingError, ParsingInternalError
 
 
 class _RetryError(Exception):
@@ -150,6 +150,45 @@ async def test_document_job_stops_after_bounded_parsing_retries(
     assert document.failed_stage == "parsing"
     assert document.next_retry_at is None
     assert document.error_message == "解析服务连续失败，自动重试已停止，请稍后重新处理"
+
+
+@pytest.mark.asyncio
+async def test_document_job_does_not_retry_mineru_terminal_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.tasks import jobs
+
+    source = tmp_path / "document.pdf"
+    source.write_bytes(b"%PDF-1.4")
+    document = _document(source)
+    db = _DB(document)
+    _configure_document_job(monkeypatch, document, db)
+
+    async def _raise_terminal_failure(**_kwargs):  # noqa: ANN003, ANN202
+        raise ParsingError(
+            "MinerU batch entered failed state",
+            code="mineru_batch_failed",
+            retryable=False,
+        )
+
+    monkeypatch.setattr(
+        jobs,
+        "_run_document_processing_without_blocking_event_loop",
+        _raise_terminal_failure,
+        raising=True,
+    )
+
+    result = await jobs.process_document_job(
+        {"job_try": 1, "redis": object()},
+        str(document.tenant_id),
+        str(document.id),
+        "member-1",
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "parsing_mineru_batch_failed"
+    assert document.processing_attempts == 0
 
 
 @pytest.mark.asyncio

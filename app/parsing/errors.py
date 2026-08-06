@@ -62,6 +62,17 @@ def classify_parser_subprocess_error(exc: Exception) -> ParsingError:
 
     norm = message.lower().strip()
 
+    stable_code = str(details.get("code") or "").strip()[:100]
+    stable_retryable = details.get("retryable")
+    if stable_code and isinstance(stable_retryable, bool):
+        return ParsingError(
+            message,
+            code=stable_code,
+            details=details,
+            log_tail=log_tail,
+            retryable=stable_retryable,
+        )
+
     if norm == "worker_timeout":
         return ParsingTimeoutError(message, details=details, log_tail=log_tail)
 
@@ -77,4 +88,3 @@ def classify_parser_subprocess_error(exc: Exception) -> ParsingError:
         return ParsingUnsupportedError(message, details=details, log_tail=log_tail)
 
     return ParsingInternalError(message, details=details, log_tail=log_tail)
-

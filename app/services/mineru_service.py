@@ -45,6 +45,9 @@ MINERU_CLOUD_RESUME_SCHEMA_V1 = "mimirq.mineru_cloud_resume.v1"
 class MinerUBatchFailedError(RuntimeError):
     """MinerU 云端批次已进入失败终态。"""
 
+    code = "mineru_batch_failed"
+    retryable = False
+
 
 def _normalize_local_backend(value: Any) -> str:
     backend = str(value or "pipeline").strip().lower().replace("_", "-")
