@@ -5,9 +5,16 @@ import pytest
 
 
 class _WorkerRegistryRedis:
-    def __init__(self, *, workers_active: int = 0, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        workers_active: int = 0,
+        fail: bool = False,
+        enqueue_results: list[object | None] | None = None,
+    ) -> None:
         self.workers_active = workers_active
         self.fail = fail
+        self.enqueue_results = list(enqueue_results or [])
         self.prune_calls: list[tuple[str, str, float]] = []
         self.enqueued: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
@@ -24,6 +31,8 @@ class _WorkerRegistryRedis:
 
     async def enqueue_job(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
         self.enqueued.append((args, kwargs))
+        if self.enqueue_results:
+            return self.enqueue_results.pop(0)
         return type("Job", (), {"job_id": kwargs.get("_job_id")})()
 
 
@@ -117,3 +126,94 @@ async def test_document_enqueue_succeeds_when_worker_is_active(monkeypatch: pyte
     args, kwargs = redis.enqueued[0]
     assert args[0] == "process_document_job"
     assert kwargs["_queue_name"] == "documents"
+
+
+@pytest.mark.asyncio
+async def test_document_enqueue_treats_live_duplicate_as_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.tasks import queue
+
+    redis = _WorkerRegistryRedis(workers_active=1, enqueue_results=[None])
+
+    async def _get_queue():  # noqa: ANN202
+        return redis
+
+    async def _get_status(_job_id: str) -> str:
+        return "in_progress"
+
+    monkeypatch.setattr(queue, "get_queue", _get_queue, raising=True)
+    monkeypatch.setattr(queue, "get_task_job_status", _get_status, raising=True)
+    monkeypatch.setattr(queue.settings, "TASK_QUEUE_NAME", "documents", raising=False)
+
+    task_id = await queue.enqueue_document_processing(
+        tenant_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        requested_by="member-1",
+        job_id="doc:live",
+    )
+
+    assert task_id == "doc:live"
+    assert len(redis.enqueued) == 1
+
+
+@pytest.mark.asyncio
+async def test_document_enqueue_uses_new_job_id_after_terminal_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.tasks import queue
+
+    redis = _WorkerRegistryRedis(
+        workers_active=1,
+        enqueue_results=[None, type("Job", (), {"job_id": None})()],
+    )
+
+    async def _get_queue():  # noqa: ANN202
+        return redis
+
+    async def _get_status(_job_id: str) -> str:
+        return "complete"
+
+    monkeypatch.setattr(queue, "get_queue", _get_queue, raising=True)
+    monkeypatch.setattr(queue, "get_task_job_status", _get_status, raising=True)
+    monkeypatch.setattr(queue.settings, "TASK_QUEUE_NAME", "documents", raising=False)
+
+    task_id = await queue.enqueue_document_processing(
+        tenant_id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        requested_by="member-1",
+        job_id="doc:complete",
+    )
+
+    assert task_id.startswith("doc:complete:attempt:")
+    assert len(redis.enqueued) == 2
+    assert redis.enqueued[1][1]["_job_id"] == task_id
+
+
+@pytest.mark.asyncio
+async def test_document_enqueue_rejects_unverifiable_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.tasks import queue
+
+    redis = _WorkerRegistryRedis(workers_active=1, enqueue_results=[None])
+
+    async def _get_queue():  # noqa: ANN202
+        return redis
+
+    async def _get_status(_job_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(queue, "get_queue", _get_queue, raising=True)
+    monkeypatch.setattr(queue, "get_task_job_status", _get_status, raising=True)
+    monkeypatch.setattr(queue.settings, "TASK_QUEUE_NAME", "documents", raising=False)
+
+    with pytest.raises(queue.TaskEnqueueRejectedError, match="status=missing"):
+        await queue.enqueue_document_processing(
+            tenant_id=uuid.uuid4(),
+            document_id=uuid.uuid4(),
+            requested_by="member-1",
+            job_id="doc:unknown",
+        )
+
+    assert len(redis.enqueued) == 1

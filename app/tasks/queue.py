@@ -9,7 +9,7 @@ API compatibility:
 import asyncio
 import threading
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.core.config import settings
 from app.rag.core.logging import get_logger
@@ -27,6 +27,7 @@ class TaskEnqueueRejectedError(RuntimeError):
 
 
 _LIVE_ARQ_JOB_STATUSES = frozenset({"deferred", "queued", "in_progress"})
+_TERMINAL_ARQ_JOB_STATUSES = frozenset({"complete", "failed", "not_found"})
 _LOCAL_ACTIVE_SCAN_RUNS: set[str] = set()
 _LOCAL_ACTIVE_SCAN_RUNS_LOCK = threading.Lock()
 
@@ -199,18 +200,57 @@ async def enqueue_document_processing(
     if workers_active < 1:
         raise TaskEnqueueRejectedError("no active document worker")
 
-    # Arq job_id can dedupe (behavior depends on arq version); we still enforce
-    # idempotency with Redis locks on the worker side.
-    job = await q.enqueue_job(
-        "process_document_job",
-        str(tenant_id),
-        str(document_id),
-        requested_by,
-        _queue_name=queue_name,
-        _job_id=job_id,
-        _job_try=1,
+    async def _enqueue(candidate_job_id: str | None):
+        return await q.enqueue_job(
+            "process_document_job",
+            str(tenant_id),
+            str(document_id),
+            requested_by,
+            _queue_name=queue_name,
+            _job_id=candidate_job_id,
+            _job_try=1,
+        )
+
+    try:
+        job = await _enqueue(job_id)
+    except Exception as exc:  # noqa: BLE001
+        raise TaskEnqueueRejectedError("document job enqueue failed") from exc
+    if job is not None:
+        accepted_job_id = getattr(job, "job_id", None) or job_id
+        if accepted_job_id:
+            return str(accepted_job_id)
+        raise TaskEnqueueRejectedError("document job was accepted without a job id")
+
+    if not job_id:
+        raise TaskEnqueueRejectedError("document job was not accepted by arq")
+    try:
+        status = await get_task_job_status(job_id)
+    except Exception as exc:  # noqa: BLE001
+        raise TaskEnqueueRejectedError("unable to verify existing document job") from exc
+    if status in _LIVE_ARQ_JOB_STATUSES:
+        return job_id
+    if status not in _TERMINAL_ARQ_JOB_STATUSES:
+        raise TaskEnqueueRejectedError(
+            f"document job was not accepted by arq (status={status or 'missing'})"
+        )
+
+    retry_job_id = f"{job_id}:attempt:{uuid4().hex}"
+    try:
+        retry_job = await _enqueue(retry_job_id)
+    except Exception as exc:  # noqa: BLE001
+        raise TaskEnqueueRejectedError("document job retry enqueue failed") from exc
+    if retry_job is not None:
+        return str(getattr(retry_job, "job_id", None) or retry_job_id)
+
+    try:
+        retry_status = await get_task_job_status(retry_job_id)
+    except Exception as exc:  # noqa: BLE001
+        raise TaskEnqueueRejectedError("unable to verify retried document job") from exc
+    if retry_status in _LIVE_ARQ_JOB_STATUSES:
+        return retry_job_id
+    raise TaskEnqueueRejectedError(
+        f"document job retry was not accepted by arq (status={retry_status or 'missing'})"
     )
-    return getattr(job, "job_id", None) or job_id
 
 
 async def enqueue_kg_extraction(
