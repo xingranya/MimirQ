@@ -1,5 +1,5 @@
 import type { ConnectorInfo } from '@/types'
-import { tenantAccessCanEditDatasets, type TenantAccess } from '@/lib/tenant-permissions'
+import { tenantAccessCanCreateDatasets, type TenantAccess } from '@/lib/tenant-permissions'
 
 const REQUIRED_URL_CONNECTORS = ['url_batch', 'web_crawl', 'jira_project'] as const
 
@@ -16,6 +16,7 @@ export function resolveKnowledgeImportAvailability({
   tenantAccessError,
   datasetsLoading,
   datasetsError,
+  selectedDatasetWritable,
   connectors,
   connectorsLoading,
   connectorsError,
@@ -26,6 +27,7 @@ export function resolveKnowledgeImportAvailability({
   tenantAccessError: boolean
   datasetsLoading: boolean
   datasetsError: boolean
+  selectedDatasetWritable: boolean
   connectors: ConnectorInfo[] | undefined
   connectorsLoading: boolean
   connectorsError: boolean
@@ -37,8 +39,10 @@ export function resolveKnowledgeImportAvailability({
       filesDisabledReason = '正在确认导入权限'
     } else if (tenantAccessError || !tenantAccess) {
       filesDisabledReason = '暂时无法确认导入权限'
-    } else if (!tenantAccessCanEditDatasets(tenantAccess)) {
+    } else if (!tenantAccessCanCreateDatasets(tenantAccess)) {
       filesDisabledReason = '当前账号没有导入知识库的权限'
+    } else if (!selectedDatasetWritable) {
+      filesDisabledReason = '当前知识库为只读，请切换到你的个人知识库'
     }
   }
 
@@ -55,9 +59,9 @@ export function resolveKnowledgeImportAvailability({
     urlDisabledReason = '暂时无法确认网页导入服务状态'
   } else if (!urlDisabledReason) {
     const connectorById = new Map((connectors || []).map((connector) => [connector.id, connector]))
-    const unavailableConnector = REQUIRED_URL_CONNECTORS
-      .map((connectorId) => connectorById.get(connectorId))
-      .find((connector) => !connector || connector.available === false)
+    const unavailableConnector = REQUIRED_URL_CONNECTORS.map((connectorId) =>
+      connectorById.get(connectorId)
+    ).find((connector) => !connector || connector.available === false)
 
     if (!unavailableConnector) {
       urlDisabledReason = null

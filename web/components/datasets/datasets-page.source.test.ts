@@ -8,7 +8,7 @@ describe('datasets-page server pagination contract', () => {
     const src = fs.readFileSync(path.resolve(__dirname, 'datasets-page.tsx'), 'utf8')
 
     expect(src).toContain('const DATASET_SEARCH_DEBOUNCE_MS = 220')
-    expect(src).toContain('const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(\'\')')
+    expect(src).toContain("const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')")
     expect(src).toContain('setDebouncedSearchQuery(trimmedSearchQuery)')
     expect(src).toContain('}, DATASET_SEARCH_DEBOUNCE_MS)')
     expect(src).toContain('maxLength={DATASET_SEARCH_MAX_LENGTH}')
@@ -16,7 +16,7 @@ describe('datasets-page server pagination contract', () => {
     expect(src).toContain('searchQuery: debouncedSearchQuery')
     expect(src).toContain('queryKeys.datasets.list(datasetListParams)')
     expect(src).toContain('queryFn: () => datasetApi.list(datasetListParams)')
-    expect(src).toContain("operational_status: input.collectionFilter")
+    expect(src).toContain('operational_status: input.collectionFilter')
     expect(src).toContain("order_by: input.sortBy === 'name_asc' ? 'name' : 'created_at'")
     expect(src).toContain("order_dir: input.sortBy === 'name_asc' ? 'asc' : 'desc'")
     expect(src).toContain('const scopeTotal = Number(response?.facets?.scope_total || 0)')
@@ -51,5 +51,15 @@ describe('datasets-page server pagination contract', () => {
     expect(src).not.toContain('rounded-xl')
     expect(src).not.toContain('rounded-2xl')
     expect(src).not.toContain('shadow-[')
+  })
+
+  it('keeps team datasets read-only for ordinary members', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, 'datasets-page.tsx'), 'utf8')
+
+    expect(src).toContain('tenantAccessCanWriteDataset(tenantAccessQuery.data, dataset)')
+    expect(src).toContain("permission: canManageTeamDatasets ? 'all_team_members' : 'only_me'")
+    expect(src).toContain('可管理内容和处理配置')
+    expect(src).toContain('你可以查看内容，但不能修改团队知识库')
+    expect(src).toContain('canManageTeamAccess={canManageTeamDatasets}')
   })
 })

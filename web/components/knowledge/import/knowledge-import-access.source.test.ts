@@ -9,6 +9,8 @@ const pageSource = readFileSync(resolve(__dirname, '../knowledge-page.tsx'), 'ut
 describe('知识库导入入口状态契约', () => {
   it('同时读取租户权限、连接器目录和知识库错误状态', () => {
     expect(actionsSource).toContain('useTenantAccess()')
+    expect(actionsSource).toContain('tenantAccessCanWriteDataset(tenantAccessQuery.data, dataset)')
+    expect(actionsSource).toContain('datasets={writableDatasets}')
     expect(actionsSource).toContain('connectorApi.listConnectors()')
     expect(actionsSource).toContain('resolveKnowledgeImportAvailability')
     expect(pageSource).toContain('error: datasetsError')

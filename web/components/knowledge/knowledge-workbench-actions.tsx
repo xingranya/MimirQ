@@ -25,6 +25,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { useTenantAccess } from '@/hooks/use-tenant-access'
 import { connectorApi } from '@/lib/api'
 import { queryKeys } from '@/lib/query-keys'
+import { tenantAccessCanWriteDataset } from '@/lib/tenant-permissions'
 import { cn, detachPromise } from '@/lib/utils'
 
 type KnowledgeWorkbenchActionsProps = {
@@ -35,7 +36,11 @@ type KnowledgeWorkbenchActionsProps = {
   selectedDatasetId?: string
   datasetDefaultValue: string
   handleFileUpload: (event: ChangeEvent<HTMLInputElement>) => void
-  uploadDocumentFromUrl: (params: { url: string; filename?: string; dataset_id?: string }) => Promise<Document>
+  uploadDocumentFromUrl: (params: {
+    url: string
+    filename?: string
+    dataset_id?: string
+  }) => Promise<Document>
   loadDocuments: (params?: { dataset_id?: string }) => void | Promise<void>
   loadConnectorRuns: (params?: { datasetId?: string }) => void | Promise<void>
   onConnectorRunCreated?: (run: ConnectorRunOut) => void
@@ -73,6 +78,22 @@ export function KnowledgeWorkbenchActions({
   const [urlBatchOpen, setUrlBatchOpen] = useState(false)
   const [webCrawlOpen, setWebCrawlOpen] = useState(false)
   const [jiraProjectOpen, setJiraProjectOpen] = useState(false)
+  const writableDatasets = useMemo(
+    () =>
+      isDevMode
+        ? datasets
+        : datasets.filter((dataset) =>
+            tenantAccessCanWriteDataset(tenantAccessQuery.data, dataset)
+          ),
+    [datasets, isDevMode, tenantAccessQuery.data]
+  )
+  const selectedDatasetWritable = useMemo(
+    () =>
+      !selectedDatasetId ||
+      writableDatasets.some((dataset) => String(dataset.id) === String(selectedDatasetId)),
+    [selectedDatasetId, writableDatasets]
+  )
+  const writableSelectedDatasetId = selectedDatasetWritable ? selectedDatasetId : undefined
 
   const importAvailability = useMemo(
     () =>
@@ -83,6 +104,7 @@ export function KnowledgeWorkbenchActions({
         tenantAccessError: tenantAccessQuery.isError,
         datasetsLoading,
         datasetsError: Boolean(datasetsError),
+        selectedDatasetWritable,
         connectors: connectorCatalogQuery.data,
         connectorsLoading: connectorCatalogQuery.isLoading,
         connectorsError: connectorCatalogQuery.isError,
@@ -94,6 +116,7 @@ export function KnowledgeWorkbenchActions({
       datasetsError,
       datasetsLoading,
       isDevMode,
+      selectedDatasetWritable,
       tenantAccessQuery.data,
       tenantAccessQuery.isError,
       tenantAccessQuery.isLoading,
@@ -109,13 +132,7 @@ export function KnowledgeWorkbenchActions({
     if (datasetsError) detachPromise(refreshDatasets())
     if (!isDevMode && tenantAccessQuery.isError) detachPromise(tenantAccessQuery.refetch())
     if (connectorCatalogQuery.isError) detachPromise(connectorCatalogQuery.refetch())
-  }, [
-    connectorCatalogQuery,
-    datasetsError,
-    isDevMode,
-    refreshDatasets,
-    tenantAccessQuery,
-  ])
+  }, [connectorCatalogQuery, datasetsError, isDevMode, refreshDatasets, tenantAccessQuery])
 
   return (
     <>
@@ -136,7 +153,7 @@ export function KnowledgeWorkbenchActions({
             size="sm"
             className={cn(
               'gap-2 bg-primary text-primary-foreground shadow-none hover:bg-primary/90',
-              className,
+              className
             )}
           >
             <Plus className="size-4" aria-hidden="true" />
@@ -158,14 +175,17 @@ export function KnowledgeWorkbenchActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <KnowledgePipelineConfigDialog open={pipelineConfigOpen} onOpenChange={setPipelineConfigOpen} />
+      <KnowledgePipelineConfigDialog
+        open={pipelineConfigOpen}
+        onOpenChange={setPipelineConfigOpen}
+      />
 
       <KnowledgeUrlImportDialog
         open={urlImportOpen}
         onOpenChange={setUrlImportOpen}
-        datasets={datasets}
+        datasets={writableDatasets}
         datasetsLoading={datasetsLoading}
-        selectedDatasetId={selectedDatasetId}
+        selectedDatasetId={writableSelectedDatasetId}
         datasetDefaultValue={datasetDefaultValue}
         uploadDocumentFromUrl={uploadDocumentFromUrl}
         loadDocuments={loadDocuments}
@@ -175,9 +195,9 @@ export function KnowledgeWorkbenchActions({
       <KnowledgeUrlBatchDialog
         open={urlBatchOpen}
         onOpenChange={setUrlBatchOpen}
-        datasets={datasets}
+        datasets={writableDatasets}
         datasetsLoading={datasetsLoading}
-        selectedDatasetId={selectedDatasetId}
+        selectedDatasetId={writableSelectedDatasetId}
         datasetDefaultValue={datasetDefaultValue}
         loadDocuments={loadDocuments}
         loadConnectorRuns={loadConnectorRuns}
@@ -188,9 +208,9 @@ export function KnowledgeWorkbenchActions({
       <KnowledgeWebCrawlDialog
         open={webCrawlOpen}
         onOpenChange={setWebCrawlOpen}
-        datasets={datasets}
+        datasets={writableDatasets}
         datasetsLoading={datasetsLoading}
-        selectedDatasetId={selectedDatasetId}
+        selectedDatasetId={writableSelectedDatasetId}
         datasetDefaultValue={datasetDefaultValue}
         loadDocuments={loadDocuments}
         loadConnectorRuns={loadConnectorRuns}
@@ -200,9 +220,9 @@ export function KnowledgeWorkbenchActions({
       <KnowledgeJiraProjectDialog
         open={jiraProjectOpen}
         onOpenChange={setJiraProjectOpen}
-        datasets={datasets}
+        datasets={writableDatasets}
         datasetsLoading={datasetsLoading}
-        selectedDatasetId={selectedDatasetId}
+        selectedDatasetId={writableSelectedDatasetId}
         datasetDefaultValue={datasetDefaultValue}
         loadDocuments={loadDocuments}
         loadConnectorRuns={loadConnectorRuns}
