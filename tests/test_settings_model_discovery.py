@@ -59,6 +59,7 @@ def test_resolve_settings_secret_reuses_masked_key(monkeypatch: pytest.MonkeyPat
 
 def test_discover_models_uses_saved_key_and_normalizes_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     captured_headers: dict[str, str] = {}
+    captured_client_options: dict[str, object] = {}
     target = settings_api._ValidatedFetchTarget(
         raw="https://api.example.com/v1",
         connect_url="https://93.184.216.34:443/v1",
@@ -83,7 +84,8 @@ def test_discover_models_uses_saved_key_and_normalizes_catalog(monkeypatch: pyte
             json={"data": [{"id": "z-model"}, {"id": "a-model"}, {"id": "a-model"}]},
         )
 
-    def build_clients(*_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+    def build_clients(*_args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        captured_client_options.update(kwargs)
         transport = httpx.MockTransport(transport_handler)
         return httpx.Client(transport=transport), httpx.AsyncClient(transport=transport)
 
@@ -107,6 +109,26 @@ def test_discover_models_uses_saved_key_and_normalizes_catalog(monkeypatch: pyte
 
     assert response.models == ["a-model", "z-model"]
     assert captured_headers["authorization"] == "Bearer saved-key"
+    assert captured_client_options["trust_env"] is False
+
+
+def test_llm_connection_error_message_reports_actionable_causes() -> None:
+    try:
+        raise httpx.ConnectError("SSL TLS handshake failure")
+    except httpx.ConnectError as cause:
+        try:
+            raise RuntimeError("Connection error.") from cause
+        except RuntimeError as exc:
+            assert settings_api._llm_connection_error_message(exc) == (
+                "模型服务 TLS 连接失败，请检查服务地址和证书"
+            )
+
+    class UnauthorizedError(RuntimeError):
+        status_code = 401
+
+    assert settings_api._llm_connection_error_message(UnauthorizedError()) == (
+        "访问密钥无效，或当前密钥没有调用权限"
+    )
 
 
 def test_unconfigured_private_custom_service_remains_blocked(monkeypatch: pytest.MonkeyPatch) -> None:

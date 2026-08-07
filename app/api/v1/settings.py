@@ -2465,6 +2465,59 @@ def _resolve_settings_secret(raw_secret: str, *, category: str) -> str:
     return str(getattr(settings, "LLM_API_KEY", "") or "").strip()
 
 
+def _build_model_service_http_clients(
+    target: _ValidatedFetchTarget,
+    *,
+    timeout: httpx.Timeout | float,
+) -> tuple[httpx.Client, httpx.AsyncClient]:
+    """为已校验并固定地址的模型服务创建直连客户端。"""
+
+    # 公网目标的 connect_url 已替换为校验后的 IP。若继续继承 HTTP(S)_PROXY，
+    # 代理会用该 IP 建立 TLS 隧道并丢失原始域名 SNI，Cloudflare 等服务会拒绝握手。
+    return _build_pinned_http_clients(target, trust_env=False, timeout=timeout)
+
+
+def _llm_connection_error_message(exc: Exception) -> str:
+    """把模型 SDK 的异常链转换为可操作且不会暴露密钥的中文提示。"""
+
+    chain: list[BaseException] = []
+    current: BaseException | None = exc
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        chain.append(current)
+        current = current.__cause__ or current.__context__
+
+    status_code = next(
+        (
+            value
+            for item in chain
+            if isinstance((value := getattr(item, "status_code", None)), int)
+        ),
+        None,
+    )
+    if status_code in {401, 403}:
+        return "访问密钥无效，或当前密钥没有调用权限"
+    if status_code == 404:
+        return "模型服务地址或模型名称不存在"
+    if status_code == 429:
+        return "模型服务请求过于频繁，请稍后重试"
+    if status_code is not None and status_code >= 500:
+        return f"模型服务暂时不可用（HTTP {status_code}），请稍后重试"
+
+    exception_names = {type(item).__name__ for item in chain}
+    details = " ".join(str(item) for item in chain).lower()
+    if "timeout" in details or exception_names.intersection({"APITimeoutError", "TimeoutException"}):
+        return "连接模型服务超时，请检查服务地址和服务器网络"
+    if "ssl" in details or "tls" in details or "certificate" in details:
+        return "模型服务 TLS 连接失败，请检查服务地址和证书"
+    if exception_names.intersection({"APIConnectionError", "ConnectError", "ConnectTimeout"}):
+        return "无法连接模型服务，请检查服务地址和服务器网络"
+    if status_code == 400:
+        return "模型服务拒绝了请求，请检查模型名称和请求参数"
+    return "模型服务测试失败，请检查服务地址、密钥和模型名称"
+
+
 async def _read_model_catalog_response(response: httpx.Response) -> Any:
     content_length = response.headers.get("content-length")
     if content_length:
@@ -2500,7 +2553,6 @@ async def discover_models(
     """从模型服务读取可用模型，不写入配置。"""
 
     _ensure_settings_writable(db, tenant_id, account_id)
-    from app.rag.core.http import httpx_trust_env
     from app.rag.core.logging import get_logger
 
     logger = get_logger("settings.model_discovery")
@@ -2519,10 +2571,8 @@ async def discover_models(
         provider=request.provider,
         api_key=api_key,
     )
-    trust_env = httpx_trust_env(logger=logger)
-    http_client, http_async_client = _build_pinned_http_clients(
+    http_client, http_async_client = _build_model_service_http_clients(
         validated_target,
-        trust_env=trust_env,
         timeout=float(request.timeout),
     )
 
@@ -2566,7 +2616,6 @@ async def test_llm_connection(
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
 
-    from app.rag.core.http import httpx_trust_env
     from app.rag.core.logging import get_logger
 
     logger = get_logger("settings.llm_test")
@@ -2586,11 +2635,13 @@ async def test_llm_connection(
         provider=request.provider,
         category="model",
     )
-    trust_env = httpx_trust_env(logger=logger)
     timeout = float(request.timeout) if request.timeout else 20.0
 
     try:
-        http_client, http_async_client = _build_pinned_http_clients(validated_target, trust_env=trust_env, timeout=timeout)
+        http_client, http_async_client = _build_model_service_http_clients(
+            validated_target,
+            timeout=timeout,
+        )
         with http_client:
             async with http_async_client:
                 llm = ChatOpenAI(
@@ -2607,7 +2658,7 @@ async def test_llm_connection(
                 resp = await llm.ainvoke([HumanMessage(content="Say 1")])
                 content = (getattr(resp, "content", "") or "").strip()
                 if not content:
-                    return {"success": False, "message": "Empty response"}
+                    return {"success": False, "message": "模型服务已连接，但没有返回内容"}
                 current_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", ""))
                 current_api_key = resolve_openai_compatible_api_key(
                     api_key=str(getattr(settings, "LLM_API_KEY", "") or ""),
@@ -2623,6 +2674,9 @@ async def test_llm_connection(
                     mark_model_provider_available()
                 return {"success": True, "message": content[:200]}
     except Exception as exc:
-        msg = str(exc)
-        logger.warning("LLM test failed: %s", msg[:200])
-        return {"success": False, "message": msg[:400]}
+        logger.warning(
+            "LLM test failed: %s (%s)",
+            type(exc).__name__,
+            type(exc.__cause__).__name__ if exc.__cause__ else "no-cause",
+        )
+        return {"success": False, "message": _llm_connection_error_message(exc)}
