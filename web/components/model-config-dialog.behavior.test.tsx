@@ -196,6 +196,53 @@ describe('模型配置弹窗保存行为', () => {
     )
   })
 
+  it('模型列表中的未选项可以点击并保存', async () => {
+    vi.spyOn(settingsApi, 'discoverModels').mockResolvedValue({
+      models: ['current-model', 'next-model'],
+    })
+    const onSave = vi.fn().mockResolvedValue(true)
+
+    await act(async () => {
+      root.render(
+        <ModelConfigDialog provider={unconfiguredProvider} open onClose={vi.fn()} onSave={onSave} />
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      buttonByText('获取模型').click()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      buttonByText('current-model').click()
+      await Promise.resolve()
+    })
+
+    const nextModel = document.body.querySelector(
+      '[cmdk-item][data-value="next-model"]'
+    ) as HTMLElement
+    expect(nextModel).not.toBeNull()
+    expect(nextModel.getAttribute('data-disabled')).toBe('false')
+    expect(nextModel.className).toContain('data-[disabled=true]:pointer-events-none')
+    expect(nextModel.className).not.toContain('data-[disabled]:pointer-events-none')
+
+    await act(async () => {
+      nextModel.click()
+      await Promise.resolve()
+    })
+    expect(document.body.textContent).toContain('next-model')
+
+    await act(async () => {
+      buttonByText('保存配置').click()
+      await Promise.resolve()
+    })
+    expect(onSave).toHaveBeenCalledWith(
+      'custom',
+      expect.objectContaining({ model: 'next-model' })
+    )
+  })
+
   it('支持手动填写服务未返回的模型名称', async () => {
     const onSave = vi.fn().mockResolvedValue(true)
 

@@ -89,6 +89,20 @@ describe('全局界面层级', () => {
     expect(popoverSource).toContain('max-w-[calc(100vw-1rem)]')
   })
 
+  it('要求挂载到 Portal 的下拉内容在模态框内仍可交互', () => {
+    const componentRoot = resolve(__dirname, '../components/ui')
+    const interactiveOverlayFiles = ['popover.tsx', 'select.tsx', 'dropdown-menu.tsx']
+
+    for (const filename of interactiveOverlayFiles) {
+      const source = readFileSync(resolve(componentRoot, filename), 'utf8')
+      expect(source, filename).toContain('pointer-events-auto')
+    }
+
+    const commandSource = readFileSync(resolve(componentRoot, 'command.tsx'), 'utf8')
+    expect(commandSource).toContain('data-[disabled=true]:pointer-events-none')
+    expect(commandSource).not.toContain('data-[disabled]:pointer-events-none')
+  })
+
   it('要求 Dialog 在窄屏内保留可滚动的视口边界', () => {
     const dialogSource = readFileSync(
       resolve(__dirname, '../components/ui/dialog.tsx'),
