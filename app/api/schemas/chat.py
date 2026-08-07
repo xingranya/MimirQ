@@ -326,7 +326,11 @@ class ChatRAGConfig(BaseModel):
 
     top_k: int = Field(default_factory=lambda: settings.RETRIEVAL_TOP_K, ge=1, le=100)
     score_threshold: float = Field(default_factory=lambda: settings.SIMILARITY_THRESHOLD, ge=0.0, le=1.0)
-    max_tokens: int = Field(default=2000, ge=1, le=200_000)
+    max_tokens: int = Field(
+        default_factory=lambda: int(getattr(settings, "CHAT_DEFAULT_MAX_TOKENS", 512) or 512),
+        ge=1,
+        le=200_000,
+    )
     answer_mode: Literal["llm", "extractive"] = Field(
         default="llm",
         description=(

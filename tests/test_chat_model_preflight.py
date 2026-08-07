@@ -199,6 +199,8 @@ def test_mark_model_provider_available_closes_open_circuit(monkeypatch: pytest.M
         'Model "legacy" is not supported by any configured account in this group',
         "502 Bad Gateway: Upstream access forbidden",
         "503 Service Unavailable",
+        "upstream failed",
+        '{"error":{"message":"upstream failed","type":"upstream_error"}}',
     ],
 )
 def test_provider_gateway_and_model_errors_can_degrade_to_evidence(message: str) -> None:

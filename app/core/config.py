@@ -1784,6 +1784,8 @@ class Settings(BaseSettings):
     # Chat endpoint default retrieval profile (applied only when caller omits retrieval knobs).
     # Empty string disables profile coercion.
     CHAT_DEFAULT_RETRIEVAL_PROFILE: str = "hybrid_ce"
+    # 默认回答预算需为检索上下文留出空间；请求仍可按需显式提高。
+    CHAT_DEFAULT_MAX_TOKENS: int = Field(default=512, ge=1, le=200_000)
     # Optional strict grounding default when request relies on CHAT_DEFAULT_RETRIEVAL_PROFILE.
     CHAT_DEFAULT_VISIBLE_EVIDENCE_ONLY: bool = False
     # Versioned query rewrite strategy id (used for evaluation gating / rollback).

@@ -62,6 +62,8 @@ _MODEL_PROVIDER_UNAVAILABLE_MARKERS = (
     "badgatewayerror",
     "bad gateway",
     "service unavailable",
+    "upstream failed",
+    "upstream_error",
     "upstream access forbidden",
     "connection error",
     "connecttimeout",
