@@ -2088,6 +2088,10 @@ def update_settings(
             # Best-effort only.
             _apply_runtime_settings(env_vars, updated_keys)
         if request.llm is not None:
+            with contextlib.suppress(Exception):
+                from app.services.chat_execution_runtime import reset_model_provider_availability
+
+                reset_model_provider_availability()
             # RAG engine caches LLM clients; reset so new settings take effect.
             with contextlib.suppress(Exception):
                 from app.rag.engine import reset_rag_engine
@@ -2577,6 +2581,19 @@ async def test_llm_connection(
                 content = (getattr(resp, "content", "") or "").strip()
                 if not content:
                     return {"success": False, "message": "Empty response"}
+                current_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", ""))
+                current_api_key = resolve_openai_compatible_api_key(
+                    api_key=str(getattr(settings, "LLM_API_KEY", "") or ""),
+                    base_url=current_base_url,
+                )
+                if (
+                    normalized_base_url == current_base_url
+                    and request.model.strip() == str(getattr(settings, "LLM_MODEL", "") or "").strip()
+                    and resolved_api_key == current_api_key
+                ):
+                    from app.services.chat_execution_runtime import mark_model_provider_available
+
+                    mark_model_provider_available()
                 return {"success": True, "message": content[:200]}
     except Exception as exc:
         msg = str(exc)

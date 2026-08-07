@@ -153,4 +153,40 @@ async def test_provider_preflight_allows_normal_response_latency(monkeypatch: py
 
     assert await chat_execution_runtime.preflight_model_provider_fast() == (True, None)
     timeout = captured["timeout"]
-    assert timeout.read >= 5.0
+    assert timeout.connect == 5.0
+    assert timeout.read == 180.0
+
+
+def test_reset_model_provider_availability_clears_cached_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "LLM_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(settings, "LLM_API_BASE", "https://provider.example/v1", raising=False)
+    monkeypatch.setattr(settings, "LLM_MODEL", "test-model", raising=False)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_AVAILABLE_UNTIL", time.monotonic() + 60.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_UNAVAILABLE_UNTIL", time.monotonic() + 60.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_CIRCUIT_KEY", "stale")
+
+    chat_execution_runtime.reset_model_provider_availability()
+
+    assert chat_execution_runtime._MODEL_PROVIDER_CIRCUIT_KEY == chat_execution_runtime._model_provider_circuit_key()
+    assert chat_execution_runtime._MODEL_PROVIDER_AVAILABLE_UNTIL == 0.0
+    assert chat_execution_runtime._MODEL_PROVIDER_UNAVAILABLE_UNTIL == 0.0
+
+
+def test_mark_model_provider_available_closes_open_circuit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "LLM_MOCK_ENABLED", False, raising=False)
+    monkeypatch.setattr(settings, "LLM_API_KEY", "test-key", raising=False)
+    monkeypatch.setattr(settings, "LLM_API_BASE", "https://provider.example/v1", raising=False)
+    monkeypatch.setattr(settings, "LLM_MODEL", "test-model", raising=False)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_AVAILABLE_UNTIL", 0.0)
+    monkeypatch.setattr(chat_execution_runtime, "_MODEL_PROVIDER_UNAVAILABLE_UNTIL", time.monotonic() + 60.0)
+    monkeypatch.setattr(
+        chat_execution_runtime,
+        "_MODEL_PROVIDER_CIRCUIT_KEY",
+        chat_execution_runtime._model_provider_circuit_key(),
+    )
+
+    chat_execution_runtime.mark_model_provider_available(ttl_sec=30.0)
+
+    assert chat_execution_runtime.is_model_provider_unavailable_circuit_open() is False
+    assert chat_execution_runtime._MODEL_PROVIDER_AVAILABLE_UNTIL > time.monotonic()

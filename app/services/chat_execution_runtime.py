@@ -67,6 +67,7 @@ _MODEL_PROVIDER_AVAILABLE_UNTIL = 0.0
 _MODEL_PROVIDER_CIRCUIT_KEY = ""
 _MODEL_PROVIDER_UNAVAILABLE_TTL_SEC = 300.0
 _MODEL_PROVIDER_AVAILABLE_TTL_SEC = 60.0
+_MODEL_PROVIDER_PREFLIGHT_READ_TIMEOUT_SEC = 180.0
 
 
 def is_model_provider_unavailable_error(exc: BaseException) -> bool:
@@ -99,6 +100,22 @@ def mark_model_provider_unavailable(*, ttl_sec: float = _MODEL_PROVIDER_UNAVAILA
     global _MODEL_PROVIDER_UNAVAILABLE_UNTIL
     _ensure_model_provider_circuit_key()
     _MODEL_PROVIDER_UNAVAILABLE_UNTIL = max(_MODEL_PROVIDER_UNAVAILABLE_UNTIL, time.monotonic() + max(1.0, ttl_sec))
+
+
+def mark_model_provider_available(*, ttl_sec: float = _MODEL_PROVIDER_AVAILABLE_TTL_SEC) -> None:
+    """记录当前模型服务可用，并清除同一配置下的失败熔断。"""
+    global _MODEL_PROVIDER_AVAILABLE_UNTIL, _MODEL_PROVIDER_UNAVAILABLE_UNTIL
+    _ensure_model_provider_circuit_key()
+    _MODEL_PROVIDER_UNAVAILABLE_UNTIL = 0.0
+    _MODEL_PROVIDER_AVAILABLE_UNTIL = time.monotonic() + max(1.0, ttl_sec)
+
+
+def reset_model_provider_availability() -> None:
+    """清除模型服务可用性缓存，供配置切换后重新检测。"""
+    global _MODEL_PROVIDER_AVAILABLE_UNTIL, _MODEL_PROVIDER_CIRCUIT_KEY, _MODEL_PROVIDER_UNAVAILABLE_UNTIL
+    _MODEL_PROVIDER_CIRCUIT_KEY = _model_provider_circuit_key()
+    _MODEL_PROVIDER_UNAVAILABLE_UNTIL = 0.0
+    _MODEL_PROVIDER_AVAILABLE_UNTIL = 0.0
 
 
 def is_model_provider_unavailable_circuit_open() -> bool:
@@ -137,7 +154,13 @@ async def preflight_model_provider_fast() -> tuple[bool, str | None]:
 
     try:
         base_url = api_base.rstrip("/")
-        timeout = httpx.Timeout(5.0, connect=2.0, read=5.0, write=2.0, pool=1.0)
+        timeout = httpx.Timeout(
+            _MODEL_PROVIDER_PREFLIGHT_READ_TIMEOUT_SEC,
+            connect=5.0,
+            read=_MODEL_PROVIDER_PREFLIGHT_READ_TIMEOUT_SEC,
+            write=10.0,
+            pool=5.0,
+        )
         async with httpx.AsyncClient(trust_env=httpx_trust_env(), timeout=timeout) as client:
             response = await client.post(
                 f"{base_url}/chat/completions",
@@ -151,7 +174,7 @@ async def preflight_model_provider_fast() -> tuple[bool, str | None]:
                 },
             )
         if 200 <= response.status_code < 300:
-            _MODEL_PROVIDER_AVAILABLE_UNTIL = time.monotonic() + _MODEL_PROVIDER_AVAILABLE_TTL_SEC
+            mark_model_provider_available()
             return True, None
         detail = response.text[:400]
         exc = RuntimeError(f"LLM preflight failed HTTP {response.status_code}: {detail}")
