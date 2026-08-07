@@ -4,6 +4,7 @@ Supports reading and updating .env configuration.
 """
 
 import contextlib
+import errno
 import importlib.util
 import json
 import os
@@ -1368,7 +1369,16 @@ def write_env_file(env_vars: dict[str, str]):
             with contextlib.suppress(Exception):
                 os.chmod(tmp_path, ENV_FILE.stat().st_mode)
 
-        os.replace(str(tmp_path), str(ENV_FILE))
+        try:
+            os.replace(str(tmp_path), str(ENV_FILE))
+        except OSError as exc:
+            if exc.errno not in {errno.EBUSY, errno.EXDEV}:
+                raise
+            # Docker 单文件绑定挂载不能被 rename 覆盖，只能在锁内原位更新。
+            with open(ENV_FILE, "w", encoding="utf-8") as target:
+                target.write(content)
+                target.flush()
+                os.fsync(target.fileno())
     finally:
         if tmp_path is not None:
             with contextlib.suppress(OSError):

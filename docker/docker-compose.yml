@@ -205,6 +205,8 @@ services:
       - mimirq-proxy
     volumes:
       - upload_data:/data/uploads
+      # 设置页直接更新宿主机配置，容器重建后仍能加载最新值。
+      - ../.env:/app/.env
       # 保留本地向量模型缓存，容器重建后不再重复下载大模型。
       - huggingface_cache:/app/.cache/huggingface
       - ../plugins:/app/plugins:ro
