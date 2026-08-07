@@ -190,3 +190,16 @@ def test_mark_model_provider_available_closes_open_circuit(monkeypatch: pytest.M
 
     assert chat_execution_runtime.is_model_provider_unavailable_circuit_open() is False
     assert chat_execution_runtime._MODEL_PROVIDER_AVAILABLE_UNTIL > time.monotonic()
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        'Error code: 404 - {"error":{"type":"model_not_found"}}',
+        'Model "legacy" is not supported by any configured account in this group',
+        "502 Bad Gateway: Upstream access forbidden",
+        "503 Service Unavailable",
+    ],
+)
+def test_provider_gateway_and_model_errors_can_degrade_to_evidence(message: str) -> None:
+    assert chat_execution_runtime.is_model_provider_unavailable_error(RuntimeError(message)) is True

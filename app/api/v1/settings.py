@@ -958,6 +958,10 @@ def _apply_runtime_settings(env_vars: dict[str, str], updated_keys: list[str]) -
         settings.LLM_API_BASE = env_vars["LLM_API_BASE"]
     if "LLM_MODEL" in updated_keys and "LLM_MODEL" in env_vars:
         settings.LLM_MODEL = env_vars["LLM_MODEL"]
+    if "LLM_MODEL_FAST" in updated_keys and "LLM_MODEL_FAST" in env_vars:
+        settings.LLM_MODEL_FAST = env_vars["LLM_MODEL_FAST"]
+    if "LLM_MODEL_HEAVY" in updated_keys and "LLM_MODEL_HEAVY" in env_vars:
+        settings.LLM_MODEL_HEAVY = env_vars["LLM_MODEL_HEAVY"]
     if "LLM_TEMPERATURE" in updated_keys and "LLM_TEMPERATURE" in env_vars:
         settings.LLM_TEMPERATURE = _parse_float(env_vars["LLM_TEMPERATURE"], default=settings.LLM_TEMPERATURE)
     if "LLM_TIMEOUT" in updated_keys and "LLM_TIMEOUT" in env_vars:
@@ -1674,10 +1678,23 @@ def update_settings(
                 updated_keys.append("LLM_API_KEY")
             env_vars["LLM_API_BASE"] = _sanitize_env_value("LLM_API_BASE", llm.api_base)
             env_vars["LLM_MODEL"] = _sanitize_env_value("LLM_MODEL", llm.model)
+            # 设置页只展示一个当前模型，因此所有聊天路由都应跟随该选择。
+            env_vars["LLM_MODEL_FAST"] = env_vars["LLM_MODEL"]
+            env_vars["LLM_MODEL_HEAVY"] = env_vars["LLM_MODEL"]
             env_vars["LLM_TEMPERATURE"] = str(llm.temperature)
             env_vars["LLM_TIMEOUT"] = str(llm.timeout)
             env_vars["LLM_MAX_RETRIES"] = str(llm.max_retries)
-            updated_keys.extend(["LLM_API_BASE", "LLM_MODEL", "LLM_TEMPERATURE", "LLM_TIMEOUT", "LLM_MAX_RETRIES"])
+            updated_keys.extend(
+                [
+                    "LLM_API_BASE",
+                    "LLM_MODEL",
+                    "LLM_MODEL_FAST",
+                    "LLM_MODEL_HEAVY",
+                    "LLM_TEMPERATURE",
+                    "LLM_TIMEOUT",
+                    "LLM_MAX_RETRIES",
+                ]
+            )
 
         # Update embedding config.
         if request.embedding:
