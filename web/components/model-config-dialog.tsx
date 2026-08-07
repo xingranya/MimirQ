@@ -3,8 +3,10 @@
  */
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
+  Check,
+  ChevronsUpDown,
   Eye,
   EyeOff,
   AlertCircle,
@@ -13,6 +15,7 @@ import {
   Save,
   ChevronRight,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Dialog,
@@ -25,12 +28,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ProviderIcon } from '@/components/provider-icon'
 import { cn } from '@/lib/utils'
@@ -49,7 +53,7 @@ interface ModelConfigDialogProps {
 function getDefaultApiBase(providerId: string): string {
   const defaults: Record<string, string> = {
     openai: 'https://api.openai.com/v1',
-    anthropic: 'https://api.anthropic.com',
+    'openai-embedding': 'https://api.openai.com/v1',
     deepseek: 'https://api.deepseek.com/v1',
     zhipu: 'https://open.bigmodel.cn/api/paas/v4',
     qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -62,6 +66,8 @@ function getDefaultApiBase(providerId: string): string {
     siliconflow: 'https://api.siliconflow.cn/v1',
     openrouter: 'https://openrouter.ai/api/v1',
     together: 'https://api.together.xyz/v1',
+    custom: '',
+    'custom-embedding': '',
   }
   return defaults[providerId] || ''
 }
@@ -82,6 +88,11 @@ export function ModelConfigDialog({
   })
   const [showApiKey, setShowApiKey] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
+  const [isDiscovering, setIsDiscovering] = useState(false)
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([])
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+  const [modelMode, setModelMode] = useState<'catalog' | 'manual'>('catalog')
+  const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const [testResult, setTestResult] = useState<{
     success: boolean
     message: string
@@ -96,25 +107,26 @@ export function ModelConfigDialog({
   const temperatureId = `${idPrefix}-temperature`
   const effectiveApiBase = config.apiBase || (provider ? getDefaultApiBase(provider.id) : '')
   const apiKeyOptional =
-    provider?.id === 'ollama' || isLocalOpenAICompatibleBaseUrl(effectiveApiBase)
+    provider?.id === 'ollama' ||
+    provider?.id === 'local-embedding' ||
+    isLocalOpenAICompatibleBaseUrl(effectiveApiBase)
   const canSubmit = Boolean(config.model && (config.apiKey || apiKeyOptional))
+  const requestBusy = isSaving || isTesting || isDiscovering
+  const modelOptions = useMemo(() => {
+    const options = [...discoveredModels]
+    const configuredModel = String(config.model || '').trim()
+    if (configuredModel && !options.some((model) => model === configuredModel)) {
+      options.unshift(configuredModel)
+    }
+    return options
+  }, [config.model, discoveredModels])
 
   useEffect(() => {
-    const modelOptions = provider
-      ? provider.models.filter((m) => {
-          if (provider.category === 'model') return m.type === 'chat'
-          if (provider.category === 'embedding') return m.type === 'embedding'
-          if (provider.category === 'reranker') return m.type === 'reranker'
-          return true
-        })
-      : []
-    const defaultModel = modelOptions[0]?.name || ''
-
     if (provider?.config) {
       setConfig({
         apiKey: provider.config.apiKey || '',
         apiBase: provider.config.apiBase || getDefaultApiBase(provider.id),
-        model: provider.config.model || defaultModel,
+        model: provider.config.model || '',
         temperature: provider.config.temperature ?? 0.7,
         timeout: provider.config.timeout ?? 60,
       })
@@ -122,12 +134,17 @@ export function ModelConfigDialog({
       setConfig({
         apiKey: '',
         apiBase: getDefaultApiBase(provider.id),
-        model: defaultModel,
+        model: '',
         temperature: 0.7,
         timeout: 60,
       })
     }
     setTestResult(null)
+    setDiscoveryError(null)
+    setDiscoveredModels([])
+    setModelMode('catalog')
+    setModelPickerOpen(false)
+    setIsDiscovering(false)
     setSaveError(null)
     setIsSaving(false)
     saveRequestInFlightRef.current = false
@@ -177,6 +194,7 @@ export function ModelConfigDialog({
         api_key: config.apiKey || '',
         api_base: effectiveApiBase,
         model: config.model,
+        provider: provider.id,
         temperature: config.temperature,
         timeout: config.timeout,
         max_retries: 1,
@@ -186,6 +204,47 @@ export function ModelConfigDialog({
       setTestResult({ success: false, message: formatApiError(e, '测试失败') })
     } finally {
       setIsTesting(false)
+    }
+  }
+
+  const handleDiscoverModels = async () => {
+    if (!provider || requestBusy) return
+    if (!effectiveApiBase.trim()) {
+      setDiscoveryError('请先填写模型服务地址。')
+      return
+    }
+    if (!config.apiKey && !apiKeyOptional) {
+      setDiscoveryError('请先填写访问密钥。')
+      return
+    }
+
+    setIsDiscovering(true)
+    setDiscoveryError(null)
+    setTestResult(null)
+    try {
+      const result = await settingsApi.discoverModels({
+        api_key: config.apiKey || '',
+        api_base: effectiveApiBase,
+        provider: provider.id,
+        category: provider.category === 'embedding' ? 'embedding' : 'model',
+        timeout: Math.min(60, Math.max(3, config.timeout ?? 20)),
+      })
+      const models = Array.from(
+        new Set((result.models || []).map((model) => String(model || '').trim()).filter(Boolean))
+      )
+      setDiscoveredModels(models)
+      if (!models.length) {
+        setDiscoveryError('服务已连接，但没有返回可选模型。你仍可手动填写模型名称。')
+        return
+      }
+      if (!config.model) {
+        setConfig((current) => ({ ...current, model: models[0] }))
+      }
+      setModelMode('catalog')
+    } catch (error: unknown) {
+      setDiscoveryError(formatApiError(error, '获取模型失败，请检查密钥和服务地址。'))
+    } finally {
+      setIsDiscovering(false)
     }
   }
 
@@ -238,6 +297,8 @@ export function ModelConfigDialog({
                 onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
                 placeholder={apiKeyOptional ? '本地服务可留空' : `输入 ${provider.name} 访问密钥`}
                 className="pr-10 font-mono"
+                autoComplete="new-password"
+                spellCheck={false}
               />
               <button
                 type="button"
@@ -258,42 +319,152 @@ export function ModelConfigDialog({
             </Label>
             <Input
               id={apiBaseId}
-              type="text"
+              type="url"
               value={config.apiBase}
-              onChange={(e) => setConfig({ ...config, apiBase: e.target.value })}
+              onChange={(e) => {
+                setConfig({ ...config, apiBase: e.target.value })
+                setDiscoveredModels([])
+                setDiscoveryError(null)
+              }}
               placeholder="https://api.example.com/v1"
               className="font-mono"
+              autoComplete="url"
+              spellCheck={false}
             />
+            <p className="text-xs leading-5 text-muted-foreground">
+              支持供应商地址、Ollama、vLLM、LM Studio 等 OpenAI 兼容服务。
+            </p>
           </div>
 
           {/* 模型 */}
           <div className="space-y-2">
-            <Label htmlFor={modelId} className="text-sm font-medium text-foreground">
-              模型
-            </Label>
-            <Select
-              value={config.model || ''}
-              onValueChange={(model) => setConfig({ ...config, model })}
-              disabled={isSaving || isTesting}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor={modelId} className="text-sm font-medium text-foreground">
+                模型
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2.5 text-xs"
+                onClick={handleDiscoverModels}
+                disabled={requestBusy || !effectiveApiBase.trim()}
+              >
+                <RefreshCw
+                  className={cn('mr-1.5 size-3.5', isDiscovering && 'animate-spin')}
+                  aria-hidden="true"
+                />
+                {isDiscovering ? '正在获取' : '获取模型'}
+              </Button>
+            </div>
+
+            <div
+              className="grid grid-cols-2 rounded-md bg-muted p-1"
+              role="radiogroup"
+              aria-label="模型填写方式"
             >
-              <SelectTrigger id={modelId} className="h-10 w-full">
-                <SelectValue placeholder="选择模型" />
-              </SelectTrigger>
-              <SelectContent>
-                {provider.models
-                  .filter((model) => {
-                    if (provider.category === 'model') return model.type === 'chat'
-                    if (provider.category === 'embedding') return model.type === 'embedding'
-                    if (provider.category === 'reranker') return model.type === 'reranker'
-                    return true
-                  })
-                  .map((model) => (
-                    <SelectItem key={model.id} value={model.name}>
-                      {model.displayName}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={modelMode === 'catalog'}
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs font-medium transition-colors focus-ring',
+                  modelMode === 'catalog'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setModelMode('catalog')}
+                disabled={requestBusy}
+              >
+                从服务选择
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={modelMode === 'manual'}
+                className={cn(
+                  'h-8 rounded-md px-3 text-xs font-medium transition-colors focus-ring',
+                  modelMode === 'manual'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setModelMode('manual')}
+                disabled={requestBusy}
+              >
+                手动填写
+              </button>
+            </div>
+
+            {modelMode === 'catalog' ? (
+              <Popover open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id={modelId}
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={modelPickerOpen}
+                    className="h-10 w-full min-w-0 justify-between px-3 font-normal"
+                    disabled={requestBusy || modelOptions.length === 0}
+                  >
+                    <span className="truncate">{config.model || '选择模型'}</span>
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                  align="start"
+                >
+                  <Command>
+                    <CommandInput placeholder="搜索模型" />
+                    <CommandList>
+                      <CommandEmpty>没有匹配的模型</CommandEmpty>
+                      {modelOptions.map((model) => (
+                        <CommandItem
+                          key={model}
+                          value={model}
+                          onSelect={() => {
+                            setConfig((current) => ({ ...current, model }))
+                            setModelPickerOpen(false)
+                          }}
+                          className="gap-2"
+                        >
+                          <Check
+                            className={cn(
+                              'size-4 shrink-0',
+                              config.model === model ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          <span className="min-w-0 truncate">{model}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Input
+                id={modelId}
+                value={config.model || ''}
+                onChange={(event) => setConfig({ ...config, model: event.target.value })}
+                placeholder="例如：qwen3:8b"
+                className="font-mono"
+                disabled={requestBusy}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            )}
+
+            {modelMode === 'catalog' && modelOptions.length === 0 && !discoveryError ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                点击“获取模型”读取服务中的最新模型，也可以切换为手动填写。
+              </p>
+            ) : null}
+            {discoveryError ? (
+              <p className="text-xs leading-5 text-destructive" role="alert">
+                {discoveryError}
+              </p>
+            ) : null}
           </div>
 
           {provider.category === 'model' ? (
@@ -371,7 +542,7 @@ export function ModelConfigDialog({
               <Button
                 variant="outline"
                 onClick={handleTest}
-                disabled={!canSubmit || isTesting || isSaving}
+                disabled={!canSubmit || requestBusy}
                 className="h-10 flex-1 rounded-md"
               >
                 {isTesting ? (
@@ -386,7 +557,7 @@ export function ModelConfigDialog({
             ) : null}
             <Button
               onClick={handleSave}
-              disabled={!canSubmit || isSaving || isTesting}
+              disabled={!canSubmit || requestBusy}
               className="h-10 flex-1 rounded-md"
             >
               {isSaving ? (
@@ -409,7 +580,6 @@ export function ModelConfigDialog({
 function getProviderDocsUrl(providerId: string): string {
   const urls: Record<string, string> = {
     openai: 'https://platform.openai.com/api-keys',
-    anthropic: 'https://console.anthropic.com/',
     deepseek: 'https://platform.deepseek.com/',
     zhipu: 'https://open.bigmodel.cn/',
     qwen: 'https://dashscope.console.aliyun.com/',
@@ -422,6 +592,8 @@ function getProviderDocsUrl(providerId: string): string {
     siliconflow: 'https://cloud.siliconflow.cn/',
     openrouter: 'https://openrouter.ai/keys',
     together: 'https://api.together.xyz/',
+    custom: 'https://platform.openai.com/docs/api-reference/models',
+    'custom-embedding': 'https://platform.openai.com/docs/api-reference/models',
   }
   return urls[providerId] || '#'
 }

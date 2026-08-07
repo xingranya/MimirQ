@@ -16,6 +16,8 @@ interface ProviderIconProps {
 const LOBEHUB_ICON_BY_PROVIDER_ID: Record<string, string> = {
   openai: 'openai',
   'openai-embedding': 'openai',
+  custom: 'openai',
+  'custom-embedding': 'openai',
 
   anthropic: 'anthropic',
 
@@ -59,7 +61,9 @@ const LOBEHUB_ICON_BY_PROVIDER_ID: Record<string, string> = {
 }
 
 function normalizeProviderId(providerId: string): string {
-  return String(providerId || '').trim().toLowerCase()
+  return String(providerId || '')
+    .trim()
+    .toLowerCase()
 }
 
 // 提供商 ID 到图标文件的映射（旧资源兜底）

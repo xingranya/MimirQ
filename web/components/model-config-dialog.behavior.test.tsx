@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ModelProvider } from '@/types/models'
+import { settingsApi } from '@/lib/api'
 
 import { ModelConfigDialog } from './model-config-dialog'
 
@@ -31,12 +32,31 @@ const provider: ModelProvider = {
   },
 }
 
+const unconfiguredProvider: ModelProvider = {
+  ...provider,
+  id: 'custom',
+  name: '自定义服务',
+  isConfigured: false,
+  models: [],
+  config: {
+    apiKey: 'new-secret',
+    apiBase: 'https://models.example.test/v1',
+    model: '',
+  },
+}
+
 function buttonByText(text: string): HTMLButtonElement {
   const button = Array.from(document.body.querySelectorAll('button')).find(
     (item) => item.textContent?.trim() === text
   )
   expect(button, `未找到按钮：${text}`).toBeDefined()
   return button as HTMLButtonElement
+}
+
+function setInputValue(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+  setter?.call(input, value)
+  input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 describe('模型配置弹窗保存行为', () => {
@@ -136,5 +156,74 @@ describe('模型配置弹窗保存行为', () => {
 
     expect(onSave).toHaveBeenCalledOnce()
     expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('从服务获取模型并选择首个返回项', async () => {
+    const discover = vi.spyOn(settingsApi, 'discoverModels').mockResolvedValue({
+      models: ['current-model', 'next-model'],
+    })
+    const onSave = vi.fn().mockResolvedValue(true)
+
+    await act(async () => {
+      root.render(
+        <ModelConfigDialog provider={unconfiguredProvider} open onClose={vi.fn()} onSave={onSave} />
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      buttonByText('获取模型').click()
+      await Promise.resolve()
+    })
+
+    expect(discover).toHaveBeenCalledWith(
+      expect.objectContaining({
+        api_key: 'new-secret',
+        api_base: 'https://models.example.test/v1',
+        provider: 'custom',
+        category: 'model',
+      })
+    )
+    expect(document.body.textContent).toContain('current-model')
+
+    await act(async () => {
+      buttonByText('保存配置').click()
+      await Promise.resolve()
+    })
+    expect(onSave).toHaveBeenCalledWith(
+      'custom',
+      expect.objectContaining({ model: 'current-model' })
+    )
+  })
+
+  it('支持手动填写服务未返回的模型名称', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+
+    await act(async () => {
+      root.render(
+        <ModelConfigDialog provider={unconfiguredProvider} open onClose={vi.fn()} onSave={onSave} />
+      )
+      await Promise.resolve()
+    })
+
+    act(() => buttonByText('手动填写').click())
+    const modelInput = document.body.querySelector(
+      'input[placeholder="例如：qwen3:8b"]'
+    ) as HTMLInputElement
+    expect(modelInput).not.toBeNull()
+
+    await act(async () => {
+      setInputValue(modelInput, 'private-model-v2')
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      buttonByText('保存配置').click()
+      await Promise.resolve()
+    })
+    expect(onSave).toHaveBeenCalledWith(
+      'custom',
+      expect.objectContaining({ model: 'private-model-v2' })
+    )
   })
 })

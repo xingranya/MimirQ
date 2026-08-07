@@ -17,6 +17,7 @@ _STRIP_SUFFIXES = (
     "/completions",
     "/embeddings",
     "/responses",
+    "/models",
 )
 
 _LOCAL_OPENAI_COMPAT_HOSTS = frozenset(

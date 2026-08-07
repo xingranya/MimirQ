@@ -1,5 +1,6 @@
 from app.core.openai_compat import (
     is_local_openai_compatible_base_url,
+    normalize_openai_compatible_base_url,
     resolve_openai_compatible_api_key,
 )
 
@@ -22,3 +23,9 @@ def test_public_openai_compatible_host_still_requires_explicit_key() -> None:
     assert is_local_openai_compatible_base_url(base_url) is False
     assert resolve_openai_compatible_api_key(api_key="", base_url=base_url) == ""
     assert resolve_openai_compatible_api_key(api_key="real-key", base_url=base_url) == "real-key"
+
+
+def test_model_catalog_endpoint_is_normalized_to_service_base() -> None:
+    assert (
+        normalize_openai_compatible_base_url("https://models.example.com/v1/models") == "https://models.example.com/v1"
+    )

@@ -62,7 +62,12 @@ export type {
   RagasRun,
   RagasRunDetail,
 } from './evaluation'
-export type { PromptTemplate, PromptTemplateCreate, PromptTemplateNewVersion, PromptTemplateUpdate } from './prompts'
+export type {
+  PromptTemplate,
+  PromptTemplateCreate,
+  PromptTemplateNewVersion,
+  PromptTemplateUpdate,
+} from './prompts'
 export type { BackendMeta, BackendMetaDetails } from './meta'
 export type { TenantInvitation, TenantMember } from './access'
 export type { TenantAccess, TenantPermission } from '../tenant-permissions'

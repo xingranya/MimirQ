@@ -11,7 +11,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse, urlunparse
 from uuid import UUID
 
@@ -41,6 +41,7 @@ from app.core.openai_compat import (
     normalize_openai_compatible_base_url,
     resolve_openai_compatible_api_key,
 )
+from app.services.model_catalog_discovery import build_model_catalog_request, extract_model_ids
 from app.services.navigation_visibility import normalize_navigation_modules, serialize_navigation_modules
 from app.services.rbac_service import TenantPermissions, ensure_tenant_permission
 
@@ -62,6 +63,7 @@ _MISSING_API_URL_MESSAGE = "missing api_url"
 _CONFIGURED_HEALTH_UNREACHABLE_MESSAGE = "configured (health_unreachable)"
 _MINERU_BACKENDS = {"pipeline", "vlm-http-client"}
 _SYSTEM_DIFY_ACCOUNT_ID = "system:dify"
+_MODEL_CATALOG_MAX_BYTES = 2 * 1024 * 1024
 _VECTOR_STORE_EMBEDDING_RESET_KEYS = frozenset(
     {
         "EMBEDDING_PROVIDER",
@@ -322,10 +324,24 @@ async def _validate_public_base_url(base_url: str) -> _ValidatedFetchTarget:
         raise HTTPException(status_code=400, detail=detail) from exc
 
 
-def _configured_local_llm_target(base_url: str) -> _ValidatedFetchTarget | None:
-    """仅允许服务端已配置的本地模型地址绕过公网地址校验。"""
-    configured_base_url = normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))
-    if base_url != configured_base_url or not is_local_openai_compatible_base_url(base_url):
+def _local_model_service_target(
+    base_url: str,
+    *,
+    provider: str = "",
+    category: str = "model",
+) -> _ValidatedFetchTarget | None:
+    """仅允许已配置地址或明确的 Ollama 地址访问本地模型服务。"""
+
+    configured_values = [normalize_openai_compatible_base_url(getattr(settings, "LLM_API_BASE", None))]
+    if category == "embedding":
+        configured_values.append(
+            normalize_openai_compatible_base_url(getattr(settings, "EMBEDDING_API_BASE", None))
+        )
+    explicitly_local_provider = str(provider or "").strip().lower() == "ollama"
+    if (
+        not is_local_openai_compatible_base_url(base_url)
+        or (base_url not in configured_values and not explicitly_local_provider)
+    ):
         return None
 
     parsed = urlparse(base_url)
@@ -340,6 +356,18 @@ def _configured_local_llm_target(base_url: str) -> _ValidatedFetchTarget | None:
         host=host,
         host_header=f"{rendered_host}:{port}",
     )
+
+
+async def _model_service_target(
+    base_url: str,
+    *,
+    provider: str = "",
+    category: str = "model",
+) -> _ValidatedFetchTarget:
+    local_target = _local_model_service_target(base_url, provider=provider, category=category)
+    if local_target is not None:
+        return local_target
+    return await _validate_public_base_url(base_url)
 
 
 class FeatureFlags(BaseModel):
@@ -2375,9 +2403,123 @@ class TestLLMRequest(BaseModel):
     api_key: str = ""
     api_base: str = Field(default_factory=_default_llm_api_base)
     model: str
+    provider: str = ""
     temperature: float = 0.0
     timeout: int = 20
     max_retries: int = 1
+
+
+class DiscoverModelsRequest(BaseModel):
+    """模型目录发现请求。"""
+
+    api_key: str = ""
+    api_base: str = Field(min_length=1, max_length=2000)
+    provider: str = Field(default="", max_length=80)
+    category: Literal["model", "embedding"] = "model"
+    timeout: int = Field(default=20, ge=3, le=60)
+
+
+class DiscoverModelsResponse(BaseModel):
+    """模型目录发现结果。"""
+
+    models: list[str]
+
+
+def _resolve_settings_secret(raw_secret: str, *, category: str) -> str:
+    value = str(raw_secret or "").strip()
+    if value and "***" not in value:
+        return value
+    if category == "embedding":
+        return str(getattr(settings, "EMBEDDING_API_KEY", "") or "").strip()
+    return str(getattr(settings, "LLM_API_KEY", "") or "").strip()
+
+
+async def _read_model_catalog_response(response: httpx.Response) -> Any:
+    content_length = response.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > _MODEL_CATALOG_MAX_BYTES:
+                raise HTTPException(status_code=400, detail="模型列表响应过大")
+        except ValueError:
+            pass
+
+    payload = bytearray()
+    async for chunk in response.aiter_bytes():
+        payload.extend(chunk)
+        if len(payload) > _MODEL_CATALOG_MAX_BYTES:
+            raise HTTPException(status_code=400, detail="模型列表响应过大")
+    try:
+        return json.loads(payload)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="模型服务返回了无法识别的数据") from exc
+
+
+@router.post(
+    "/models/discover",
+    response_model=DiscoverModelsResponse,
+    responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES,
+)
+async def discover_models(
+    request: DiscoverModelsRequest,
+    *,
+    tenant_id: Annotated[UUID, Depends(get_tenant_id)],
+    account_id: Annotated[str, Depends(get_current_account_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> DiscoverModelsResponse:
+    """从模型服务读取可用模型，不写入配置。"""
+
+    _ensure_settings_writable(db, tenant_id, account_id)
+    from app.rag.core.http import httpx_trust_env
+    from app.rag.core.logging import get_logger
+
+    logger = get_logger("settings.model_discovery")
+    normalized_base_url = normalize_openai_compatible_base_url(request.api_base)
+    validated_target = await _model_service_target(
+        normalized_base_url,
+        provider=request.provider,
+        category=request.category,
+    )
+    api_key = _resolve_settings_secret(request.api_key, category=request.category)
+    if not api_key and not is_local_openai_compatible_base_url(normalized_base_url):
+        raise HTTPException(status_code=400, detail="请先填写访问密钥")
+
+    catalog_request = build_model_catalog_request(
+        base_url=validated_target.connect_url,
+        provider=request.provider,
+        api_key=api_key,
+    )
+    trust_env = httpx_trust_env(logger=logger)
+    http_client, http_async_client = _build_pinned_http_clients(
+        validated_target,
+        trust_env=trust_env,
+        timeout=float(request.timeout),
+    )
+
+    last_status: int | None = None
+    try:
+        with http_client:
+            async with http_async_client:
+                for index, url in enumerate(catalog_request.urls):
+                    async with http_async_client.stream("GET", url, headers=catalog_request.headers) as response:
+                        last_status = response.status_code
+                        if response.status_code in {404, 405} and index + 1 < len(catalog_request.urls):
+                            continue
+                        if response.status_code >= 400:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"模型服务拒绝了请求（HTTP {response.status_code}）",
+                            )
+                        models = extract_model_ids(await _read_model_catalog_response(response))
+                        return DiscoverModelsResponse(models=models)
+    except HTTPException:
+        raise
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=400, detail="获取模型超时，请检查服务地址后重试") from exc
+    except httpx.HTTPError as exc:
+        logger.warning("Model discovery failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=400, detail="无法连接模型服务，请检查地址和网络") from exc
+
+    raise HTTPException(status_code=400, detail=f"模型服务未返回可用目录（HTTP {last_status or 0}）")
 
 
 @router.post("/llm/test", responses=_DEFAULT_HTTP_EXCEPTION_RESPONSES)
@@ -2400,7 +2542,7 @@ async def test_llm_connection(
 
     normalized_base_url = normalize_openai_compatible_base_url(request.api_base)
     resolved_api_key = resolve_openai_compatible_api_key(
-        api_key=request.api_key,
+        api_key=_resolve_settings_secret(request.api_key, category="model"),
         base_url=normalized_base_url,
     )
     if not resolved_api_key:
@@ -2408,9 +2550,11 @@ async def test_llm_connection(
     if not request.model.strip():
         raise HTTPException(status_code=400, detail="model is required")
 
-    validated_target = _configured_local_llm_target(normalized_base_url)
-    if validated_target is None:
-        validated_target = await _validate_public_base_url(normalized_base_url)
+    validated_target = await _model_service_target(
+        normalized_base_url,
+        provider=request.provider,
+        category="model",
+    )
     trust_env = httpx_trust_env(logger=logger)
     timeout = float(request.timeout) if request.timeout else 20.0
 

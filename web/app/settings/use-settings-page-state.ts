@@ -357,7 +357,6 @@ function resolveLlmProviderId(
 
   if (base.includes('dashscope.aliyuncs.com')) return 'qwen'
   if (base.includes('api.openai.com')) return 'openai'
-  if (base.includes('anthropic.com')) return 'anthropic'
   if (base.includes('api.deepseek.com')) return 'deepseek'
   if (base.includes('bigmodel.cn')) return 'zhipu'
   if (base.includes('moonshot.cn')) return 'moonshot'
@@ -369,7 +368,7 @@ function resolveLlmProviderId(
   if (base.includes('together.xyz')) return 'together'
   if (base.includes('localhost:11434')) return 'ollama'
 
-  return findProviderIdByModel(providers, 'model', model)
+  return findProviderIdByModel(providers, 'model', model) ?? (base || model ? 'custom' : null)
 }
 
 function resolveEmbeddingProviderId(
@@ -389,7 +388,10 @@ function resolveEmbeddingProviderId(
   }
   if (base.includes('api.openai.com')) return 'openai-embedding'
 
-  return findProviderIdByModel(providers, 'embedding', model)
+  return (
+    findProviderIdByModel(providers, 'embedding', model) ??
+    (base || model ? 'custom-embedding' : null)
+  )
 }
 
 function hydrateProvidersFromSettings(

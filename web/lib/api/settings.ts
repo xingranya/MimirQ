@@ -240,6 +240,7 @@ export interface TestLLMRequest {
   api_key: string
   api_base: string
   model: string
+  provider?: string
   temperature?: number
   timeout?: number
   max_retries?: number
@@ -256,7 +257,9 @@ export const settingsApi = {
     return data
   },
 
-  async update(settings: Partial<SystemSettings>): Promise<{ success: boolean; message: string; updated_keys: string[] }> {
+  async update(
+    settings: Partial<SystemSettings>
+  ): Promise<{ success: boolean; message: string; updated_keys: string[] }> {
     const { data } = await apiClient.put('/settings', settings)
     return data
   },
@@ -268,6 +271,17 @@ export const settingsApi = {
 
   async testLLM(params: TestLLMRequest): Promise<TestLLMResponse> {
     const { data } = await apiClient.post('/settings/llm/test', params)
+    return data
+  },
+
+  async discoverModels(params: {
+    api_key: string
+    api_base: string
+    provider: string
+    category: 'model' | 'embedding'
+    timeout?: number
+  }): Promise<{ models: string[] }> {
+    const { data } = await apiClient.post('/settings/models/discover', params)
     return data
   },
 }

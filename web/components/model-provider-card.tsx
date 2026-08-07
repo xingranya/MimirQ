@@ -15,6 +15,8 @@ interface ModelProviderCardProps {
 }
 
 export function ModelProviderCard({ provider, onConfigure }: Readonly<ModelProviderCardProps>) {
+  const configuredModel = String(provider.config?.model || '').trim()
+
   return (
     <button
       type="button"
@@ -61,20 +63,13 @@ export function ModelProviderCard({ provider, onConfigure }: Readonly<ModelProvi
         </Badge>
       </div>
 
-      {/* 模型标签 */}
-      <div className="mt-2.5 flex flex-wrap gap-1">
-        {provider.models.slice(0, 3).map((model) => (
-          <span
-            key={model.id}
-            className="inline-flex items-center rounded-md border border-border/60 bg-muted/35 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-foreground/78"
-          >
-            {model.displayName}
-          </span>
-        ))}
-        {provider.models.length > 3 && (
-          <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/35 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-muted-foreground">
-            +{provider.models.length - 3}
-          </span>
+      <div className="mt-2.5 min-w-0 text-[11px] leading-5 text-muted-foreground">
+        {configuredModel ? (
+          <p className="truncate" title={configuredModel}>
+            当前模型：<span className="font-medium text-foreground/80">{configuredModel}</span>
+          </p>
+        ) : (
+          <p>配置时从服务获取最新模型，也可手动填写。</p>
         )}
       </div>
 
@@ -83,7 +78,9 @@ export function ModelProviderCard({ provider, onConfigure }: Readonly<ModelProvi
         <span
           className={cn(
             'flex items-center gap-1 font-semibold transition-colors motion-reduce:transition-none',
-            provider.isConfigured ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
+            provider.isConfigured
+              ? 'text-primary'
+              : 'text-muted-foreground group-hover:text-primary'
           )}
         >
           <Settings className="size-3.5" />

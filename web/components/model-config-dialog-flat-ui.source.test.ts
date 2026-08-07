@@ -31,10 +31,13 @@ describe('模型配置弹窗视觉契约', () => {
     expect(providerConfigSource).not.toContain('maxTokens')
   })
 
-  it('模型选择使用共享下拉层并在请求期间锁定', () => {
-    expect(source).toContain("from '@/components/ui/select'")
-    expect(source).toContain('<SelectContent>')
-    expect(source).toContain('disabled={isSaving || isTesting}')
+  it('模型选择使用可搜索浮层，并支持自动获取和手动填写', () => {
+    expect(source).toContain("from '@/components/ui/popover'")
+    expect(source).toContain('<CommandInput placeholder="搜索模型" />')
+    expect(source).toContain('settingsApi.discoverModels')
+    expect(source).toContain('获取模型')
+    expect(source).toContain('手动填写')
+    expect(source).toContain('disabled={requestBusy')
     expect(source).not.toContain('<select')
   })
 

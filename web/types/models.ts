@@ -1,6 +1,4 @@
-/**
- * 模型提供商类型定义
- */
+/** 模型服务配置类型。 */
 
 export type ProviderCategory = 'model' | 'embedding' | 'reranker'
 
@@ -8,9 +6,9 @@ export interface ModelProvider {
   id: string
   name: string
   description: string
-  icon: string // emoji or icon component name
-  color: string // Tailwind color class
-  category: ProviderCategory // 分类：模型/向量/重排序
+  icon: string
+  color: string
+  category: ProviderCategory
   isConfigured: boolean
   models: ModelConfig[]
   config?: ProviderConfig
@@ -24,7 +22,7 @@ export interface ModelConfig {
   contextWindow?: number
   maxTokens?: number
   pricing?: {
-    input: number // per 1M tokens
+    input: number
     output: number
   }
 }
@@ -39,735 +37,179 @@ export interface ProviderConfig {
   timeout?: number
 }
 
+type ProviderDefinition = Omit<ModelProvider, 'isConfigured' | 'models'>
+
+function provider(definition: ProviderDefinition): ModelProvider {
+  return {
+    ...definition,
+    isConfigured: false,
+    models: [],
+  }
+}
+
+/**
+ * 模型由服务端实时发现，不在前端维护容易过期的模型版本清单。
+ * 用户仍可在配置弹窗中手动填写服务未公开列出的模型名称。
+ */
 export const MODEL_PROVIDERS: ModelProvider[] = [
-  // ==================== 语言模型 ====================
-  {
+  provider({
+    id: 'custom',
+    name: '自定义兼容服务',
+    description: '接入自建或第三方 OpenAI 兼容服务',
+    icon: 'openai',
+    color: 'slate',
+    category: 'model',
+  }),
+  provider({
     id: 'openai',
     name: 'OpenAI',
-    description: 'GPT-5.5 / GPT-5.4 系列模型',
+    description: 'OpenAI 官方模型服务',
     icon: 'openai',
     color: 'emerald',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'gpt-5.4-mini',
-        name: 'gpt-5.4-mini',
-        displayName: 'GPT-5.4 mini',
-        type: 'chat',
-        contextWindow: 400000,
-        maxTokens: 128000,
-      },
-      {
-        id: 'gpt-5.5',
-        name: 'gpt-5.5',
-        displayName: 'GPT-5.5',
-        type: 'chat',
-        contextWindow: 1050000,
-        maxTokens: 128000,
-      },
-      {
-        id: 'gpt-5.4',
-        name: 'gpt-5.4',
-        displayName: 'GPT-5.4',
-        type: 'chat',
-        contextWindow: 1050000,
-        maxTokens: 128000,
-      },
-      {
-        id: 'gpt-5.4-nano',
-        name: 'gpt-5.4-nano',
-        displayName: 'GPT-5.4 nano',
-        type: 'chat',
-        contextWindow: 400000,
-        maxTokens: 128000,
-      },
-      {
-        id: 'gpt-5.5-pro',
-        name: 'gpt-5.5-pro',
-        displayName: 'GPT-5.5 pro',
-        type: 'chat',
-        contextWindow: 1050000,
-        maxTokens: 128000,
-      }
-    ]
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    description: 'Claude 4.7 / 4.6 / 4.5 系列模型',
-    icon: 'anthropic',
-    color: 'orange',
-    category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'claude-sonnet-4-6',
-        name: 'claude-sonnet-4-6',
-        displayName: 'Claude Sonnet 4.6',
-        type: 'chat',
-        contextWindow: 1000000,
-      },
-      {
-        id: 'claude-opus-4-7',
-        name: 'claude-opus-4-7',
-        displayName: 'Claude Opus 4.7',
-        type: 'chat',
-        contextWindow: 1000000,
-      },
-      {
-        id: 'claude-haiku-4-5',
-        name: 'claude-haiku-4-5',
-        displayName: 'Claude Haiku 4.5',
-        type: 'chat',
-        contextWindow: 200000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'deepseek',
     name: 'DeepSeek',
-    description: 'DeepSeek V4 系列模型',
+    description: 'DeepSeek 官方模型服务',
     icon: 'deepseek',
     color: 'blue',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'deepseek-v4-flash',
-        name: 'deepseek-v4-flash',
-        displayName: 'DeepSeek-V4-Flash',
-        type: 'chat',
-        contextWindow: 1000000,
-        maxTokens: 384000,
-      },
-      {
-        id: 'deepseek-v4-pro',
-        name: 'deepseek-v4-pro',
-        displayName: 'DeepSeek-V4-Pro',
-        type: 'chat',
-        contextWindow: 1000000,
-        maxTokens: 384000,
-      },
-      {
-        id: 'deepseek-chat',
-        name: 'deepseek-chat',
-        displayName: 'DeepSeek Chat（兼容别名）',
-        type: 'chat',
-        contextWindow: 1000000,
-        maxTokens: 384000,
-      },
-      {
-        id: 'deepseek-reasoner',
-        name: 'deepseek-reasoner',
-        displayName: 'DeepSeek Reasoner（兼容别名）',
-        type: 'chat',
-        contextWindow: 1000000,
-        maxTokens: 384000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'zhipu',
     name: '智谱 AI',
-    description: 'GLM-5 系列模型',
+    description: '智谱开放平台模型服务',
     icon: 'zhipu',
     color: 'purple',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'glm-5.1',
-        name: 'glm-5.1',
-        displayName: 'GLM-5.1',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'glm-5',
-        name: 'glm-5',
-        displayName: 'GLM-5',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'glm-5-turbo',
-        name: 'glm-5-turbo',
-        displayName: 'GLM-5-Turbo',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'glm-5v-turbo',
-        name: 'glm-5v-turbo',
-        displayName: 'GLM-5V-Turbo',
-        type: 'image',
-        contextWindow: 128000,
-      },
-      {
-        id: 'glm-4.7',
-        name: 'glm-4.7',
-        displayName: 'GLM-4.7',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'qwen',
     name: '通义千问',
-    description: 'Qwen3 / Coder / Omni 系列模型',
+    description: '阿里云百炼模型服务',
     icon: 'qwen',
     color: 'sky',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'qwen3-max',
-        name: 'qwen3-max',
-        displayName: 'Qwen3-Max',
-        type: 'chat',
-      },
-      {
-        id: 'qwen3.6-plus',
-        name: 'qwen3.6-plus',
-        displayName: 'Qwen3.6-Plus',
-        type: 'chat',
-      },
-      {
-        id: 'qwen3.6-flash',
-        name: 'qwen3.6-flash',
-        displayName: 'Qwen3.6-Flash',
-        type: 'chat',
-      },
-      {
-        id: 'qwen3-coder-next',
-        name: 'qwen3-coder-next',
-        displayName: 'Qwen3-Coder-Next',
-        type: 'chat',
-      },
-      {
-        id: 'qwen3.5-omni-plus',
-        name: 'qwen3.5-omni-plus',
-        displayName: 'Qwen3.5-Omni-Plus',
-        type: 'image',
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'moonshot',
     name: 'Moonshot AI',
-    description: 'Kimi K2.5 / K2 系列模型',
+    description: 'Moonshot 官方模型服务',
     icon: 'moonshot',
-    color: 'indigo',
+    color: 'violet',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'kimi-k2.5',
-        name: 'kimi-k2.5',
-        displayName: 'Kimi K2.5',
-        type: 'chat',
-        contextWindow: 256000,
-      },
-      {
-        id: 'kimi-k2-0905-preview',
-        name: 'kimi-k2-0905-preview',
-        displayName: 'Kimi K2 0905 Preview',
-        type: 'chat',
-        contextWindow: 256000,
-      },
-      {
-        id: 'kimi-k2-turbo-preview',
-        name: 'kimi-k2-turbo-preview',
-        displayName: 'Kimi K2 Turbo Preview',
-        type: 'chat',
-        contextWindow: 256000,
-      },
-      {
-        id: 'kimi-k2-thinking',
-        name: 'kimi-k2-thinking',
-        displayName: 'Kimi K2 Thinking',
-        type: 'chat',
-        contextWindow: 256000,
-      },
-      {
-        id: 'moonshot-v1-128k',
-        name: 'moonshot-v1-128k',
-        displayName: 'Moonshot v1 128K',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'ollama',
     name: 'Ollama',
-    description: '本地开源模型与量化模型',
+    description: '本地模型服务与已安装模型',
     icon: 'ollama',
     color: 'gray',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'glm-5.1-local',
-        name: 'glm-5.1',
-        displayName: 'GLM-5.1',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'kimi-k2.5-local',
-        name: 'kimi-k2.5',
-        displayName: 'Kimi K2.5',
-        type: 'chat',
-        contextWindow: 200000,
-      },
-      {
-        id: 'deepseek-v3.2-local',
-        name: 'deepseek-v3.2',
-        displayName: 'DeepSeek-V3.2',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'llama-4-maverick-local',
-        name: 'llama-4-maverick',
-        displayName: 'Llama 4 Maverick',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'qwen3-local',
-        name: 'qwen3',
-        displayName: 'Qwen3',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'mistral-latest-local',
-        name: 'mistral-latest',
-        displayName: 'Mistral Latest',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'ark',
     name: '火山引擎',
-    description: 'Doubao-Seed 系列模型',
+    description: '火山方舟模型服务',
     icon: 'ark',
-    color: 'orange',
-    category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'doubao-seed-2-0-pro',
-        name: 'doubao-seed-2-0-pro',
-        displayName: 'Doubao-Seed-2.0 Pro',
-        type: 'chat',
-      },
-      {
-        id: 'doubao-seed-2-0-lite',
-        name: 'doubao-seed-2-0-lite',
-        displayName: 'Doubao-Seed-2.0 Lite',
-        type: 'chat',
-      },
-      {
-        id: 'doubao-seed-2-0-mini',
-        name: 'doubao-seed-2-0-mini',
-        displayName: 'Doubao-Seed-2.0 Mini',
-        type: 'chat',
-      },
-      {
-        id: 'doubao-seed-1-6',
-        name: 'doubao-seed-1-6',
-        displayName: 'Doubao-Seed-1.6',
-        type: 'chat',
-      },
-      {
-        id: 'doubao-seed-1-6-flash',
-        name: 'doubao-seed-1-6-flash',
-        displayName: 'Doubao-Seed-1.6 Flash',
-        type: 'chat',
-      }
-    ]
-  },
-  {
-    id: 'lingyiwanwu',
-    name: '零一万物',
-    description: 'Yi 系列模型',
-    icon: 'lingyiwanwu',
     color: 'blue',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'yi-lightning',
-        name: 'yi-lightning',
-        displayName: 'Yi-Lightning',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'yi-large',
-        name: 'yi-large',
-        displayName: 'Yi-Large',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
+    id: 'lingyiwanwu',
+    name: '零一万物',
+    description: '零一万物模型服务',
+    icon: 'lingyiwanwu',
+    color: 'purple',
+    category: 'model',
+  }),
+  provider({
     id: 'qianfan',
     name: '百度千帆',
-    description: 'ERNIE 5 系列模型',
+    description: '百度千帆模型服务',
     icon: 'qianfan',
     color: 'blue',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'ernie-5.0',
-        name: 'ernie-5.0',
-        displayName: 'ERNIE 5.0',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'ernie-4.5',
-        name: 'ernie-4.5',
-        displayName: 'ERNIE 4.5',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'ernie-4.5-vl',
-        name: 'ernie-4.5-vl',
-        displayName: 'ERNIE 4.5-VL',
-        type: 'image',
-        contextWindow: 128000,
-      },
-      {
-        id: 'ernie-4.5-turbo',
-        name: 'ernie-4.5-turbo',
-        displayName: 'ERNIE 4.5 Turbo',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'siliconflow',
-    name: 'SiliconFlow',
-    description: '高性价比聚合平台',
+    name: '硅基流动',
+    description: '硅基流动模型服务',
     icon: 'siliconflow',
-    color: 'purple',
-    category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'glm-5.1-sf',
-        name: 'glm-5.1',
-        displayName: 'GLM-5.1',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'kimi-k2.5-sf',
-        name: 'kimi-k2.5',
-        displayName: 'Kimi K2.5',
-        type: 'chat',
-        contextWindow: 200000,
-      },
-      {
-        id: 'deepseek-v4-flash-sf',
-        name: 'deepseek-v4-flash',
-        displayName: 'DeepSeek-V4-Flash',
-        type: 'chat',
-        contextWindow: 1000000,
-      },
-      {
-        id: 'qwen3-max-sf',
-        name: 'qwen3-max',
-        displayName: 'Qwen3-Max',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'minimax-m2.5-sf',
-        name: 'minimax-m2.5',
-        displayName: 'MiniMax-M2.5',
-        type: 'chat',
-        contextWindow: 128000,
-      }
-    ]
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    description: '多模型统一接入网关',
-    icon: 'openrouter',
     color: 'indigo',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'auto',
-        name: 'openrouter/auto',
-        displayName: 'Auto (智能选择)',
-        type: 'chat',
-        contextWindow: 128000
-      },
-      {
-        id: 'gpt-5.5-or',
-        name: 'openai/gpt-5.5',
-        displayName: 'GPT-5.5',
-        type: 'chat',
-        contextWindow: 1050000
-      },
-      {
-        id: 'claude-opus-4.7-or',
-        name: 'anthropic/claude-opus-4-7',
-        displayName: 'Claude Opus 4.7',
-        type: 'chat',
-        contextWindow: 1000000
-      },
-      {
-        id: 'glm-5.1-or',
-        name: 'zhipu/glm-5.1',
-        displayName: 'GLM-5.1',
-        type: 'chat',
-        contextWindow: 128000
-      },
-      {
-        id: 'kimi-k2.5-or',
-        name: 'moonshot/kimi-k2.5',
-        displayName: 'Kimi K2.5',
-        type: 'chat',
-        contextWindow: 200000
-      },
-      {
-        id: 'qwen3-max-or',
-        name: 'qwen/qwen3-max',
-        displayName: 'Qwen3-Max',
-        type: 'chat',
-        contextWindow: 128000
-      }
-    ]
-  },
-  {
+  }),
+  provider({
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: '多供应商统一模型网关',
+    icon: 'openrouter',
+    color: 'slate',
+    category: 'model',
+  }),
+  provider({
     id: 'together',
     name: 'Together AI',
-    description: '开源模型云端推理',
+    description: '开源模型云端推理服务',
     icon: 'together',
-    color: 'sky',
+    color: 'orange',
     category: 'model',
-    isConfigured: false,
-    models: [
-      {
-        id: 'llama-4-maverick',
-        name: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8',
-        displayName: 'Llama 4 Maverick',
-        type: 'chat',
-        contextWindow: 131072,
-      },
-      {
-        id: 'llama-4-scout',
-        name: 'meta-llama/Llama-4-Scout-17B-16E-Instruct',
-        displayName: 'Llama 4 Scout',
-        type: 'chat',
-        contextWindow: 131072,
-      },
-      {
-        id: 'glm-5.1-together',
-        name: 'zai-org/GLM-5.1',
-        displayName: 'GLM-5.1',
-        type: 'chat',
-        contextWindow: 128000,
-      },
-      {
-        id: 'kimi-k2.5-together',
-        name: 'moonshotai/Kimi-K2.5-Instruct',
-        displayName: 'Kimi K2.5',
-        type: 'chat',
-        contextWindow: 200000,
-      },
-      {
-        id: 'mixtral-latest',
-        name: 'mistralai/Mixtral-8x22B-Instruct-v0.1',
-        displayName: 'Mixtral Latest',
-        type: 'chat',
-        contextWindow: 65536,
-      },
-      {
-        id: 'nemotron-latest',
-        name: 'nvidia/Llama-3.1-Nemotron-70B-Instruct-HF',
-        displayName: 'Nemotron Latest',
-        type: 'chat',
-        contextWindow: 131072,
-      }
-    ]
-  },
-
-  // ==================== Embedding 向量模型 ====================
-  {
+  }),
+  provider({
+    id: 'custom-embedding',
+    name: '自定义向量服务',
+    description: '接入自建或第三方 OpenAI 兼容向量服务',
+    icon: 'openai',
+    color: 'slate',
+    category: 'embedding',
+  }),
+  provider({
     id: 'openai-embedding',
     name: 'OpenAI Embedding',
-    description: 'OpenAI 文本向量模型',
+    description: 'OpenAI 官方向量模型服务',
     icon: 'openai',
     color: 'emerald',
     category: 'embedding',
-    isConfigured: false,
-    models: [
-      {
-        id: 'text-embedding-3-large',
-        name: 'text-embedding-3-large',
-        displayName: 'Embedding 3 Large',
-        type: 'embedding',
-        contextWindow: 8191,
-        pricing: { input: 0.13, output: 0 }
-      },
-      {
-        id: 'text-embedding-3-small',
-        name: 'text-embedding-3-small',
-        displayName: 'Embedding 3 Small',
-        type: 'embedding',
-        contextWindow: 8191,
-        pricing: { input: 0.02, output: 0 }
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'qwen-embedding',
     name: 'Qwen Embedding',
-    description: '阿里云百炼文本向量模型',
+    description: '阿里云百炼向量模型服务',
     icon: 'qwen',
     color: 'sky',
     category: 'embedding',
-    isConfigured: false,
-    models: [
-      {
-        id: 'text-embedding-v4',
-        name: 'text-embedding-v4',
-        displayName: 'Text Embedding V4',
-        type: 'embedding',
-        contextWindow: 8192,
-      },
-      {
-        id: 'text-embedding-v3',
-        name: 'text-embedding-v3',
-        displayName: 'Text Embedding V3',
-        type: 'embedding',
-        contextWindow: 8192,
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'local-embedding',
     name: '本地 Embedding',
-    description: 'BGE 中文向量模型',
+    description: '本地向量模型与 OpenAI 兼容服务',
     icon: 'local-embedding',
     color: 'green',
     category: 'embedding',
-    isConfigured: true,
-    models: [
-      {
-        id: 'bge-large-zh-v1.5',
-        name: 'BAAI/bge-large-zh-v1.5',
-        displayName: 'BGE Large ZH v1.5',
-        type: 'embedding',
-        contextWindow: 512
-      },
-      {
-        id: 'bge-base-zh-v1.5',
-        name: 'BAAI/bge-base-zh-v1.5',
-        displayName: 'BGE Base ZH v1.5',
-        type: 'embedding',
-        contextWindow: 512
-      },
-      {
-        id: 'bge-m3',
-        name: 'BAAI/bge-m3',
-        displayName: 'BGE M3 (多语言)',
-        type: 'embedding',
-        contextWindow: 8192
-      }
-    ]
-  },
-
-  // ==================== Reranker 重排序模型 ====================
-  {
+  }),
+  provider({
     id: 'local-reranker',
     name: '本地 Reranker',
-    description: 'BGE 重排序模型',
+    description: '本地 BGE 重排序服务',
     icon: 'reranker',
     color: 'amber',
     category: 'reranker',
-    isConfigured: true,
-    models: [
-      {
-        id: 'bge-reranker-v2-m3',
-        name: 'BAAI/bge-reranker-v2-m3',
-        displayName: 'BGE Reranker v2 M3',
-        type: 'reranker',
-        contextWindow: 8192
-      },
-      {
-        id: 'bge-reranker-large',
-        name: 'BAAI/bge-reranker-large',
-        displayName: 'BGE Reranker Large',
-        type: 'reranker',
-        contextWindow: 512
-      },
-      {
-        id: 'bge-reranker-base',
-        name: 'BAAI/bge-reranker-base',
-        displayName: 'BGE Reranker Base',
-        type: 'reranker',
-        contextWindow: 512
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'cohere-reranker',
     name: 'Cohere Reranker',
     description: 'Cohere 云端重排序服务',
-    icon: 'reranker',
-    color: 'rose',
+    icon: 'cohere-reranker',
+    color: 'violet',
     category: 'reranker',
-    isConfigured: false,
-    models: [
-      {
-        id: 'rerank-english-v3.0',
-        name: 'rerank-english-v3.0',
-        displayName: 'Rerank English v3',
-        type: 'reranker'
-      },
-      {
-        id: 'rerank-multilingual-v3.0',
-        name: 'rerank-multilingual-v3.0',
-        displayName: 'Rerank Multilingual v3',
-        type: 'reranker'
-      }
-    ]
-  },
-  {
+  }),
+  provider({
     id: 'jina-reranker',
     name: 'Jina Reranker',
-    description: 'Jina AI 重排序模型',
-    icon: 'reranker',
-    color: 'orange',
+    description: 'Jina AI 云端重排序服务',
+    icon: 'jina-reranker',
+    color: 'blue',
     category: 'reranker',
-    isConfigured: false,
-    models: [
-      {
-        id: 'jina-reranker-v2-base-multilingual',
-        name: 'jina-reranker-v2-base-multilingual',
-        displayName: 'Jina Reranker v2 多语言',
-        type: 'reranker'
-      }
-    ]
-  }
+  }),
 ]
