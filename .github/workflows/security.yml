@@ -2,12 +2,6 @@ name: Security
 
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: "0 3 * * 1" # weekly
 
 concurrency:
   group: security-${{ github.ref }}
