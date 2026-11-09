@@ -2,9 +2,6 @@ name: Perf Nightly
 
 on:
   workflow_dispatch:
-  schedule:
-    # 03:00 UTC daily (11:00 Asia/Shanghai)
-    - cron: "0 3 * * *"
 
 concurrency:
   group: perf-nightly
